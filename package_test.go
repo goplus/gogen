@@ -960,7 +960,7 @@ var y string = "Hello"
 
 func TestVarDeclNoBody(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.CB().NewVar(types.Typ[types.String], "x")
+	pkg.NewVarEx(pkg.Types.Scope(), token.NoPos, types.Typ[types.String], "x")
 	domTest(t, pkg, `package main
 
 var x string

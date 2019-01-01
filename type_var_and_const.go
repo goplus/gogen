@@ -267,15 +267,31 @@ func (p *Package) newValueDecl(
 	return &ValueDecl{typ: typ, names: names, tok: tok, pos: pos, vals: &spec.Values, at: at}
 }
 
-func (p *Package) NewConstStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
-	return p.newValueDecl(p.Types.Scope(), pos, token.CONST, typ, names...).InitStart(p)
+func (p *Package) NewConstStart(scope *types.Scope, pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
+	if debugInstr {
+		log.Println("NewConst", names)
+	}
+	return p.newValueDecl(scope, pos, token.CONST, typ, names...).InitStart(p)
 }
 
 func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *ValueDecl {
+	if debugInstr {
+		log.Println("NewVar", names)
+	}
 	return p.newValueDecl(p.Types.Scope(), pos, token.VAR, typ, names...)
 }
 
+func (p *Package) NewVarEx(scope *types.Scope, pos token.Pos, typ types.Type, names ...string) *ValueDecl {
+	if debugInstr {
+		log.Println("NewVar", names)
+	}
+	return p.newValueDecl(scope, pos, token.VAR, typ, names...)
+}
+
 func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
+	if debugInstr {
+		log.Println("NewVar", names)
+	}
 	return p.newValueDecl(p.Types.Scope(), pos, token.VAR, typ, names...).InitStart(p)
 }
 

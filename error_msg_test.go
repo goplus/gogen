@@ -123,7 +123,7 @@ func TestErrConst(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:7 a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
 		func(pkg *gox.Package) {
 			pkg.NewVarStart(position(1, 5), nil, "a").Val(1).EndInit(1)
-			pkg.NewConstStart(position(2, 7), nil, "a").Val(2).EndInit(1)
+			pkg.NewConstStart(pkg.Types.Scope(), position(2, 7), nil, "a").Val(2).EndInit(1)
 		})
 }
 
