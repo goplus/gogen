@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/goplus/gox/conv"
-	"github.com/goplus/gox/dom"
+	"github.com/goplus/gox"
 )
 
-func domTest(t *testing.T, pkg *dom.Package, expected string) {
+func domTest(t *testing.T, pkg *gox.Package, expected string) {
 	var b bytes.Buffer
-	err := conv.WriteTo(&b, pkg)
+	err := gox.WriteTo(&b, pkg)
 	if err != nil {
 		t.Fatal("conv.WriteTo failed:", err)
 	}
@@ -21,9 +20,9 @@ func domTest(t *testing.T, pkg *dom.Package, expected string) {
 }
 
 func TestBasic(t *testing.T) {
-	var a, b, c *dom.Var
+	var a, b, c *gox.Var
 
-	pkg := dom.NewPkg("main")
+	pkg := gox.NewPkg("main")
 
 	fmt := pkg.Import("fmt")
 

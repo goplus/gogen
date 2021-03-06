@@ -73,7 +73,13 @@ func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 
 // Scope type
 type Scope struct {
-	Parent *Scope
+	parent *Scope
+	syms   map[string]Ref
+}
+
+func (p *Scope) initScope(parent *Scope) {
+	p.parent = parent
+	p.syms = make(map[string]Ref)
 }
 
 // ----------------------------------------------------------------------------
@@ -96,8 +102,9 @@ func (p *Package) allocIdx() int {
 }
 
 // NewPkg func
-func NewPkg(name string, opts ...*Options) *Package {
+func NewPkg(name string, opts *Options) *Package {
 	pkg := &Package{}
+	pkg.initScope(nil)
 	return pkg
 }
 

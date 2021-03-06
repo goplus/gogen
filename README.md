@@ -11,13 +11,12 @@ gox - Code generator for the Go language
 
 ```go
 import (
-    "github.com/goplus/gox/dom"
-    "github.com/goplus/gox/conv"
+    "github.com/goplus/gox"
 )
 
-var a, b, c *dom.Var
+var a, b, c *gox.Var
 
-pkg := dom.NewPkg("main")
+pkg := gox.NewPkg("main")
 
 fmt := pkg.Import("fmt")
 
@@ -28,7 +27,7 @@ pkg.NewFunc("main").BodyStart(pkg).
     Val(fmt.Ref("Println")).Val(a).Val(b).Val(c).Call(3).EndStmt(). // fmt.Println(a, b, c)
     End()
 
-conv.WriteFile("./foo.go", pkg)
+gox.WriteFile("./foo.go", pkg)
 ```
 
 This will generate a Go source file named `./foo.go`. The following is its content:
