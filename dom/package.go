@@ -40,13 +40,15 @@ type Var struct {
 // SetType func
 func (p *Var) SetType(typ Type) *Var {
 	if p.typ != nil {
-		if p.typ != typ {
-			panic("TODO")
-		}
-	} else {
-		p.typ = typ
+		panic("TODO: exists")
 	}
+	p.typ = typ
 	return p
+}
+
+// InitStart func
+func (p *Var) InitStart() *CodeBuilder {
+	return &CodeBuilder{}
 }
 
 // ----------------------------------------------------------------------------
@@ -61,6 +63,7 @@ type Func struct {
 
 // SetResults func
 func (p *Func) SetResults(out ...*Param) *Func {
+	p.out = out
 	return p
 }
 
@@ -82,10 +85,24 @@ func (p *Scope) initScope(parent *Scope) {
 	p.syms = make(map[string]Ref)
 }
 
+func (p *Scope) addSymbol(name string, v Ref) (err error) {
+	if _, ok := p.syms[name]; ok {
+		panic("TODO: exists")
+	}
+	p.syms[name] = v
+	return
+}
+
+// Ref func
+func (p *Scope) Ref(name string) Ref {
+	return nil
+}
+
 // ----------------------------------------------------------------------------
 
 // Options type
 type Options struct {
+	Global *Global
 }
 
 // ----------------------------------------------------------------------------
@@ -94,6 +111,7 @@ type Options struct {
 type Package struct {
 	Scope
 	gidx int
+	gbl  *Global
 }
 
 func (p *Package) allocIdx() int {
@@ -103,7 +121,9 @@ func (p *Package) allocIdx() int {
 
 // NewPkg func
 func NewPkg(name string, opts *Options) *Package {
-	pkg := &Package{}
+	pkg := &Package{
+		gbl: opts.Global,
+	}
 	pkg.initScope(nil)
 	return pkg
 }
@@ -114,8 +134,18 @@ func (p *Package) MaxIndex() int {
 }
 
 // Import func
-func (p *Package) Import(path string, name ...string) *PkgRef {
-	return &PkgRef{}
+func (p *Package) Import(pkgPath string, name ...string) (pkgImport *PkgRef, err error) {
+	if pkgImport, err = p.gbl.Import(pkgPath); err != nil {
+		return
+	}
+	var pkgName string
+	if name != nil {
+		pkgName = name[0]
+	} else {
+		pkgName = pkgImport.Name()
+	}
+	err = p.addSymbol(pkgName, pkgImport)
+	return
 }
 
 // NewVar func

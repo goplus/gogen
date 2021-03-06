@@ -21,7 +21,7 @@ type Options = dom.Options
 type Package = dom.Package
 
 // NewPkg func
-func NewPkg(name string, opts ...*Options) *Package {
+func NewPkg(name string, opts ...*dom.Options) *dom.Package {
 	var theOpts *Options
 	if opts != nil {
 		theOpts = opts[0]

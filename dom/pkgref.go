@@ -10,6 +10,12 @@ type Ref interface {
 
 // PkgRef type
 type PkgRef struct {
+	name string
+}
+
+// Name func
+func (p *PkgRef) Name() string {
+	return p.name
 }
 
 // Ref func
