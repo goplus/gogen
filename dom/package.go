@@ -78,6 +78,12 @@ type Scope struct {
 
 // ----------------------------------------------------------------------------
 
+// Options type
+type Options struct {
+}
+
+// ----------------------------------------------------------------------------
+
 // Package type
 type Package struct {
 	Scope
@@ -90,7 +96,7 @@ func (p *Package) allocIdx() int {
 }
 
 // NewPkg func
-func NewPkg(name string) *Package {
+func NewPkg(name string, opts ...*Options) *Package {
 	pkg := &Package{}
 	return pkg
 }
@@ -101,7 +107,7 @@ func (p *Package) MaxIndex() int {
 }
 
 // Import func
-func (p *Package) Import(name, path string) *PkgRef {
+func (p *Package) Import(path string, name ...string) *PkgRef {
 	return &PkgRef{}
 }
 

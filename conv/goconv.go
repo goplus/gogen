@@ -1,4 +1,4 @@
-package goconv
+package conv
 
 import (
 	"go/ast"
