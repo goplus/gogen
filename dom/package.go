@@ -58,7 +58,6 @@ type Func struct {
 	name string
 	in   []*Param
 	out  []*Param
-	body *Code
 }
 
 // SetResults func

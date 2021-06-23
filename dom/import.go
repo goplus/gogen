@@ -2,6 +2,13 @@ package dom
 
 // ----------------------------------------------------------------------------
 
+// PkgImporter type
+type PkgImporter interface {
+	InitName(name string)
+}
+
+// ----------------------------------------------------------------------------
+
 // Ref type
 type Ref interface {
 }
@@ -12,6 +19,19 @@ type Ref interface {
 type PkgRef struct {
 	name string
 }
+
+func newPkgRef() *PkgRef {
+	return &PkgRef{}
+}
+
+func (p *PkgRef) InitName(name string) {
+	if p.name != "" {
+		panic("TODO")
+	}
+	p.name = name
+}
+
+// ----------------------------------------------------------------------------
 
 // Name func
 func (p *PkgRef) Name() string {

@@ -2,16 +2,8 @@ package dom
 
 // ----------------------------------------------------------------------------
 
-// Code type
-type Code struct {
-	Tokens []Token
-}
-
-// ----------------------------------------------------------------------------
-
 // CodeBuilder type
 type CodeBuilder struct {
-	code *Code
 }
 
 // NewVar func
@@ -25,12 +17,7 @@ func (p *CodeBuilder) VarRef(v *Var) *CodeBuilder {
 }
 
 // Val func
-func (p *CodeBuilder) Val(v Ref) *CodeBuilder {
-	return p
-}
-
-// Const func
-func (p *CodeBuilder) Const(v interface{}) *CodeBuilder {
+func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 	return p
 }
 
@@ -45,7 +32,7 @@ func (p *CodeBuilder) Call(n int) *CodeBuilder {
 }
 
 // Defer func
-func (p *CodeBuilder) Defer(n int) *CodeBuilder {
+func (p *CodeBuilder) Defer() *CodeBuilder {
 	return p
 }
 

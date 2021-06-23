@@ -8,7 +8,7 @@ import (
 
 // GlobalOpts type
 type GlobalOpts struct {
-	Import func(pkgPath string, global *Global) (*PkgRef, error)
+	Import func(pi PkgImporter, pkgPath string, global *Global) error
 }
 
 // ----------------------------------------------------------------------------
@@ -16,9 +16,9 @@ type GlobalOpts struct {
 // Global type
 type Global struct {
 	pkgImports map[string]*PkgRef
-	mutex      sync.RWMutex
+	mutex      sync.Mutex
 
-	fnImport func(pkgPath string, global *Global) (*PkgRef, error)
+	fnImport func(pi PkgImporter, pkgPath string, global *Global) error
 }
 
 // NewGlobal func
@@ -29,31 +29,22 @@ func NewGlobal(opts *GlobalOpts) *Global {
 	}
 }
 
-func (p *Global) findPkg(pkgPath string) (pkgImport *PkgRef, ok bool) {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-	pkgImport, ok = p.pkgImports[pkgPath]
+func (p *Global) requirePkg(pkgPath string) (pkgImport *PkgRef, ok bool) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	if pkgImport, ok = p.pkgImports[pkgPath]; !ok {
+		pkgImport = newPkgRef()
+		p.pkgImports[pkgPath] = pkgImport
+	}
 	return
 }
 
 // Import func
 func (p *Global) Import(pkgPath string) (pkgImport *PkgRef, err error) {
-	pkgImport, ok := p.findPkg(pkgPath)
-	if ok {
-		return
+	pkgImport, ok := p.requirePkg(pkgPath)
+	if !ok {
+		err = p.fnImport(pkgImport, pkgPath, p)
 	}
-	pkg, err := p.fnImport(pkgPath, p)
-	if err != nil {
-		return
-	}
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	pkgImport, ok = p.pkgImports[pkgPath]
-	if ok {
-		return
-	}
-	pkgImport = pkg
-	p.pkgImports[pkgPath] = pkg
 	return
 }
 
