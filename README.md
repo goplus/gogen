@@ -16,9 +16,9 @@ import (
 
 var a, b, c *gox.Var
 
-pkg := gox.NewPkg("main")
+pkg := gox.NewPackage("main", nil)
 
-fmt, _ := pkg.Import("fmt")
+fmt := pkg.Import("fmt")
 
 pkg.NewFunc("main").BodyStart(pkg).
     NewVar("a", &a).NewVar("b", &b).NewVar("c", &c). // type of variables will be auto detected

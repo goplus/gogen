@@ -14,21 +14,15 @@ import (
 // Var type
 type Var = dom.Var
 
-// Options type
-type Options = dom.Options
+// Config type
+type Config = dom.Config
 
 // Package type
 type Package = dom.Package
 
-// NewPkg func
-func NewPkg(name string, opts ...*dom.Options) *dom.Package {
-	var theOpts *Options
-	if opts != nil {
-		theOpts = opts[0]
-	} else {
-		theOpts = &Options{}
-	}
-	return dom.NewPkg(name, theOpts)
+// NewPackage func
+func NewPackage(name string, conf *dom.Config) *dom.Package {
+	return dom.NewPackage(name, conf)
 }
 
 // ----------------------------------------------------------------------------

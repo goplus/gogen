@@ -22,12 +22,8 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 func TestBasic(t *testing.T) {
 	var a, b, c *gox.Var
 
-	pkg := gox.NewPkg("main")
-
-	fmt, err := pkg.Import("fmt")
-	if err != nil {
-		t.Fatal("pkg.Import:", err)
-	}
+	pkg := gox.NewPackage("main", nil)
+	fmt := pkg.Import("fmt")
 
 	pkg.NewFunc("main").BodyStart(pkg).
 		NewVar("a", &a).NewVar("b", &b).NewVar("c", &c).                // type of variables will be auto detected

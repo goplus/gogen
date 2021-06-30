@@ -1,5 +1,14 @@
 package dom
 
+import (
+	"context"
+	"go/ast"
+	"go/token"
+	"log"
+
+	"golang.org/x/tools/go/packages"
+)
+
 // ----------------------------------------------------------------------------
 
 // Type type
@@ -12,7 +21,6 @@ type Type interface {
 type Param struct {
 	name string
 	typ  Type
-	idx  int
 }
 
 // Name func
@@ -23,11 +31,6 @@ func (p *Param) Name() string {
 // Type func
 func (p *Param) Type() Type {
 	return p.typ
-}
-
-// Index func
-func (p *Param) Index() int {
-	return p.idx
 }
 
 // ----------------------------------------------------------------------------
@@ -73,92 +76,136 @@ func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 
 // ----------------------------------------------------------------------------
 
-// Scope type
-type Scope struct {
-	parent *Scope
-	syms   map[string]Ref
+// Config type
+type Config struct {
+	// Context specifies the context for the load operation.
+	// If the context is cancelled, the loader may stop early
+	// and return an ErrCancelled error.
+	// If Context is nil, the load cannot be cancelled.
+	Context context.Context
+
+	// Logf is the logger for the config.
+	// If the user provides a logger, debug logging is enabled.
+	// If the GOPACKAGESDEBUG environment variable is set to true,
+	// but the logger is nil, default to log.Printf.
+	Logf func(format string, args ...interface{})
+
+	// Dir is the directory in which to run the build system's query tool
+	// that provides information about the packages.
+	// If Dir is empty, the tool is run in the current directory.
+	Dir string
+
+	// Env is the environment to use when invoking the build system's query tool.
+	// If Env is nil, the current environment is used.
+	// As in os/exec's Cmd, only the last value in the slice for
+	// each environment key is used. To specify the setting of only
+	// a few variables, append to the current environment, as in:
+	//
+	//	opt.Env = append(os.Environ(), "GOOS=plan9", "GOARCH=386")
+	//
+	Env []string
+
+	// BuildFlags is a list of command-line flags to be passed through to
+	// the build system's query tool.
+	BuildFlags []string
+
+	// Fset provides source position information for syntax trees and types.
+	// If Fset is nil, Load will use a new fileset, but preserve Fset's value.
+	Fset *token.FileSet
+
+	// ParseFile is called to read and parse each file
+	// when preparing a package's type-checked syntax tree.
+	// It must be safe to call ParseFile simultaneously from multiple goroutines.
+	// If ParseFile is nil, the loader will uses parser.ParseFile.
+	//
+	// ParseFile should parse the source from src and use filename only for
+	// recording position information.
+	//
+	// An application may supply a custom implementation of ParseFile
+	// to change the effective file contents or the behavior of the parser,
+	// or to modify the syntax tree. For example, selectively eliminating
+	// unwanted function bodies can significantly accelerate type checking.
+	ParseFile func(fset *token.FileSet, filename string, src []byte) (*ast.File, error)
+
+	// LoadPkgs is called to load all import packages.
+	LoadPkgs func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
 }
-
-func (p *Scope) initScope(parent *Scope) {
-	p.parent = parent
-	p.syms = make(map[string]Ref)
-}
-
-func (p *Scope) addSymbol(name string, v Ref) (err error) {
-	if _, ok := p.syms[name]; ok {
-		panic("TODO: exists")
-	}
-	p.syms[name] = v
-	return
-}
-
-// Ref func
-func (p *Scope) Ref(name string) Ref {
-	return nil
-}
-
-// ----------------------------------------------------------------------------
-
-// Options type
-type Options struct {
-	Global *Global
-}
-
-// ----------------------------------------------------------------------------
 
 // Package type
 type Package struct {
-	Scope
-	gidx int
-	gbl  *Global
+	importPkgs map[string]*PkgRef
+	pkgPaths   []string
+	conf       *Config
 }
 
-func (p *Package) allocIdx() int {
-	p.gidx++
-	return p.gidx
-}
-
-// NewPkg func
-func NewPkg(name string, opts *Options) *Package {
-	pkg := &Package{
-		gbl: opts.Global,
+// NewPackage func
+func NewPackage(name string, conf *Config) *Package {
+	if conf == nil {
+		conf = &Config{
+			LoadPkgs: loadGoPkgs,
+		}
 	}
-	pkg.initScope(nil)
+	pkg := &Package{
+		importPkgs: make(map[string]*PkgRef),
+		conf:       conf,
+	}
 	return pkg
 }
 
-// MaxIndex func
-func (p *Package) MaxIndex() int {
-	return p.gidx + 1
+const (
+	loadTypes = packages.NeedImports | packages.NeedDeps | packages.NeedTypes
+	loadModes = loadTypes | packages.NeedName | packages.NeedModule
+)
+
+// InternalGetLoadConfig is a internal function. don't use it.
+func (p *Package) InternalGetLoadConfig() *packages.Config {
+	conf := p.conf
+	return &packages.Config{
+		Mode:       loadModes,
+		Context:    conf.Context,
+		Logf:       conf.Logf,
+		Dir:        conf.Dir,
+		Env:        conf.Env,
+		BuildFlags: conf.BuildFlags,
+		Fset:       conf.Fset,
+		ParseFile:  conf.ParseFile,
+	}
 }
 
 // Import func
-func (p *Package) Import(pkgPath string, name ...string) (pkgImport *PkgRef, err error) {
-	if pkgImport, err = p.gbl.Import(pkgPath); err != nil {
+func (p *Package) Import(pkgPath string) *PkgRef {
+	// TODO: canonical pkgPath
+	pkgImport, ok := p.importPkgs[pkgPath]
+	if !ok {
+		pkgImport = &PkgRef{PkgPath: pkgPath}
+		p.pkgPaths = append(p.pkgPaths, pkgPath)
+	}
+	return pkgImport
+}
+
+func (p *Package) endImport() {
+	if len(p.pkgPaths) == 0 {
 		return
 	}
-	var pkgName string
-	if name != nil {
-		pkgName = name[0]
-	} else {
-		pkgName = pkgImport.Name()
+	if n := p.conf.LoadPkgs(p, p.importPkgs, p.pkgPaths...); n > 0 {
+		log.Panicf("TODO: %d errors\n", n)
 	}
-	err = p.addSymbol(pkgName, pkgImport)
-	return
 }
 
 // NewVar func
 func (p *Package) NewVar(name string, typ Type) *Var {
+	p.endImport()
 	return &Var{}
 }
 
 // NewParam func
 func (p *Package) NewParam(name string, typ Type) *Param {
-	return &Param{name: name, typ: typ, idx: p.allocIdx()}
+	return &Param{name: name, typ: typ}
 }
 
 // NewFunc func
 func (p *Package) NewFunc(name string, params ...*Param) *Func {
+	p.endImport()
 	return &Func{}
 }
 
