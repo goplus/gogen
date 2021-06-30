@@ -44,11 +44,11 @@ func newField(name string, typ types.Type) *ast.Field {
 }
 
 func toType(typ types.Type) ast.Expr {
-	return nil
+	panic("toType")
 }
 
 func toFuncType(sig *types.Signature) *ast.FuncType {
-	return nil
+	panic("toFuncType")
 }
 
 // ----------------------------------------------------------------------------

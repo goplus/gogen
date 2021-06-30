@@ -33,7 +33,7 @@ func (p *VarStmt) MatchType(typ types.Type) *VarStmt {
 
 // InitStart func
 func (p *VarStmt) InitStart() *CodeBuilder {
-	return &CodeBuilder{}
+	panic("VarStmt.InitStart")
 }
 
 // NewVar func

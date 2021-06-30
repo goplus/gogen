@@ -20,6 +20,13 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 }
 
 func TestBasic(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, ``)
+}
+
+/*
+func _TestBasic(t *testing.T) {
 	var a, b, c *gox.Var
 
 	pkg := gox.NewPackage("", "main", nil)
@@ -34,3 +41,4 @@ func TestBasic(t *testing.T) {
 
 	domTest(t, pkg, ``)
 }
+*/

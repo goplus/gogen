@@ -11,14 +11,14 @@ import (
 // ----------------------------------------------------------------------------
 
 // From func
-func From(fset *token.FileSet, pkg *Package) (file *ast.File, err error) {
-	return
+func From(pkg *Package) (file *ast.File, err error) {
+	return &ast.File{Name: ident(pkg.Name), Decls: pkg.decls}, nil
 }
 
 // WriteTo func
 func WriteTo(dst io.Writer, pkg *Package) (err error) {
 	fset := token.NewFileSet()
-	file, err := From(fset, pkg)
+	file, err := From(pkg)
 	if err != nil {
 		return
 	}
