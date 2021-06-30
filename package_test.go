@@ -1,4 +1,4 @@
-package dom_test
+package gox_test
 
 import (
 	"bytes"
