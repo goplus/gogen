@@ -16,15 +16,21 @@ import (
 
 var a, b, c *gox.Var
 
-pkg := gox.NewPackage("main", nil)
+pkg := gox.NewPackage("", "main", nil)
 
 fmt := pkg.Import("fmt")
 
-pkg.NewFunc("main").BodyStart(pkg).
+paramV := pkg.NewParam("v", types.Typ[types.String]) // v string
+
+pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
     NewVar("a", &a).NewVar("b", &b).NewVar("c", &c). // type of variables will be auto detected
     VarRef(a).VarRef(b).Const("Hi").Const(3).Assign(2).EndStmt(). // a, b = "Hi", 3
     VarRef(c).Val(b).Assign(1).EndStmt(). // c = b
     Val(fmt.Ref("Println")).Val(a).Val(b).Val(c).Call(3).EndStmt(). // fmt.Println(a, b, c)
+    NewClosure(nil, gox.NewTuple(paramV), false).BodyStart(pkg).
+        Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+        End().
+        Val(paramV).Call(0).EndStmt(). // func(v string) { fmt.Println(v) } ("Hello")
     End()
 
 gox.WriteFile("./foo.go", pkg)

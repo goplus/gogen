@@ -4,75 +4,11 @@ import (
 	"context"
 	"go/ast"
 	"go/token"
+	"go/types"
 	"log"
 
 	"golang.org/x/tools/go/packages"
 )
-
-// ----------------------------------------------------------------------------
-
-// Type type
-type Type interface {
-}
-
-// ----------------------------------------------------------------------------
-
-// Param type
-type Param struct {
-	name string
-	typ  Type
-}
-
-// Name func
-func (p *Param) Name() string {
-	return p.name
-}
-
-// Type func
-func (p *Param) Type() Type {
-	return p.typ
-}
-
-// ----------------------------------------------------------------------------
-
-// Var type
-type Var struct {
-	Param
-}
-
-// SetType func
-func (p *Var) SetType(typ Type) *Var {
-	if p.typ != nil {
-		panic("TODO: exists")
-	}
-	p.typ = typ
-	return p
-}
-
-// InitStart func
-func (p *Var) InitStart() *CodeBuilder {
-	return &CodeBuilder{}
-}
-
-// ----------------------------------------------------------------------------
-
-// Func type
-type Func struct {
-	name string
-	in   []*Param
-	out  []*Param
-}
-
-// SetResults func
-func (p *Func) SetResults(out ...*Param) *Func {
-	p.out = out
-	return p
-}
-
-// BodyStart func
-func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
-	return &CodeBuilder{}
-}
 
 // ----------------------------------------------------------------------------
 
@@ -133,22 +69,25 @@ type Config struct {
 
 // Package type
 type Package struct {
+	PkgRef
+	cb         CodeBuilder
 	importPkgs map[string]*PkgRef
 	pkgPaths   []string
 	conf       *Config
 }
 
 // NewPackage func
-func NewPackage(name string, conf *Config) *Package {
+func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if conf == nil {
-		conf = &Config{
-			LoadPkgs: loadGoPkgs,
-		}
+		conf = &Config{}
 	}
 	pkg := &Package{
 		importPkgs: make(map[string]*PkgRef),
 		conf:       conf,
 	}
+	pkg.PkgPath, pkg.Name = pkgPath, name
+	pkg.Types = types.NewPackage(pkgPath, name)
+	pkg.cb.init(pkg)
 	return pkg
 }
 
@@ -187,26 +126,14 @@ func (p *Package) endImport() {
 	if len(p.pkgPaths) == 0 {
 		return
 	}
-	if n := p.conf.LoadPkgs(p, p.importPkgs, p.pkgPaths...); n > 0 {
-		log.Panicf("TODO: %d errors\n", n)
+	loadPkgs := p.conf.LoadPkgs
+	if loadPkgs == nil {
+		loadPkgs = loadGoPkgs
 	}
-}
-
-// NewVar func
-func (p *Package) NewVar(name string, typ Type) *Var {
-	p.endImport()
-	return &Var{}
-}
-
-// NewParam func
-func (p *Package) NewParam(name string, typ Type) *Param {
-	return &Param{name: name, typ: typ}
-}
-
-// NewFunc func
-func (p *Package) NewFunc(name string, params ...*Param) *Func {
-	p.endImport()
-	return &Func{}
+	if n := loadPkgs(p, p.importPkgs, p.pkgPaths...); n > 0 {
+		log.Panicf("total %d errors\n", n) // TODO: error message
+	}
+	p.pkgPaths = p.pkgPaths[:0]
 }
 
 // ----------------------------------------------------------------------------

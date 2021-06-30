@@ -22,10 +22,10 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 func TestBasic(t *testing.T) {
 	var a, b, c *gox.Var
 
-	pkg := gox.NewPackage("main", nil)
+	pkg := gox.NewPackage("", "main", nil)
 	fmt := pkg.Import("fmt")
 
-	pkg.NewFunc("main").BodyStart(pkg).
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar("a", &a).NewVar("b", &b).NewVar("c", &c).                // type of variables will be auto detected
 		VarRef(a).VarRef(b).Val("Hi").Val(3).Assign(2).EndStmt().       // a, b = "Hi", 3
 		VarRef(c).Val(b).Assign(1).EndStmt().                           // c = b
