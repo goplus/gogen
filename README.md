@@ -30,7 +30,7 @@ pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
     NewClosure(nil, gox.NewTuple(paramV), false).BodyStart(pkg).
         Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
         End().
-        Val(paramV).Call(0).EndStmt(). // func(v string) { fmt.Println(v) } ("Hello")
+        Val(paramV).Call(1).EndStmt(). // func(v string) { fmt.Println(v) } ("Hello")
     End()
 
 gox.WriteFile("./foo.go", pkg)
