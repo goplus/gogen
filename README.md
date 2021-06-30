@@ -28,9 +28,9 @@ pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
     VarRef(c).Val(b).Assign(1).EndStmt(). // c = b
     Val(fmt.Ref("Println")).Val(a).Val(b).Val(c).Call(3).EndStmt(). // fmt.Println(a, b, c)
     NewClosure(nil, gox.NewTuple(paramV), false).BodyStart(pkg).
-        Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+        Val(fmt.Ref("Println")).Val(paramV).Call(1).EndStmt().
         End().
-        Val(paramV).Call(1).EndStmt(). // func(v string) { fmt.Println(v) } ("Hello")
+        Val("Hello").Call(1).EndStmt(). // func(v string) { fmt.Println(v) } ("Hello")
     End()
 
 gox.WriteFile("./foo.go", pkg)
