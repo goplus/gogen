@@ -70,6 +70,7 @@ type Config struct {
 // Package type
 type Package struct {
 	PkgRef
+	decls      []ast.Decl
 	cb         CodeBuilder
 	importPkgs map[string]*PkgRef
 	pkgPaths   []string

@@ -1,6 +1,7 @@
 package gox
 
 import (
+	"go/ast"
 	"go/token"
 	"go/types"
 
@@ -15,36 +16,39 @@ type codeBlock interface {
 
 type codeBlockCtx struct {
 	codeBlock
-	base int
+	base  int
+	stmts []ast.Stmt
 }
 
 // CodeBuilder type
 type CodeBuilder struct {
-	stk     *internal.Stack
-	pkg     *Package
+	stk     internal.Stack
 	current codeBlockCtx
+	pkg     *Package
 }
 
 func (p *CodeBuilder) init(pkg *Package) {
 	p.pkg = pkg
-	p.stk = internal.NewStack()
+	p.stk.Init()
 }
 
 func (p *CodeBuilder) startCodeBlock(current codeBlock, old *codeBlockCtx) *CodeBuilder {
-	p.current, *old = codeBlockCtx{current, p.stk.Len()}, p.current
+	p.current, *old = codeBlockCtx{current, p.stk.Len(), nil}, p.current
 	return p
 }
 
-func (p *CodeBuilder) endCodeBlock(old codeBlockCtx) {
+func (p *CodeBuilder) endCodeBlock(old codeBlockCtx) []ast.Stmt {
+	stmts := p.current.stmts
 	p.current = old
 	p.stk.SetLen(old.base)
+	return stmts
 }
 
 // NewClosure func
 func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
 	sig := types.NewSignature(nil, params, results, variadic)
 	fn := types.NewFunc(token.NoPos, p.pkg.Types, "", sig)
-	return &Func{Func: fn, closure: true}
+	return &Func{Func: fn}
 }
 
 // NewVar func
