@@ -32,27 +32,6 @@ func NewTuple(x ...*Param) *Tuple {
 
 // ----------------------------------------------------------------------------
 
-func ident(name string) *ast.Ident {
-	return &ast.Ident{Name: name}
-}
-
-func newField(name string, typ types.Type) *ast.Field {
-	return &ast.Field{
-		Names: []*ast.Ident{ident(name)},
-		Type:  toType(typ),
-	}
-}
-
-func toType(typ types.Type) ast.Expr {
-	panic("toType")
-}
-
-func toFuncType(sig *types.Signature) *ast.FuncType {
-	panic("toFuncType")
-}
-
-// ----------------------------------------------------------------------------
-
 // Func type
 type Func struct {
 	*types.Func

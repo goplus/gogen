@@ -11,24 +11,29 @@
  limitations under the License.
 */
 
-package internal
+package gox
 
 import (
 	"go/types"
 )
 
+var (
+	TyByte = types.Universe.Lookup("byte").Type().(*types.Basic)
+	TyRune = types.Universe.Lookup("rune").Type().(*types.Basic)
+)
+
 // -----------------------------------------------------------------------------
 
-// Reference type: &T
-type Reference struct {
+// refType: &T
+type refType struct {
 	t types.Type
 }
 
-func (p *Reference) Underlying() types.Type {
+func (p *refType) Underlying() types.Type {
 	return p
 }
 
-func (p *Reference) String() string {
+func (p *refType) String() string {
 	return "&" + p.t.String()
 }
 

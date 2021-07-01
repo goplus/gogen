@@ -2,9 +2,14 @@ package gox_test
 
 import (
 	"bytes"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"go/types"
 	"testing"
 
 	"github.com/goplus/gox"
+	"golang.org/x/tools/go/gcexportdata"
 )
 
 func domTest(t *testing.T, pkg *gox.Package, expected string) {
@@ -22,7 +27,53 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 func TestBasic(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
-	domTest(t, pkg, ``)
+	domTest(t, pkg, `package main
+
+func main() {
+}
+`)
+}
+
+func TestFuncBasic(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	v := pkg.NewParam("v", gox.TyByte)
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(v byte) {
+}
+func main() {
+}
+`)
+}
+
+func TestGoTypesPkg(t *testing.T) {
+	const src = `package foo
+
+type mytype = byte
+
+func bar(v mytype) rune {
+	return 0
+}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "foo.go", src, 0)
+	if err != nil {
+		t.Fatal("parser.ParseFile:", err)
+	}
+
+	packages := make(map[string]*types.Package)
+	imp := gcexportdata.NewImporter(fset, packages)
+	conf := types.Config{Importer: imp}
+	pkg, err := conf.Check("foo", fset, []*ast.File{f}, nil)
+	if err != nil {
+		t.Fatal("conf.Check:", err)
+	}
+	bar := pkg.Scope().Lookup("bar")
+	if bar.String() != "func foo.bar(v byte) rune" {
+		t.Fatal("bar.Type:", bar)
+	}
 }
 
 /*

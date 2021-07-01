@@ -10,19 +10,15 @@ import (
 
 // ----------------------------------------------------------------------------
 
-// From func
-func From(pkg *Package) (file *ast.File, err error) {
-	return &ast.File{Name: ident(pkg.Name), Decls: pkg.decls}, nil
+// ASTFile func
+func ASTFile(pkg *Package) *ast.File {
+	return &ast.File{Name: ident(pkg.Name), Decls: pkg.decls}
 }
 
 // WriteTo func
 func WriteTo(dst io.Writer, pkg *Package) (err error) {
 	fset := token.NewFileSet()
-	file, err := From(pkg)
-	if err != nil {
-		return
-	}
-	return format.Node(dst, fset, file)
+	return format.Node(dst, fset, ASTFile(pkg))
 }
 
 // WriteFile func
