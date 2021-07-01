@@ -52,5 +52,6 @@ func main() {
     a, b = "Hi", 3
     c = b
     fmt.Println(a, b, c)
+    func(v string) { fmt.Println(v) } ("Hello")
 }
 ```
