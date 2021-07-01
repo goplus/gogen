@@ -123,7 +123,7 @@ func toExpr(val interface{}) internal.Elem {
 
 func toObject(v types.Object) ast.Expr {
 	return &ast.SelectorExpr{
-		X:   ident(v.Pkg().Name()), // TODO: package name
+		X:   ident(v.Pkg().Name()),
 		Sel: ident(v.Name()),
 	}
 }

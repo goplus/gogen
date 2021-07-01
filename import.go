@@ -148,6 +148,7 @@ func (p *Package) getDecls() (decls []ast.Decl) {
 	for i, pkgPath := range p.pkgPaths {
 		pkg := p.importPkgs[pkgPath]
 		pkgName := names.RequireName(pkg.Name)
+		pkg.Types.SetName(pkgName)
 		specs[i] = &ast.ImportSpec{
 			Name: ident(pkgName),
 			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkg.PkgPath)},
