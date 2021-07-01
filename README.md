@@ -27,7 +27,7 @@ pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
     VarRef(a).VarRef(b).Const("Hi").Const(3).Assign(2).EndStmt(). // a, b = "Hi", 3
     VarRef(c).Val(b).Assign(1).EndStmt(). // c = b
     Val(fmt.Ref("Println")).Val(a).Val(b).Val(c).Call(3).EndStmt(). // fmt.Println(a, b, c)
-    NewClosure(nil, gox.NewTuple(paramV), false).BodyStart(pkg).
+    NewClosure(gox.NewTuple(paramV), nil, false).BodyStart(pkg).
         Val(fmt.Ref("Println")).Val(paramV).Call(1).EndStmt().
         End().
         Val("Hello").Call(1).EndStmt(). // func(v string) { fmt.Println(v) } ("Hello")
