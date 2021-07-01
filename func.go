@@ -55,8 +55,7 @@ func (p *Func) End(cb *CodeBuilder) {
 	} else {
 		fn.Name, fn.Type, fn.Body = ident(p.Name()), toFuncType(t), body
 		if recv := t.Recv(); recv != nil {
-			params := []*ast.Field{newField(recv.Name(), recv.Type())}
-			fn.Recv = &ast.FieldList{Opening: 1, List: params, Closing: 1}
+			fn.Recv = toRecv(recv)
 		}
 	}
 }

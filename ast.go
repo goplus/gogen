@@ -2,7 +2,9 @@ package gox
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
+	"strconv"
 )
 
 // ----------------------------------------------------------------------------
@@ -11,21 +13,18 @@ func ident(name string) *ast.Ident {
 	return &ast.Ident{Name: name}
 }
 
-func basicAST(t *types.Basic) ast.Expr {
-	if t.Kind() == types.UnsafePointer {
-		return &ast.SelectorExpr{X: &ast.Ident{Name: "unsafe"}, Sel: &ast.Ident{Name: "Pointer"}}
-	}
-	return &ast.Ident{Name: t.Name()}
-}
-
-// -----------------------------------------------------------------------------
-
 func newField(name string, typ types.Type) *ast.Field {
 	return &ast.Field{
 		Names: []*ast.Ident{ident(name)},
 		Type:  toType(typ),
 	}
 }
+
+func toRecv(recv *types.Var) *ast.FieldList {
+	return &ast.FieldList{List: []*ast.Field{newField(recv.Name(), recv.Type())}}
+}
+
+// -----------------------------------------------------------------------------
 
 func toFieldList(t *types.Tuple) []*ast.Field {
 	if t == nil {
@@ -61,8 +60,8 @@ func toFuncType(sig *types.Signature) *ast.FuncType {
 		toVariadic(params[n-1])
 	}
 	return &ast.FuncType{
-		Params:  &ast.FieldList{Opening: 1, List: params, Closing: 1},
-		Results: &ast.FieldList{Opening: 2, List: results, Closing: 2},
+		Params:  &ast.FieldList{List: params},
+		Results: &ast.FieldList{List: results},
 	}
 }
 
@@ -71,9 +70,29 @@ func toFuncType(sig *types.Signature) *ast.FuncType {
 func toType(typ types.Type) ast.Expr {
 	switch t := typ.(type) {
 	case *types.Basic: // bool, int, etc
-		return basicAST(t)
+		return toBasicType(t)
+	case *types.Slice:
+		return toSliceType(t)
+	case *types.Array:
+		return toArrayType(t)
 	}
 	panic("TODO: toType")
+}
+
+func toBasicType(t *types.Basic) ast.Expr {
+	if t.Kind() == types.UnsafePointer {
+		return &ast.SelectorExpr{X: &ast.Ident{Name: "unsafe"}, Sel: &ast.Ident{Name: "Pointer"}}
+	}
+	return &ast.Ident{Name: t.Name()}
+}
+
+func toSliceType(t *types.Slice) ast.Expr {
+	return &ast.ArrayType{Elt: toType(t.Elem())}
+}
+
+func toArrayType(t *types.Array) ast.Expr {
+	len := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(t.Len(), 10)}
+	return &ast.ArrayType{Len: len, Elt: toType(t.Elem())}
 }
 
 // -----------------------------------------------------------------------------

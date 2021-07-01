@@ -48,6 +48,20 @@ func main() {
 `)
 }
 
+func TestFuncVariadic(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	v := pkg.NewParam("v", types.NewSlice(gox.TyByte))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(v ...byte) {
+}
+func main() {
+}
+`)
+}
+
 func TestGoTypesPkg(t *testing.T) {
 	const src = `package foo
 
