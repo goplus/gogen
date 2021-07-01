@@ -5,9 +5,6 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"log"
-
-	"golang.org/x/tools/go/packages"
 )
 
 // ----------------------------------------------------------------------------
@@ -90,51 +87,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg)
 	return pkg
-}
-
-const (
-	loadTypes = packages.NeedImports | packages.NeedDeps | packages.NeedTypes
-	loadModes = loadTypes | packages.NeedName | packages.NeedModule
-)
-
-// InternalGetLoadConfig is a internal function. don't use it.
-func (p *Package) InternalGetLoadConfig() *packages.Config {
-	conf := p.conf
-	return &packages.Config{
-		Mode:       loadModes,
-		Context:    conf.Context,
-		Logf:       conf.Logf,
-		Dir:        conf.Dir,
-		Env:        conf.Env,
-		BuildFlags: conf.BuildFlags,
-		Fset:       conf.Fset,
-		ParseFile:  conf.ParseFile,
-	}
-}
-
-// Import func
-func (p *Package) Import(pkgPath string) *PkgRef {
-	// TODO: canonical pkgPath
-	pkgImport, ok := p.importPkgs[pkgPath]
-	if !ok {
-		pkgImport = &PkgRef{PkgPath: pkgPath}
-		p.pkgPaths = append(p.pkgPaths, pkgPath)
-	}
-	return pkgImport
-}
-
-func (p *Package) endImport() {
-	if len(p.pkgPaths) == 0 {
-		return
-	}
-	loadPkgs := p.conf.LoadPkgs
-	if loadPkgs == nil {
-		loadPkgs = loadGoPkgs
-	}
-	if n := loadPkgs(p, p.importPkgs, p.pkgPaths...); n > 0 {
-		log.Panicf("total %d errors\n", n) // TODO: error message
-	}
-	p.pkgPaths = p.pkgPaths[:0]
 }
 
 // ----------------------------------------------------------------------------

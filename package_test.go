@@ -90,6 +90,22 @@ func bar(v mytype) rune {
 	}
 }
 
+func TestFuncCall(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	fmt.Println("Hello")
+}
+`)
+}
+
 /*
 func _TestBasic(t *testing.T) {
 	var a, b, c *gox.Var

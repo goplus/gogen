@@ -2,9 +2,12 @@ package gox
 
 import (
 	"fmt"
+	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
 	"os"
+	"strconv"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -74,7 +77,7 @@ func loadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) 
 		return n
 	}
 	for _, loadPkg := range loadPkgs {
-		if pkg, ok := importPkgs[loadPkg.PkgPath]; ok && loadPkg.ID != "" {
+		if pkg, ok := importPkgs[loadPkg.PkgPath]; ok && pkg.ID == "" {
 			pkg.ID = loadPkg.ID
 			pkg.Name = loadPkg.Name
 			pkg.Errors = loadPkg.Errors
@@ -85,6 +88,105 @@ func loadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) 
 		}
 	}
 	return 0
+}
+
+// ----------------------------------------------------------------------------
+
+const (
+	loadTypes = packages.NeedImports | packages.NeedDeps | packages.NeedTypes
+	loadModes = loadTypes | packages.NeedName | packages.NeedModule
+)
+
+// InternalGetLoadConfig is a internal function. don't use it.
+func (p *Package) InternalGetLoadConfig() *packages.Config {
+	conf := p.conf
+	return &packages.Config{
+		Mode:       loadModes,
+		Context:    conf.Context,
+		Logf:       conf.Logf,
+		Dir:        conf.Dir,
+		Env:        conf.Env,
+		BuildFlags: conf.BuildFlags,
+		Fset:       conf.Fset,
+		ParseFile:  conf.ParseFile,
+	}
+}
+
+// Import func
+func (p *Package) Import(pkgPath string) *PkgRef {
+	// TODO: canonical pkgPath
+	pkgImport, ok := p.importPkgs[pkgPath]
+	if !ok {
+		pkgImport = &PkgRef{PkgPath: pkgPath}
+		p.importPkgs[pkgPath] = pkgImport
+		p.pkgPaths = append(p.pkgPaths, pkgPath)
+	}
+	return pkgImport
+}
+
+func (p *Package) endImport() {
+	if len(p.pkgPaths) == 0 {
+		return
+	}
+	loadPkgs := p.conf.LoadPkgs
+	if loadPkgs == nil {
+		loadPkgs = loadGoPkgs
+	}
+	if n := loadPkgs(p, p.importPkgs, p.pkgPaths...); n > 0 {
+		log.Panicf("total %d errors\n", n) // TODO: error message
+	}
+}
+
+func (p *Package) getDecls() (decls []ast.Decl) {
+	n := len(p.pkgPaths)
+	if n == 0 {
+		return p.decls
+	}
+	decls = make([]ast.Decl, 0, len(p.decls)+1)
+	specs := make([]ast.Spec, n)
+	names := p.newAutoNames()
+	for i, pkgPath := range p.pkgPaths {
+		pkg := p.importPkgs[pkgPath]
+		pkgName := names.RequireName(pkg.Name)
+		specs[i] = &ast.ImportSpec{
+			Name: ident(pkgName),
+			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkg.PkgPath)},
+		}
+	}
+	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
+	decls = append(decls, p.decls...)
+	return
+}
+
+// ----------------------------------------------------------------------------
+
+type null struct{}
+type autoNames struct {
+	gbl   *types.Scope
+	names map[string]null
+	idx   int
+}
+
+func (p *Package) newAutoNames() *autoNames {
+	return &autoNames{
+		gbl:   p.Types.Scope(),
+		names: make(map[string]null),
+	}
+}
+
+func (p *autoNames) hasName(name string) bool {
+	_, ok := p.names[name]
+	return ok
+}
+
+func (p *autoNames) RequireName(name string) string {
+	ret := name
+	for p.gbl.Lookup(ret) != nil || p.hasName(ret) {
+		p.idx++
+		ret = name + strconv.Itoa(p.idx)
+	}
+	p.names[name] = null{}
+	return ret
 }
 
 // ----------------------------------------------------------------------------

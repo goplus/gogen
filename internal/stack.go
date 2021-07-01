@@ -23,7 +23,7 @@ import (
 const defaultStkSize = 64
 
 type Elem struct {
-	Val  ast.Node
+	Val  ast.Expr
 	Type types.Type
 }
 

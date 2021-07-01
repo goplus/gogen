@@ -5,13 +5,13 @@ import (
 	"go/types"
 )
 
+// ----------------------------------------------------------------------------
+
 // A Variable represents a declared variable (including function parameters and results, and struct fields).
 type Var = types.Var
 
-// ----------------------------------------------------------------------------
-
-// VarStmt type
-type VarStmt struct {
+// VarDecl type
+type VarDecl struct {
 	name string
 	typ  types.Type
 	pkg  *Package
@@ -19,7 +19,7 @@ type VarStmt struct {
 }
 
 // MatchType func
-func (p *VarStmt) MatchType(typ types.Type) *VarStmt {
+func (p *VarDecl) MatchType(typ types.Type) *VarDecl {
 	if p.typ != nil {
 		if p.typ == typ {
 			return p
@@ -32,14 +32,34 @@ func (p *VarStmt) MatchType(typ types.Type) *VarStmt {
 }
 
 // InitStart func
-func (p *VarStmt) InitStart() *CodeBuilder {
+func (p *VarDecl) InitStart() *CodeBuilder {
 	panic("VarStmt.InitStart")
 }
 
 // NewVar func
-func (p *Package) NewVar(name string, pv **Var) *VarStmt {
+func (p *Package) NewVar(name string, pv **Var) *VarDecl {
 	p.endImport()
-	return &VarStmt{name, nil, p, pv}
+	return &VarDecl{name, nil, p, pv}
+}
+
+// ----------------------------------------------------------------------------
+
+var (
+	TyByte = types.Universe.Lookup("byte").Type().(*types.Basic)
+	TyRune = types.Universe.Lookup("rune").Type().(*types.Basic)
+)
+
+// refType: &T
+type refType struct {
+	t types.Type
+}
+
+func (p *refType) Underlying() types.Type {
+	return p
+}
+
+func (p *refType) String() string {
+	return "&" + p.t.String()
 }
 
 // ----------------------------------------------------------------------------

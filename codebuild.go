@@ -39,8 +39,8 @@ func (p *CodeBuilder) startCodeBlock(current codeBlock, old *codeBlockCtx) *Code
 
 func (p *CodeBuilder) endCodeBlock(old codeBlockCtx) []ast.Stmt {
 	stmts := p.current.stmts
+	p.stk.SetLen(p.current.base)
 	p.current = old
-	p.stk.SetLen(old.base)
 	return stmts
 }
 
@@ -63,7 +63,8 @@ func (p *CodeBuilder) VarRef(v *Var) *CodeBuilder {
 
 // Val func
 func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
-	panic("CodeBuilder.Val")
+	p.stk.Push(toExpr(v))
+	return p
 }
 
 // Assign func
@@ -73,7 +74,12 @@ func (p *CodeBuilder) Assign(n int) *CodeBuilder {
 
 // Call func
 func (p *CodeBuilder) Call(n int) *CodeBuilder {
-	panic("CodeBuilder.Call")
+	args := p.stk.GetArgs(n)
+	n++
+	fn := p.stk.Get(-n)
+	ret := toFuncCall(fn, args)
+	p.stk.Ret(n, ret)
+	return p
 }
 
 // Defer func
@@ -88,7 +94,15 @@ func (p *CodeBuilder) Go() *CodeBuilder {
 
 // EndStmt func
 func (p *CodeBuilder) EndStmt() *CodeBuilder {
-	panic("CodeBuilder.EndStmt")
+	n := p.stk.Len() - p.current.base
+	if n > 0 {
+		if n != 1 {
+			panic("syntax error: unexpected newline, expecting := or = or comma")
+		}
+		stmt := &ast.ExprStmt{X: p.stk.Pop().Val}
+		p.current.stmts = append(p.current.stmts, stmt)
+	}
+	return p
 }
 
 // End func

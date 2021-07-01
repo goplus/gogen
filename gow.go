@@ -12,7 +12,7 @@ import (
 
 // ASTFile func
 func ASTFile(pkg *Package) *ast.File {
-	return &ast.File{Name: ident(pkg.Name), Decls: pkg.decls}
+	return &ast.File{Name: ident(pkg.Name), Decls: pkg.getDecls()}
 }
 
 // WriteTo func
