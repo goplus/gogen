@@ -118,6 +118,14 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 			Val:  toObject(pkg, v),
 			Type: v.Type(),
 		}
+	case *Var:
+		if isUnbound(v.typ) {
+			panic("TODO: variable type is unbound")
+		}
+		return internal.Elem{
+			Val:  ident(v.name),
+			Type: v.typ,
+		}
 	}
 	panic("TODO: toExpr")
 }

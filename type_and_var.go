@@ -81,6 +81,11 @@ type unboundType struct {
 	v     *Var
 }
 
+func isUnbound(t types.Type) bool {
+	ut, ok := t.(*unboundType)
+	return ok && ut.bound == nil
+}
+
 func (p *unboundType) Underlying() types.Type {
 	panic("unbound type")
 }
