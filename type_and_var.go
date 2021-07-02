@@ -1,14 +1,26 @@
 package gox
 
 import (
+	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
 )
 
 // ----------------------------------------------------------------------------
 
 // A Variable represents a declared variable (including function parameters and results, and struct fields).
-type Var = types.Var
+type Var struct {
+	name  string
+	typ   types.Type
+	ptype *ast.Expr
+}
+
+func newVar(name string, ptype *ast.Expr) *Var {
+	v := &Var{name: name, ptype: ptype}
+	v.typ = &unboundType{v: v}
+	return v
+}
 
 // VarDecl type
 type VarDecl struct {
@@ -27,7 +39,8 @@ func (p *VarDecl) MatchType(typ types.Type) *VarDecl {
 		panic("TODO: unmatched type")
 	}
 	p.typ = typ
-	*p.pv = types.NewVar(token.NoPos, p.pkg.Types, p.name, typ)
+	//*p.pv = TODO:
+	types.NewVar(token.NoPos, p.pkg.Types, p.name, typ)
 	return p
 }
 
@@ -51,15 +64,47 @@ var (
 
 // refType: &T
 type refType struct {
-	t types.Type
+	typ types.Type
 }
 
 func (p *refType) Underlying() types.Type {
-	return p
+	panic("ref type")
 }
 
 func (p *refType) String() string {
-	return "&" + p.t.String()
+	panic("ref type")
+}
+
+// unboundType: unbound type
+type unboundType struct {
+	bound types.Type
+	v     *Var
+}
+
+func (p *unboundType) Underlying() types.Type {
+	panic("unbound type")
+}
+
+func (p *unboundType) String() string {
+	panic("unbound type")
+}
+
+// ----------------------------------------------------------------------------
+
+func matchType(arg, param types.Type) {
+	param = types.Default(param)
+	if t, ok := arg.(*unboundType); ok {
+		if t.bound == nil {
+			t.bound = param
+			t.v.typ = param
+			*t.v.ptype = toType(param)
+			return
+		}
+		arg = t.bound
+	}
+	if !types.AssignableTo(arg, param) {
+		log.Panicf("TODO: can't assign %v to %v", arg, param)
+	}
 }
 
 // ----------------------------------------------------------------------------

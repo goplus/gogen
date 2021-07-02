@@ -4,7 +4,6 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"log"
 	"strconv"
 
 	"github.com/goplus/gox/internal"
@@ -28,6 +27,7 @@ func toRecv(recv *types.Var) *ast.FieldList {
 }
 
 // -----------------------------------------------------------------------------
+// function type
 
 func toFieldList(t *types.Tuple) []*ast.Field {
 	if t == nil {
@@ -99,6 +99,7 @@ func toArrayType(t *types.Array) ast.Expr {
 }
 
 // -----------------------------------------------------------------------------
+// expression
 
 func toExpr(pkg *Package, val interface{}) internal.Elem {
 	switch v := val.(type) {
@@ -157,13 +158,13 @@ func toFuncCall(fn internal.Elem, args []internal.Elem) internal.Elem {
 		if !ok {
 			panic("TODO: tyVariadic not a slice")
 		}
-		checkFuncArgs(tyArgs[:n1], params)
-		checkElemType(tyArgs[n1:], tyVariadic.Elem())
+		matchFuncArgs(tyArgs[:n1], params)
+		matchElemType(tyArgs[n1:], tyVariadic.Elem())
 	} else {
 		if params.Len() != n {
 			panic("TODO: unmatched function parameters count")
 		}
-		checkFuncArgs(tyArgs, params)
+		matchFuncArgs(tyArgs, params)
 	}
 	return internal.Elem{
 		Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs},
@@ -171,21 +172,25 @@ func toFuncCall(fn internal.Elem, args []internal.Elem) internal.Elem {
 	}
 }
 
-func checkFuncArgs(args []types.Type, params *types.Tuple) {
+func matchFuncArgs(args []types.Type, params *types.Tuple) {
 	for i, arg := range args {
-		checkType(arg, params.At(i).Type())
+		matchType(arg, params.At(i).Type())
 	}
 }
 
-func checkElemType(vals []types.Type, elt types.Type) {
+func matchElemType(vals []types.Type, elt types.Type) {
 	for _, val := range vals {
-		checkType(val, elt)
+		matchType(val, elt)
 	}
 }
 
-func checkType(arg, param types.Type) {
-	if !types.AssignableTo(arg, param) {
-		log.Panicf("TODO: can't assign %v to %v", arg, param)
+// -----------------------------------------------------------------------------
+
+func assignMatchType(stmt *ast.AssignStmt, r internal.Elem, val internal.Elem) {
+	if rt, ok := r.Type.(*refType); ok {
+		matchType(rt.typ, val.Type)
+	} else {
+		panic("TODO: assign")
 	}
 }
 

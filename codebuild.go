@@ -53,12 +53,23 @@ func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
 
 // NewVar func
 func (p *CodeBuilder) NewVar(name string, pv **Var) *CodeBuilder {
-	panic("CodeBuilder.NewVar")
+	spec := &ast.ValueSpec{Names: []*ast.Ident{ident(name)}}
+	decl := &ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{spec}}
+	stmt := &ast.DeclStmt{
+		Decl: decl,
+	}
+	p.current.stmts = append(p.current.stmts, stmt)
+	*pv = newVar(name, &spec.Type)
+	return p
 }
 
 // VarRef func
 func (p *CodeBuilder) VarRef(v *Var) *CodeBuilder {
-	panic("CodeBuilder.VarRef")
+	p.stk.Push(internal.Elem{
+		Val:  ident(v.name),
+		Type: &refType{typ: v.typ},
+	})
+	return p
 }
 
 // Val func
@@ -69,7 +80,20 @@ func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 
 // Assign func
 func (p *CodeBuilder) Assign(n int) *CodeBuilder {
-	panic("CodeBuilder.Assign")
+	args := p.stk.GetArgs(n << 1)
+	stmt := &ast.AssignStmt{
+		Tok: token.ASSIGN,
+		Lhs: make([]ast.Expr, n),
+		Rhs: make([]ast.Expr, n),
+	}
+	for i := 0; i < n; i++ {
+		assignMatchType(stmt, args[i], args[n+i])
+		stmt.Lhs[i] = args[i].Val
+		stmt.Rhs[i] = args[n+i].Val
+	}
+	p.current.stmts = append(p.current.stmts, stmt)
+	p.stk.PopN(n << 1)
+	return p
 }
 
 // Call func

@@ -181,14 +181,31 @@ func (p *Package) newAutoNames() *autoNames {
 	}
 }
 
-func (p *autoNames) hasName(name string) bool {
+func scopeHasName(at *types.Scope, name string) bool {
+	if at.Lookup(name) != nil {
+		return true
+	}
+	for i := at.NumChildren(); i > 0; {
+		i--
+		if scopeHasName(at.Child(i), name) {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *autoNames) importHasName(name string) bool {
 	_, ok := p.names[name]
 	return ok
 }
 
+func (p *autoNames) hasName(name string) bool {
+	return scopeHasName(p.gbl, name) || p.importHasName(name) || types.Universe.Lookup(name) != nil
+}
+
 func (p *autoNames) RequireName(name string) (ret string, renamed bool) {
 	ret = name
-	for p.gbl.Lookup(ret) != nil || p.hasName(ret) {
+	for p.hasName(ret) {
 		p.idx++
 		ret = name + strconv.Itoa(p.idx)
 		renamed = true

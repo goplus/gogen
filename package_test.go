@@ -128,6 +128,23 @@ func main() {
 `)
 }
 
+func TestAssign(t *testing.T) {
+	var a, b *gox.Var
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar("a", &a).NewVar("b", &b).
+		VarRef(a).VarRef(b).Val("Hi").Val(3).Assign(2).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a string
+	var b int
+	a, b = "Hi", 3
+}
+`)
+}
+
 /*
 func _TestBasic(t *testing.T) {
 	var a, b, c *gox.Var
