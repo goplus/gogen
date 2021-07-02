@@ -1,11 +1,13 @@
 gox - Code generator for the Go language
 ========
 
-[![Build Status](https://travis-ci.org/goplus/gox.png?branch=master)](https://travis-ci.org/goplus/gox)
+[![Build Status](https://github.com/goplus/gox/actions/workflows/go.yml)](https://github.com/goplus/gox/actions/workflows/go.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/goplus/gox)](https://goreportcard.com/report/github.com/goplus/gox)
 [![GitHub release](https://img.shields.io/github/v/tag/goplus/gox.svg?label=release)](https://github.com/goplus/gox/releases)
 [![Coverage Status](https://codecov.io/gh/goplus/gox/branch/master/graph/badge.svg)](https://codecov.io/gh/goplus/gox)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-teal.svg)](https://pkg.go.dev/mod/github.com/goplus/gox)
+
+![example workflow](https://github.com/<OWNER>/<REPOSITORY>/actions/workflows/<WORKFLOW_FILE>/badge.svg)
 
 ## Tutorials
 
