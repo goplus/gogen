@@ -106,6 +106,28 @@ func main() {
 `)
 }
 
+func TestImport(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	fmt := pkg.Import("fmt")
+
+	v := pkg.NewParam("v", types.NewSlice(gox.TyByte))
+	pkg.NewFunc(nil, "fmt", gox.NewTuple(v), nil, false).BodyStart(pkg).End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt1 "fmt"
+
+func fmt(v []byte) {
+}
+func main() {
+	fmt.Println("Hello")
+}
+`)
+}
+
 /*
 func _TestBasic(t *testing.T) {
 	var a, b, c *gox.Var
