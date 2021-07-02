@@ -129,11 +129,14 @@ func main() {
 }
 
 func TestAssign(t *testing.T) {
-	var a, b, c *gox.Var
+	var a, b, c, d, e, f, g *gox.Var
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVar("a", &a).NewVar("b", &b).NewVar("c", &c).
-		VarRef(a).VarRef(b).Val("Hi").Val(3).Assign(2).EndStmt().
+		NewVar("a", &a).NewVar("b", &b).NewVar("c", &c).NewVar("d", &d).
+		NewVar("e", &e).NewVar("f", &f).NewVar("g", &g).
+		VarRef(a).VarRef(b).VarRef(d).VarRef(e).VarRef(f).VarRef(g).
+		Val("Hi").Val(3).Val(true).Val('!').Val(1.2).Val(&ast.BasicLit{Kind: token.FLOAT, Value: "12.3"}).
+		Assign(6).EndStmt().
 		VarRef(c).Val(b).Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -142,7 +145,11 @@ func main() {
 	var a string
 	var b int
 	var c int
-	a, b = "Hi", 3
+	var d bool
+	var e rune
+	var f float64
+	var g float64
+	a, b, d, e, f, g = "Hi", 3, true, '!', 1.2, 12.3
 	c = b
 }
 `)

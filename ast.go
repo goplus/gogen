@@ -251,7 +251,7 @@ func assignMatchType(stmt *ast.AssignStmt, r internal.Elem, val internal.Elem) {
 	if rt, ok := r.Type.(*refType); ok {
 		matchType(rt.typ, val.Type)
 	} else {
-		panic("TODO: assign")
+		panic("TODO: unassignable")
 	}
 }
 

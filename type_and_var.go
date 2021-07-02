@@ -97,9 +97,9 @@ func (p *unboundType) String() string {
 // ----------------------------------------------------------------------------
 
 func matchType(arg, param types.Type) {
-	param = types.Default(param)
 	if t, ok := arg.(*unboundType); ok {
 		if t.bound == nil {
+			param = types.Default(param)
 			t.bound = param
 			t.v.typ = param
 			*t.v.ptype = toType(param)
