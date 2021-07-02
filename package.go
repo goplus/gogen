@@ -144,7 +144,7 @@ var (
 var (
 	intBinaryOps = []string{
 		"_Add", "_Sub", "_Mul", "_Quo", "_Rem", "_Or", "_Xor", "_And", "_AndNot"}
-	intBooleanOps = []string{
+	numStringBooleanOps = []string{
 		"_LT", "_LE", "_GT", "_GE", "_EQ", "_NE"}
 	intTypes = []types.BasicKind{
 		types.Int, types.Int64, types.Int32, types.Int16, types.Int8,
@@ -171,24 +171,43 @@ func addIntType(builtin *types.Package, typ, untypedUint types.Type, prefix *Nam
 	n := types.NewVar(token.NoPos, builtin, "n", untypedUint)
 	args2 := types.NewTuple(a, n)
 	sig2 := types.NewSignature(nil, args2, ret, false)
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"Lsh", sig2))
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"Rsh", sig2))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"_Lsh", sig2))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"_Rsh", sig2))
 
 	// func opPrefix_type_op(a, b type) bool
 	ret3 := types.NewTuple(types.NewVar(token.NoPos, builtin, "", types.Typ[types.Bool]))
 	sig3 := types.NewSignature(nil, args, ret3, false)
-	for _, op := range intBooleanOps {
+	for _, op := range numStringBooleanOps {
 		gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+op, sig3))
 	}
 
 	// func opPrefix_type_op(a type) type
 	args4 := types.NewTuple(a)
 	sig4 := types.NewSignature(nil, args4, ret, false)
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"Neg", sig4))
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"Not", sig4))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"_Neg", sig4))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"_Not", sig4))
 }
 
-func addUntypedType(builtin *types.Package, typ types.Type, prefix *NamePrefix) {
+func addStringType(builtin *types.Package, prefix *NamePrefix) {
+	gbl := builtin.Scope()
+	typ := types.Typ[types.String]
+	opPrefix := prefix.Operator + "string"
+
+	a := types.NewVar(token.NoPos, builtin, "a", typ)
+	b := types.NewVar(token.NoPos, builtin, "b", typ)
+	args := types.NewTuple(a, b)
+	ret := types.NewTuple(types.NewVar(token.NoPos, builtin, "", typ))
+	sig := types.NewSignature(nil, args, ret, false)
+
+	// func opPrefix_type_op(a, b type) type
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"_Add", sig))
+
+	// func opPrefix_type_op(a, b type) bool
+	ret3 := types.NewTuple(types.NewVar(token.NoPos, builtin, "", types.Typ[types.Bool]))
+	sig3 := types.NewSignature(nil, args, ret3, false)
+	for _, op := range numStringBooleanOps {
+		gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+op, sig3))
+	}
 }
 
 func newBuiltinDefault(prefix *NamePrefix) *types.Package {
@@ -197,6 +216,7 @@ func newBuiltinDefault(prefix *NamePrefix) *types.Package {
 	for _, intTy := range intTypes {
 		addIntType(builtin, types.Typ[intTy], untypedUint, prefix)
 	}
+	addStringType(builtin, prefix)
 	return builtin
 }
 
@@ -208,6 +228,10 @@ func defaultCheckBuiltinType(typ types.Type) (name string, is bool) {
 		return t.Name(), true
 	}
 	return
+}
+
+func isBuiltinOp(v types.Object) bool {
+	return v.Pos() == token.NoPos
 }
 
 // ----------------------------------------------------------------------------

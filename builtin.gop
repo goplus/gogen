@@ -1,0 +1,112 @@
+/*
+ Copyright 2021 The GoPlus Authors (goplus.org)
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+     http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
+// +build ignore
+
+// -----------------------------------------------------------------------------
+// type int_type = int, int64, int32, int16, int8, uint, uintptr, uint64, uint32, uint16, uint8
+
+func (a int_type) + (b int_type) int_type
+func (a int_type) - (b int_type) int_type
+func (a int_type) * (b int_type) int_type
+func (a int_type) / (b int_type) int_type
+func (a int_type) % (b int_type) int_type
+
+func (a int_type) | (b int_type) int_type
+func (a int_type) ^ (b int_type) int_type
+func (a int_type) & (b int_type) int_type
+func (a int_type) &^ (b int_type) int_type
+
+func (a int_type) << (n untyped_uint) int_type
+func (a int_type) >> (n untyped_uint) int_type
+
+func (a int_type) < (b int_type) bool
+func (a int_type) <= (b int_type) bool
+func (a int_type) > (b int_type) bool
+func (a int_type) >= (b int_type) bool
+func (a int_type) == (b int_type) bool
+func (a int_type) != (b int_type) bool
+
+func -(a int_type) int_type
+func ^(a int_type) int_type
+
+// -----------------------------------------------------------------------------
+// type untyped_int[T], T = untyped_int | int_type
+
+func (a untyped_int) + (b T) T
+func (a untyped_int) - (b T) T
+func (a untyped_int) * (b T) T
+func (a untyped_int) / (b T) T
+func (a untyped_int) % (b T) T
+
+func (a untyped_int) | (b T) T
+func (a untyped_int) ^ (b T) T
+func (a untyped_int) & (b T) T
+func (a untyped_int) &^ (b T) T
+
+func (a untyped_int) << (n untyped_uint) untyped_int
+func (a untyped_int) >> (n untyped_uint) untyped_int
+
+func (a untyped_int) < (b T) bool
+func (a untyped_int) <= (b T) bool
+func (a untyped_int) > (b T) bool
+func (a untyped_int) >= (b T) bool
+func (a untyped_int) == (b T) bool
+func (a untyped_int) != (b T) bool
+
+func -(a untyped_int) untyped_int
+func ^(a untyped_int) untyped_int
+
+// -----------------------------------------------------------------------------
+// type string
+
+func (a string) + (b string) string
+
+func (a string) < (b string) bool
+func (a string) <= (b string bool
+func (a string) > (b string) bool
+func (a string) >= (b string) bool
+func (a string) == (b string) bool
+func (a string) != (b string) bool
+
+// -----------------------------------------------------------------------------
+// type float_type = float64, float32
+
+func (a float_type) + (b float_type) float_type
+func (a float_type) - (b float_type) float_type
+func (a float_type) * (b float_type) float_type
+func (a float_type) / (b float_type) float_type
+
+func (a float_type) < (b float_type) bool
+func (a float_type) <= (b float_type bool
+func (a float_type) > (b float_type) bool
+func (a float_type) >= (b float_type) bool
+func (a float_type) == (b float_type) bool
+func (a float_type) != (b float_type) bool
+
+func -(a float_type) float_type
+
+// -----------------------------------------------------------------------------
+// type complex_type = complex128, complex64
+
+func (a complex_type) + (b complex_type) complex_type
+func (a complex_type) - (b complex_type) complex_type
+func (a complex_type) * (b complex_type) complex_type
+func (a complex_type) / (b complex_type) complex_type
+
+func (a complex_type) == (b complex_type) bool
+func (a complex_type) != (b complex_type) bool
+
+func -(a complex_type) complex_type
+
+// -----------------------------------------------------------------------------

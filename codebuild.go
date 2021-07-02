@@ -135,9 +135,41 @@ var (
 		token.AND:     "_And",    // &
 		token.OR:      "_Or",     // |
 		token.XOR:     "_Xor",    // ^
+		token.AND_NOT: "_AndNot", // &^
 		token.SHL:     "_Lsh",    // <<
 		token.SHR:     "_Rsh",    // >>
-		token.AND_NOT: "_AndNot", // &^
+
+		token.LSS: "_LT",
+		token.LEQ: "_LE",
+		token.GTR: "_GT",
+		token.GEQ: "_GE",
+		token.EQL: "_EQ",
+		token.NEQ: "_NE",
+	}
+)
+
+// UnaryOp func
+func (p *CodeBuilder) UnaryOp(op token.Token) *CodeBuilder {
+	pkg := p.pkg
+	args := p.stk.GetArgs(1)
+	if typ, ok := pkg.checkBuiltin(args[0].Type); ok {
+		name := pkg.prefix.Operator + typ + unaryOps[op]
+		fn := pkg.builtin.Scope().Lookup(name)
+		if fn == nil {
+			panic("TODO: operator not matched")
+		}
+		ret := toFuncCall(toObject(pkg, fn), args)
+		p.stk.Ret(1, ret)
+	} else {
+		panic("TODO: UnaryOp")
+	}
+	return p
+}
+
+var (
+	unaryOps = [...]string{
+		token.SUB: "_Neg",
+		token.XOR: "_Not",
 	}
 )
 

@@ -155,12 +155,37 @@ func main() {
 `)
 }
 
-func TestBinaryOp(t *testing.T) {
+func TestOperator(t *testing.T) {
+	var a, b, c, d *gox.Var
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar("a", &a).NewVar("b", &b).NewVar("c", &c).NewVar("d", &d).
+		VarRef(a).Val("Hi").Assign(1).EndStmt().
+		VarRef(b).Val(a).Val("!").BinaryOp(token.ADD).Assign(1).EndStmt().
+		VarRef(c).Val(&ast.BasicLit{Kind: token.INT, Value: "13"}).Assign(1).EndStmt().
+		VarRef(d).Val(c).UnaryOp(token.SUB).Assign(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a string
+	var b string
+	var c int
+	var d int
+	a = "Hi"
+	b = a + "!"
+	c = 13
+	d = -c
+}
+`)
+}
+
+func _TestBinaryOpUntyped(t *testing.T) {
 	var a *gox.Var
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar("a", &a).
-		Val("Hi").Val("!").BinaryOp(token.ADD).EndStmt().
+		VarRef(a).Val("Hi").Val("!").BinaryOp(token.ADD).Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 

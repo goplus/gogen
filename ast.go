@@ -6,6 +6,7 @@ import (
 	"go/types"
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/goplus/gox/internal"
 )
@@ -87,7 +88,8 @@ func toType(typ types.Type) ast.Expr {
 	case *types.Array:
 		return toArrayType(t)
 	}
-	panic("TODO: toType")
+	log.Panicln("TODO: toType -", typ)
+	return nil
 }
 
 func toBasicType(t *types.Basic) ast.Expr {
@@ -189,6 +191,11 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 	if atPkg == pkg.Types { // at this package
 		return ident(v.Name())
 	}
+	if atPkg == pkg.builtin { // at builtin package
+		if isBuiltinOp(v) {
+			return toOperatorExpr(v.Name())
+		}
+	}
 	importPkg, ok := pkg.importPkgs[atPkg.Path()]
 	if !ok {
 		log.Panicln("TODO: package not found -", atPkg.Name(), atPkg.Path())
@@ -200,6 +207,52 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 		Sel: ident(v.Name()),
 	}
 }
+
+func toOperatorExpr(fullName string) ast.Expr {
+	if pos := strings.LastIndex(fullName, "_"); pos > 0 {
+		name := fullName[pos:]
+		if op, ok := nameToOps[name]; ok {
+			if op.Arity == 2 {
+				return &ast.BinaryExpr{Op: op.Tok}
+			}
+			return &ast.UnaryExpr{Op: op.Tok}
+		}
+	}
+	log.Panicln("TODO: not a valid operator -", fullName)
+	return nil
+}
+
+type operator struct {
+	Tok   token.Token
+	Arity int
+}
+
+var (
+	nameToOps = map[string]operator{
+		"_Add":    {token.ADD, 2},
+		"_Sub":    {token.SUB, 2},
+		"_Mul":    {token.MUL, 2},
+		"_Quo":    {token.QUO, 2},
+		"_Rem":    {token.REM, 2},
+		"_Or":     {token.OR, 2},
+		"_Xor":    {token.XOR, 2},
+		"_And":    {token.AND, 2},
+		"_AndNot": {token.AND_NOT, 2},
+
+		"_Lsh": {token.SHL, 2},
+		"_Rsh": {token.SHR, 2},
+
+		"_LT": {token.LSS, 2},
+		"_LE": {token.LEQ, 2},
+		"_GT": {token.GTR, 2},
+		"_GE": {token.GEQ, 2},
+		"_EQ": {token.EQL, 2},
+		"_NE": {token.NEQ, 2},
+
+		"_Neg": {token.SUB, 1},
+		"_Not": {token.XOR, 1},
+	}
+)
 
 func toFuncCall(fn internal.Elem, args []internal.Elem) internal.Elem {
 	sig, ok := fn.Type.(*types.Signature)
@@ -231,9 +284,30 @@ func toFuncCall(fn internal.Elem, args []internal.Elem) internal.Elem {
 		}
 		matchFuncArgs(tyArgs, params)
 	}
-	return internal.Elem{
-		Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs},
-		Type: sig.Results(),
+	tyRet := toRetType(sig)
+	switch t := fn.Val.(type) {
+	case *ast.BinaryExpr:
+		t.X, t.Y = valArgs[0], valArgs[1]
+		return internal.Elem{Val: t, Type: tyRet}
+	case *ast.UnaryExpr:
+		t.X = valArgs[0]
+		return internal.Elem{Val: t, Type: tyRet}
+	default:
+		return internal.Elem{
+			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs},
+			Type: tyRet,
+		}
+	}
+}
+
+func toRetType(sig *types.Signature) types.Type {
+	switch t := sig.Results(); t.Len() {
+	case 1:
+		return t.At(0).Type()
+	case 0:
+		return nil
+	default:
+		return t
 	}
 }
 
