@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
 	"strconv"
 
 	"github.com/goplus/gox/internal"
@@ -181,9 +182,12 @@ func toBasicKind(tok token.Token) types.BasicKind {
 
 func toObject(pkg *Package, v types.Object) ast.Expr {
 	atPkg := v.Pkg()
+	if atPkg == pkg.Types { // at this package
+		return ident(v.Name())
+	}
 	importPkg, ok := pkg.importPkgs[atPkg.Path()]
 	if !ok {
-		panic("TODO: package not found?")
+		log.Panicln("TODO: package not found -", atPkg.Name(), atPkg.Path())
 	}
 	x := ident(atPkg.Name())
 	importPkg.nameRefs = append(importPkg.nameRefs, x)
