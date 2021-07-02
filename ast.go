@@ -15,6 +15,13 @@ func ident(name string) *ast.Ident {
 	return &ast.Ident{Name: name}
 }
 
+func boolean(v bool) *ast.Ident {
+	if v {
+		return &ast.Ident{Name: "true"}
+	}
+	return &ast.Ident{Name: "false"}
+}
+
 func newField(name string, typ types.Type) *ast.Field {
 	return &ast.Field{
 		Names: []*ast.Ident{ident(name)},
@@ -102,22 +109,13 @@ func toArrayType(t *types.Array) ast.Expr {
 // expression
 
 func toExpr(pkg *Package, val interface{}) internal.Elem {
+	if val == nil {
+		return internal.Elem{
+			Val:  ident("nil"),
+			Type: types.Typ[types.UntypedNil],
+		}
+	}
 	switch v := val.(type) {
-	case int:
-		return internal.Elem{
-			Val:  &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(v)},
-			Type: types.Typ[types.UntypedInt],
-		}
-	case string:
-		return internal.Elem{
-			Val:  &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(v)},
-			Type: types.Typ[types.String],
-		}
-	case types.Object:
-		return internal.Elem{
-			Val:  toObject(pkg, v),
-			Type: v.Type(),
-		}
 	case *Var:
 		if isUnbound(v.typ) {
 			panic("TODO: variable type is unbound")
@@ -126,8 +124,59 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 			Val:  ident(v.name),
 			Type: v.typ,
 		}
+	case *ast.BasicLit:
+		return internal.Elem{
+			Val:  v,
+			Type: types.Typ[toBasicKind(v.Kind)],
+		}
+	case int:
+		return internal.Elem{
+			Val:  &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(v)},
+			Type: types.Typ[types.UntypedInt],
+		}
+	case string:
+		return internal.Elem{
+			Val:  &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(v)},
+			Type: types.Typ[types.UntypedString],
+		}
+	case bool:
+		return internal.Elem{
+			Val:  boolean(v),
+			Type: types.Typ[types.UntypedBool],
+		}
+	case rune:
+		return internal.Elem{
+			Val:  &ast.BasicLit{Kind: token.CHAR, Value: strconv.QuoteRune(v)},
+			Type: types.Typ[types.UntypedRune],
+		}
+	case float64:
+		return internal.Elem{
+			Val:  &ast.BasicLit{Kind: token.FLOAT, Value: strconv.FormatFloat(v, 'g', -1, 64)},
+			Type: types.Typ[types.UntypedFloat],
+		}
+	case types.Object:
+		return internal.Elem{
+			Val:  toObject(pkg, v),
+			Type: v.Type(),
+		}
 	}
 	panic("TODO: toExpr")
+}
+
+func toBasicKind(tok token.Token) types.BasicKind {
+	switch tok {
+	case token.INT:
+		return types.UntypedInt
+	case token.STRING:
+		return types.UntypedString
+	case token.CHAR:
+		return types.UntypedRune
+	case token.FLOAT:
+		return types.UntypedFloat
+	case token.IMAG:
+		return types.UntypedComplex
+	}
+	panic("TODO: unknown Token")
 }
 
 func toObject(pkg *Package, v types.Object) ast.Expr {
