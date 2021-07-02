@@ -63,7 +63,7 @@ func (p *CodeBuilder) VarRef(v *Var) *CodeBuilder {
 
 // Val func
 func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
-	p.stk.Push(toExpr(v))
+	p.stk.Push(toExpr(p.pkg, v))
 	return p
 }
 

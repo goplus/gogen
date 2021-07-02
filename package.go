@@ -83,7 +83,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		importPkgs: make(map[string]*PkgRef),
 		conf:       conf,
 	}
-	pkg.PkgPath, pkg.Name = pkgPath, name
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg)
 	return pkg

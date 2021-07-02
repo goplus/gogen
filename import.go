@@ -31,12 +31,6 @@ type PkgRef struct {
 	// in a syntax provided by the underlying build system.
 	ID string
 
-	// Name is the package name as it appears in the package source code.
-	Name string
-
-	// PkgPath is the package path as used by the go/types package.
-	PkgPath string
-
 	// Errors contains any errors encountered querying the metadata
 	// of the package, or while parsing or type-checking its files.
 	Errors []Error
@@ -57,9 +51,17 @@ type PkgRef struct {
 	// IllTyped indicates whether the package or any dependency contains errors.
 	// It is set only when Types is set.
 	IllTyped bool
+
+	nameRefs []*ast.Ident // for internal use
 }
 
-// Ref func
+// Name returns the package name.
+func (p *PkgRef) Name() string {
+	return p.Types.Name()
+}
+
+// Ref returns the object in scope s with the given name if such an
+// object exists; otherwise the result is nil.
 func (p *PkgRef) Ref(name string) Ref {
 	return p.Types.Scope().Lookup(name)
 }
@@ -79,7 +81,6 @@ func loadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) 
 	for _, loadPkg := range loadPkgs {
 		if pkg, ok := importPkgs[loadPkg.PkgPath]; ok && pkg.ID == "" {
 			pkg.ID = loadPkg.ID
-			pkg.Name = loadPkg.Name
 			pkg.Errors = loadPkg.Errors
 			pkg.Types = loadPkg.Types
 			pkg.Fset = loadPkg.Fset
@@ -117,7 +118,7 @@ func (p *Package) Import(pkgPath string) *PkgRef {
 	// TODO: canonical pkgPath
 	pkgImport, ok := p.importPkgs[pkgPath]
 	if !ok {
-		pkgImport = &PkgRef{PkgPath: pkgPath}
+		pkgImport = &PkgRef{}
 		p.importPkgs[pkgPath] = pkgImport
 		p.pkgPaths = append(p.pkgPaths, pkgPath)
 	}
@@ -147,11 +148,16 @@ func (p *Package) getDecls() (decls []ast.Decl) {
 	names := p.newAutoNames()
 	for i, pkgPath := range p.pkgPaths {
 		pkg := p.importPkgs[pkgPath]
-		pkgName := names.RequireName(pkg.Name)
-		pkg.Types.SetName(pkgName)
+		pkgName, renamed := names.RequireName(pkg.Name())
+		if renamed {
+			pkg.Types.SetName(pkgName)
+			for _, nameRef := range pkg.nameRefs {
+				nameRef.Name = pkgName
+			}
+		}
 		specs[i] = &ast.ImportSpec{
 			Name: ident(pkgName),
-			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkg.PkgPath)},
+			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkgPath)},
 		}
 	}
 	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
@@ -180,14 +186,15 @@ func (p *autoNames) hasName(name string) bool {
 	return ok
 }
 
-func (p *autoNames) RequireName(name string) string {
-	ret := name
+func (p *autoNames) RequireName(name string) (ret string, renamed bool) {
+	ret = name
 	for p.gbl.Lookup(ret) != nil || p.hasName(ret) {
 		p.idx++
 		ret = name + strconv.Itoa(p.idx)
+		renamed = true
 	}
 	p.names[name] = null{}
-	return ret
+	return
 }
 
 // ----------------------------------------------------------------------------

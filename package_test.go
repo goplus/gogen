@@ -123,7 +123,7 @@ import fmt1 "fmt"
 func fmt(v []byte) {
 }
 func main() {
-	fmt.Println("Hello")
+	fmt1.Println("Hello")
 }
 `)
 }

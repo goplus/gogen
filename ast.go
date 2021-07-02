@@ -100,7 +100,7 @@ func toArrayType(t *types.Array) ast.Expr {
 
 // -----------------------------------------------------------------------------
 
-func toExpr(val interface{}) internal.Elem {
+func toExpr(pkg *Package, val interface{}) internal.Elem {
 	switch v := val.(type) {
 	case int:
 		return internal.Elem{
@@ -114,16 +114,23 @@ func toExpr(val interface{}) internal.Elem {
 		}
 	case types.Object:
 		return internal.Elem{
-			Val:  toObject(v),
+			Val:  toObject(pkg, v),
 			Type: v.Type(),
 		}
 	}
 	panic("TODO: toExpr")
 }
 
-func toObject(v types.Object) ast.Expr {
+func toObject(pkg *Package, v types.Object) ast.Expr {
+	atPkg := v.Pkg()
+	importPkg, ok := pkg.importPkgs[atPkg.Path()]
+	if !ok {
+		panic("TODO: package not found?")
+	}
+	x := ident(atPkg.Name())
+	importPkg.nameRefs = append(importPkg.nameRefs, x)
 	return &ast.SelectorExpr{
-		X:   ident(v.Pkg().Name()),
+		X:   x,
 		Sel: ident(v.Name()),
 	}
 }
