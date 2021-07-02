@@ -7,8 +7,6 @@ gox - Code generator for the Go language
 [![Coverage Status](https://codecov.io/gh/goplus/gox/branch/master/graph/badge.svg)](https://codecov.io/gh/goplus/gox)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-teal.svg)](https://pkg.go.dev/mod/github.com/goplus/gox)
 
-![example workflow](https://github.com/<OWNER>/<REPOSITORY>/actions/workflows/<WORKFLOW_FILE>/badge.svg)
-
 ## Tutorials
 
 ```go
