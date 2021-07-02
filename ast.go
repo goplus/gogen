@@ -156,10 +156,7 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 			Type: types.Typ[types.UntypedFloat],
 		}
 	case types.Object:
-		return internal.Elem{
-			Val:  toObject(pkg, v),
-			Type: v.Type(),
-		}
+		return toObject(pkg, v)
 	}
 	panic("TODO: toExpr")
 }
@@ -180,7 +177,14 @@ func toBasicKind(tok token.Token) types.BasicKind {
 	panic("TODO: unknown Token")
 }
 
-func toObject(pkg *Package, v types.Object) ast.Expr {
+func toObject(pkg *Package, v types.Object) internal.Elem {
+	return internal.Elem{
+		Val:  toObjectExpr(pkg, v),
+		Type: v.Type(),
+	}
+}
+
+func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 	atPkg := v.Pkg()
 	if atPkg == pkg.Types { // at this package
 		return ident(v.Name())

@@ -155,6 +155,22 @@ func main() {
 `)
 }
 
+func TestBinaryOp(t *testing.T) {
+	var a *gox.Var
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar("a", &a).
+		Val("Hi").Val("!").BinaryOp(token.ADD).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a string
+	a = "Hi" + "!"
+}
+`)
+}
+
 func TestClosure(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	fmt := pkg.Import("fmt")

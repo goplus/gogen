@@ -9,6 +9,14 @@ import (
 
 // ----------------------------------------------------------------------------
 
+// NamePrefix config
+type NamePrefix struct {
+	BuiltinType string // builtin type
+	TypeExtend  string // type extend
+	Operator    string // operator
+	TypeConv    string // type convert
+}
+
 // Config type
 type Config struct {
 	// Context specifies the context for the load operation.
@@ -62,16 +70,28 @@ type Config struct {
 
 	// LoadPkgs is called to load all import packages.
 	LoadPkgs func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
+
+	// Prefix is name prefix.
+	Prefix *NamePrefix
+
+	// Builtin is the builin package.
+	Builtin *types.Package
+
+	// CheckBuiltinType checks a type is builtin type or not.
+	CheckBuiltinType func(typ types.Type) (name string, is bool)
 }
 
 // Package type
 type Package struct {
 	PkgRef
-	decls      []ast.Decl
-	cb         CodeBuilder
-	importPkgs map[string]*PkgRef
-	pkgPaths   []string
-	conf       *Config
+	decls        []ast.Decl
+	cb           CodeBuilder
+	importPkgs   map[string]*PkgRef
+	pkgPaths     []string
+	conf         *Config
+	prefix       *NamePrefix
+	builtin      *types.Package
+	checkBuiltin func(typ types.Type) (name string, ok bool)
 }
 
 // NewPackage func
@@ -79,13 +99,115 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if conf == nil {
 		conf = &Config{}
 	}
+	prefix := conf.Prefix
+	if prefix == nil {
+		prefix = defaultNamePrefix
+	}
+	builtin := conf.Builtin
+	if builtin == nil {
+		builtin = newBuiltinDefault(prefix)
+	}
+	checkBuiltin := conf.CheckBuiltinType
+	if checkBuiltin == nil {
+		checkBuiltin = defaultCheckBuiltinType
+	}
 	pkg := &Package{
-		importPkgs: make(map[string]*PkgRef),
-		conf:       conf,
+		importPkgs:   make(map[string]*PkgRef),
+		conf:         conf,
+		prefix:       prefix,
+		builtin:      builtin,
+		checkBuiltin: checkBuiltin,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg)
 	return pkg
+}
+
+func Init_untyped_uint(builtin *types.Package, prefix *NamePrefix) types.Type {
+	name := types.NewTypeName(token.NoPos, builtin, prefix.BuiltinType+"untyped_uint", nil)
+	typ := types.NewNamed(name, types.Typ[types.Uint], nil)
+	builtin.Scope().Insert(name)
+	return typ
+}
+
+// ----------------------------------------------------------------------------
+
+var (
+	defaultNamePrefix = &NamePrefix{
+		BuiltinType: "Gopb_",
+		TypeExtend:  "Gope_",
+		Operator:    "Gopo_",
+		TypeConv:    "Gopc_",
+	}
+)
+
+var (
+	intBinaryOps = []string{
+		"_Add", "_Sub", "_Mul", "_Quo", "_Rem", "_Or", "_Xor", "_And", "_AndNot"}
+	intBooleanOps = []string{
+		"_LT", "_LE", "_GT", "_GE", "_EQ", "_NE"}
+	intTypes = []types.BasicKind{
+		types.Int, types.Int64, types.Int32, types.Int16, types.Int8,
+		types.Uint, types.Uintptr, types.Uint64, types.Uint32, types.Uint16, types.Uint8,
+	}
+)
+
+func addIntType(builtin *types.Package, typ, untypedUint types.Type, prefix *NamePrefix) {
+	gbl := builtin.Scope()
+	opPrefix := prefix.Operator + typ.String()
+
+	a := types.NewVar(token.NoPos, builtin, "a", typ)
+	b := types.NewVar(token.NoPos, builtin, "b", typ)
+	args := types.NewTuple(a, b)
+	ret := types.NewTuple(types.NewVar(token.NoPos, builtin, "", typ))
+	sig := types.NewSignature(nil, args, ret, false)
+
+	// func opPrefix_type_op(a, b type) type
+	for _, op := range intBinaryOps {
+		gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+op, sig))
+	}
+
+	// func opPrefix_type_op(a type, n untyped_uint) type
+	n := types.NewVar(token.NoPos, builtin, "n", untypedUint)
+	args2 := types.NewTuple(a, n)
+	sig2 := types.NewSignature(nil, args2, ret, false)
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"Lsh", sig2))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"Rsh", sig2))
+
+	// func opPrefix_type_op(a, b type) bool
+	ret3 := types.NewTuple(types.NewVar(token.NoPos, builtin, "", types.Typ[types.Bool]))
+	sig3 := types.NewSignature(nil, args, ret3, false)
+	for _, op := range intBooleanOps {
+		gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+op, sig3))
+	}
+
+	// func opPrefix_type_op(a type) type
+	args4 := types.NewTuple(a)
+	sig4 := types.NewSignature(nil, args4, ret, false)
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"Neg", sig4))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, opPrefix+"Not", sig4))
+}
+
+func addUntypedType(builtin *types.Package, typ types.Type, prefix *NamePrefix) {
+}
+
+func newBuiltinDefault(prefix *NamePrefix) *types.Package {
+	builtin := types.NewPackage("", "")
+	untypedUint := Init_untyped_uint(builtin, prefix)
+	for _, intTy := range intTypes {
+		addIntType(builtin, types.Typ[intTy], untypedUint, prefix)
+	}
+	return builtin
+}
+
+func defaultCheckBuiltinType(typ types.Type) (name string, is bool) {
+	if t, ok := typ.(*types.Basic); ok {
+		if t.Kind() == types.UnsafePointer {
+			return
+		}
+		return t.Name(), true
+	}
+	return
 }
 
 // ----------------------------------------------------------------------------

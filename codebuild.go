@@ -106,6 +106,41 @@ func (p *CodeBuilder) Call(n int) *CodeBuilder {
 	return p
 }
 
+// BinaryOp func
+func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
+	pkg := p.pkg
+	args := p.stk.GetArgs(2)
+	if typ, ok := pkg.checkBuiltin(args[0].Type); ok {
+		name := pkg.prefix.Operator + typ + binaryOps[op]
+		fn := pkg.builtin.Scope().Lookup(name)
+		if fn == nil {
+			panic("TODO: operator not matched")
+		}
+		ret := toFuncCall(toObject(pkg, fn), args)
+		p.stk.Ret(2, ret)
+	} else {
+		panic("TODO: BinaryOp")
+	}
+	return p
+}
+
+var (
+	binaryOps = [...]string{
+		token.ADD: "_Add", // +
+		token.SUB: "_Sub", // -
+		token.MUL: "_Mul", // *
+		token.QUO: "_Quo", // /
+		token.REM: "_Rem", // %
+
+		token.AND:     "_And",    // &
+		token.OR:      "_Or",     // |
+		token.XOR:     "_Xor",    // ^
+		token.SHL:     "_Lsh",    // <<
+		token.SHR:     "_Rsh",    // >>
+		token.AND_NOT: "_AndNot", // &^
+	}
+)
+
 // Defer func
 func (p *CodeBuilder) Defer() *CodeBuilder {
 	panic("CodeBuilder.Defer")
