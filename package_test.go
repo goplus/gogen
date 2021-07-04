@@ -20,7 +20,7 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 	}
 	result := b.String()
 	if result != expected {
-		t.Fatalf("\nResult:\n%s\nExpected:%s\n", result, expected)
+		t.Fatalf("\nResult:\n%s\nExpected:\n%s\n", result, expected)
 	}
 }
 
@@ -56,6 +56,39 @@ func TestFuncVariadic(t *testing.T) {
 	domTest(t, pkg, `package main
 
 func foo(v ...byte) {
+}
+func main() {
+}
+`)
+}
+
+func TestEmptyInterface(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(nil, nil)))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(v ...interface {
+}) {
+}
+func main() {
+}
+`)
+}
+
+func TestInterfaceMethods(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	bar := types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false))
+	methods := []*types.Func{bar}
+	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(methods, nil)))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(v ...interface {
+	Bar()
+}) {
 }
 func main() {
 }

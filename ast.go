@@ -83,6 +83,8 @@ func toType(typ types.Type) ast.Expr {
 	switch t := typ.(type) {
 	case *types.Basic: // bool, int, etc
 		return toBasicType(t)
+	case *types.Interface:
+		return toInterface(t)
 	case *types.Slice:
 		return toSliceType(t)
 	case *types.Array:
@@ -106,6 +108,21 @@ func toSliceType(t *types.Slice) ast.Expr {
 func toArrayType(t *types.Array) ast.Expr {
 	len := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(t.Len(), 10)}
 	return &ast.ArrayType{Len: len, Elt: toType(t.Elem())}
+}
+
+func toInterface(t *types.Interface) ast.Expr {
+	var flds []*ast.Field
+	for i, n := 0, t.NumExplicitMethods(); i < n; i++ {
+		fn := t.ExplicitMethod(i)
+		name := ident(fn.Name())
+		typ := toFuncType(fn.Type().(*types.Signature))
+		fld := &ast.Field{Names: []*ast.Ident{name}, Type: typ}
+		flds = append(flds, fld)
+	}
+	for i, n := 0, t.NumEmbeddeds(); i < n; i++ {
+		panic("TODO: interface embedded")
+	}
+	return &ast.InterfaceType{Methods: &ast.FieldList{List: flds}}
 }
 
 // -----------------------------------------------------------------------------
