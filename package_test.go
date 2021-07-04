@@ -16,7 +16,7 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 	var b bytes.Buffer
 	err := gox.WriteTo(&b, pkg)
 	if err != nil {
-		t.Fatal("conv.WriteTo failed:", err)
+		t.Fatal("gox.WriteTo failed:", err)
 	}
 	result := b.String()
 	if result != expected {

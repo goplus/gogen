@@ -62,12 +62,17 @@ func (p *Func) End(cb *CodeBuilder) {
 
 // NewFunc func
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
+	sig := types.NewSignature(recv, params, results, variadic)
+	return p.NewFuncWith(name, sig)
+}
+
+// NewFuncWith func
+func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 	if name == "" {
 		panic("TODO: no func name")
 	}
 	p.endImport()
 
-	sig := types.NewSignature(recv, params, results, variadic)
 	fn := types.NewFunc(token.NoPos, p.Types, name, sig)
 	p.Types.Scope().Insert(fn)
 
