@@ -210,6 +210,27 @@ func main() {
 `)
 }
 
+func TestAssignUnderscore(t *testing.T) {
+	var err *gox.Var
+	pkg := gox.NewPackage("", "main", nil)
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar("err", &err).
+		VarRef(nil).VarRef(err).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).
+		Assign(2, 1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	var err error
+	_, err = fmt.Println("Hello")
+}
+`)
+}
+
 func TestOperator(t *testing.T) {
 	var a, b, c, d *gox.Var
 	pkg := gox.NewPackage("", "main", nil)

@@ -14,6 +14,10 @@ import (
 
 // ----------------------------------------------------------------------------
 
+var (
+	underscore ast.Expr = &ast.Ident{Name: "_"}
+)
+
 func ident(name string) *ast.Ident {
 	return &ast.Ident{Name: name}
 }
@@ -329,14 +333,13 @@ func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem) internal.E
 }
 
 func toRetType(sig *types.Signature) types.Type {
-	switch t := sig.Results(); t.Len() {
-	case 1:
-		return t.At(0).Type()
-	case 0:
+	t := sig.Results()
+	if t == nil {
 		return nil
-	default:
-		return t
+	} else if t.Len() == 1 {
+		return t.At(0).Type()
 	}
+	return t
 }
 
 func matchFuncArgs(pkg *Package, args []types.Type, params *types.Tuple) {
@@ -356,6 +359,8 @@ func matchElemType(pkg *Package, vals []types.Type, elt types.Type) {
 func assignMatchType(pkg *Package, r internal.Elem, valTy types.Type) {
 	if rt, ok := r.Type.(*refType); ok {
 		matchType(pkg, rt.typ, valTy)
+	} else if r.Val == underscore {
+		// do nothing
 	} else {
 		panic("TODO: unassignable")
 	}

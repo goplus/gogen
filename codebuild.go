@@ -63,12 +63,18 @@ func (p *CodeBuilder) NewVar(name string, pv **Var) *CodeBuilder {
 	return p
 }
 
-// VarRef func
+// VarRef func: p.VarRef(nil) means underscore (_)
 func (p *CodeBuilder) VarRef(v *Var) *CodeBuilder {
-	p.stk.Push(internal.Elem{
-		Val:  ident(v.name),
-		Type: &refType{typ: v.typ},
-	})
+	if v != nil {
+		p.stk.Push(internal.Elem{
+			Val:  ident(v.name),
+			Type: &refType{typ: v.typ},
+		})
+	} else {
+		p.stk.Push(internal.Elem{
+			Val: underscore, // _
+		})
+	}
 	return p
 }
 
