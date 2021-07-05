@@ -286,7 +286,7 @@ var (
 	}
 )
 
-func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem) internal.Elem {
+func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) internal.Elem {
 	sig, ok := fn.Type.(*types.Signature)
 	if !ok {
 		panic("TODO: call to non function")
@@ -326,7 +326,7 @@ func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem) internal.E
 		return internal.Elem{Val: t, Type: tyRet}
 	default:
 		return internal.Elem{
-			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs},
+			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: ellipsis},
 			Type: tyRet,
 		}
 	}

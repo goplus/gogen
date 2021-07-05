@@ -139,6 +139,30 @@ func main() {
 `)
 }
 
+func TestFuncCallEllipsis(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	fmt := pkg.Import("fmt")
+	bar := types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false))
+	methods := []*types.Func{bar}
+	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(methods, nil)))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val(v).Call(1, gox.HasEllipsis).EndStmt().
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func foo(v ...interface {
+	Bar()
+}) {
+	fmt.Println(v...)
+}
+func main() {
+}
+`)
+}
+
 func TestImport(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	fmt := pkg.Import("fmt")

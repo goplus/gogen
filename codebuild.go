@@ -123,12 +123,20 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	return p
 }
 
+const (
+	HasEllipsis = token.Pos(1)
+)
+
 // Call func
-func (p *CodeBuilder) Call(n int) *CodeBuilder {
+func (p *CodeBuilder) Call(n int, ellipsis ...token.Pos) *CodeBuilder {
 	args := p.stk.GetArgs(n)
 	n++
 	fn := p.stk.Get(-n)
-	ret := toFuncCall(p.pkg, fn, args)
+	var hasEllipsis token.Pos
+	if ellipsis != nil {
+		hasEllipsis = 1
+	}
+	ret := toFuncCall(p.pkg, fn, args, hasEllipsis)
 	p.stk.Ret(n, ret)
 	return p
 }
@@ -143,7 +151,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 		if fn == nil {
 			panic("TODO: operator not matched")
 		}
-		ret := toFuncCall(pkg, toObject(pkg, fn), args)
+		ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
 		p.stk.Ret(2, ret)
 	} else {
 		panic("TODO: BinaryOp")
@@ -185,7 +193,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token) *CodeBuilder {
 		if fn == nil {
 			panic("TODO: operator not matched")
 		}
-		ret := toFuncCall(pkg, toObject(pkg, fn), args)
+		ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
 		p.stk.Ret(1, ret)
 	} else {
 		panic("TODO: UnaryOp")
