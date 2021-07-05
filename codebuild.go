@@ -79,20 +79,41 @@ func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 }
 
 // Assign func
-func (p *CodeBuilder) Assign(n int) *CodeBuilder {
-	args := p.stk.GetArgs(n << 1)
+func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
+	var rhs int
+	if v != nil {
+		rhs = v[0]
+	} else {
+		rhs = lhs
+	}
+	args := p.stk.GetArgs(lhs + rhs)
 	stmt := &ast.AssignStmt{
 		Tok: token.ASSIGN,
-		Lhs: make([]ast.Expr, n),
-		Rhs: make([]ast.Expr, n),
+		Lhs: make([]ast.Expr, lhs),
+		Rhs: make([]ast.Expr, rhs),
 	}
-	for i := 0; i < n; i++ {
-		assignMatchType(stmt, args[i], args[n+i])
-		stmt.Lhs[i] = args[i].Val
-		stmt.Rhs[i] = args[n+i].Val
+	pkg := p.pkg
+	if lhs == rhs {
+		for i := 0; i < lhs; i++ {
+			assignMatchType(pkg, args[i], args[lhs+i].Type)
+			stmt.Lhs[i] = args[i].Val
+			stmt.Rhs[i] = args[lhs+i].Val
+		}
+	} else if rhs == 1 {
+		rhsVals, ok := args[lhs].Type.(*types.Tuple)
+		if !ok || lhs != rhsVals.Len() {
+			panic("TODO: unmatch assignment")
+		}
+		for i := 0; i < lhs; i++ {
+			assignMatchType(pkg, args[i], rhsVals.At(i).Type())
+			stmt.Lhs[i] = args[i].Val
+		}
+		stmt.Rhs[0] = args[lhs].Val
+	} else {
+		panic("TODO: unmatch assignment")
 	}
 	p.current.stmts = append(p.current.stmts, stmt)
-	p.stk.PopN(n << 1)
+	p.stk.PopN(lhs + rhs)
 	return p
 }
 
@@ -101,7 +122,7 @@ func (p *CodeBuilder) Call(n int) *CodeBuilder {
 	args := p.stk.GetArgs(n)
 	n++
 	fn := p.stk.Get(-n)
-	ret := toFuncCall(fn, args)
+	ret := toFuncCall(p.pkg, fn, args)
 	p.stk.Ret(n, ret)
 	return p
 }
@@ -116,7 +137,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 		if fn == nil {
 			panic("TODO: operator not matched")
 		}
-		ret := toFuncCall(toObject(pkg, fn), args)
+		ret := toFuncCall(pkg, toObject(pkg, fn), args)
 		p.stk.Ret(2, ret)
 	} else {
 		panic("TODO: BinaryOp")
@@ -158,7 +179,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token) *CodeBuilder {
 		if fn == nil {
 			panic("TODO: operator not matched")
 		}
-		ret := toFuncCall(toObject(pkg, fn), args)
+		ret := toFuncCall(pkg, toObject(pkg, fn), args)
 		p.stk.Ret(1, ret)
 	} else {
 		panic("TODO: UnaryOp")

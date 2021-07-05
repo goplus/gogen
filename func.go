@@ -46,16 +46,17 @@ func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 
 // End is for internal use.
 func (p *Func) End(cb *CodeBuilder) {
+	pkg := cb.pkg
 	stmts := cb.endCodeBlock(p.old)
 	body := &ast.BlockStmt{List: stmts}
 	t := p.Type().(*types.Signature)
 	if fn := p.decl; fn == nil { // is closure
-		expr := &ast.FuncLit{Type: toFuncType(t), Body: body}
+		expr := &ast.FuncLit{Type: toFuncType(pkg, t), Body: body}
 		cb.stk.Push(internal.Elem{Val: expr, Type: t})
 	} else {
-		fn.Name, fn.Type, fn.Body = ident(p.Name()), toFuncType(t), body
+		fn.Name, fn.Type, fn.Body = ident(p.Name()), toFuncType(pkg, t), body
 		if recv := t.Recv(); recv != nil {
-			fn.Recv = toRecv(recv)
+			fn.Recv = toRecv(pkg, recv)
 		}
 	}
 }

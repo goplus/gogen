@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -24,21 +25,21 @@ func boolean(v bool) *ast.Ident {
 	return &ast.Ident{Name: "false"}
 }
 
-func newField(name string, typ types.Type) *ast.Field {
+func newField(pkg *Package, name string, typ types.Type) *ast.Field {
 	return &ast.Field{
 		Names: []*ast.Ident{ident(name)},
-		Type:  toType(typ),
+		Type:  toType(pkg, typ),
 	}
 }
 
-func toRecv(recv *types.Var) *ast.FieldList {
-	return &ast.FieldList{List: []*ast.Field{newField(recv.Name(), recv.Type())}}
+func toRecv(pkg *Package, recv *types.Var) *ast.FieldList {
+	return &ast.FieldList{List: []*ast.Field{newField(pkg, recv.Name(), recv.Type())}}
 }
 
 // -----------------------------------------------------------------------------
 // function type
 
-func toFieldList(t *types.Tuple) []*ast.Field {
+func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 	if t == nil {
 		return nil
 	}
@@ -47,7 +48,7 @@ func toFieldList(t *types.Tuple) []*ast.Field {
 	for i := 0; i < n; i++ {
 		item := t.At(i)
 		names := []*ast.Ident{ident(item.Name())}
-		typ := toType(item.Type())
+		typ := toType(pkg, item.Type())
 		flds[i] = &ast.Field{Names: names, Type: typ}
 	}
 	return flds
@@ -61,9 +62,9 @@ func toVariadic(fld *ast.Field) {
 	fld.Type = &ast.Ellipsis{Elt: t.Elt}
 }
 
-func toFuncType(sig *types.Signature) *ast.FuncType {
-	params := toFieldList(sig.Params())
-	results := toFieldList(sig.Results())
+func toFuncType(pkg *Package, sig *types.Signature) *ast.FuncType {
+	params := toFieldList(pkg, sig.Params())
+	results := toFieldList(pkg, sig.Results())
 	if sig.Variadic() {
 		n := len(params)
 		if n == 0 {
@@ -79,18 +80,20 @@ func toFuncType(sig *types.Signature) *ast.FuncType {
 
 // -----------------------------------------------------------------------------
 
-func toType(typ types.Type) ast.Expr {
+func toType(pkg *Package, typ types.Type) ast.Expr {
 	switch t := typ.(type) {
 	case *types.Basic: // bool, int, etc
 		return toBasicType(t)
+	case *types.Named:
+		return toNamedType(pkg, t)
 	case *types.Interface:
-		return toInterface(t)
+		return toInterface(pkg, t)
 	case *types.Slice:
-		return toSliceType(t)
+		return toSliceType(pkg, t)
 	case *types.Array:
-		return toArrayType(t)
+		return toArrayType(pkg, t)
 	}
-	log.Panicln("TODO: toType -", typ)
+	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil
 }
 
@@ -101,21 +104,29 @@ func toBasicType(t *types.Basic) ast.Expr {
 	return &ast.Ident{Name: t.Name()}
 }
 
-func toSliceType(t *types.Slice) ast.Expr {
-	return &ast.ArrayType{Elt: toType(t.Elem())}
+func toNamedType(pkg *Package, t *types.Named) ast.Expr {
+	o := t.Obj()
+	if at := o.Pkg(); at == nil || at == pkg.Types {
+		return &ast.Ident{Name: o.Name()}
+	}
+	panic("TODO: toNamedType")
 }
 
-func toArrayType(t *types.Array) ast.Expr {
+func toSliceType(pkg *Package, t *types.Slice) ast.Expr {
+	return &ast.ArrayType{Elt: toType(pkg, t.Elem())}
+}
+
+func toArrayType(pkg *Package, t *types.Array) ast.Expr {
 	len := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(t.Len(), 10)}
-	return &ast.ArrayType{Len: len, Elt: toType(t.Elem())}
+	return &ast.ArrayType{Len: len, Elt: toType(pkg, t.Elem())}
 }
 
-func toInterface(t *types.Interface) ast.Expr {
+func toInterface(pkg *Package, t *types.Interface) ast.Expr {
 	var flds []*ast.Field
 	for i, n := 0, t.NumExplicitMethods(); i < n; i++ {
 		fn := t.ExplicitMethod(i)
 		name := ident(fn.Name())
-		typ := toFuncType(fn.Type().(*types.Signature))
+		typ := toFuncType(pkg, fn.Type().(*types.Signature))
 		fld := &ast.Field{Names: []*ast.Ident{name}, Type: typ}
 		flds = append(flds, fld)
 	}
@@ -271,7 +282,7 @@ var (
 	}
 )
 
-func toFuncCall(fn internal.Elem, args []internal.Elem) internal.Elem {
+func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem) internal.Elem {
 	sig, ok := fn.Type.(*types.Signature)
 	if !ok {
 		panic("TODO: call to non function")
@@ -293,13 +304,13 @@ func toFuncCall(fn internal.Elem, args []internal.Elem) internal.Elem {
 		if !ok {
 			panic("TODO: tyVariadic not a slice")
 		}
-		matchFuncArgs(tyArgs[:n1], params)
-		matchElemType(tyArgs[n1:], tyVariadic.Elem())
+		matchFuncArgs(pkg, tyArgs[:n1], params)
+		matchElemType(pkg, tyArgs[n1:], tyVariadic.Elem())
 	} else {
 		if params.Len() != n {
 			panic("TODO: unmatched function parameters count")
 		}
-		matchFuncArgs(tyArgs, params)
+		matchFuncArgs(pkg, tyArgs, params)
 	}
 	tyRet := toRetType(sig)
 	switch t := fn.Val.(type) {
@@ -328,23 +339,23 @@ func toRetType(sig *types.Signature) types.Type {
 	}
 }
 
-func matchFuncArgs(args []types.Type, params *types.Tuple) {
+func matchFuncArgs(pkg *Package, args []types.Type, params *types.Tuple) {
 	for i, arg := range args {
-		matchType(arg, params.At(i).Type())
+		matchType(pkg, arg, params.At(i).Type())
 	}
 }
 
-func matchElemType(vals []types.Type, elt types.Type) {
+func matchElemType(pkg *Package, vals []types.Type, elt types.Type) {
 	for _, val := range vals {
-		matchType(val, elt)
+		matchType(pkg, val, elt)
 	}
 }
 
 // -----------------------------------------------------------------------------
 
-func assignMatchType(stmt *ast.AssignStmt, r internal.Elem, val internal.Elem) {
+func assignMatchType(pkg *Package, r internal.Elem, valTy types.Type) {
 	if rt, ok := r.Type.(*refType); ok {
-		matchType(rt.typ, val.Type)
+		matchType(pkg, rt.typ, valTy)
 	} else {
 		panic("TODO: unassignable")
 	}

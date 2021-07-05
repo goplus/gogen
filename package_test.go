@@ -188,6 +188,28 @@ func main() {
 `)
 }
 
+func TestAssignFnCall(t *testing.T) {
+	var n, err *gox.Var
+	pkg := gox.NewPackage("", "main", nil)
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar("n", &n).NewVar("err", &err).
+		VarRef(n).VarRef(err).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).
+		Assign(2, 1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	var n int
+	var err error
+	n, err = fmt.Println("Hello")
+}
+`)
+}
+
 func TestOperator(t *testing.T) {
 	var a, b, c, d *gox.Var
 	pkg := gox.NewPackage("", "main", nil)

@@ -96,13 +96,13 @@ func (p *unboundType) String() string {
 
 // ----------------------------------------------------------------------------
 
-func matchType(arg, param types.Type) {
+func matchType(pkg *Package, arg, param types.Type) {
 	if t, ok := arg.(*unboundType); ok {
 		if t.bound == nil {
 			param = types.Default(param)
 			t.bound = param
 			t.v.typ = param
-			*t.v.ptype = toType(param)
+			*t.v.ptype = toType(pkg, param)
 			return
 		}
 		arg = t.bound
