@@ -123,17 +123,13 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	return p
 }
 
-const (
-	HasEllipsis = token.Pos(1)
-)
-
 // Call func
-func (p *CodeBuilder) Call(n int, ellipsis ...token.Pos) *CodeBuilder {
+func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	args := p.stk.GetArgs(n)
 	n++
 	fn := p.stk.Get(-n)
 	var hasEllipsis token.Pos
-	if ellipsis != nil {
+	if ellipsis != nil && ellipsis[0] {
 		hasEllipsis = 1
 	}
 	ret := toFuncCall(p.pkg, fn, args, hasEllipsis)
