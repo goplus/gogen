@@ -41,6 +41,10 @@ func (p *CodeBuilder) init(pkg *Package) {
 	p.stk.Init()
 }
 
+func (p *CodeBuilder) Pkg() *Package {
+	return p.pkg
+}
+
 func (p *CodeBuilder) startCodeBlock(current codeBlock, old *codeBlockCtx) *CodeBuilder {
 	p.current, *old = codeBlockCtx{current, p.stk.Len(), nil}, p.current
 	return p

@@ -41,8 +41,8 @@ func main() {
 func TestFuncBasic(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	v := pkg.NewParam("v", gox.TyByte)
-	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).End()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).End().Pkg().
+		NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
 func foo(v byte) {
