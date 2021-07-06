@@ -60,6 +60,11 @@ func (p *CodeBuilder) endCodeBlock(old codeBlockCtx) []ast.Stmt {
 // NewClosure func
 func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
 	sig := types.NewSignature(nil, params, results, variadic)
+	return p.NewClosureWith(sig)
+}
+
+// NewClosureWith func
+func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 	fn := types.NewFunc(token.NoPos, p.pkg.Types, "", sig)
 	if debug {
 		log.Println("NewClosure")
@@ -165,7 +170,7 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	}
 	ret := toFuncCall(p.pkg, fn, args, hasEllipsis)
 	if debug {
-		log.Println("Call", n, int(hasEllipsis))
+		log.Println("Call", n-1, int(hasEllipsis))
 	}
 	p.stk.Ret(n, ret)
 	return p
