@@ -57,11 +57,6 @@ type PkgRef struct {
 	nameRefs []*ast.Ident // for internal use
 }
 
-// Name returns the package name.
-func (p *PkgRef) Name() string {
-	return p.Types.Name()
-}
-
 // Ref returns the object in scope s with the given name if such an
 // object exists; otherwise the result is nil.
 func (p *PkgRef) Ref(name string) Ref {
@@ -148,23 +143,29 @@ func (p *Package) getDecls() (decls []ast.Decl) {
 	if n == 0 {
 		return p.decls
 	}
-	decls = make([]ast.Decl, 0, len(p.decls)+1)
-	specs := make([]ast.Spec, n)
+	specs := make([]ast.Spec, 0, n)
 	names := p.newAutoNames()
-	for i, pkgPath := range p.pkgPaths {
+	for _, pkgPath := range p.pkgPaths {
 		pkg := p.importPkgs[pkgPath]
-		pkgName, renamed := names.RequireName(pkg.Name())
+		if pkg.Types == nil { // unused
+			continue
+		}
+		pkgName, renamed := names.RequireName(pkg.Types.Name())
 		if renamed {
 			pkg.Types.SetName(pkgName)
 			for _, nameRef := range pkg.nameRefs {
 				nameRef.Name = pkgName
 			}
 		}
-		specs[i] = &ast.ImportSpec{
+		specs = append(specs, &ast.ImportSpec{
 			Name: ident(pkgName),
 			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkgPath)},
-		}
+		})
 	}
+	if len(specs) == 0 {
+		return p.decls
+	}
+	decls = make([]ast.Decl, 0, len(p.decls)+1)
 	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
 	decls = append(decls, p.decls...)
 	return
