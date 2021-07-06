@@ -4,9 +4,18 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
 
 	"github.com/goplus/gox/internal"
 )
+
+var (
+	debug bool
+)
+
+func SetDebug(d bool) {
+	debug = d
+}
 
 // ----------------------------------------------------------------------------
 
@@ -48,6 +57,9 @@ func (p *CodeBuilder) endCodeBlock(old codeBlockCtx) []ast.Stmt {
 func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
 	sig := types.NewSignature(nil, params, results, variadic)
 	fn := types.NewFunc(token.NoPos, p.pkg.Types, "", sig)
+	if debug {
+		log.Println("NewClosure")
+	}
 	return &Func{Func: fn}
 }
 
@@ -58,6 +70,9 @@ func (p *CodeBuilder) NewVar(name string, pv **Var) *CodeBuilder {
 	stmt := &ast.DeclStmt{
 		Decl: decl,
 	}
+	if debug {
+		log.Println("NewVar", name)
+	}
 	p.current.stmts = append(p.current.stmts, stmt)
 	*pv = newVar(name, &spec.Type)
 	return p
@@ -66,11 +81,17 @@ func (p *CodeBuilder) NewVar(name string, pv **Var) *CodeBuilder {
 // VarRef func: p.VarRef(nil) means underscore (_)
 func (p *CodeBuilder) VarRef(v *Var) *CodeBuilder {
 	if v != nil {
+		if debug {
+			log.Println("VarRef", v.name)
+		}
 		p.stk.Push(internal.Elem{
 			Val:  ident(v.name),
 			Type: &refType{typ: v.typ},
 		})
 	} else {
+		if debug {
+			log.Println("VarRef _")
+		}
 		p.stk.Push(internal.Elem{
 			Val: underscore, // _
 		})
@@ -80,6 +101,9 @@ func (p *CodeBuilder) VarRef(v *Var) *CodeBuilder {
 
 // Val func
 func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
+	if debug {
+		log.Println("Val", v)
+	}
 	p.stk.Push(toExpr(p.pkg, v))
 	return p
 }
@@ -118,6 +142,9 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	} else {
 		panic("TODO: unmatch assignment")
 	}
+	if debug {
+		log.Println("Assign", lhs, rhs)
+	}
 	p.current.stmts = append(p.current.stmts, stmt)
 	p.stk.PopN(lhs + rhs)
 	return p
@@ -133,6 +160,9 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 		hasEllipsis = 1
 	}
 	ret := toFuncCall(p.pkg, fn, args, hasEllipsis)
+	if debug {
+		log.Println("Call", n, int(hasEllipsis))
+	}
 	p.stk.Ret(n, ret)
 	return p
 }
@@ -148,6 +178,9 @@ func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 			panic("TODO: operator not matched")
 		}
 		ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
+		if debug {
+			log.Println("BinaryOp", op)
+		}
 		p.stk.Ret(2, ret)
 	} else {
 		panic("TODO: BinaryOp")
@@ -190,6 +223,9 @@ func (p *CodeBuilder) UnaryOp(op token.Token) *CodeBuilder {
 			panic("TODO: operator not matched")
 		}
 		ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
+		if debug {
+			log.Println("UnaryOp", op)
+		}
 		p.stk.Ret(1, ret)
 	} else {
 		panic("TODO: UnaryOp")
@@ -229,6 +265,9 @@ func (p *CodeBuilder) EndStmt() *CodeBuilder {
 
 // End func
 func (p *CodeBuilder) End() *CodeBuilder {
+	if debug {
+		log.Println("End")
+	}
 	p.current.End(p)
 	return p
 }

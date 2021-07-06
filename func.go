@@ -4,6 +4,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
 
 	"github.com/goplus/gox/internal"
 )
@@ -72,11 +73,13 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 	if name == "" {
 		panic("TODO: no func name")
 	}
-	p.endImport()
 
 	fn := types.NewFunc(token.NoPos, p.Types, name, sig)
 	p.Types.Scope().Insert(fn)
 
+	if debug {
+		log.Println("NewFunc", name)
+	}
 	decl := &ast.FuncDecl{}
 	p.decls = append(p.decls, decl)
 	return &Func{Func: fn, decl: decl}

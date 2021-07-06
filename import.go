@@ -52,6 +52,8 @@ type PkgRef struct {
 	// It is set only when Types is set.
 	IllTyped bool
 
+	pkg *Package // to import packages anywhere
+
 	nameRefs []*ast.Ident // for internal use
 }
 
@@ -63,6 +65,9 @@ func (p *PkgRef) Name() string {
 // Ref returns the object in scope s with the given name if such an
 // object exists; otherwise the result is nil.
 func (p *PkgRef) Ref(name string) Ref {
+	if p.Types == nil {
+		p.pkg.endImport()
+	}
 	return p.Types.Scope().Lookup(name)
 }
 
@@ -118,7 +123,7 @@ func (p *Package) Import(pkgPath string) *PkgRef {
 	// TODO: canonical pkgPath
 	pkgImport, ok := p.importPkgs[pkgPath]
 	if !ok {
-		pkgImport = &PkgRef{}
+		pkgImport = &PkgRef{pkg: p}
 		p.importPkgs[pkgPath] = pkgImport
 		p.pkgPaths = append(p.pkgPaths, pkgPath)
 	}

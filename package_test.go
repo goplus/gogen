@@ -12,6 +12,10 @@ import (
 	"golang.org/x/tools/go/gcexportdata"
 )
 
+func init() {
+	gox.SetDebug(true)
+}
+
 func domTest(t *testing.T, pkg *gox.Package, expected string) {
 	var b bytes.Buffer
 	err := gox.WriteTo(&b, pkg)
@@ -172,6 +176,27 @@ func TestImport(t *testing.T) {
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt1 "fmt"
+
+func fmt(v []byte) {
+}
+func main() {
+	fmt1.Println("Hello")
+}
+`)
+}
+
+func TestImportAnyWhere(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+
+	v := pkg.NewParam("v", types.NewSlice(gox.TyByte))
+	pkg.NewFunc(nil, "fmt", gox.NewTuple(v), nil, false).BodyStart(pkg).End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(pkg.Import("fmt").Ref("Println")).Val("Hello").Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 

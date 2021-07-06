@@ -51,7 +51,6 @@ func (p *VarDecl) InitStart() *CodeBuilder {
 
 // NewVar func
 func (p *Package) NewVar(name string, pv **Var) *VarDecl {
-	p.endImport()
 	return &VarDecl{name, nil, p, pv}
 }
 
