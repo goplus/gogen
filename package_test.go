@@ -329,7 +329,7 @@ func main() {
 `)
 }
 
-func _TestBinaryOpUntyped(t *testing.T) {
+func TestBinaryOpUntyped(t *testing.T) {
 	var a *gox.Var
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

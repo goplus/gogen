@@ -256,6 +256,9 @@ func toInstantiate(tparams []*unboundFuncParam, typ types.Type) (types.Type, boo
 }
 
 func toInstantiateVar(tparams []*unboundFuncParam, param *types.Var) (*types.Var, bool) {
+	if param == nil {
+		return nil, false
+	}
 	if t, changed := toInstantiate(tparams, param.Type()); changed {
 		return types.NewParam(param.Pos(), param.Pkg(), param.Name(), t), true
 	}
