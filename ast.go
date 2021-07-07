@@ -242,7 +242,7 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 
 func toOperatorExpr(fullName string) ast.Expr {
 	if pos := strings.LastIndex(fullName, "_"); pos > 0 {
-		name := fullName[pos:]
+		name := fullName[pos+1:]
 		if op, ok := nameToOps[name]; ok {
 			if op.Arity == 2 {
 				return &ast.BinaryExpr{Op: op.Tok}
@@ -261,35 +261,40 @@ type operator struct {
 
 var (
 	nameToOps = map[string]operator{
-		"_Add":    {token.ADD, 2},
-		"_Sub":    {token.SUB, 2},
-		"_Mul":    {token.MUL, 2},
-		"_Quo":    {token.QUO, 2},
-		"_Rem":    {token.REM, 2},
-		"_Or":     {token.OR, 2},
-		"_Xor":    {token.XOR, 2},
-		"_And":    {token.AND, 2},
-		"_AndNot": {token.AND_NOT, 2},
+		"Add":    {token.ADD, 2},
+		"Sub":    {token.SUB, 2},
+		"Mul":    {token.MUL, 2},
+		"Quo":    {token.QUO, 2},
+		"Rem":    {token.REM, 2},
+		"Or":     {token.OR, 2},
+		"Xor":    {token.XOR, 2},
+		"And":    {token.AND, 2},
+		"AndNot": {token.AND_NOT, 2},
 
-		"_Lsh": {token.SHL, 2},
-		"_Rsh": {token.SHR, 2},
+		"Lsh": {token.SHL, 2},
+		"Rsh": {token.SHR, 2},
 
-		"_LT": {token.LSS, 2},
-		"_LE": {token.LEQ, 2},
-		"_GT": {token.GTR, 2},
-		"_GE": {token.GEQ, 2},
-		"_EQ": {token.EQL, 2},
-		"_NE": {token.NEQ, 2},
+		"LT": {token.LSS, 2},
+		"LE": {token.LEQ, 2},
+		"GT": {token.GTR, 2},
+		"GE": {token.GEQ, 2},
+		"EQ": {token.EQL, 2},
+		"NE": {token.NEQ, 2},
 
-		"_Neg": {token.SUB, 1},
-		"_Not": {token.XOR, 1},
+		"Neg": {token.SUB, 1},
+		"Not": {token.XOR, 1},
 	}
 )
 
 func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) internal.Elem {
+	var it *instantiated
 	sig, ok := fn.Type.(*types.Signature)
 	if !ok {
-		panic("TODO: call to non function")
+		if tsig, ok := fn.Type.(*TemplateSignature); ok { // template function
+			sig, it = tsig.instantiate()
+		} else {
+			panic("TODO: call to non function")
+		}
 	}
 	n := len(args)
 	tyArgs := make([]types.Type, n)
@@ -316,7 +321,7 @@ func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis t
 		}
 		matchFuncArgs(pkg, tyArgs, params)
 	}
-	tyRet := toRetType(sig)
+	tyRet := toRetType(sig.Results(), it)
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
 		t.X, t.Y = valArgs[0], valArgs[1]
@@ -332,14 +337,13 @@ func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis t
 	}
 }
 
-func toRetType(sig *types.Signature) types.Type {
-	t := sig.Results()
+func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	if t == nil {
 		return nil
 	} else if t.Len() == 1 {
-		return t.At(0).Type()
+		return it.normalize(t.At(0).Type())
 	}
-	return t
+	return it.normalizeTuple(t)
 }
 
 func matchFuncArgs(pkg *Package, args []types.Type, params *types.Tuple) {
@@ -354,8 +358,6 @@ func matchElemType(pkg *Package, vals []types.Type, elt types.Type) {
 	}
 }
 
-// -----------------------------------------------------------------------------
-
 func assignMatchType(pkg *Package, r internal.Elem, valTy types.Type) {
 	if rt, ok := r.Type.(*refType); ok {
 		matchType(pkg, rt.typ, valTy)
@@ -363,6 +365,26 @@ func assignMatchType(pkg *Package, r internal.Elem, valTy types.Type) {
 		// do nothing
 	} else {
 		panic("TODO: unassignable")
+	}
+}
+
+func matchType(pkg *Package, arg, param types.Type) {
+	if ufp, ok := param.(*unboundFuncParam); ok { // template function param
+		if _, ok := arg.(*unboundType); ok {
+			panic("TODO: don't pass unbound variables as template function params.")
+		}
+		ufp.Bound(arg)
+	} else if t, ok := arg.(*unboundType); ok { // variable to bound type
+		if t.bound == nil {
+			param = types.Default(param)
+			t.bound = param
+			t.v.typ = param
+			*t.v.ptype = toType(pkg, param)
+		}
+		arg = t.bound
+		if !types.AssignableTo(arg, param) {
+			log.Panicf("TODO: can't assign %v to %v", arg, param)
+		}
 	}
 }
 

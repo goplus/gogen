@@ -14,99 +14,69 @@
 // +build ignore
 
 // -----------------------------------------------------------------------------
-// type int_type = int, int64, int32, int16, int8, uint, uintptr, uint64, uint32, uint16, uint8
 
-func (a int_type) + (b int_type) int_type
-func (a int_type) - (b int_type) int_type
-func (a int_type) * (b int_type) int_type
-func (a int_type) / (b int_type) int_type
-func (a int_type) % (b int_type) int_type
+type ninteger interface {
+    type int, int64, int32, int16, int8, uint, uintptr, uint64, uint32, uint16, uint8
+}
 
-func (a int_type) | (b int_type) int_type
-func (a int_type) ^ (b int_type) int_type
-func (a int_type) & (b int_type) int_type
-func (a int_type) &^ (b int_type) int_type
+type integer interface {
+    ninteger
+}
 
-func (a int_type) << (n untyped_uint) int_type
-func (a int_type) >> (n untyped_uint) int_type
+type float interface {
+    type float32, float64
+}
 
-func (a int_type) < (b int_type) bool
-func (a int_type) <= (b int_type) bool
-func (a int_type) > (b int_type) bool
-func (a int_type) >= (b int_type) bool
-func (a int_type) == (b int_type) bool
-func (a int_type) != (b int_type) bool
+type complex interface {
+    type complex64, complex128
+}
 
-func -(a int_type) int_type
-func ^(a int_type) int_type
+type number interface { // - * /
+    integer
+    float
+    complex
+}
 
-// -----------------------------------------------------------------------------
-// type untyped_int[T], T = untyped_int | int_type
+type addable interface { // +
+    number
+    type string
+}
 
-func (a untyped_int) + (b T) T
-func (a untyped_int) - (b T) T
-func (a untyped_int) * (b T) T
-func (a untyped_int) / (b T) T
-func (a untyped_int) % (b T) T
+type orderable interface { // < <= > >=
+    integer
+    float
+    type string
+}
 
-func (a untyped_int) | (b T) T
-func (a untyped_int) ^ (b T) T
-func (a untyped_int) & (b T) T
-func (a untyped_int) &^ (b T) T
+type comparable interface { // == !=
+    addable
+    type bool, interface, pointer, slice, array, map, chan, struct
+    // func is very special, can only be compared to nil
+}
 
-func (a untyped_int) << (n untyped_uint) untyped_int
-func (a untyped_int) >> (n untyped_uint) untyped_int
+func [T addable] (a T) + (b T) T    // func gopo_Add[T addable](a, b T) T
+func [T number] (a T) - (b T) T     // func gopo_Sub[T number](a, b T) T
+func [T number] (a T) * (b T) T     // func gopo_Mul[T number](a, b T) T
+func [T number] (a T) / (b T) T     // func gopo_Quo[T number](a, b T) T
+func [T integer] (a T) % (b T) T    // func gopo_Rem[T integer](a, b T) T
 
-func (a untyped_int) < (b T) bool
-func (a untyped_int) <= (b T) bool
-func (a untyped_int) > (b T) bool
-func (a untyped_int) >= (b T) bool
-func (a untyped_int) == (b T) bool
-func (a untyped_int) != (b T) bool
+func [T integer] (a T) | (b T) T    // func gopo_Or[T integer](a, b T) T
+func [T integer] (a T) ^ (b T) T    // func gopo_Xor[T integer](a, b T) T
+func [T integer] (a T) & (b T) T    // func gopo_And[T integer](a, b T) T
+func [T integer] (a T) &^ (b T) T   // func gopo_AndNot[T integer](a, b T) T
 
-func -(a untyped_int) untyped_int
-func ^(a untyped_int) untyped_int
+func [T integer, N ninteger] (a T) << (n N) T // func gopo_Lsh[T integer, N ninteger](a T, n N) T
+func [T integer, N ninteger] (a T) >> (n N) T // func gopo_Rsh[T integer, N ninteger](a T, n N) T
 
-// -----------------------------------------------------------------------------
-// type string
+func [T orderable] (a T) < (b T) bool   // func gopo_LT[T orderable](a, b T) bool
+func [T orderable] (a T) <= (b T) bool  // func gopo_LE[T orderable](a, b T) bool
+func [T orderable] (a T) > (b T) bool   // func gopo_GT[T orderable](a, b T) bool
+func [T orderable] (a T) >= (b T) bool  // func gopo_GE[T orderable](a, b T) bool
 
-func (a string) + (b string) string
+func [T comparable] (a T) == (b T) bool // func gopo_EQ[T comparable](a, b T) bool
+func [T comparable] (a T) != (b T) bool // func gopo_NE[T comparable](a, b T) bool
 
-func (a string) < (b string) bool
-func (a string) <= (b string bool
-func (a string) > (b string) bool
-func (a string) >= (b string) bool
-func (a string) == (b string) bool
-func (a string) != (b string) bool
-
-// -----------------------------------------------------------------------------
-// type float_type = float64, float32
-
-func (a float_type) + (b float_type) float_type
-func (a float_type) - (b float_type) float_type
-func (a float_type) * (b float_type) float_type
-func (a float_type) / (b float_type) float_type
-
-func (a float_type) < (b float_type) bool
-func (a float_type) <= (b float_type bool
-func (a float_type) > (b float_type) bool
-func (a float_type) >= (b float_type) bool
-func (a float_type) == (b float_type) bool
-func (a float_type) != (b float_type) bool
-
-func -(a float_type) float_type
-
-// -----------------------------------------------------------------------------
-// type complex_type = complex128, complex64
-
-func (a complex_type) + (b complex_type) complex_type
-func (a complex_type) - (b complex_type) complex_type
-func (a complex_type) * (b complex_type) complex_type
-func (a complex_type) / (b complex_type) complex_type
-
-func (a complex_type) == (b complex_type) bool
-func (a complex_type) != (b complex_type) bool
-
-func -(a complex_type) complex_type
+func [T number] -(a T) T    // func gopo_Neg[T number](a T) T
+func [T integer] ^(a T) T   // func gopo_Not[T integer](a T) T
 
 // -----------------------------------------------------------------------------

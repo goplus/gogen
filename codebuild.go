@@ -1,3 +1,16 @@
+/*
+ Copyright 2021 The GoPlus Authors (goplus.org)
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+     http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
 package gox
 
 import (
@@ -176,48 +189,48 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	return p
 }
 
+func (p *CodeBuilder) Builtin(n int, id string) *CodeBuilder {
+	panic("TODO: Builtin")
+}
+
 // BinaryOp func
 func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 	pkg := p.pkg
 	args := p.stk.GetArgs(2)
-	if typ, ok := pkg.checkBuiltin(args[0].Type); ok {
-		name := pkg.prefix.Operator + typ + binaryOps[op]
-		fn := pkg.builtin.Scope().Lookup(name)
-		if fn == nil {
-			panic("TODO: operator not matched")
-		}
-		ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
-		if debug {
-			log.Println("BinaryOp", op)
-		}
-		p.stk.Ret(2, ret)
-	} else {
-		panic("TODO: BinaryOp")
+	name := pkg.prefix.Operator + binaryOps[op]
+	fn := pkg.builtin.Scope().Lookup(name)
+	if fn == nil {
+		panic("TODO: operator not matched")
 	}
+	ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
+	if debug {
+		log.Println("BinaryOp", op)
+	}
+	p.stk.Ret(2, ret)
 	return p
 }
 
 var (
 	binaryOps = [...]string{
-		token.ADD: "_Add", // +
-		token.SUB: "_Sub", // -
-		token.MUL: "_Mul", // *
-		token.QUO: "_Quo", // /
-		token.REM: "_Rem", // %
+		token.ADD: "Add", // +
+		token.SUB: "Sub", // -
+		token.MUL: "Mul", // *
+		token.QUO: "Quo", // /
+		token.REM: "Rem", // %
 
-		token.AND:     "_And",    // &
-		token.OR:      "_Or",     // |
-		token.XOR:     "_Xor",    // ^
-		token.AND_NOT: "_AndNot", // &^
-		token.SHL:     "_Lsh",    // <<
-		token.SHR:     "_Rsh",    // >>
+		token.AND:     "And",    // &
+		token.OR:      "Or",     // |
+		token.XOR:     "Xor",    // ^
+		token.AND_NOT: "AndNot", // &^
+		token.SHL:     "Lsh",    // <<
+		token.SHR:     "Rsh",    // >>
 
-		token.LSS: "_LT",
-		token.LEQ: "_LE",
-		token.GTR: "_GT",
-		token.GEQ: "_GE",
-		token.EQL: "_EQ",
-		token.NEQ: "_NE",
+		token.LSS: "LT",
+		token.LEQ: "LE",
+		token.GTR: "GT",
+		token.GEQ: "GE",
+		token.EQL: "EQ",
+		token.NEQ: "NE",
 	}
 )
 
@@ -225,27 +238,23 @@ var (
 func (p *CodeBuilder) UnaryOp(op token.Token) *CodeBuilder {
 	pkg := p.pkg
 	args := p.stk.GetArgs(1)
-	if typ, ok := pkg.checkBuiltin(args[0].Type); ok {
-		name := pkg.prefix.Operator + typ + unaryOps[op]
-		fn := pkg.builtin.Scope().Lookup(name)
-		if fn == nil {
-			panic("TODO: operator not matched")
-		}
-		ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
-		if debug {
-			log.Println("UnaryOp", op)
-		}
-		p.stk.Ret(1, ret)
-	} else {
-		panic("TODO: UnaryOp")
+	name := pkg.prefix.Operator + unaryOps[op]
+	fn := pkg.builtin.Scope().Lookup(name)
+	if fn == nil {
+		panic("TODO: operator not matched")
 	}
+	ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
+	if debug {
+		log.Println("UnaryOp", op)
+	}
+	p.stk.Ret(1, ret)
 	return p
 }
 
 var (
 	unaryOps = [...]string{
-		token.SUB: "_Neg",
-		token.XOR: "_Not",
+		token.SUB: "Neg",
+		token.XOR: "Not",
 	}
 )
 
