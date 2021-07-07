@@ -164,6 +164,8 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 			Val:  v,
 			Type: types.Typ[toBasicKind(v.Kind)],
 		}
+	case types.Object:
+		return toObject(pkg, v)
 	case int:
 		return internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(v)},
@@ -189,8 +191,6 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 			Val:  &ast.BasicLit{Kind: token.FLOAT, Value: strconv.FormatFloat(v, 'g', -1, 64)},
 			Type: types.Typ[types.UntypedFloat],
 		}
-	case types.Object:
-		return toObject(pkg, v)
 	}
 	panic("TODO: toExpr")
 }
