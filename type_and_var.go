@@ -105,4 +105,17 @@ func (p *unboundType) String() string {
 	panic("unbound type")
 }
 
+// overloadFuncType: overload function type
+type overloadFuncType struct {
+	funcs []types.Object
+}
+
+func (p *overloadFuncType) Underlying() types.Type {
+	panic("overload function type")
+}
+
+func (p *overloadFuncType) String() string {
+	panic("overload function type")
+}
+
 // ----------------------------------------------------------------------------

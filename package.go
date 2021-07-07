@@ -97,7 +97,7 @@ type Package struct {
 	builtin    *types.Package
 }
 
-// NewPackage func
+// NewPackage creates a new package.
 func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if conf == nil {
 		conf = &Config{}
@@ -123,6 +123,11 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg)
 	return pkg
+}
+
+// Builtin returns the buitlin package.
+func (p *Package) Builtin() *PkgRef {
+	return &PkgRef{Types: p.builtin, Fset: p.Fset, pkg: p}
 }
 
 // ----------------------------------------------------------------------------

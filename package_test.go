@@ -366,3 +366,17 @@ func main() {
 }
 `)
 }
+
+func _TestBuiltinFunc(t *testing.T) {
+	var a *gox.Var
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar("a", &a).
+		VarRef(a).Val("Hi").Val("!").BinaryOp(token.ADD).Assign(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+}
+`)
+}

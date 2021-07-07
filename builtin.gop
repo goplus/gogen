@@ -27,14 +27,10 @@ type float interface {
     type float32, float64
 }
 
-type complex interface {
-    type complex64, complex128
-}
-
 type number interface { // - * /
     integer
     float
-    complex
+    type complex64, complex128
 }
 
 type addable interface { // +
@@ -50,8 +46,8 @@ type orderable interface { // < <= > >=
 
 type comparable interface { // == !=
     addable
-    type bool, interface, pointer, slice, array, map, chan, struct
-    // func is very special, can only be compared to nil
+    type bool, interface, pointer, array, chan, struct
+    // slice/map/func is very special, can only be compared to nil
 }
 
 func [T addable] (a T) + (b T) T    // func gopo_Add[T addable](a, b T) T
@@ -78,5 +74,66 @@ func [T comparable] (a T) != (b T) bool // func gopo_NE[T comparable](a, b T) bo
 
 func [T number] -(a T) T    // func gopo_Neg[T number](a T) T
 func [T integer] ^(a T) T   // func gopo_Not[T integer](a T) T
+
+// -----------------------------------------------------------------------------
+
+type any interface {
+}
+
+type capable interface {
+    type slice, chan, array, array_pointer
+}
+
+type lenable interface {
+    capable
+    type map
+}
+
+type makable interface {
+    type slice, chan, map
+}
+
+func [Type any] copy(dst, src []Type) int
+func [Type any] close(c chan<- Type)
+
+func [Type lenable] len(v Type) int
+func [Type capable] cap(v Type) int
+
+// new & make are special cases, they require to pass a type.
+func [] new(T any) *T
+func [N ninteger] make(Type makable, size ...N) Type
+
+// As a special case, it is legal to append a string to a byte slice, like this:
+//	slice = append([]byte("hello "), "world"...)
+func [Type any] append(slice []Type, elems ...Type) []Type
+
+func complexFlt32(r, i float32) complex64
+func complexFlt64(r, i float64) complex128
+func complex = (
+    complexFlt32
+    complexFlt64
+)
+
+func realComplex64(c complex64) float32
+func realComplex128(c complex128) float64
+func real = (
+    realComplex64
+    realComplex128
+)
+
+func imagComplex64(c complex64) float32
+func imagComplex128(c complex128) float64
+func imag = (
+    imagComplex64
+    imagComplex128
+)
+
+func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
+
+func panic(v interface{})
+func recover() interface{}
+
+func print(args ...interface{})
+func println(args ...interface{})
 
 // -----------------------------------------------------------------------------

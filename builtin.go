@@ -31,6 +31,15 @@ func isBuiltinOp(v types.Object) bool {
 	return v.Pos() == token.NoPos
 }
 
+func newBuiltinDefault(prefix *NamePrefix, contracts *BuiltinContracts) *types.Package {
+	builtin := types.NewPackage("", "")
+	InitBuiltinOps(builtin, prefix, contracts)
+	InitBuiltinFuncs(builtin)
+	return builtin
+}
+
+// ----------------------------------------------------------------------------
+
 type typeTParam struct {
 	name     string
 	contract Contract
@@ -41,8 +50,8 @@ type typeParam struct {
 	tidx int
 }
 
-// InitBuiltin initializes the builtin package.
-func InitBuiltin(builtin *types.Package, prefix *NamePrefix, contracts *BuiltinContracts) {
+// InitBuiltinOps initializes operators of the builtin package.
+func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *BuiltinContracts) {
 	ops := [...]struct {
 		name    string
 		tparams []typeTParam
@@ -109,12 +118,8 @@ func InitBuiltin(builtin *types.Package, prefix *NamePrefix, contracts *BuiltinC
 	gbl := builtin.Scope()
 	pre := prefix.Operator
 	for _, op := range ops {
-		n := len(op.tparams)
-		tparams := make([]*TemplateParamType, n)
-		for i, tparam := range op.tparams {
-			tparams[i] = NewTemplateParamType(i, tparam.name, tparam.contract)
-		}
-		n = len(op.params)
+		tparams := newTParams(op.tparams)
+		n := len(op.params)
 		params := make([]*types.Var, n)
 		for i, param := range op.params {
 			params[i] = types.NewParam(token.NoPos, builtin, param.name, tparams[param.tidx])
@@ -131,10 +136,164 @@ func InitBuiltin(builtin *types.Package, prefix *NamePrefix, contracts *BuiltinC
 	}
 }
 
-func newBuiltinDefault(prefix *NamePrefix, contracts *BuiltinContracts) *types.Package {
-	builtin := types.NewPackage("", "")
-	InitBuiltin(builtin, prefix, contracts)
-	return builtin
+func newTParams(params []typeTParam) []*TemplateParamType {
+	n := len(params)
+	tparams := make([]*TemplateParamType, n)
+	for i, tparam := range params {
+		tparams[i] = NewTemplateParamType(i, tparam.name, tparam.contract)
+	}
+	return tparams
+}
+
+// ----------------------------------------------------------------------------
+
+type typeBParam struct {
+	name string
+	typ  types.BasicKind
+}
+
+type typeBFunc struct {
+	params []typeBParam
+	result types.BasicKind
+}
+
+type xType = interface{}
+type typeXParam struct {
+	name string
+	typ  xType // tidx | types.Type
+}
+
+const (
+	xtNone = iota << 16
+	xtEllipsis
+	xtSlice
+	xtMap
+	xtChanIn
+)
+
+// InitBuiltinFuncs initializes builtin functions of the builtin package.
+func InitBuiltinFuncs(builtin *types.Package) {
+	fns := [...]struct {
+		name    string
+		tparams []typeTParam
+		params  []typeXParam
+		result  xType
+	}{
+		{"copy", []typeTParam{{"Type", any}}, []typeXParam{{"dst", xtSlice}, {"src", xtSlice}}, types.Typ[types.Int]},
+		// func [Type any] copy(dst, src []Type) int
+
+		{"close", []typeTParam{{"Type", any}}, []typeXParam{{"c", xtChanIn}}, nil},
+		//func [Type any] close(c chan<- Type)
+
+		{"len", []typeTParam{{"Type", lenable}}, []typeXParam{{"v", 0}}, types.Typ[types.Int]},
+		// func [Type lenable] len(v Type) int
+
+		{"cap", []typeTParam{{"Type", capable}}, []typeXParam{{"v", 0}}, types.Typ[types.Int]},
+		// func [Type capable] cap(v Type) int
+
+		{"append", []typeTParam{{"Type", any}}, []typeXParam{{"slice", xtSlice}, {"elems", xtEllipsis}}, xtSlice},
+		// func [Type any] append(slice []Type, elems ...Type) []Type
+
+		{"delete", []typeTParam{{"Key", comparable}, {"Elem", any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
+		// func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
+	}
+	gbl := builtin.Scope()
+	for _, fn := range fns {
+		tparams := newTParams(fn.tparams)
+		n := len(fn.params)
+		params := make([]*types.Var, n)
+		for i, param := range fn.params {
+			typ := newXParamType(tparams, param.typ)
+			params[i] = types.NewParam(token.NoPos, builtin, param.name, typ)
+		}
+		var ellipsis bool
+		if tidx, ok := fn.params[n-1].typ.(int); ok && (tidx&xtEllipsis) != 0 {
+			ellipsis = true
+		}
+		var results *types.Tuple
+		if fn.result != nil {
+			typ := newXParamType(tparams, fn.result)
+			results = types.NewTuple(types.NewParam(token.NoPos, builtin, "", typ))
+		}
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis)
+		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, fn.name, tsig))
+	}
+	overloads := [...]struct {
+		name string
+		fns  [2]typeBFunc
+	}{
+		{"complex", [...]typeBFunc{
+			{[]typeBParam{{"r", types.Float32}, {"i", types.Float32}}, types.Complex64},
+			{[]typeBParam{{"r", types.Float64}, {"i", types.Float64}}, types.Complex128},
+		}},
+		// func complex(r, i float32) complex64
+		// func complex(r, i float64) complex128
+
+		{"real", [...]typeBFunc{
+			{[]typeBParam{{"c", types.Complex64}}, types.Float32},
+			{[]typeBParam{{"c", types.Complex128}}, types.Float64},
+		}},
+		// func real(c complex64) float32
+		// func real(c complex128) float64
+
+		{"imag", [...]typeBFunc{
+			{[]typeBParam{{"c", types.Complex64}}, types.Float32},
+			{[]typeBParam{{"c", types.Complex128}}, types.Float64},
+		}},
+		// func imag(c complex64) float32
+		// func imag(c complex128) float64
+	}
+	for _, overload := range overloads {
+		fns := []types.Object{
+			newBFunc(builtin, overload.name, overload.fns[0]),
+			newBFunc(builtin, overload.name, overload.fns[1]),
+		}
+		gbl.Insert(NewOverloadFunc(token.NoPos, builtin, overload.name, fns))
+	}
+	// func panic(v interface{})
+	// func recover() interface{}
+	// func print(args ...interface{})
+	// func println(args ...interface{})
+	emptyIntf := types.NewInterfaceType(nil, nil)
+	emptyIntfVar := types.NewVar(token.NoPos, builtin, "v", emptyIntf)
+	emptyIntfTuple := types.NewTuple(emptyIntfVar)
+	emptyIntfSlice := types.NewSlice(emptyIntf)
+	emptyIntfSliceVar := types.NewVar(token.NoPos, builtin, "args", emptyIntfSlice)
+	emptyIntfSliceTuple := types.NewTuple(emptyIntfSliceVar)
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "panic", types.NewSignature(nil, emptyIntfTuple, nil, false)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "recover", types.NewSignature(nil, nil, emptyIntfTuple, false)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "print", types.NewSignature(nil, emptyIntfSliceTuple, nil, true)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "println", types.NewSignature(nil, emptyIntfSliceTuple, nil, true)))
+}
+
+func newBFunc(builtin *types.Package, name string, t typeBFunc) types.Object {
+	n := len(t.params)
+	vars := make([]*types.Var, n)
+	for i, param := range t.params {
+		vars[i] = types.NewParam(token.NoPos, builtin, param.name, types.Typ[param.typ])
+	}
+	result := types.NewParam(token.NoPos, builtin, "", types.Typ[t.result])
+	sig := types.NewSignature(nil, types.NewTuple(vars...), types.NewTuple(result), false)
+	return types.NewFunc(token.NoPos, builtin, name, sig)
+}
+
+func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
+	if tidx, ok := x.(int); ok {
+		idx := tidx & 0xffff
+		switch tidx &^ 0xffff {
+		case xtNone:
+			return tparams[idx]
+		case xtEllipsis, xtSlice:
+			return types.NewSlice(tparams[idx])
+		case xtMap:
+			return types.NewMap(tparams[idx], tparams[idx+1])
+		case xtChanIn:
+			return types.NewChan(types.RecvOnly, tparams[idx])
+		default:
+			panic("TODO: newXParamType - unexpected xType")
+		}
+	}
+	return x.(types.Type)
 }
 
 // ----------------------------------------------------------------------------
@@ -189,10 +348,13 @@ const (
 
 // ----------------------------------------------------------------------------
 
-type comparable struct {
+type comparableT struct {
+	// addable
+	// type bool, interface, pointer, array, chan, struct
+	// NOTE: slice/map/func is very special, can only be compared to nil
 }
 
-func (p comparable) Match(typ types.Type) bool {
+func (p comparableT) Match(typ types.Type) bool {
 retry:
 	switch t := typ.(type) {
 	case *types.Basic:
@@ -200,6 +362,10 @@ retry:
 	case *types.Named:
 		typ = t.Underlying()
 		goto retry
+	case *types.Slice: // slice/map/func is very special
+		return false
+	case *types.Map:
+		return false
 	case *types.Signature:
 		return false
 	case *TemplateSignature:
@@ -216,22 +382,117 @@ retry:
 	return true
 }
 
-func (p comparable) String() string {
+func (p comparableT) String() string {
 	return "comparable"
 }
 
 // ----------------------------------------------------------------------------
 
+type anyT struct {
+}
+
+func (p anyT) Match(typ types.Type) bool {
+	return true
+}
+
+func (p anyT) String() string {
+	return "any"
+}
+
+// ----------------------------------------------------------------------------
+
+type capableT struct {
+	// type slice, chan, array, array_pointer
+}
+
+func (p capableT) Match(typ types.Type) bool {
+retry:
+	switch t := typ.(type) {
+	case *types.Slice:
+		return true
+	case *types.Chan:
+		return true
+	case *types.Array:
+		return true
+	case *types.Pointer:
+		_, ok := t.Elem().(*types.Array) // array_pointer
+		return ok
+	case *types.Named:
+		typ = t.Underlying()
+		goto retry
+	}
+	return false
+}
+
+func (p capableT) String() string {
+	return "capable"
+}
+
+// ----------------------------------------------------------------------------
+
+type lenableT struct {
+	// capable
+	// type map
+}
+
+func (p lenableT) Match(typ types.Type) bool {
+	if _, ok := typ.(*types.Map); ok {
+		return true
+	}
+	return capable.Match(typ)
+}
+
+func (p lenableT) String() string {
+	return "lenable"
+}
+
+// ----------------------------------------------------------------------------
+
+type makableT struct {
+	// type slice, chan, map
+}
+
+func (p makableT) Match(typ types.Type) bool {
+retry:
+	switch t := typ.(type) {
+	case *types.Slice:
+		return true
+	case *types.Map:
+		return true
+	case *types.Chan:
+		return true
+	case *types.Named:
+		typ = t.Underlying()
+		goto retry
+	}
+	return false
+}
+
+func (p makableT) String() string {
+	return "makable"
+}
+
+// ----------------------------------------------------------------------------
+
+var (
+	any        = anyT{}
+	capable    = capableT{}
+	lenable    = lenableT{}
+	makable    = makableT{}
+	comparable = comparableT{}
+	ninteger   = &basicContract{kindsInteger, "ninteger"}
+)
+
 var (
 	defaultContracts = &BuiltinContracts{
-		NInteger:   &basicContract{kindsInteger, "ninteger"},
+		NInteger:   ninteger,
 		Integer:    &basicContract{kindsInteger, "integer"},
 		Float:      &basicContract{kindsFloat, "float"},
 		Complex:    &basicContract{kindsComplex, "complex"},
 		Number:     &basicContract{kindsNumber, "number"},
 		Addable:    &basicContract{kindsAddable, "addable"},
 		Orderable:  &basicContract{kindsOrderable, "orderable"},
-		Comparable: comparable{},
+		Comparable: comparable,
 	}
 )
 

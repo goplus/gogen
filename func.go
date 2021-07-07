@@ -99,3 +99,9 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 }
 
 // ----------------------------------------------------------------------------
+
+func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs []types.Object) *types.TypeName {
+	return types.NewTypeName(pos, pkg, name, &overloadFuncType{funcs})
+}
+
+// ----------------------------------------------------------------------------

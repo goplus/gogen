@@ -189,10 +189,6 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	return p
 }
 
-func (p *CodeBuilder) Builtin(n int, id string) *CodeBuilder {
-	panic("TODO: Builtin")
-}
-
 // BinaryOp func
 func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 	pkg := p.pkg
