@@ -81,8 +81,8 @@ type Config struct {
 	// Contracts are the builtin contracts.
 	Contracts *BuiltinContracts
 
-	// Builtin is the builin package.
-	Builtin *types.Package
+	// NewBuiltin is to create the builin package.
+	NewBuiltin func(prefix *NamePrefix, contracts *BuiltinContracts) *types.Package
 }
 
 // Package type
@@ -110,15 +110,15 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if contracts == nil {
 		contracts = defaultContracts
 	}
-	builtin := conf.Builtin
-	if builtin == nil {
-		builtin = newBuiltinDefault(prefix, contracts)
+	newBuiltin := conf.NewBuiltin
+	if newBuiltin == nil {
+		newBuiltin = newBuiltinDefault
 	}
 	pkg := &Package{
 		importPkgs: make(map[string]*PkgRef),
 		conf:       conf,
 		prefix:     prefix,
-		builtin:    builtin,
+		builtin:    newBuiltin(prefix, contracts),
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg)
