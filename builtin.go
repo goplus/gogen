@@ -244,7 +244,7 @@ func InitBuiltinFuncs(builtin *types.Package) {
 			newBFunc(builtin, overload.name, overload.fns[0]),
 			newBFunc(builtin, overload.name, overload.fns[1]),
 		}
-		gbl.Insert(NewOverloadFunc(token.NoPos, builtin, overload.name, fns))
+		gbl.Insert(NewOverloadFunc(token.NoPos, builtin, overload.name, fns...))
 	}
 	// func panic(v interface{})
 	// func recover() interface{}
