@@ -287,15 +287,31 @@ var (
 	}
 )
 
+type matchCtx struct {
+	pkg      *Package
+	unbounds []*unboundType
+}
+
+func (p *matchCtx) clear() {
+	if len(p.unbounds) != 0 {
+		for _, t := range p.unbounds {
+			t.bound = nil
+			t.v.typ = t
+			*t.v.ptype = nil
+		}
+		p.unbounds = p.unbounds[:0]
+	}
+}
+
 func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) internal.Elem {
-	ret, err := checkFuncCall(pkg, fn, args, ellipsis)
+	ret, err := checkFuncCall(&matchCtx{pkg: pkg}, fn, args, ellipsis)
 	if err != nil {
 		panic(err)
 	}
 	return ret
 }
 
-func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) (ret internal.Elem, err error) {
+func checkFuncCall(ctx *matchCtx, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) (ret internal.Elem, err error) {
 	var it *instantiated
 	var sig *types.Signature
 	switch t := fn.Type.(type) {
@@ -304,7 +320,14 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
 	case *overloadFuncType:
-		panic("TODO: overloadFunc")
+		overloadCtx := &matchCtx{pkg: ctx.pkg}
+		for _, o := range t.funcs {
+			overloadCtx.clear()
+			if ret, err = checkFuncCall(overloadCtx, toObject(ctx.pkg, o), args, ellipsis); err == nil {
+				return
+			}
+		}
+		return
 	default:
 		panic("TODO: call to non function")
 	}
@@ -325,17 +348,17 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 		if !ok {
 			return internal.Elem{}, errors.New("TODO: tyVariadic not a slice")
 		}
-		if err = checkMatchFuncArgs(pkg, tyArgs[:n1], params); err != nil {
+		if err = checkMatchFuncArgs(ctx, tyArgs[:n1], params); err != nil {
 			return
 		}
-		if err = checkMatchElemType(pkg, tyArgs[n1:], tyVariadic.Elem()); err != nil {
+		if err = checkMatchElemType(ctx, tyArgs[n1:], tyVariadic.Elem()); err != nil {
 			return
 		}
 	} else {
 		if params.Len() != n {
 			return internal.Elem{}, errors.New("TODO: unmatched function parameters count")
 		}
-		if err = checkMatchFuncArgs(pkg, tyArgs, params); err != nil {
+		if err = checkMatchFuncArgs(ctx, tyArgs, params); err != nil {
 			return
 		}
 	}
@@ -364,18 +387,18 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
-func checkMatchFuncArgs(pkg *Package, args []types.Type, params *types.Tuple) error {
+func checkMatchFuncArgs(ctx *matchCtx, args []types.Type, params *types.Tuple) error {
 	for i, arg := range args {
-		if err := checkMatchType(pkg, arg, params.At(i).Type()); err != nil {
+		if err := checkMatchType(ctx, arg, params.At(i).Type()); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func checkMatchElemType(pkg *Package, vals []types.Type, elt types.Type) error {
+func checkMatchElemType(ctx *matchCtx, vals []types.Type, elt types.Type) error {
 	for _, val := range vals {
-		if err := checkMatchType(pkg, val, elt); err != nil {
+		if err := checkMatchType(ctx, val, elt); err != nil {
 			return err
 		}
 	}
@@ -384,7 +407,7 @@ func checkMatchElemType(pkg *Package, vals []types.Type, elt types.Type) error {
 
 func assignMatchType(pkg *Package, r internal.Elem, valTy types.Type) {
 	if rt, ok := r.Type.(*refType); ok {
-		if err := checkMatchType(pkg, rt.typ, valTy); err != nil {
+		if err := checkMatchType(&matchCtx{pkg: pkg}, rt.typ, valTy); err != nil {
 			panic(err)
 		}
 	} else if r.Val == underscore {
@@ -394,26 +417,27 @@ func assignMatchType(pkg *Package, r internal.Elem, valTy types.Type) {
 	}
 }
 
-func checkMatchType(pkg *Package, arg, param types.Type) error {
-	if doMatchType(pkg, arg, param) {
+func checkMatchType(ctx *matchCtx, arg, param types.Type) error {
+	if doMatchType(ctx, arg, param) {
 		return nil
 	}
 	return fmt.Errorf("TODO: can't assign %v to %v", arg, param)
 }
 
-func doMatchType(pkg *Package, arg, param types.Type) bool {
+func doMatchType(ctx *matchCtx, arg, param types.Type) bool {
 	if isUnboundParam(param) {
 		if _, ok := arg.(*unboundType); ok {
 			panic("TODO: don't pass unbound variables as template function params.")
 		}
-		return boundType(pkg, arg, param)
+		return boundType(ctx.pkg, arg, param)
 	}
 	if t, ok := arg.(*unboundType); ok { // variable to bound type
 		if t.bound == nil {
+			ctx.unbounds = append(ctx.unbounds, t)
 			param = types.Default(param)
 			t.bound = param
 			t.v.typ = param
-			*t.v.ptype = toType(pkg, param)
+			*t.v.ptype = toType(ctx.pkg, param)
 		}
 		arg = t.bound
 	}

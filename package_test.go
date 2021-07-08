@@ -145,16 +145,18 @@ func main() {
 `)
 }
 
-func _TestOverloadFunc(t *testing.T) {
-	var f, g *gox.Var
+func TestOverloadFunc(t *testing.T) {
+	var f, g, x, y *gox.Var
 	pkg := gox.NewPackage("", "main", nil)
 	builtin := pkg.Builtin()
 	c64 := pkg.NewParam("c64", types.Typ[types.Complex64])
 	c128 := pkg.NewParam("c128", types.Typ[types.Complex128])
 	pkg.NewFunc(nil, "foo", gox.NewTuple(c64, c128), nil, false).BodyStart(pkg).
-		NewVar("f", &f).NewVar("g", &g).
+		NewVar("f", &f).NewVar("g", &g).NewVar("x", &x).NewVar("y", &y).
 		VarRef(f).Val(builtin.Ref("imag")).Val(c128).Call(1).Assign(1).EndStmt().
 		VarRef(g).Val(builtin.Ref("real")).Val(c64).Call(1).Assign(1).EndStmt().
+		VarRef(x).Val(builtin.Ref("complex")).Val(0).Val(f).Call(2).Assign(1).EndStmt().
+		VarRef(y).Val(builtin.Ref("complex")).Val(g).Val(1).Call(2).Assign(1).EndStmt().
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -162,8 +164,12 @@ func _TestOverloadFunc(t *testing.T) {
 func foo(c64 complex64, c128 complex128) {
 	var f float64
 	var g float32
+	var x complex128
+	var y complex64
 	f = imag(c128)
 	g = real(c64)
+	x = complex(0, f)
+	y = complex(g, 1)
 }
 func main() {
 }
