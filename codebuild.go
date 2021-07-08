@@ -134,6 +134,73 @@ func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 	return p
 }
 
+func (p *CodeBuilder) MemberVal(name string) *CodeBuilder {
+	if debug {
+		log.Println("MemberVal", name)
+	}
+	arg := p.stk.Get(-1)
+	switch o := indirect(arg.Type).(type) {
+	case *types.Named:
+		for i, n := 0, o.NumMethods(); i < n; i++ {
+			method := o.Method(i)
+			if method.Name() == name {
+				p.stk.Ret(1, internal.Elem{
+					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
+					Type: methodTypeOf(method.Type()),
+				})
+				return p
+			}
+		}
+		if struc, ok := o.Underlying().(*types.Struct); ok {
+			p.fieldVal(arg.Val, struc, name)
+		} else {
+			panic("TODO: member not found - " + name)
+		}
+	case *types.Struct:
+		p.fieldVal(arg.Val, o, name)
+	default:
+		log.Panicln("TODO: MemberVal - unexpected type:", o)
+	}
+	return p
+}
+
+func (p *CodeBuilder) fieldVal(x ast.Expr, struc *types.Struct, name string) {
+	if t := structFieldType(struc, name); t != nil {
+		p.stk.Ret(1, internal.Elem{
+			Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
+			Type: t,
+		})
+	} else {
+		panic("TODO: member not found - " + name)
+	}
+}
+
+func structFieldType(o *types.Struct, name string) types.Type {
+	for i, n := 0, o.NumFields(); i < n; i++ {
+		fld := o.Field(i)
+		if fld.Name() == name {
+			return fld.Type()
+		}
+	}
+	return nil
+}
+
+func methodTypeOf(typ types.Type) types.Type {
+	switch sig := typ.(type) {
+	case *types.Signature:
+		return types.NewSignature(nil, sig.Params(), sig.Results(), sig.Variadic())
+	default:
+		panic("TODO: methodTypeOf")
+	}
+}
+
+func indirect(typ types.Type) types.Type {
+	if t, ok := typ.(*types.Pointer); ok {
+		typ = t.Elem()
+	}
+	return typ
+}
+
 // Assign func
 func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	var rhs int

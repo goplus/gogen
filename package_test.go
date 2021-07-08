@@ -318,6 +318,28 @@ func main() {
 `)
 }
 
+func TestImportAndCallMethod(t *testing.T) {
+	var x *gox.Var
+	pkg := gox.NewPackage("", "main", nil)
+	strings := pkg.Import("strings")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar("x", &x).
+		VarRef(x).Val(strings.Ref("NewReplacer")).Val("?").Val("!").Call(2).
+		/**/ MemberVal("Replace").Val("hello, world???").Call(1).Assign(1).EndStmt().
+		Val(pkg.Builtin().Ref("println")).Val(x).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import strings "strings"
+
+func main() {
+	var x string
+	x = strings.NewReplacer("?", "!").Replace("hello, world???")
+	println(x)
+}
+`)
+}
+
 func TestAssign(t *testing.T) {
 	var a, b, c, d, e, f, g *gox.Var
 	pkg := gox.NewPackage("", "main", nil)
