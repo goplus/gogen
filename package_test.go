@@ -131,6 +131,25 @@ func main() {
 `)
 }
 
+func TestFuncAsParam(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	v := pkg.NewParam("v", types.NewSignature(nil, nil, nil, false))
+	x := pkg.NewParam("x", types.NewPointer(types.Typ[types.Bool]))
+	y := pkg.NewParam("y", types.NewChan(types.SendOnly, types.Typ[types.Bool]))
+	z := pkg.NewParam("z", types.Typ[types.UnsafePointer])
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v, x, y, z), nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+import unsafe "unsafe"
+
+func foo(v func(), x *bool, y chan<- bool, z unsafe.Pointer) {
+}
+func main() {
+}
+`)
+}
+
 func TestBuiltinFunc(t *testing.T) {
 	var a, n *gox.Var
 	pkg := gox.NewPackage("", "main", nil)

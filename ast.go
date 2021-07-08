@@ -89,23 +89,29 @@ func toFuncType(pkg *Package, sig *types.Signature) *ast.FuncType {
 func toType(pkg *Package, typ types.Type) ast.Expr {
 	switch t := typ.(type) {
 	case *types.Basic: // bool, int, etc
-		return toBasicType(t)
+		return toBasicType(pkg, t)
+	case *types.Pointer:
+		return &ast.StarExpr{X: toType(pkg, t.Elem())}
 	case *types.Named:
 		return toNamedType(pkg, t)
 	case *types.Interface:
 		return toInterface(pkg, t)
 	case *types.Slice:
-		return toSliceType(pkg, t)
+		return &ast.ArrayType{Elt: toType(pkg, t.Elem())}
 	case *types.Array:
 		return toArrayType(pkg, t)
+	case *types.Chan:
+		return toChanType(pkg, t)
+	case *types.Signature:
+		return toFuncType(pkg, t)
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil
 }
 
-func toBasicType(t *types.Basic) ast.Expr {
+func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
 	if t.Kind() == types.UnsafePointer {
-		return &ast.SelectorExpr{X: &ast.Ident{Name: "unsafe"}, Sel: &ast.Ident{Name: "Pointer"}}
+		return toObjectExpr(pkg, pkg.Import("unsafe").Ref("Pointer"))
 	}
 	return &ast.Ident{Name: t.Name()}
 }
@@ -118,9 +124,17 @@ func toNamedType(pkg *Package, t *types.Named) ast.Expr {
 	panic("TODO: toNamedType")
 }
 
-func toSliceType(pkg *Package, t *types.Slice) ast.Expr {
-	return &ast.ArrayType{Elt: toType(pkg, t.Elem())}
+func toChanType(pkg *Package, t *types.Chan) ast.Expr {
+	return &ast.ChanType{Value: toType(pkg, t.Elem()), Dir: chanDirs[t.Dir()]}
 }
+
+var (
+	chanDirs = [...]ast.ChanDir{
+		types.SendRecv: ast.SEND | ast.RECV,
+		types.SendOnly: ast.SEND,
+		types.RecvOnly: ast.RECV,
+	}
+)
 
 func toArrayType(pkg *Package, t *types.Array) ast.Expr {
 	len := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(t.Len(), 10)}
