@@ -117,21 +117,28 @@ func main() {
 }
 
 func TestBuiltinFunc(t *testing.T) {
-	var a *gox.Var
+	var a, n *gox.Var
 	pkg := gox.NewPackage("", "main", nil)
+	builtin := pkg.Builtin()
 	v := pkg.NewParam("v", types.NewSlice(types.Typ[types.Int]))
-	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).
-		NewVar("a", &a).
+	array := pkg.NewParam("array", types.NewArray(types.Typ[types.Int], 10))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v, array), nil, false).BodyStart(pkg).
+		NewVar("a", &a).NewVar("n", &n).
 		VarRef(a).
-		/**/ Val(pkg.Builtin().Ref("append")).Val(v).Val(1).Val(2).Call(3).
-		Assign(1).EndStmt().
+		/**/ Val(builtin.Ref("append")).Val(v).Val(1).Val(2).Call(3).
+		/**/ Assign(1).EndStmt().
+		VarRef(n).Val(builtin.Ref("len")).Val(a).Call(1).Assign(1).EndStmt().
+		VarRef(n).Val(builtin.Ref("cap")).Val(array).Call(1).Assign(1).EndStmt().
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(v []int) {
+func foo(v []int, array [10]int) {
 	var a []int
+	var n int
 	a = append(v, 1, 2)
+	n = len(a)
+	n = cap(array)
 }
 func main() {
 }
