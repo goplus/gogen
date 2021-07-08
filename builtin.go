@@ -27,7 +27,7 @@ var (
 	}
 )
 
-func newBuiltinDefault(prefix *NamePrefix, contracts *BuiltinContracts) *types.Package {
+func newBuiltinDefault(pkg PkgImporter, prefix *NamePrefix, contracts *BuiltinContracts) *types.Package {
 	builtin := types.NewPackage("", "")
 	InitBuiltinOps(builtin, prefix, contracts)
 	InitBuiltinFuncs(builtin)

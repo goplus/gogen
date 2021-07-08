@@ -21,6 +21,10 @@ type BuiltinContracts struct {
 	NInteger, Integer, Float, Complex, Number, Addable, Orderable, Comparable Contract
 }
 
+type PkgImporter interface {
+	Import(pkgPath string) *PkgRef
+}
+
 // Config type
 type Config struct {
 	// Context specifies the context for the load operation.
@@ -82,7 +86,7 @@ type Config struct {
 	Contracts *BuiltinContracts
 
 	// NewBuiltin is to create the builin package.
-	NewBuiltin func(prefix *NamePrefix, contracts *BuiltinContracts) *types.Package
+	NewBuiltin func(pkg PkgImporter, prefix *NamePrefix, contracts *BuiltinContracts) *types.Package
 }
 
 // Package type
@@ -118,10 +122,10 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		importPkgs: make(map[string]*PkgRef),
 		conf:       conf,
 		prefix:     prefix,
-		builtin:    newBuiltin(prefix, contracts),
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg)
+	pkg.builtin = newBuiltin(pkg, prefix, contracts)
 	return pkg
 }
 
