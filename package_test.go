@@ -145,6 +145,31 @@ func main() {
 `)
 }
 
+func _TestOverloadFunc(t *testing.T) {
+	var f, g *gox.Var
+	pkg := gox.NewPackage("", "main", nil)
+	builtin := pkg.Builtin()
+	c64 := pkg.NewParam("c64", types.Typ[types.Complex64])
+	c128 := pkg.NewParam("c128", types.Typ[types.Complex128])
+	pkg.NewFunc(nil, "foo", gox.NewTuple(c64, c128), nil, false).BodyStart(pkg).
+		NewVar("f", &f).NewVar("g", &g).
+		VarRef(f).Val(builtin.Ref("imag")).Val(c128).Call(1).Assign(1).EndStmt().
+		VarRef(g).Val(builtin.Ref("real")).Val(c64).Call(1).Assign(1).EndStmt().
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(c64 complex64, c128 complex128) {
+	var f float64
+	var g float32
+	f = imag(c128)
+	g = real(c64)
+}
+func main() {
+}
+`)
+}
+
 func TestEmptyInterface(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(nil, nil)))

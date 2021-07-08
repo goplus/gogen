@@ -1,6 +1,8 @@
 package gox
 
 import (
+	"errors"
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -286,14 +288,25 @@ var (
 )
 
 func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) internal.Elem {
+	ret, err := checkFuncCall(pkg, fn, args, ellipsis)
+	if err != nil {
+		panic(err)
+	}
+	return ret
+}
+
+func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) (ret internal.Elem, err error) {
 	var it *instantiated
-	sig, ok := fn.Type.(*types.Signature)
-	if !ok {
-		if tsig, ok := fn.Type.(*TemplateSignature); ok { // template function
-			sig, it = tsig.instantiate()
-		} else {
-			panic("TODO: call to non function")
-		}
+	var sig *types.Signature
+	switch t := fn.Type.(type) {
+	case *types.Signature:
+		sig = t
+	case *TemplateSignature: // template function
+		sig, it = t.instantiate()
+	case *overloadFuncType:
+		panic("TODO: overloadFunc")
+	default:
+		panic("TODO: call to non function")
 	}
 	n := len(args)
 	tyArgs := make([]types.Type, n)
@@ -306,33 +319,39 @@ func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis t
 	if sig.Variadic() {
 		n1 := params.Len() - 1
 		if n < n1 {
-			panic("TODO: not enough function parameters")
+			return internal.Elem{}, errors.New("TODO: not enough function parameters")
 		}
 		tyVariadic, ok := params.At(n1).Type().(*types.Slice)
 		if !ok {
-			panic("TODO: tyVariadic not a slice")
+			return internal.Elem{}, errors.New("TODO: tyVariadic not a slice")
 		}
-		matchFuncArgs(pkg, tyArgs[:n1], params)
-		matchElemType(pkg, tyArgs[n1:], tyVariadic.Elem())
+		if err = checkMatchFuncArgs(pkg, tyArgs[:n1], params); err != nil {
+			return
+		}
+		if err = checkMatchElemType(pkg, tyArgs[n1:], tyVariadic.Elem()); err != nil {
+			return
+		}
 	} else {
 		if params.Len() != n {
-			panic("TODO: unmatched function parameters count")
+			return internal.Elem{}, errors.New("TODO: unmatched function parameters count")
 		}
-		matchFuncArgs(pkg, tyArgs, params)
+		if err = checkMatchFuncArgs(pkg, tyArgs, params); err != nil {
+			return
+		}
 	}
 	tyRet := toRetType(sig.Results(), it)
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
 		t.X, t.Y = valArgs[0], valArgs[1]
-		return internal.Elem{Val: t, Type: tyRet}
+		return internal.Elem{Val: t, Type: tyRet}, nil
 	case *ast.UnaryExpr:
 		t.X = valArgs[0]
-		return internal.Elem{Val: t, Type: tyRet}
+		return internal.Elem{Val: t, Type: tyRet}, nil
 	default:
 		return internal.Elem{
 			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: ellipsis},
 			Type: tyRet,
-		}
+		}, nil
 	}
 }
 
@@ -345,21 +364,29 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
-func matchFuncArgs(pkg *Package, args []types.Type, params *types.Tuple) {
+func checkMatchFuncArgs(pkg *Package, args []types.Type, params *types.Tuple) error {
 	for i, arg := range args {
-		matchType(pkg, arg, params.At(i).Type())
+		if err := checkMatchType(pkg, arg, params.At(i).Type()); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-func matchElemType(pkg *Package, vals []types.Type, elt types.Type) {
+func checkMatchElemType(pkg *Package, vals []types.Type, elt types.Type) error {
 	for _, val := range vals {
-		matchType(pkg, val, elt)
+		if err := checkMatchType(pkg, val, elt); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func assignMatchType(pkg *Package, r internal.Elem, valTy types.Type) {
 	if rt, ok := r.Type.(*refType); ok {
-		matchType(pkg, rt.typ, valTy)
+		if err := checkMatchType(pkg, rt.typ, valTy); err != nil {
+			panic(err)
+		}
 	} else if r.Val == underscore {
 		// do nothing
 	} else {
@@ -367,13 +394,14 @@ func assignMatchType(pkg *Package, r internal.Elem, valTy types.Type) {
 	}
 }
 
-func matchType(pkg *Package, arg, param types.Type) {
-	if !checkMatchType(pkg, arg, param) {
-		log.Panicf("TODO: can't assign %v to %v", arg, param)
+func checkMatchType(pkg *Package, arg, param types.Type) error {
+	if doMatchType(pkg, arg, param) {
+		return nil
 	}
+	return fmt.Errorf("TODO: can't assign %v to %v", arg, param)
 }
 
-func checkMatchType(pkg *Package, arg, param types.Type) bool {
+func doMatchType(pkg *Package, arg, param types.Type) bool {
 	if isUnboundParam(param) {
 		if _, ok := arg.(*unboundType); ok {
 			panic("TODO: don't pass unbound variables as template function params.")
