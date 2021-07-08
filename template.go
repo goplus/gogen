@@ -51,26 +51,165 @@ type unboundFuncParam struct {
 	typ   *TemplateParamType
 }
 
-func (p *unboundFuncParam) Bound(t types.Type) {
-	if p.typ.contract.Match(t) {
-		if p.bound == t {
-			// nothing to do
-		} else if p.bound == nil || types.AssignableTo(t, p.bound) {
-			p.bound = t
-		} else {
-			panic("TODO: unmatched template param type")
-		}
-	} else {
-		panic("TODO: unmatched template contract")
-	}
-}
-
 func (p *unboundFuncParam) Underlying() types.Type {
 	panic("don't call me")
 }
 
 func (p *unboundFuncParam) String() string {
 	panic("don't call me")
+}
+
+type unboundProxyParam struct {
+	real types.Type
+}
+
+func (p *unboundProxyParam) Underlying() types.Type {
+	panic("don't call me")
+}
+
+func (p *unboundProxyParam) String() string {
+	panic("don't call me")
+}
+
+func boundType(pkg *Package, arg, param types.Type) bool {
+	switch p := param.(type) {
+	case *unboundFuncParam: // template function param
+		if p.typ.contract.Match(arg) {
+			if p.bound == nil {
+				p.bound = arg
+			} else if types.AssignableTo(arg, p.bound) {
+				// nothing to do
+			} else {
+				return false
+			}
+			return true
+		}
+		return false
+	case *unboundProxyParam:
+		switch param := p.real.(type) {
+		case *types.Pointer:
+			if t, ok := arg.(*types.Pointer); ok {
+				return boundType(pkg, t.Elem(), param.Elem())
+			}
+		case *types.Array:
+			if t, ok := arg.(*types.Array); ok && param.Len() == t.Len() {
+				return boundType(pkg, t.Elem(), param.Elem())
+			}
+		case *types.Map:
+			if t, ok := arg.(*types.Map); ok {
+				ok1 := boundType(pkg, t.Key(), param.Key())
+				return ok1 && boundType(pkg, t.Elem(), param.Elem())
+			}
+		case *types.Chan:
+			if t, ok := arg.(*types.Chan); ok {
+				if dir := t.Dir(); dir == param.Dir() || dir == types.SendRecv {
+					return boundType(pkg, t.Elem(), param.Elem())
+				}
+			}
+		case *types.Struct:
+			panic("TODO: boundType struct")
+		default:
+			log.Panicln("TODO: boundType - unknown type:", param)
+		}
+		return false
+	case *types.Slice:
+		if t, ok := arg.(*types.Slice); ok {
+			return boundType(pkg, t.Elem(), p.Elem())
+		}
+	case *types.Signature:
+		panic("TODO: boundType function signature")
+	default:
+		return types.AssignableTo(arg, param)
+	}
+	return false
+}
+
+// NewSignature returns a new function type for the given receiver, parameters,
+// and results, either of which may be nil. If variadic is set, the function
+// is variadic, it must have at least one parameter, and the last parameter
+// must be of unnamed slice type.
+func NewSignature(recv *types.Var, params, results *types.Tuple, variadic bool) *types.Signature {
+	return types.NewSignature(recv, params, results, variadic)
+}
+
+// NewSlice returns a new slice type for the given element type.
+func NewSlice(elem types.Type) types.Type {
+	return types.NewSlice(elem)
+}
+
+// NewMap returns a new map for the given key and element types.
+func NewMap(key, elem types.Type) types.Type {
+	var t types.Type = types.NewMap(key, elem)
+	if isUnboundParam(key) || isUnboundParam(elem) {
+		t = &unboundProxyParam{real: t}
+	}
+	return t
+}
+
+// NewChan returns a new channel type for the given direction and element type.
+func NewChan(dir types.ChanDir, elem types.Type) types.Type {
+	var t types.Type = types.NewChan(dir, elem)
+	if isUnboundParam(elem) {
+		t = &unboundProxyParam{real: t}
+	}
+	return t
+}
+
+// NewArray returns a new array type for the given element type and length.
+// A negative length indicates an unknown length.
+func NewArray(elem types.Type, len int64) types.Type {
+	var t types.Type = types.NewArray(elem, len)
+	if isUnboundParam(elem) {
+		t = &unboundProxyParam{real: t}
+	}
+	return t
+}
+
+// NewPointer returns a new pointer type for the given element (base) type.
+func NewPointer(elem types.Type) types.Type {
+	var t types.Type = types.NewPointer(elem)
+	if isUnboundParam(elem) {
+		t = &unboundProxyParam{real: t}
+	}
+	return t
+}
+
+func isUnboundParam(typ types.Type) bool {
+	switch t := typ.(type) {
+	case *unboundFuncParam:
+		return true
+	case *TemplateParamType:
+		return true
+	case *unboundProxyParam:
+		return true
+	case *types.Slice:
+		return isUnboundParam(t.Elem())
+	case *types.Signature:
+		return isUnboundSignature(t)
+	}
+	return false
+}
+
+func isUnboundVar(v *types.Var) bool {
+	if v == nil {
+		return false
+	}
+	return isUnboundParam(v.Type())
+}
+
+func isUnboundTuple(t *types.Tuple) bool {
+	for i, n := 0, t.Len(); i < n; i++ {
+		if isUnboundVar(t.At(i)) {
+			return true
+		}
+	}
+	return false
+}
+
+func isUnboundSignature(sig *types.Signature) bool {
+	return isUnboundVar(sig.Recv()) &&
+		isUnboundTuple(sig.Params()) &&
+		isUnboundTuple(sig.Results())
 }
 
 // ----------------------------------------------------------------------------
@@ -95,49 +234,46 @@ func (p *instantiated) normalizeTuple(t *types.Tuple) *types.Tuple {
 }
 
 func toNormalize(tparams []*unboundFuncParam, typ types.Type) (types.Type, bool) {
-	switch t := typ.(type) {
-	case *types.Basic:
-	case *types.Named:
-	case *types.Interface:
-		// nothing to do: interface doesn't support template
-	case *types.Pointer:
-		if elem, ok := toNormalize(tparams, t.Elem()); ok {
+	switch tt := typ.(type) {
+	case *unboundFuncParam:
+		if tt.bound == nil {
+			log.Panicln("TODO: unbound type -", tt.typ.name)
+		}
+		return tt.bound, true
+	case *unboundProxyParam:
+		switch t := tt.real.(type) {
+		case *types.Pointer:
+			elem, _ := toNormalize(tparams, t.Elem())
 			return types.NewPointer(elem), true
+		case *types.Array:
+			elem, _ := toNormalize(tparams, t.Elem())
+			return types.NewArray(elem, t.Len()), true
+		case *types.Map:
+			key, _ := toNormalize(tparams, t.Key())
+			elem, _ := toNormalize(tparams, t.Elem())
+			return types.NewMap(key, elem), true
+		case *types.Chan:
+			elem, _ := toNormalize(tparams, t.Elem())
+			return types.NewChan(t.Dir(), elem), true
+		case *types.Struct:
+			panic("TODO: toNormalize struct")
+		default:
+			log.Panicln("TODO: toNormalize - unknown type:", t)
 		}
 	case *types.Slice:
-		if elem, ok := toNormalize(tparams, t.Elem()); ok {
+		if elem, ok := toNormalize(tparams, tt.Elem()); ok {
 			return types.NewSlice(elem), true
 		}
-	case *types.Array:
-		if elem, ok := toNormalize(tparams, t.Elem()); ok {
-			return types.NewArray(elem, t.Len()), true
-		}
-	case *types.Map:
-		key, ok1 := toNormalize(tparams, t.Key())
-		elem, ok2 := toNormalize(tparams, t.Elem())
-		if ok1 || ok2 {
-			return types.NewMap(key, elem), true
-		}
-	case *types.Chan:
-		if elem, ok := toNormalize(tparams, t.Elem()); ok {
-			return types.NewChan(t.Dir(), elem), true
-		}
 	case *types.Signature:
-		return toNormalizeSignature(tparams, t)
-	case *types.Struct:
-		panic("TODO: instantiate struct")
-	case *unboundFuncParam:
-		if t.bound == nil {
-			log.Panicln("TODO: unbound type -", t.typ.name)
-		}
-		return t.bound, true
-	default:
-		log.Panicln("TODO: normalize unknown type -", typ)
+		return toNormalizeSignature(tparams, tt)
 	}
 	return typ, false
 }
 
 func toNormalizeVar(tparams []*unboundFuncParam, param *types.Var) (*types.Var, bool) {
+	if param == nil {
+		return nil, false
+	}
 	if t, changed := toNormalize(tparams, param.Type()); changed {
 		return types.NewParam(param.Pos(), param.Pkg(), param.Name(), t), true
 	}
@@ -215,42 +351,36 @@ func (p *TemplateSignature) instantiate() (*types.Signature, *instantiated) {
 }
 
 func toInstantiate(tparams []*unboundFuncParam, typ types.Type) (types.Type, bool) {
-	switch t := typ.(type) {
-	case *types.Basic:
-	case *types.Named:
-	case *types.Interface:
-		// nothing to do: interface doesn't support template
-	case *types.Pointer:
-		if elem, ok := toInstantiate(tparams, t.Elem()); ok {
-			return types.NewPointer(elem), true
+	switch tt := typ.(type) {
+	case *TemplateParamType:
+		return tparams[tt.index], true
+	case *unboundProxyParam:
+		switch t := tt.real.(type) {
+		case *types.Pointer:
+			elem, _ := toInstantiate(tparams, t.Elem())
+			return &unboundProxyParam{types.NewPointer(elem)}, true
+		case *types.Array:
+			elem, _ := toInstantiate(tparams, t.Elem())
+			return &unboundProxyParam{types.NewArray(elem, t.Len())}, true
+		case *types.Map:
+			key, _ := toInstantiate(tparams, t.Key())
+			elem, _ := toInstantiate(tparams, t.Elem())
+			return &unboundProxyParam{types.NewMap(key, elem)}, true
+		case *types.Chan:
+			elem, _ := toInstantiate(tparams, t.Elem())
+			return &unboundProxyParam{types.NewChan(t.Dir(), elem)}, true
+		case *types.Struct:
+			panic("TODO: instantiate struct")
+		default:
+			log.Panicln("TODO: toInstantiate - unknown type:", t)
 		}
 	case *types.Slice:
-		if elem, ok := toInstantiate(tparams, t.Elem()); ok {
+		if elem, ok := toInstantiate(tparams, tt.Elem()); ok {
 			return types.NewSlice(elem), true
 		}
-	case *types.Array:
-		if elem, ok := toInstantiate(tparams, t.Elem()); ok {
-			return types.NewArray(elem, t.Len()), true
-		}
-	case *types.Map:
-		key, ok1 := toInstantiate(tparams, t.Key())
-		elem, ok2 := toInstantiate(tparams, t.Elem())
-		if ok1 || ok2 {
-			return types.NewMap(key, elem), true
-		}
-	case *types.Chan:
-		if elem, ok := toInstantiate(tparams, t.Elem()); ok {
-			return types.NewChan(t.Dir(), elem), true
-		}
 	case *types.Signature:
-		sig, ok, _ := toInstantiateSignature(tparams, t)
-		return sig, ok
-	case *types.Struct:
-		panic("TODO: instantiate struct")
-	case *TemplateParamType:
-		return tparams[t.index], true
-	default:
-		log.Panicln("TODO: instantiate unknown type -", typ)
+		t, ok, _ := toInstantiateSignature(tparams, tt)
+		return t, ok
 	}
 	return typ, false
 }

@@ -196,20 +196,18 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 }
 
 func toBasicKind(tok token.Token) types.BasicKind {
-	switch tok {
-	case token.INT:
-		return types.UntypedInt
-	case token.STRING:
-		return types.UntypedString
-	case token.CHAR:
-		return types.UntypedRune
-	case token.FLOAT:
-		return types.UntypedFloat
-	case token.IMAG:
-		return types.UntypedComplex
-	}
-	panic("TODO: unknown Token")
+	return tok2BasicKinds[tok]
 }
+
+var (
+	tok2BasicKinds = [...]types.BasicKind{
+		token.INT:    types.UntypedInt,
+		token.STRING: types.UntypedString,
+		token.CHAR:   types.UntypedRune,
+		token.FLOAT:  types.UntypedFloat,
+		token.IMAG:   types.UntypedComplex,
+	}
+)
 
 func toObject(pkg *Package, v types.Object) internal.Elem {
 	return internal.Elem{
@@ -219,14 +217,15 @@ func toObject(pkg *Package, v types.Object) internal.Elem {
 }
 
 func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
-	atPkg := v.Pkg()
+	atPkg, name := v.Pkg(), v.Name()
 	if atPkg == pkg.Types { // at this package
-		return ident(v.Name())
+		return ident(name)
 	}
 	if atPkg == pkg.builtin { // at builtin package
-		if isBuiltinOp(v) {
-			return toOperatorExpr(v.Name())
+		if strings.HasPrefix(name, pkg.prefix.Operator) {
+			return toOperatorExpr(name)
 		}
+		return ident(name)
 	}
 	importPkg, ok := pkg.importPkgs[atPkg.Path()]
 	if !ok {
@@ -369,12 +368,19 @@ func assignMatchType(pkg *Package, r internal.Elem, valTy types.Type) {
 }
 
 func matchType(pkg *Package, arg, param types.Type) {
-	if ufp, ok := param.(*unboundFuncParam); ok { // template function param
+	if !checkMatchType(pkg, arg, param) {
+		log.Panicf("TODO: can't assign %v to %v", arg, param)
+	}
+}
+
+func checkMatchType(pkg *Package, arg, param types.Type) bool {
+	if isUnboundParam(param) {
 		if _, ok := arg.(*unboundType); ok {
 			panic("TODO: don't pass unbound variables as template function params.")
 		}
-		ufp.Bound(arg)
-	} else if t, ok := arg.(*unboundType); ok { // variable to bound type
+		return boundType(pkg, arg, param)
+	}
+	if t, ok := arg.(*unboundType); ok { // variable to bound type
 		if t.bound == nil {
 			param = types.Default(param)
 			t.bound = param
@@ -382,10 +388,8 @@ func matchType(pkg *Package, arg, param types.Type) {
 			*t.v.ptype = toType(pkg, param)
 		}
 		arg = t.bound
-		if !types.AssignableTo(arg, param) {
-			log.Panicf("TODO: can't assign %v to %v", arg, param)
-		}
 	}
+	return types.AssignableTo(arg, param)
 }
 
 // -----------------------------------------------------------------------------

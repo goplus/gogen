@@ -41,6 +41,15 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 	}
 }
 
+func TestAssignableTo(t *testing.T) {
+	if !types.AssignableTo(types.Typ[types.UntypedInt], types.Typ[types.Int]) {
+		t.Fatal("Failed: AssignableTo untyped int => int")
+	}
+	if types.AssignableTo(types.Typ[types.Int], types.Typ[types.UntypedInt]) {
+		t.Fatal("AssignableTo int => untyped int?")
+	}
+}
+
 func TestGoTypesPkg(t *testing.T) {
 	const src = `package foo
 
@@ -101,6 +110,28 @@ func TestFuncVariadic(t *testing.T) {
 	domTest(t, pkg, `package main
 
 func foo(v ...byte) {
+}
+func main() {
+}
+`)
+}
+
+func TestBuiltinFunc(t *testing.T) {
+	var a *gox.Var
+	pkg := gox.NewPackage("", "main", nil)
+	v := pkg.NewParam("v", types.NewSlice(types.Typ[types.Int]))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).
+		NewVar("a", &a).
+		VarRef(a).
+		/**/ Val(pkg.Builtin().Ref("append")).Val(v).Val(1).Val(2).Call(3).
+		Assign(1).EndStmt().
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(v []int) {
+	var a []int
+	a = append(v, 1, 2)
 }
 func main() {
 }
@@ -363,20 +394,6 @@ func main() {
 	func(v string) {
 		fmt.Println(v)
 	}("Hello")
-}
-`)
-}
-
-func _TestBuiltinFunc(t *testing.T) {
-	var a *gox.Var
-	pkg := gox.NewPackage("", "main", nil)
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVar("a", &a).
-		VarRef(a).Val("Hi").Val("!").BinaryOp(token.ADD).Assign(1).EndStmt().
-		End()
-	domTest(t, pkg, `package main
-
-func main() {
 }
 `)
 }

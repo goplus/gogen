@@ -124,7 +124,11 @@ func (p *CodeBuilder) VarRef(v *Var) *CodeBuilder {
 // Val func
 func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 	if debug {
-		log.Println("Val", v)
+		if o, ok := v.(types.Object); ok {
+			log.Println("Val", o.Name())
+		} else {
+			log.Println("Val", v)
+		}
 	}
 	p.stk.Push(toExpr(p.pkg, v))
 	return p

@@ -27,10 +27,6 @@ var (
 	}
 )
 
-func isBuiltinOp(v types.Object) bool {
-	return v.Pos() == token.NoPos
-}
-
 func newBuiltinDefault(prefix *NamePrefix, contracts *BuiltinContracts) *types.Package {
 	builtin := types.NewPackage("", "")
 	InitBuiltinOps(builtin, prefix, contracts)
@@ -284,11 +280,11 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 		case xtNone:
 			return tparams[idx]
 		case xtEllipsis, xtSlice:
-			return types.NewSlice(tparams[idx])
+			return NewSlice(tparams[idx])
 		case xtMap:
-			return types.NewMap(tparams[idx], tparams[idx+1])
+			return NewMap(tparams[idx], tparams[idx+1])
 		case xtChanIn:
-			return types.NewChan(types.RecvOnly, tparams[idx])
+			return NewChan(types.RecvOnly, tparams[idx])
 		default:
 			panic("TODO: newXParamType - unexpected xType")
 		}
