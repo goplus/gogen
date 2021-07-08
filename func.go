@@ -55,6 +55,9 @@ type Func struct {
 
 // BodyStart func
 func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
+	if debug {
+		log.Println("NewFunc", p.Name())
+	}
 	return pkg.cb.startCodeBlock(p, &p.old)
 }
 
@@ -90,9 +93,6 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, name, sig)
 	p.Types.Scope().Insert(fn)
 
-	if debug {
-		log.Println("NewFunc", name)
-	}
 	decl := &ast.FuncDecl{}
 	p.decls = append(p.decls, decl)
 	return &Func{Func: fn, decl: decl}

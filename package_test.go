@@ -494,7 +494,7 @@ func TestClosure(t *testing.T) {
 		NewClosure(gox.NewTuple(paramV), nil, false).BodyStart(pkg).
 		/**/ Val(fmt.Ref("Println")).Val(paramV).Call(1).EndStmt().
 		/**/ End().
-		/**/ Val("Hello").Call(1).EndStmt(). // func(v string) { fmt.Println(v) } ("Hello")
+		Val("Hello").Call(1).EndStmt(). // func(v string) { fmt.Println(v) } ("Hello")
 		End()
 	domTest(t, pkg, `package main
 

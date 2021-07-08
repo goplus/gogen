@@ -79,9 +79,6 @@ func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
 // NewClosureWith func
 func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 	fn := types.NewFunc(token.NoPos, p.pkg.Types, "", sig)
-	if debug {
-		log.Println("NewClosure")
-	}
 	return &Func{Func: fn}
 }
 
