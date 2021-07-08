@@ -78,7 +78,11 @@ func boundType(pkg *Package, arg, param types.Type) bool {
 			if p.bound == nil {
 				p.bound = arg
 			} else if types.AssignableTo(arg, p.bound) {
-				// nothing to do
+				if t, ok := p.bound.(*types.Basic); ok && (t.Info()&types.IsUntyped) != 0 { // untyped type
+					if kind := arg.(*types.Basic).Kind(); kind > t.Kind() && kind != types.UntypedRune {
+						p.bound = types.Typ[kind]
+					}
+				}
 			} else {
 				return false
 			}

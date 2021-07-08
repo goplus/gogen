@@ -48,6 +48,21 @@ func TestAssignableTo(t *testing.T) {
 	if types.AssignableTo(types.Typ[types.Int], types.Typ[types.UntypedInt]) {
 		t.Fatal("AssignableTo int => untyped int?")
 	}
+	if !types.AssignableTo(types.Typ[types.UntypedFloat], types.Typ[types.UntypedComplex]) {
+		t.Fatal("Failed: AssignableTo untyped float => untyped complex")
+	}
+	if !types.AssignableTo(types.Typ[types.UntypedComplex], types.Typ[types.UntypedFloat]) {
+		t.Fatal("Failed: AssignableTo untyped complex => untyped float")
+	}
+	if !types.AssignableTo(types.Typ[types.UntypedInt], types.Typ[types.UntypedFloat]) {
+		t.Fatal("Failed: AssignableTo untyped int => untyped float")
+	}
+	if !types.AssignableTo(types.Typ[types.UntypedFloat], types.Typ[types.UntypedInt]) {
+		t.Fatal("Failed: AssignableTo untyped float => untyped int")
+	}
+	if types.AssignableTo(types.Typ[types.UntypedFloat], types.Typ[types.UntypedBool]) {
+		t.Fatal("AssignableTo untyped float => untyped bool?")
+	}
 }
 
 func TestGoTypesPkg(t *testing.T) {
@@ -394,6 +409,22 @@ func main() {
 	b = a + "!"
 	c = 13
 	d = -c
+}
+`)
+}
+
+func TestOperatorComplex(t *testing.T) {
+	var a *gox.Var
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar("a", &a).
+		VarRef(a).Val(123.1).Val(&ast.BasicLit{Kind: token.IMAG, Value: "3i"}).BinaryOp(token.SUB).Assign(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a complex128
+	a = 123.1 - 3i
 }
 `)
 }

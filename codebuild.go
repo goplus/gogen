@@ -204,7 +204,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 	}
 	ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
 	if debug {
-		log.Println("BinaryOp", op)
+		log.Println("BinaryOp", op, "// ret", ret.Type)
 	}
 	p.stk.Ret(2, ret)
 	return p
@@ -245,7 +245,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token) *CodeBuilder {
 	}
 	ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
 	if debug {
-		log.Println("UnaryOp", op)
+		log.Println("UnaryOp", op, "// ret", ret.Type)
 	}
 	p.stk.Ret(1, ret)
 	return p
