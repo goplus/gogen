@@ -313,7 +313,7 @@ func TestReturnExpr(t *testing.T) {
 	n := pkg.NewParam("", types.Typ[types.Int])
 	err := pkg.NewParam("", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
-		Val(0).Val(nil).Return(2).
+		Val(0).Val(types.Universe.Lookup("nil")).Return(2).
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main

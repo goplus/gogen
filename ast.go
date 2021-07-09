@@ -234,7 +234,7 @@ func toObject(pkg *Package, v types.Object) internal.Elem {
 
 func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 	atPkg, name := v.Pkg(), v.Name()
-	if atPkg == pkg.Types { // at this package
+	if atPkg == nil || atPkg == pkg.Types { // at universe or at this package
 		return ident(name)
 	}
 	if atPkg == pkg.builtin { // at builtin package
