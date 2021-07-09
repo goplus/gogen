@@ -131,13 +131,13 @@ func TestConstDecl(t *testing.T) {
 	pkg.NewConst("n").BodyStart(pkg).
 		Val(1).Val(2).BinaryOp(token.ADD).
 		End()
-	pkg.NewConst("x").BodyStart(pkg).
+	pkg.NewConst("x").InitType(types.Typ[types.String]).BodyStart(pkg).
 		Val("1").Val("2").BinaryOp(token.ADD).
 		End()
 	domTest(t, pkg, `package main
 
 const n = 1 + 2
-const x = "1" + "2"
+const x string = "1" + "2"
 `)
 }
 

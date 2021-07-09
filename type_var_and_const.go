@@ -48,7 +48,7 @@ func evalConstExpr(pkg *Package, expr ast.Expr) types.TypeAndValue {
 type ConstDecl struct {
 	name string
 	typ  types.Type
-	old  codeBlockCtx
+	old  codeBlock
 }
 
 func (p *ConstDecl) InitType(typ types.Type) *ConstDecl {
@@ -61,7 +61,8 @@ func (p *ConstDecl) InitType(typ types.Type) *ConstDecl {
 
 func (p *ConstDecl) BodyStart(pkg *Package) *CodeBuilder {
 	cb := pkg.ConstStart()
-	return cb.startCodeBlock(p, &p.old)
+	p.old = cb.startInitExpr(p)
+	return cb
 }
 
 func (p *ConstDecl) End(cb *CodeBuilder) {
@@ -74,9 +75,9 @@ func (p *ConstDecl) End(cb *CodeBuilder) {
 	} else {
 		p.typ = elem.Type
 	}
-	cb.endCodeBlock(p.old)
+	cb.endInitExpr(p.old)
 	tv := evalConstExpr(pkg, elem.Val)
-	pkg.Types.Scope().Insert(types.NewConst(token.NoPos, pkg.Types, p.name, p.typ, tv.Value))
+	cb.current.scope.Insert(types.NewConst(token.NoPos, pkg.Types, p.name, p.typ, tv.Value))
 	var typExpr ast.Expr
 	if !isUntyped(p.typ) {
 		typExpr = toType(pkg, p.typ)

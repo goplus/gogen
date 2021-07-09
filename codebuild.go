@@ -39,6 +39,7 @@ type codeBlock interface {
 
 type codeBlockCtx struct {
 	codeBlock
+	scope *types.Scope
 	base  int
 	stmts []ast.Stmt
 }
@@ -57,6 +58,7 @@ type CodeBuilder struct {
 
 func (p *CodeBuilder) init(pkg *Package) {
 	p.pkg = pkg
+	p.current.scope = pkg.Types.Scope()
 	p.stk.Init()
 }
 
@@ -66,24 +68,34 @@ func (p *CodeBuilder) Pkg() *Package {
 
 func (p *CodeBuilder) startFuncBody(fn *Func, old *funcBodyCtx) *CodeBuilder {
 	p.current.fn, old.fn = fn, p.current.fn
-	return p.startCodeBlock(fn, &old.codeBlockCtx)
+	return p.startBlockStmt(fn, "func "+fn.FullName(), &old.codeBlockCtx)
 }
 
 func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
 	p.current.fn = old.fn
-	return p.endCodeBlock(old.codeBlockCtx)
+	return p.endBlockStmt(old.codeBlockCtx)
 }
 
-func (p *CodeBuilder) startCodeBlock(current codeBlock, old *codeBlockCtx) *CodeBuilder {
-	p.current.codeBlockCtx, *old = codeBlockCtx{current, p.stk.Len(), nil}, p.current.codeBlockCtx
+func (p *CodeBuilder) startBlockStmt(current codeBlock, comment string, old *codeBlockCtx) *CodeBuilder {
+	scope := types.NewScope(p.current.scope, token.NoPos, token.NoPos, comment)
+	p.current.codeBlockCtx, *old = codeBlockCtx{current, scope, p.stk.Len(), nil}, p.current.codeBlockCtx
 	return p
 }
 
-func (p *CodeBuilder) endCodeBlock(old codeBlockCtx) []ast.Stmt {
+func (p *CodeBuilder) endBlockStmt(old codeBlockCtx) []ast.Stmt {
 	stmts := p.current.stmts
 	p.stk.SetLen(p.current.base)
 	p.current.codeBlockCtx = old
 	return stmts
+}
+
+func (p *CodeBuilder) startInitExpr(current codeBlock) (old codeBlock) {
+	p.current.codeBlock, old = current, p.current.codeBlock
+	return
+}
+
+func (p *CodeBuilder) endInitExpr(old codeBlock) {
+	p.current.codeBlock = old
 }
 
 // NewClosure func
