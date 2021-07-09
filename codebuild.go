@@ -42,10 +42,15 @@ type codeBlockCtx struct {
 	stmts []ast.Stmt
 }
 
+type funcBodyCtx struct {
+	codeBlockCtx
+	fn *Func
+}
+
 // CodeBuilder type
 type CodeBuilder struct {
 	stk     internal.Stack
-	current codeBlockCtx
+	current funcBodyCtx
 	pkg     *Package
 }
 
@@ -58,15 +63,25 @@ func (p *CodeBuilder) Pkg() *Package {
 	return p.pkg
 }
 
+func (p *CodeBuilder) startFuncBody(fn *Func, old *funcBodyCtx) *CodeBuilder {
+	p.current.fn, old.fn = fn, p.current.fn
+	return p.startCodeBlock(fn, &old.codeBlockCtx)
+}
+
+func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
+	p.current.fn = old.fn
+	return p.endCodeBlock(old.codeBlockCtx)
+}
+
 func (p *CodeBuilder) startCodeBlock(current codeBlock, old *codeBlockCtx) *CodeBuilder {
-	p.current, *old = codeBlockCtx{current, p.stk.Len(), nil}, p.current
+	p.current.codeBlockCtx, *old = codeBlockCtx{current, p.stk.Len(), nil}, p.current.codeBlockCtx
 	return p
 }
 
 func (p *CodeBuilder) endCodeBlock(old codeBlockCtx) []ast.Stmt {
 	stmts := p.current.stmts
 	p.stk.SetLen(p.current.base)
-	p.current = old
+	p.current.codeBlockCtx = old
 	return stmts
 }
 
@@ -131,6 +146,7 @@ func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 	return p
 }
 
+// MemberVal func
 func (p *CodeBuilder) MemberVal(name string) *CodeBuilder {
 	if debug {
 		log.Println("MemberVal", name)
@@ -249,11 +265,33 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	if ellipsis != nil && ellipsis[0] {
 		hasEllipsis = 1
 	}
-	ret := toFuncCall(p.pkg, fn, args, hasEllipsis)
 	if debug {
 		log.Println("Call", n-1, int(hasEllipsis))
 	}
+	ret := toFuncCall(p.pkg, fn, args, hasEllipsis)
 	p.stk.Ret(n, ret)
+	return p
+}
+
+// Return func
+func (p *CodeBuilder) Return(n int) *CodeBuilder {
+	if debug {
+		log.Println("Return", n)
+	}
+	results := p.current.fn.Type().(*types.Signature).Results()
+	args := p.stk.GetArgs(n)
+	if err := checkMatchFuncResults(p.pkg, args, results); err != nil {
+		panic(err)
+	}
+	var rets []ast.Expr
+	if n > 0 {
+		rets = make([]ast.Expr, n)
+		for i := 0; i < n; i++ {
+			rets[i] = args[i].Val
+		}
+		p.stk.PopN(n)
+	}
+	p.current.stmts = append(p.current.stmts, &ast.ReturnStmt{Results: rets})
 	return p
 }
 

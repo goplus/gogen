@@ -283,6 +283,71 @@ func main() {
 `)
 }
 
+func TestReturn(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	format := pkg.NewParam("format", types.Typ[types.String])
+	args := pkg.NewParam("args", types.NewSlice(types.NewInterfaceType(nil, nil)))
+	n := pkg.NewParam("", types.Typ[types.Int])
+	err := pkg.NewParam("", types.Universe.Lookup("error").Type())
+	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
+		Val(pkg.Import("fmt").Ref("Println")).Val(format).Val(args).Call(2, true).Return(1).
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func foo(format string, args ...interface {
+}) ( int,  error) {
+	return fmt.Println(format, args...)
+}
+func main() {
+}
+`)
+}
+
+func TestReturnExpr(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	format := pkg.NewParam("format", types.Typ[types.String])
+	args := pkg.NewParam("args", types.NewSlice(types.NewInterfaceType(nil, nil)))
+	n := pkg.NewParam("", types.Typ[types.Int])
+	err := pkg.NewParam("", types.Universe.Lookup("error").Type())
+	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
+		Val(0).Val(nil).Return(2).
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(format string, args ...interface {
+}) ( int,  error) {
+	return 0, nil
+}
+func main() {
+}
+`)
+}
+
+func TestReturnNamedResults(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	format := pkg.NewParam("format", types.Typ[types.String])
+	args := pkg.NewParam("args", types.NewSlice(types.NewInterfaceType(nil, nil)))
+	n := pkg.NewParam("n", types.Typ[types.Int])
+	err := pkg.NewParam("err", types.Universe.Lookup("error").Type())
+	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
+		Return(0).
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(format string, args ...interface {
+}) (n int, err error) {
+	return
+}
+func main() {
+}
+`)
+}
+
 func TestImport(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	fmt := pkg.Import("fmt")

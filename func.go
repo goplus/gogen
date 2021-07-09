@@ -50,7 +50,7 @@ func NewTuple(x ...*Param) *Tuple {
 type Func struct {
 	*types.Func
 	decl *ast.FuncDecl
-	old  codeBlockCtx
+	old  funcBodyCtx
 }
 
 // BodyStart func
@@ -58,13 +58,13 @@ func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 	if debug {
 		log.Println("NewFunc", p.Name())
 	}
-	return pkg.cb.startCodeBlock(p, &p.old)
+	return pkg.cb.startFuncBody(p, &p.old)
 }
 
 // End is for internal use.
 func (p *Func) End(cb *CodeBuilder) {
 	pkg := cb.pkg
-	stmts := cb.endCodeBlock(p.old)
+	stmts := cb.endFuncBody(p.old)
 	body := &ast.BlockStmt{List: stmts}
 	t := p.Type().(*types.Signature)
 	if fn := p.decl; fn == nil { // is closure

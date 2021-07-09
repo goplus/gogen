@@ -392,6 +392,53 @@ func checkMatchFuncArgs(pkg *Package, args []types.Type, params *types.Tuple) er
 	return nil
 }
 
+func checkMatchFuncResults(pkg *Package, rets []internal.Elem, results *types.Tuple) error {
+	n := len(rets)
+	need := results.Len()
+	switch n {
+	case 0:
+		if need > 0 && isUnnamedParams(results) {
+			return errors.New("TODO: return without value")
+		}
+		return nil
+	case 1:
+		if need > 1 {
+			if t, ok := rets[0].Type.(*types.Tuple); ok {
+				if n1 := t.Len(); n1 != need {
+					return fmt.Errorf("TODO: require %d results, but got %d", need, n1)
+				}
+				for i := 0; i < need; i++ {
+					if err := checkMatchType(pkg, t.At(i).Type(), results.At(i).Type()); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+		}
+	}
+	if n == need {
+		for i := 0; i < need; i++ {
+			if err := checkMatchType(pkg, rets[i].Type, results.At(i).Type()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return fmt.Errorf("TODO: require %d results, but got %d", need, n)
+}
+
+func isUnnamedParams(t *types.Tuple) bool {
+	if t == nil {
+		return true
+	}
+	for i, n := 0, t.Len(); i < n; i++ {
+		if t.At(i).Name() == "" {
+			return true
+		}
+	}
+	return false
+}
+
 func checkMatchElemType(pkg *Package, vals []types.Type, elt types.Type) error {
 	for _, val := range vals {
 		if err := checkMatchType(pkg, val, elt); err != nil {
