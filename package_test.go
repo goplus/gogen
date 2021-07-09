@@ -16,6 +16,7 @@ package gox_test
 import (
 	"bytes"
 	"go/ast"
+	"go/constant"
 	"go/parser"
 	"go/token"
 	"go/types"
@@ -101,6 +102,28 @@ func TestBasic(t *testing.T) {
 func main() {
 }
 `)
+}
+
+func TestConst(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	tv := pkg.ConstStart().Val(1).Val(2).BinaryOp(token.ADD).EndConst()
+	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(3)) {
+		t.Fatal("TestConst: != 3, it is", tv.Value)
+	}
+	tv = pkg.ConstStart().Val("1").Val("2").BinaryOp(token.ADD).EndConst()
+	if constant.Compare(tv.Value, token.NEQ, constant.MakeString("12")) {
+		t.Fatal("TestConst: != 12, it is", tv.Value)
+	}
+}
+
+func TestConstLenArray(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	typ := types.NewArray(types.Typ[types.Int], 10)
+	pkg.Types.Scope().Insert(types.NewVar(token.NoPos, pkg.Types, "array", typ))
+	tv := pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val(pkg.Ref("array")).Call(1).EndConst()
+	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.Value)
+	}
 }
 
 func TestFuncBasic(t *testing.T) {

@@ -17,7 +17,27 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
 )
+
+// ----------------------------------------------------------------------------
+
+// ConstStart starts a constant expression.
+func (p *Package) ConstStart() *CodeBuilder {
+	return &p.cb
+}
+
+func (p *CodeBuilder) EndConst() types.TypeAndValue {
+	elem := p.stk.Pop()
+	info := &types.Info{
+		Types: make(map[ast.Expr]types.TypeAndValue),
+	}
+	pkg := p.pkg
+	if err := types.CheckExpr(pkg.Fset, pkg.Types, token.NoPos, elem.Val, info); err != nil {
+		log.Panicln("TODO: eval constant -", err)
+	}
+	return info.Types[elem.Val]
+}
 
 // ----------------------------------------------------------------------------
 
@@ -58,7 +78,7 @@ func (p *VarDecl) MatchType(typ types.Type) *VarDecl {
 
 // InitStart func
 func (p *VarDecl) InitStart() *CodeBuilder {
-	panic("VarStmt.InitStart")
+	panic("TODO: VarDecl.InitStart")
 }
 
 // NewVar func

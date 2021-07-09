@@ -126,7 +126,7 @@ func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 		switch v := ref.(type) {
 		case *Var:
 			if debug {
-				log.Println("VarRef", v.name, v.typ)
+				log.Println("VarRef", v.name)
 			}
 			p.stk.Push(internal.Elem{
 				Val:  ident(v.name),
@@ -134,7 +134,7 @@ func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 			})
 		case *types.Var:
 			if debug {
-				log.Println("VarRef", v.Name(), v.Type())
+				log.Println("VarRef", v.Name())
 			}
 			p.stk.Push(internal.Elem{
 				Val:  ident(v.Name()),
