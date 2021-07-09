@@ -113,7 +113,17 @@ func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
 	if t.Kind() == types.UnsafePointer {
 		return toObjectExpr(pkg, pkg.Import("unsafe").Ref("Pointer"))
 	}
+	if (t.Info() & types.IsUntyped) != 0 {
+		panic("unexpected: untyped type")
+	}
 	return &ast.Ident{Name: t.Name()}
+}
+
+func isUntyped(typ types.Type) bool {
+	if t, ok := typ.(*types.Basic); ok {
+		return (t.Info() & types.IsUntyped) != 0
+	}
+	return false
 }
 
 func toNamedType(pkg *Package, t *types.Named) ast.Expr {

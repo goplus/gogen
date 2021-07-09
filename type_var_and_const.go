@@ -29,14 +29,72 @@ func (p *Package) ConstStart() *CodeBuilder {
 
 func (p *CodeBuilder) EndConst() types.TypeAndValue {
 	elem := p.stk.Pop()
+	return evalConstExpr(p.pkg, elem.Val)
+}
+
+func evalConstExpr(pkg *Package, expr ast.Expr) types.TypeAndValue {
 	info := &types.Info{
 		Types: make(map[ast.Expr]types.TypeAndValue),
 	}
-	pkg := p.pkg
-	if err := types.CheckExpr(pkg.Fset, pkg.Types, token.NoPos, elem.Val, info); err != nil {
+	if err := types.CheckExpr(pkg.Fset, pkg.Types, token.NoPos, expr, info); err != nil {
 		log.Panicln("TODO: eval constant -", err)
 	}
-	return info.Types[elem.Val]
+	return info.Types[expr]
+}
+
+// ----------------------------------------------------------------------------
+
+// ConstDecl type
+type ConstDecl struct {
+	name string
+	typ  types.Type
+	old  codeBlockCtx
+}
+
+func (p *ConstDecl) InitType(typ types.Type) *ConstDecl {
+	if p.typ != nil {
+		panic("const type is already initialized")
+	}
+	p.typ = typ
+	return p
+}
+
+func (p *ConstDecl) BodyStart(pkg *Package) *CodeBuilder {
+	cb := pkg.ConstStart()
+	return cb.startCodeBlock(p, &p.old)
+}
+
+func (p *ConstDecl) End(cb *CodeBuilder) {
+	pkg := cb.pkg
+	elem := cb.stk.Pop()
+	if p.typ != nil {
+		if err := checkMatchType(pkg, elem.Type, p.typ); err != nil {
+			panic(err)
+		}
+	} else {
+		p.typ = elem.Type
+	}
+	cb.endCodeBlock(p.old)
+	tv := evalConstExpr(pkg, elem.Val)
+	pkg.Types.Scope().Insert(types.NewConst(token.NoPos, pkg.Types, p.name, p.typ, tv.Value))
+	var typExpr ast.Expr
+	if !isUntyped(p.typ) {
+		typExpr = toType(pkg, p.typ)
+	}
+	pkg.decls = append(pkg.decls, &ast.GenDecl{
+		Tok: token.CONST,
+		Specs: []ast.Spec{
+			&ast.ValueSpec{
+				Names:  []*ast.Ident{ident(p.name)},
+				Type:   typExpr,
+				Values: []ast.Expr{elem.Val},
+			},
+		},
+	})
+}
+
+func (p *Package) NewConst(name string) *ConstDecl {
+	return &ConstDecl{name: name}
 }
 
 // ----------------------------------------------------------------------------
