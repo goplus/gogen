@@ -312,6 +312,7 @@ func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis t
 func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) (ret internal.Elem, err error) {
 	var it *instantiated
 	var sig *types.Signature
+retry:
 	switch t := fn.Type.(type) {
 	case *types.Signature:
 		sig = t
@@ -324,6 +325,9 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 			}
 		}
 		return
+	case *delayedLoadType:
+		fn = toObject(pkg, t.Obj())
+		goto retry
 	default:
 		panic("TODO: call to non function")
 	}
