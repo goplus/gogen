@@ -18,6 +18,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"reflect"
 
 	"github.com/goplus/gox/internal"
 )
@@ -113,22 +114,35 @@ func (p *CodeBuilder) NewVar(name string, pv **Var) *CodeBuilder {
 }
 
 // VarRef func: p.VarRef(nil) means underscore (_)
-func (p *CodeBuilder) VarRef(v *Var) *CodeBuilder {
-	if v != nil {
-		if debug {
-			log.Println("VarRef", v.name)
-		}
-		p.stk.Push(internal.Elem{
-			Val:  ident(v.name),
-			Type: &refType{typ: v.typ},
-		})
-	} else {
+func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
+	if ref == nil {
 		if debug {
 			log.Println("VarRef _")
 		}
 		p.stk.Push(internal.Elem{
 			Val: underscore, // _
 		})
+	} else {
+		switch v := ref.(type) {
+		case *Var:
+			if debug {
+				log.Println("VarRef", v.name, v.typ)
+			}
+			p.stk.Push(internal.Elem{
+				Val:  ident(v.name),
+				Type: &refType{typ: v.typ},
+			})
+		case *types.Var:
+			if debug {
+				log.Println("VarRef", v.Name(), v.Type())
+			}
+			p.stk.Push(internal.Elem{
+				Val:  ident(v.Name()),
+				Type: &refType{typ: v.Type()},
+			})
+		default:
+			log.Panicln("TODO: VarRef", reflect.TypeOf(ref))
+		}
 	}
 	return p
 }
@@ -231,7 +245,7 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	pkg := p.pkg
 	if lhs == rhs {
 		for i := 0; i < lhs; i++ {
-			assignMatchType(pkg, args[i], args[lhs+i].Type)
+			assignMatchType(pkg, args[i].Type, args[lhs+i].Type)
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
 		}
@@ -241,7 +255,7 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 			panic("TODO: unmatch assignment")
 		}
 		for i := 0; i < lhs; i++ {
-			assignMatchType(pkg, args[i], rhsVals.At(i).Type())
+			assignMatchType(pkg, args[i].Type, rhsVals.At(i).Type())
 			stmt.Lhs[i] = args[i].Val
 		}
 		stmt.Rhs[0] = args[lhs].Val

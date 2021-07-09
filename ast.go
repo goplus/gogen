@@ -452,12 +452,12 @@ func checkMatchElemType(pkg *Package, vals []types.Type, elt types.Type) error {
 	return nil
 }
 
-func assignMatchType(pkg *Package, r internal.Elem, valTy types.Type) {
-	if rt, ok := r.Type.(*refType); ok {
-		if err := checkMatchType(pkg, rt.typ, valTy); err != nil {
+func assignMatchType(pkg *Package, varRef types.Type, val types.Type) {
+	if rt, ok := varRef.(*refType); ok {
+		if err := checkMatchType(pkg, val, rt.typ); err != nil {
 			panic(err)
 		}
-	} else if r.Val == underscore {
+	} else if varRef == nil { // underscore
 		// do nothing
 	} else {
 		panic("TODO: unassignable")
@@ -468,24 +468,23 @@ func checkMatchType(pkg *Package, arg, param types.Type) error {
 	if doMatchType(pkg, arg, param) {
 		return nil
 	}
-	return fmt.Errorf("TODO: can't assign %v to %v", arg, param)
+	return fmt.Errorf("TODO: can't pass %v to %v", arg, param)
 }
 
 func doMatchType(pkg *Package, arg, param types.Type) bool {
-	if isUnboundParam(param) {
+	if t, ok := param.(*unboundType); ok { // variable to bound type
+		if t.bound == nil {
+			arg = types.Default(arg)
+			t.bound = arg
+			t.v.typ = arg
+			*t.v.ptype = toType(pkg, arg)
+		}
+		param = t.bound
+	} else if isUnboundParam(param) {
 		if _, ok := arg.(*unboundType); ok {
 			panic("TODO: don't pass unbound variables as template function params.")
 		}
 		return boundType(pkg, arg, param)
-	}
-	if t, ok := arg.(*unboundType); ok { // variable to bound type
-		if t.bound == nil {
-			param = types.Default(param)
-			t.bound = param
-			t.v.typ = param
-			*t.v.ptype = toType(pkg, param)
-		}
-		arg = t.bound
 	}
 	return types.AssignableTo(arg, param)
 }

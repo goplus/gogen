@@ -361,6 +361,7 @@ func TestReturnNamedResults(t *testing.T) {
 	n := pkg.NewParam("n", types.Typ[types.Int])
 	err := pkg.NewParam("err", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
+		VarRef(n).VarRef(err).Val(1).Val(nil).Assign(2).
 		Return(0).
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
@@ -368,6 +369,7 @@ func TestReturnNamedResults(t *testing.T) {
 
 func foo(format string, args ...interface {
 }) (n int, err error) {
+	n, err = 1, nil
 	return
 }
 func main() {
