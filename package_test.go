@@ -128,12 +128,12 @@ func TestConstLenArray(t *testing.T) {
 
 func TestConstDecl(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
-	pkg.NewConst(nil, "n").BodyStart(pkg).
+	pkg.NewConst(nil, "n").InitStart(pkg).
 		Val(1).Val(2).BinaryOp(token.ADD).
-		End()
-	pkg.NewConst(types.Typ[types.String], "x").BodyStart(pkg).
+		EndInit(1)
+	pkg.NewConst(types.Typ[types.String], "x").InitStart(pkg).
 		Val("1").Val("2").BinaryOp(token.ADD).
-		End()
+		EndInit(1)
 	domTest(t, pkg, `package main
 
 const n = 1 + 2
@@ -143,13 +143,13 @@ const x string = "1" + "2"
 
 func TestVarDecl(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
-	pkg.NewVar(nil, "n", "s").BodyStart(pkg).
+	pkg.NewVar(nil, "n", "s").InitStart(pkg).
 		Val(1).Val(2).BinaryOp(token.ADD).
 		Val("1").Val("2").BinaryOp(token.ADD).
-		End()
-	pkg.NewVar(types.Typ[types.String], "x").BodyStart(pkg).
+		EndInit(2)
+	pkg.NewVar(types.Typ[types.String], "x").InitStart(pkg).
 		Val("Hello, ").Val("Go+").BinaryOp(token.ADD).
-		End()
+		EndInit(1)
 	domTest(t, pkg, `package main
 
 var n, s = 1 + 2, "1" + "2"
@@ -163,6 +163,39 @@ func TestVarDeclNoBody(t *testing.T) {
 	domTest(t, pkg, `package main
 
 var x string
+`)
+}
+
+func TestVarDeclInFunc(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.String], "x", "y").
+		NewVarStart(nil, "a", "b").Val(1).Val(2).BinaryOp(token.ADD).Val("Hi").EndInit(2).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var x, y string
+	var a, b = 1 + 2, "Hi"
+}
+`)
+}
+
+func TestDefineVar(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.Int], "n").
+		DefineVarStart("n", "err").Val(fmt.Ref("Println")).Val(2).Call(1).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	var n int
+	n, err := fmt.Println(2)
+}
 `)
 }
 

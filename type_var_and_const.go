@@ -18,6 +18,8 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+
+	"github.com/goplus/gox/internal"
 )
 
 // ----------------------------------------------------------------------------
@@ -68,19 +70,40 @@ type ValueDecl struct {
 	tok   token.Token
 }
 
-func (p *ValueDecl) BodyStart(pkg *Package) *CodeBuilder {
+func (p *ValueDecl) InitStart(pkg *Package) *CodeBuilder {
+	pkg.cb.varDecl = p
 	p.old = pkg.cb.startInitExpr(p)
 	return &pkg.cb
 }
 
 func (p *ValueDecl) End(cb *CodeBuilder) {
+	panic("don't call End(), please use EndInit() instead")
+}
+
+func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) {
+	n := len(p.names)
+	rets := cb.stk.GetArgs(arity)
+	if arity == 1 && n != 1 {
+		t, ok := rets[0].Type.(*types.Tuple)
+		if !ok || n != t.Len() {
+			panic("TODO: unmatched var/const define")
+		}
+		*p.vals = []ast.Expr{rets[0].Val}
+		rets = make([]internal.Elem, n)
+		for i := 0; i < n; i++ {
+			rets[i] = internal.Elem{Type: t.At(i).Type()}
+		}
+	} else if n != arity {
+		panic("TODO: unmatched var/const define")
+	} else {
+		values := make([]ast.Expr, arity)
+		for i, ret := range rets {
+			values[i] = ret.Val
+		}
+		*p.vals = values
+	}
 	pkg, scope := cb.pkg, cb.current.scope
 	typ := p.typ
-	n := len(p.names)
-	if n != cb.stk.Len()-cb.current.base {
-		panic("TODO: unmatched count of initial expressions")
-	}
-	rets := cb.stk.GetArgs(n)
 	if typ != nil {
 		for _, ret := range rets {
 			if err := checkMatchType(pkg, ret.Type, typ); err != nil {
@@ -88,30 +111,44 @@ func (p *ValueDecl) End(cb *CodeBuilder) {
 			}
 		}
 	}
-	values := make([]ast.Expr, n)
 	for i, name := range p.names {
-		val := rets[i].Val
-		values[i] = val
 		if p.tok == token.CONST {
-			tv := evalConstExpr(pkg, val)
+			tv := evalConstExpr(pkg, rets[i].Val)
 			scope.Insert(types.NewConst(token.NoPos, pkg.Types, name, tv.Type, tv.Value))
 		} else if typ == nil {
-			scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, rets[i].Type))
+			if old := scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, rets[i].Type)); old != nil {
+				if p.tok != token.DEFINE {
+					panic("TODO: variable already defined")
+				}
+				if err := checkMatchType(pkg, rets[i].Type, old.Type()); err != nil {
+					panic(err)
+				}
+			}
 		}
 	}
-	cb.stk.PopN(n)
+	cb.stk.PopN(arity)
 	cb.endInitExpr(p.old)
-	*p.vals = values
 	return
 }
 
 func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string) *ValueDecl {
+	n := len(names)
+	if tok == token.DEFINE { // a, b := expr
+		nameIdents := make([]ast.Expr, n)
+		for i, name := range names {
+			nameIdents[i] = ident(name)
+		}
+		stmt := &ast.AssignStmt{Tok: token.DEFINE, Lhs: nameIdents}
+		p.cb.current.stmts = append(p.cb.current.stmts, stmt)
+		return &ValueDecl{names: names, tok: tok, vals: &stmt.Rhs}
+	}
+	// var a, b = expr
+	// const a, b = expr
 	var typExpr ast.Expr
 	if typ != nil {
 		typExpr = toType(p, typ)
 	}
 	scope := p.cb.current.scope
-	n := len(names)
 	nameIdents := make([]*ast.Ident, n)
 	for i, name := range names {
 		nameIdents[i] = ident(name)

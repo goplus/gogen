@@ -54,6 +54,7 @@ type CodeBuilder struct {
 	stk     internal.Stack
 	current funcBodyCtx
 	pkg     *Package
+	varDecl *ValueDecl
 }
 
 func (p *CodeBuilder) init(pkg *Package) {
@@ -108,6 +109,22 @@ func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
 func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 	fn := types.NewFunc(token.NoPos, p.pkg.Types, "", sig)
 	return &Func{Func: fn}
+}
+
+// NewVar func
+func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
+	p.pkg.newValueDecl(token.VAR, typ, names...)
+	return p
+}
+
+// NewVarStart func
+func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder {
+	return p.pkg.newValueDecl(token.VAR, typ, names...).InitStart(p.pkg)
+}
+
+// DefineVarStart func
+func (p *CodeBuilder) DefineVarStart(names ...string) *CodeBuilder {
+	return p.pkg.newValueDecl(token.DEFINE, nil, names...).InitStart(p.pkg)
 }
 
 // NewAutoVar func
@@ -415,6 +432,16 @@ func (p *CodeBuilder) End() *CodeBuilder {
 		log.Println("End")
 	}
 	p.current.End(p)
+	return p
+}
+
+// EndInit func
+func (p *CodeBuilder) EndInit(n int) *CodeBuilder {
+	if debug {
+		log.Println("EndInit")
+	}
+	p.varDecl.EndInit(p, n)
+	p.varDecl = nil
 	return p
 }
 
