@@ -196,6 +196,21 @@ func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 	return p
 }
 
+// MapLit func
+func (p *CodeBuilder) MapLit(t *types.Map, arity int) *CodeBuilder {
+	panic("TODO: MapLit")
+}
+
+// SliceLit func
+func (p *CodeBuilder) SliceLit(t *types.Slice, arity int, keyVal ...bool) *CodeBuilder {
+	panic("TODO: SliceLit")
+}
+
+// ArrayLit func
+func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeBuilder {
+	panic("TODO: ArrayLit")
+}
+
 // Val func
 func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 	if debug {

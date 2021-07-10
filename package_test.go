@@ -42,6 +42,8 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 	}
 }
 
+// ----------------------------------------------------------------------------
+
 func TestAssignableTo(t *testing.T) {
 	if !types.AssignableTo(types.Typ[types.UntypedInt], types.Typ[types.Int]) {
 		t.Fatal("Failed: AssignableTo untyped int => int")
@@ -93,6 +95,8 @@ func bar(v mytype) rune {
 		t.Fatal("bar.Type:", bar)
 	}
 }
+
+// ----------------------------------------------------------------------------
 
 func TestBasic(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
@@ -705,3 +709,44 @@ func main() {
 }
 `)
 }
+
+// ----------------------------------------------------------------------------
+
+func ctxRef(pkg *gox.Package, name string) gox.Ref {
+	return pkg.CB().Scope().Lookup(name)
+}
+
+func TestExample(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+
+	fmt := pkg.Import("fmt")
+
+	v := pkg.NewParam("v", types.Typ[types.String]) // v string
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart("a", "b").Val("Hi").Val(3).EndInit(2).   // a, b := "Hi", 3
+		NewVarStart(nil, "c").Val(ctxRef(pkg, "b")).EndInit(1). // var c = b
+		Val(fmt.Ref("Println")).
+		/**/ Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "c")). // fmt.Println(a, b, c)
+		/**/ Call(3).EndStmt().
+		NewClosure(gox.NewTuple(v), nil, false).BodyStart(pkg).
+		/**/ Val(fmt.Ref("Println")).Val(v).Call(1).EndStmt(). // fmt.Println(v)
+		/**/ End().
+		Val("Hello").Call(1).EndStmt(). // func(v string) { ... } ("Hello")
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	a, b := "Hi", 3
+	var c = b
+	fmt.Println(a, b, c)
+	func(v string) {
+		fmt.Println(v)
+	}("Hello")
+}
+`)
+}
+
+// ----------------------------------------------------------------------------

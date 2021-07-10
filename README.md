@@ -11,27 +11,30 @@ gox - Code generator for the Go language
 
 ```go
 import (
-    "github.com/goplus/gox"
+	"github.com/goplus/gox"
 )
 
-var a, b, c *gox.Var
+func ctxRef(pkg *gox.Package, name string) gox.Ref {
+	return pkg.CB().Scope().Lookup(name)
+}
 
 pkg := gox.NewPackage("", "main", nil)
 
 fmt := pkg.Import("fmt")
 
-paramV := pkg.NewParam("v", types.Typ[types.String]) // v string
+v := pkg.NewParam("v", types.Typ[types.String]) // v string
 
 pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-    NewVar("a", &a).NewVar("b", &b).NewVar("c", &c). // type of variables will be auto detected
-    VarRef(a).VarRef(b).Val("Hi").Val(3).Assign(2).EndStmt(). // a, b = "Hi", 3
-    VarRef(c).Val(b).Assign(1).EndStmt(). // c = b
-    Val(fmt.Ref("Println")).Val(a).Val(b).Val(c).Call(3).EndStmt(). // fmt.Println(a, b, c)
-    NewClosure(gox.NewTuple(paramV), nil, false).BodyStart(pkg).
-        Val(fmt.Ref("Println")).Val(paramV).Call(1).EndStmt().
-        End().
-        Val("Hello").Call(1).EndStmt(). // func(v string) { fmt.Println(v) } ("Hello")
-    End()
+	DefineVarStart("a", "b").Val("Hi").Val(3).EndInit(2).   // a, b := "Hi", 3
+	NewVarStart(nil, "c").Val(ctxRef(pkg, "b")).EndInit(1). // var c = b
+	Val(fmt.Ref("Println")).
+	/**/ Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "c")). // fmt.Println(a, b, c)
+	/**/ Call(3).EndStmt().
+	NewClosure(gox.NewTuple(v), nil, false).BodyStart(pkg).
+	/**/ Val(fmt.Ref("Println")).Val(v).Call(1).EndStmt(). // fmt.Println(v)
+	/**/ End().
+	Val("Hello").Call(1).EndStmt(). // func(v string) { ... } ("Hello")
+	End()
 
 gox.WriteFile("./foo.go", pkg)
 ```
@@ -41,17 +44,14 @@ This will generate a Go source file named `./foo.go`. The following is its conte
 ```go
 package main
 
-import (
-    "fmt"
-)
+import fmt "fmt"
 
 func main() {
-    var a string
-    var b int
-    var c int
-    a, b = "Hi", 3
-    c = b
-    fmt.Println(a, b, c)
-    func(v string) { fmt.Println(v) } ("Hello")
+	a, b := "Hi", 3
+	var c = b
+	fmt.Println(a, b, c)
+	func(v string) {
+		fmt.Println(v)
+	}("Hello")
 }
 ```
