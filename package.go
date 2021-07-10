@@ -134,4 +134,9 @@ func (p *Package) Builtin() *PkgRef {
 	return &PkgRef{Types: p.builtin, Fset: p.Fset, pkg: p}
 }
 
+// CB returns the code builder.
+func (p *Package) CB() *CodeBuilder {
+	return &p.cb
+}
+
 // ----------------------------------------------------------------------------

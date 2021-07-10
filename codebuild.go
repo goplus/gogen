@@ -73,7 +73,21 @@ func (p *CodeBuilder) Pkg() *Package {
 
 func (p *CodeBuilder) startFuncBody(fn *Func, old *funcBodyCtx) *CodeBuilder {
 	p.current.fn, old.fn = fn, p.current.fn
-	return p.startBlockStmt(fn, "func "+fn.FullName(), &old.codeBlockCtx)
+	p.startBlockStmt(fn, "func "+fn.FullName(), &old.codeBlockCtx)
+	scope := p.current.scope
+	sig := fn.Type().(*types.Signature)
+	insertParams(scope, sig.Params())
+	insertParams(scope, sig.Results())
+	return p
+}
+
+func insertParams(scope *types.Scope, params *types.Tuple) {
+	for i, n := 0, params.Len(); i < n; i++ {
+		v := params.At(i)
+		if name := v.Name(); name != "" {
+			scope.Insert(v)
+		}
+	}
 }
 
 func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
