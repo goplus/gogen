@@ -63,8 +63,9 @@ func (p *CodeBuilder) init(pkg *Package) {
 	p.stk.Init()
 }
 
-func (p *CodeBuilder) Ref(name string) Ref {
-	return p.current.scope.Lookup(name)
+// Scope returns current scope.
+func (p *CodeBuilder) Scope() *types.Scope {
+	return p.current.scope
 }
 
 func (p *CodeBuilder) Pkg() *Package {
@@ -73,7 +74,7 @@ func (p *CodeBuilder) Pkg() *Package {
 
 func (p *CodeBuilder) startFuncBody(fn *Func, old *funcBodyCtx) *CodeBuilder {
 	p.current.fn, old.fn = fn, p.current.fn
-	p.startBlockStmt(fn, "func "+fn.FullName(), &old.codeBlockCtx)
+	p.startBlockStmt(fn, "func "+fn.Name(), &old.codeBlockCtx)
 	scope := p.current.scope
 	sig := fn.Type().(*types.Signature)
 	insertParams(scope, sig.Params())
