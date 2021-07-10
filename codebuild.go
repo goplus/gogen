@@ -63,6 +63,10 @@ func (p *CodeBuilder) init(pkg *Package) {
 	p.stk.Init()
 }
 
+func (p *CodeBuilder) Ref(name string) Ref {
+	return p.current.scope.Lookup(name)
+}
+
 func (p *CodeBuilder) Pkg() *Package {
 	return p.pkg
 }

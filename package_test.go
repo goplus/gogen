@@ -97,6 +97,9 @@ func bar(v mytype) rune {
 func TestBasic(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	if pkg.Ref("main") == nil {
+		t.Fatal("main not found")
+	}
 	domTest(t, pkg, `package main
 
 func main() {
