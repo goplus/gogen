@@ -137,6 +137,7 @@ func (p *CodeBuilder) NewAutoVar(name string, pv **AutoVar) *CodeBuilder {
 	if debug {
 		log.Println("NewAutoVar", name)
 	}
+	// TODO: scope.Insert this variable
 	p.current.stmts = append(p.current.stmts, stmt)
 	*pv = newAutoVar(name, &spec.Type)
 	return p
