@@ -168,15 +168,20 @@ var x string
 
 func TestVarDeclInFunc(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
+	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.String], "x", "y").
-		NewVarStart(nil, "a", "b").Val(1).Val(2).BinaryOp(token.ADD).Val("Hi").EndInit(2).
+		NewVarStart(nil, "a", "_").Val(1).Val(2).BinaryOp(token.ADD).Val("Hi").EndInit(2).
+		NewVarStart(nil, "n", "_").Val(fmt.Ref("Println")).Val(2).Call(1).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
+import fmt "fmt"
+
 func main() {
 	var x, y string
-	var a, b = 1 + 2, "Hi"
+	var a, _ = 1 + 2, "Hi"
+	var n, _ = fmt.Println(2)
 }
 `)
 }

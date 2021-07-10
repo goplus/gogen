@@ -112,9 +112,14 @@ func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) {
 		}
 	}
 	for i, name := range p.names {
+		if name == "_" { // skip underscore
+			continue
+		}
 		if p.tok == token.CONST {
 			tv := evalConstExpr(pkg, rets[i].Val)
-			scope.Insert(types.NewConst(token.NoPos, pkg.Types, name, tv.Type, tv.Value))
+			if scope.Insert(types.NewConst(token.NoPos, pkg.Types, name, tv.Type, tv.Value)) != nil {
+				panic("TODO: constant already defined")
+			}
 		} else if typ == nil {
 			if old := scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, rets[i].Type)); old != nil {
 				if p.tok != token.DEFINE {
@@ -152,6 +157,9 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 	nameIdents := make([]*ast.Ident, n)
 	for i, name := range names {
 		nameIdents[i] = ident(name)
+		if name == "_" { // skip underscore
+			continue
+		}
 		if typ != nil && tok == token.VAR {
 			scope.Insert(types.NewVar(token.NoPos, p.Types, name, typ))
 		}
