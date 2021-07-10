@@ -128,16 +128,41 @@ func TestConstLenArray(t *testing.T) {
 
 func TestConstDecl(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
-	pkg.NewConst("n").BodyStart(pkg).
+	pkg.NewConst(nil, "n").BodyStart(pkg).
 		Val(1).Val(2).BinaryOp(token.ADD).
 		End()
-	pkg.NewConst("x").InitType(types.Typ[types.String]).BodyStart(pkg).
+	pkg.NewConst(types.Typ[types.String], "x").BodyStart(pkg).
 		Val("1").Val("2").BinaryOp(token.ADD).
 		End()
 	domTest(t, pkg, `package main
 
 const n = 1 + 2
 const x string = "1" + "2"
+`)
+}
+
+func TestVarDecl(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewVar(nil, "n", "s").BodyStart(pkg).
+		Val(1).Val(2).BinaryOp(token.ADD).
+		Val("1").Val("2").BinaryOp(token.ADD).
+		End()
+	pkg.NewVar(types.Typ[types.String], "x").BodyStart(pkg).
+		Val("Hello, ").Val("Go+").BinaryOp(token.ADD).
+		End()
+	domTest(t, pkg, `package main
+
+var n, s = 1 + 2, "1" + "2"
+var x string = "Hello, " + "Go+"
+`)
+}
+
+func TestVarDeclNoBody(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewVar(types.Typ[types.String], "x")
+	domTest(t, pkg, `package main
+
+var x string
 `)
 }
 
@@ -189,13 +214,13 @@ func main() {
 }
 
 func TestBuiltinFunc(t *testing.T) {
-	var a, n *gox.Var
+	var a, n *gox.AutoVar
 	pkg := gox.NewPackage("", "main", nil)
 	builtin := pkg.Builtin()
 	v := pkg.NewParam("v", types.NewSlice(types.Typ[types.Int]))
 	array := pkg.NewParam("array", types.NewArray(types.Typ[types.Int], 10))
 	pkg.NewFunc(nil, "foo", gox.NewTuple(v, array), nil, false).BodyStart(pkg).
-		NewVar("a", &a).NewVar("n", &n).
+		NewAutoVar("a", &a).NewAutoVar("n", &n).
 		VarRef(a).
 		/**/ Val(builtin.Ref("append")).Val(v).Val(1).Val(2).Call(3).
 		/**/ Assign(1).EndStmt().
@@ -218,13 +243,13 @@ func main() {
 }
 
 func TestOverloadFunc(t *testing.T) {
-	var f, g, x, y *gox.Var
+	var f, g, x, y *gox.AutoVar
 	pkg := gox.NewPackage("", "main", nil)
 	builtin := pkg.Builtin()
 	c64 := pkg.NewParam("c64", types.Typ[types.Complex64])
 	c128 := pkg.NewParam("c128", types.Typ[types.Complex128])
 	pkg.NewFunc(nil, "foo", gox.NewTuple(c64, c128), nil, false).BodyStart(pkg).
-		NewVar("f", &f).NewVar("g", &g).NewVar("x", &x).NewVar("y", &y).
+		NewAutoVar("f", &f).NewAutoVar("g", &g).NewAutoVar("x", &x).NewAutoVar("y", &y).
 		VarRef(f).Val(builtin.Ref("imag")).Val(c128).Call(1).Assign(1).EndStmt().
 		VarRef(g).Val(builtin.Ref("real")).Val(c64).Call(1).Assign(1).EndStmt().
 		VarRef(x).Val(builtin.Ref("complex")).Val(0).Val(f).Call(2).Assign(1).EndStmt().
@@ -470,11 +495,11 @@ func main() {
 }
 
 func TestImportAndCallMethod(t *testing.T) {
-	var x *gox.Var
+	var x *gox.AutoVar
 	pkg := gox.NewPackage("", "main", nil)
 	strings := pkg.Import("strings")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVar("x", &x).
+		NewAutoVar("x", &x).
 		VarRef(x).Val(strings.Ref("NewReplacer")).Val("?").Val("!").Call(2).
 		/**/ MemberVal("Replace").Val("hello, world???").Call(1).Assign(1).EndStmt().
 		Val(pkg.Builtin().Ref("println")).Val(x).Call(1).EndStmt().
@@ -492,11 +517,11 @@ func main() {
 }
 
 func TestAssign(t *testing.T) {
-	var a, b, c, d, e, f, g *gox.Var
+	var a, b, c, d, e, f, g *gox.AutoVar
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVar("a", &a).NewVar("b", &b).NewVar("c", &c).NewVar("d", &d).
-		NewVar("e", &e).NewVar("f", &f).NewVar("g", &g).
+		NewAutoVar("a", &a).NewAutoVar("b", &b).NewAutoVar("c", &c).NewAutoVar("d", &d).
+		NewAutoVar("e", &e).NewAutoVar("f", &f).NewAutoVar("g", &g).
 		VarRef(a).VarRef(b).VarRef(d).VarRef(e).VarRef(f).VarRef(g).
 		Val("Hi").Val(3).Val(true).Val('!').Val(1.2).Val(&ast.BasicLit{Kind: token.FLOAT, Value: "12.3"}).
 		Assign(6).EndStmt().
@@ -519,11 +544,11 @@ func main() {
 }
 
 func TestAssignFnCall(t *testing.T) {
-	var n, err *gox.Var
+	var n, err *gox.AutoVar
 	pkg := gox.NewPackage("", "main", nil)
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVar("n", &n).NewVar("err", &err).
+		NewAutoVar("n", &n).NewAutoVar("err", &err).
 		VarRef(n).VarRef(err).
 		Val(fmt.Ref("Println")).Val("Hello").Call(1).
 		Assign(2, 1).EndStmt().
@@ -541,11 +566,11 @@ func main() {
 }
 
 func TestAssignUnderscore(t *testing.T) {
-	var err *gox.Var
+	var err *gox.AutoVar
 	pkg := gox.NewPackage("", "main", nil)
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVar("err", &err).
+		NewAutoVar("err", &err).
 		VarRef(nil).VarRef(err).
 		Val(fmt.Ref("Println")).Val("Hello").Call(1).
 		Assign(2, 1).EndStmt().
@@ -562,10 +587,10 @@ func main() {
 }
 
 func TestOperator(t *testing.T) {
-	var a, b, c, d *gox.Var
+	var a, b, c, d *gox.AutoVar
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVar("a", &a).NewVar("b", &b).NewVar("c", &c).NewVar("d", &d).
+		NewAutoVar("a", &a).NewAutoVar("b", &b).NewAutoVar("c", &c).NewAutoVar("d", &d).
 		VarRef(a).Val("Hi").Assign(1).EndStmt().
 		VarRef(b).Val(a).Val("!").BinaryOp(token.ADD).Assign(1).EndStmt().
 		VarRef(c).Val(&ast.BasicLit{Kind: token.INT, Value: "13"}).Assign(1).EndStmt().
@@ -587,10 +612,10 @@ func main() {
 }
 
 func TestOperatorComplex(t *testing.T) {
-	var a *gox.Var
+	var a *gox.AutoVar
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVar("a", &a).
+		NewAutoVar("a", &a).
 		VarRef(a).Val(123.1).Val(&ast.BasicLit{Kind: token.IMAG, Value: "3i"}).BinaryOp(token.SUB).Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -603,10 +628,10 @@ func main() {
 }
 
 func TestBinaryOpUntyped(t *testing.T) {
-	var a *gox.Var
+	var a *gox.AutoVar
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVar("a", &a).
+		NewAutoVar("a", &a).
 		VarRef(a).Val("Hi").Val("!").BinaryOp(token.ADD).Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main

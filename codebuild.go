@@ -110,18 +110,18 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 	return &Func{Func: fn}
 }
 
-// NewVar func
-func (p *CodeBuilder) NewVar(name string, pv **Var) *CodeBuilder {
+// NewAutoVar func
+func (p *CodeBuilder) NewAutoVar(name string, pv **AutoVar) *CodeBuilder {
 	spec := &ast.ValueSpec{Names: []*ast.Ident{ident(name)}}
 	decl := &ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{spec}}
 	stmt := &ast.DeclStmt{
 		Decl: decl,
 	}
 	if debug {
-		log.Println("NewVar", name)
+		log.Println("NewAutoVar", name)
 	}
 	p.current.stmts = append(p.current.stmts, stmt)
-	*pv = newVar(name, &spec.Type)
+	*pv = newAutoVar(name, &spec.Type)
 	return p
 }
 
@@ -136,7 +136,7 @@ func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 		})
 	} else {
 		switch v := ref.(type) {
-		case *Var:
+		case *AutoVar:
 			if debug {
 				log.Println("VarRef", v.name)
 			}

@@ -22,6 +22,21 @@ import (
 
 // ----------------------------------------------------------------------------
 
+// A Variable represents a declared variable (including function parameters and results, and struct fields).
+type AutoVar struct {
+	name  string
+	typ   types.Type
+	ptype *ast.Expr
+}
+
+func newAutoVar(name string, ptype *ast.Expr) *AutoVar {
+	v := &AutoVar{name: name, ptype: ptype}
+	v.typ = &unboundType{v: v}
+	return v
+}
+
+// ----------------------------------------------------------------------------
+
 // ConstStart starts a constant expression.
 func (p *Package) ConstStart() *CodeBuilder {
 	return &p.cb
@@ -44,105 +59,82 @@ func evalConstExpr(pkg *Package, expr ast.Expr) types.TypeAndValue {
 
 // ----------------------------------------------------------------------------
 
-// ConstDecl type
-type ConstDecl struct {
-	name string
-	typ  types.Type
-	old  codeBlock
-}
-
-func (p *ConstDecl) InitType(typ types.Type) *ConstDecl {
-	if p.typ != nil {
-		panic("const type is already initialized")
-	}
-	p.typ = typ
-	return p
-}
-
-func (p *ConstDecl) BodyStart(pkg *Package) *CodeBuilder {
-	cb := pkg.ConstStart()
-	p.old = cb.startInitExpr(p)
-	return cb
-}
-
-func (p *ConstDecl) End(cb *CodeBuilder) {
-	pkg := cb.pkg
-	elem := cb.stk.Pop()
-	if p.typ != nil {
-		if err := checkMatchType(pkg, elem.Type, p.typ); err != nil {
-			panic(err)
-		}
-	} else {
-		p.typ = elem.Type
-	}
-	cb.endInitExpr(p.old)
-	tv := evalConstExpr(pkg, elem.Val)
-	cb.current.scope.Insert(types.NewConst(token.NoPos, pkg.Types, p.name, p.typ, tv.Value))
-	var typExpr ast.Expr
-	if !isUntyped(p.typ) {
-		typExpr = toType(pkg, p.typ)
-	}
-	pkg.decls = append(pkg.decls, &ast.GenDecl{
-		Tok: token.CONST,
-		Specs: []ast.Spec{
-			&ast.ValueSpec{
-				Names:  []*ast.Ident{ident(p.name)},
-				Type:   typExpr,
-				Values: []ast.Expr{elem.Val},
-			},
-		},
-	})
-}
-
-func (p *Package) NewConst(name string) *ConstDecl {
-	return &ConstDecl{name: name}
-}
-
-// ----------------------------------------------------------------------------
-
-// A Variable represents a declared variable (including function parameters and results, and struct fields).
-type Var struct {
-	name  string
+// ValueDecl type
+type ValueDecl struct {
+	names []string
 	typ   types.Type
-	ptype *ast.Expr
+	old   codeBlock
+	vals  *[]ast.Expr
+	tok   token.Token
 }
 
-func newVar(name string, ptype *ast.Expr) *Var {
-	v := &Var{name: name, ptype: ptype}
-	v.typ = &unboundType{v: v}
-	return v
+func (p *ValueDecl) BodyStart(pkg *Package) *CodeBuilder {
+	p.old = pkg.cb.startInitExpr(p)
+	return &pkg.cb
 }
 
-// VarDecl type
-type VarDecl struct {
-	name string
-	typ  types.Type
-	pkg  *Package
-	pv   **Var
-}
-
-// MatchType func
-func (p *VarDecl) MatchType(typ types.Type) *VarDecl {
-	if p.typ != nil {
-		if p.typ == typ {
-			return p
-		}
-		panic("TODO: unmatched type")
+func (p *ValueDecl) End(cb *CodeBuilder) {
+	pkg, scope := cb.pkg, cb.current.scope
+	typ := p.typ
+	n := len(p.names)
+	if n != cb.stk.Len()-cb.current.base {
+		panic("TODO: unmatched count of initial expressions")
 	}
-	p.typ = typ
-	//*p.pv = TODO:
-	types.NewVar(token.NoPos, p.pkg.Types, p.name, typ)
-	return p
+	rets := cb.stk.GetArgs(n)
+	if typ != nil {
+		for _, ret := range rets {
+			if err := checkMatchType(pkg, ret.Type, typ); err != nil {
+				panic(err)
+			}
+		}
+	}
+	values := make([]ast.Expr, n)
+	for i, name := range p.names {
+		val := rets[i].Val
+		values[i] = val
+		if p.tok == token.CONST {
+			tv := evalConstExpr(pkg, val)
+			scope.Insert(types.NewConst(token.NoPos, pkg.Types, name, tv.Type, tv.Value))
+		} else if typ == nil {
+			scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, rets[i].Type))
+		}
+	}
+	cb.stk.PopN(n)
+	cb.endInitExpr(p.old)
+	*p.vals = values
+	return
 }
 
-// InitStart func
-func (p *VarDecl) InitStart() *CodeBuilder {
-	panic("TODO: VarDecl.InitStart")
+func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string) *ValueDecl {
+	var typExpr ast.Expr
+	if typ != nil {
+		typExpr = toType(p, typ)
+	}
+	scope := p.cb.current.scope
+	n := len(names)
+	nameIdents := make([]*ast.Ident, n)
+	for i, name := range names {
+		nameIdents[i] = ident(name)
+		if typ != nil && tok == token.VAR {
+			scope.Insert(types.NewVar(token.NoPos, p.Types, name, typ))
+		}
+	}
+	spec := &ast.ValueSpec{Names: nameIdents, Type: typExpr}
+	decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
+	if scope == p.Types.Scope() {
+		p.decls = append(p.decls, decl)
+	} else {
+		p.cb.current.stmts = append(p.cb.current.stmts, &ast.DeclStmt{Decl: decl})
+	}
+	return &ValueDecl{typ: typ, names: names, tok: tok, vals: &spec.Values}
 }
 
-// NewVar func
-func (p *Package) NewVar(name string, pv **Var) *VarDecl {
-	return &VarDecl{name, nil, p, pv}
+func (p *Package) NewConst(typ types.Type, names ...string) *ValueDecl {
+	return p.newValueDecl(token.CONST, typ, names...)
+}
+
+func (p *Package) NewVar(typ types.Type, names ...string) *ValueDecl {
+	return p.newValueDecl(token.VAR, typ, names...)
 }
 
 // ----------------------------------------------------------------------------
@@ -168,7 +160,7 @@ func (p *refType) String() string {
 // unboundType: unbound type
 type unboundType struct {
 	bound types.Type
-	v     *Var
+	v     *AutoVar
 }
 
 func isUnbound(t types.Type) bool {

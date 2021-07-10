@@ -177,7 +177,7 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 		}
 	}
 	switch v := val.(type) {
-	case *Var:
+	case *AutoVar:
 		if isUnbound(v.typ) {
 			panic("TODO: variable type is unbound")
 		}
