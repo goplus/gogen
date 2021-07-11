@@ -15,6 +15,7 @@ package gox
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"log"
@@ -57,6 +58,14 @@ func evalConstExpr(pkg *Package, expr ast.Expr) types.TypeAndValue {
 		log.Panicln("TODO: eval constant -", err)
 	}
 	return info.Types[expr]
+}
+
+func evalIntExpr(pkg *Package, expr ast.Expr) int {
+	tv := evalConstExpr(pkg, expr)
+	if v, ok := constant.Int64Val(tv.Value); ok {
+		return int(v)
+	}
+	panic("TODO: require integer constant")
 }
 
 // ----------------------------------------------------------------------------

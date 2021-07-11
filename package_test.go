@@ -153,6 +153,21 @@ var d = []int{1}
 `)
 }
 
+func TestKeyValModeLit(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewVarStart(nil, "a").
+		None().Val(1).Val(3).Val(3.4).None().Val(5).
+		ArrayLit(types.NewArray(types.Typ[types.Float64], -1), 6, true).EndInit(1)
+	pkg.NewVarStart(nil, "b").
+		Val(2).Val(1.2).None().Val(3).Val(6).Val(4.5).
+		SliceLit(types.NewSlice(types.Typ[types.Float64]), 6, true).EndInit(1)
+	domTest(t, pkg, `package main
+
+var a = [5]float64{1, 3: 3.4, 5}
+var b = []float64{2: 1.2, 3, 6: 4.5}
+`)
+}
+
 func TestArrayLit(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewVarStart(nil, "a").
@@ -164,7 +179,7 @@ func TestArrayLit(t *testing.T) {
 	domTest(t, pkg, `package main
 
 var a = [2]string{"a", "b"}
-var b = [...]float64{1, 1.2, 3}
+var b = [3]float64{1, 1.2, 3}
 var c = [10]interface {
 }{}
 `)
