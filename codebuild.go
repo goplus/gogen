@@ -290,9 +290,7 @@ func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeB
 		panic("TODO: ArrayLit in keyVal mode")
 	}
 	val := t.Elem()
-	if n := int(t.Len()); n < 0 {
-		t = types.NewArray(val, int64(arity))
-	} else if n < arity {
+	if n := t.Len(); n >= 0 && int(n) < arity {
 		log.Panicf("TODO: array index %v out of bounds [0:%v]\n", arity, n)
 	}
 	args := p.stk.GetArgs(arity)

@@ -149,7 +149,12 @@ var (
 )
 
 func toArrayType(pkg *Package, t *types.Array) ast.Expr {
-	len := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(t.Len(), 10)}
+	var len ast.Expr
+	if n := t.Len(); n < 0 {
+		len = &ast.Ellipsis{}
+	} else {
+		len = &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(t.Len(), 10)}
+	}
 	return &ast.ArrayType{Len: len, Elt: toType(pkg, t.Elem())}
 }
 

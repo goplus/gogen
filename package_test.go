@@ -120,14 +120,15 @@ func TestMapLit(t *testing.T) {
 	pkg.NewVarStart(nil, "c").
 		MapLit(nil, 0).EndInit(1)
 	pkg.NewVarStart(nil, "d").
-		MapLit(types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]), 0).EndInit(1)
+		Val(1).Val(true).
+		MapLit(types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]), 2).EndInit(1)
 	domTest(t, pkg, `package main
 
 var a = map[string]int{"a": 1, "b": 2}
 var b = map[string]float64{"a": 1, "b": 1.2}
 var c = map[string]interface {
 }{}
-var d = map[int]bool{}
+var d = map[int]bool{1: true}
 `)
 }
 
@@ -140,14 +141,15 @@ func TestSliceLit(t *testing.T) {
 	pkg.NewVarStart(nil, "c").
 		SliceLit(nil, 0).EndInit(1)
 	pkg.NewVarStart(nil, "d").
-		SliceLit(types.NewSlice(types.Typ[types.Int]), 0).EndInit(1)
+		Val(1).
+		SliceLit(types.NewSlice(types.Typ[types.Int]), 1).EndInit(1)
 	domTest(t, pkg, `package main
 
 var a = []string{"a", "b"}
 var b = []float64{1, 1.2, 3}
 var c = []interface {
 }{}
-var d = []int{}
+var d = []int{1}
 `)
 }
 
@@ -162,7 +164,7 @@ func TestArrayLit(t *testing.T) {
 	domTest(t, pkg, `package main
 
 var a = [2]string{"a", "b"}
-var b = [3]float64{1, 1.2, 3}
+var b = [...]float64{1, 1.2, 3}
 var c = [10]interface {
 }{}
 `)
