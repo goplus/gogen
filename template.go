@@ -123,7 +123,22 @@ func boundType(pkg *Package, arg, param types.Type) bool {
 	case *types.Signature:
 		panic("TODO: boundType function signature")
 	default:
-		return types.AssignableTo(arg, param)
+		return AssignableTo(arg, param)
+	}
+	return false
+}
+
+func AssignableTo(V, T types.Type) bool {
+	if types.AssignableTo(V, T) {
+		if t, ok := T.(*types.Basic); ok && (t.Info()&types.IsUntyped) != 0 { // untyped type
+			vkind := V.(*types.Basic).Kind()
+			tkind := t.Kind()
+			if vkind == tkind || vkind == types.UntypedRune {
+				return true
+			}
+			return tkind != types.UntypedRune && tkind > vkind
+		}
+		return true
 	}
 	return false
 }

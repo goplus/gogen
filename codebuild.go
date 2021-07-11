@@ -130,6 +130,11 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 	return &Func{Func: fn}
 }
 
+// NewConstStart func
+func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilder {
+	return p.pkg.newValueDecl(token.CONST, typ, names...).InitStart(p.pkg)
+}
+
 // NewVar func
 func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
 	p.pkg.newValueDecl(token.VAR, typ, names...)
@@ -198,17 +203,112 @@ func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 
 // MapLit func
 func (p *CodeBuilder) MapLit(t *types.Map, arity int) *CodeBuilder {
-	panic("TODO: MapLit")
+	pkg := p.pkg
+	if arity == 0 {
+		if t == nil {
+			t = types.NewMap(types.Typ[types.String], TyEmptyInterface)
+		}
+		ret := &ast.CompositeLit{Type: toMapType(pkg, t)}
+		p.stk.Push(internal.Elem{Type: t, Val: ret})
+		return p
+	}
+	if (arity & 1) != 0 {
+		panic("TODO: MapLit - invalid arity")
+	}
+	var key, val types.Type
+	var args = p.stk.GetArgs(arity)
+	var check = (t != nil)
+	if check {
+		key, val = t.Key(), t.Elem()
+	} else {
+		key = boundElementType(args, 0, arity, 2)
+		val = boundElementType(args, 1, arity, 2)
+		t = types.NewMap(types.Default(key), types.Default(val))
+	}
+	elts := make([]ast.Expr, arity>>1)
+	for i := 0; i < arity; i += 2 {
+		elts[i>>1] = &ast.KeyValueExpr{Key: args[i].Val, Value: args[i+1].Val}
+		if check {
+			if !AssignableTo(args[i].Type, key) {
+				log.Panicf("TODO: MapLit - can't assign %v to %v\n", args[i].Type, key)
+			} else if !AssignableTo(args[i+1].Type, val) {
+				log.Panicf("TODO: MapLit - can't assign %v to %v\n", args[i+1].Type, val)
+			}
+		}
+	}
+	ret := &ast.CompositeLit{
+		Type: toMapType(pkg, t),
+		Elts: elts,
+	}
+	p.stk.Ret(arity, internal.Elem{Type: t, Val: ret})
+	return p
 }
 
 // SliceLit func
 func (p *CodeBuilder) SliceLit(t *types.Slice, arity int, keyVal ...bool) *CodeBuilder {
-	panic("TODO: SliceLit")
+	if keyVal != nil && keyVal[0] {
+		panic("TODO: SliceLit in keyVal mode")
+	}
+	pkg := p.pkg
+	if arity == 0 {
+		if t == nil {
+			t = types.NewSlice(TyEmptyInterface)
+		}
+		ret := &ast.CompositeLit{Type: toSliceType(pkg, t)}
+		p.stk.Push(internal.Elem{Type: t, Val: ret})
+		return p
+	}
+	var val types.Type
+	var args = p.stk.GetArgs(arity)
+	var check = (t != nil)
+	if check {
+		val = t.Elem()
+	} else {
+		val = boundElementType(args, 0, arity, 1)
+		t = types.NewSlice(types.Default(val))
+	}
+	elts := make([]ast.Expr, arity)
+	for i, arg := range args {
+		elts[i] = arg.Val
+		if check {
+			if !AssignableTo(arg.Type, val) {
+				log.Panicf("TODO: SliceLit - can't assign %v to %v\n", arg.Type, val)
+			}
+		}
+	}
+	ret := &ast.CompositeLit{
+		Type: toSliceType(pkg, t),
+		Elts: elts,
+	}
+	p.stk.Ret(arity, internal.Elem{Type: t, Val: ret})
+	return p
 }
 
 // ArrayLit func
 func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeBuilder {
-	panic("TODO: ArrayLit")
+	if keyVal != nil && keyVal[0] {
+		panic("TODO: ArrayLit in keyVal mode")
+	}
+	val := t.Elem()
+	if n := int(t.Len()); n < 0 {
+		t = types.NewArray(val, int64(arity))
+	} else if n < arity {
+		log.Panicf("TODO: array index %v out of bounds [0:%v]\n", arity, n)
+	}
+	args := p.stk.GetArgs(arity)
+	elts := make([]ast.Expr, arity)
+	for i, arg := range args {
+		elts[i] = arg.Val
+		if !AssignableTo(arg.Type, val) {
+			log.Panicf("TODO: ArrayLit - can't assign %v to %v\n", arg.Type, val)
+		}
+	}
+	ret := &ast.CompositeLit{
+		Type: toArrayType(p.pkg, t),
+		Elts: elts,
+	}
+	p.stk.Ret(arity, internal.Elem{Type: t, Val: ret})
+	return p
 }
 
 // Val func

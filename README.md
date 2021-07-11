@@ -27,6 +27,7 @@ v := pkg.NewParam("v", types.Typ[types.String]) // v string
 pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 	DefineVarStart("a", "b").Val("Hi").Val(3).EndInit(2).   // a, b := "Hi", 3
 	NewVarStart(nil, "c").Val(ctxRef(pkg, "b")).EndInit(1). // var c = b
+	NewVar(gox.TyEmptyInterface, "x", "y").                 // var x, y interface{}
 	Val(fmt.Ref("Println")).
 	/**/ Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "c")). // fmt.Println(a, b, c)
 	/**/ Call(3).EndStmt().
@@ -49,6 +50,8 @@ import fmt "fmt"
 func main() {
 	a, b := "Hi", 3
 	var c = b
+	var x, y interface {
+	}
 	fmt.Println(a, b, c)
 	func(v string) {
 		fmt.Println(v)

@@ -45,26 +45,26 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 // ----------------------------------------------------------------------------
 
 func TestAssignableTo(t *testing.T) {
-	if !types.AssignableTo(types.Typ[types.UntypedInt], types.Typ[types.Int]) {
-		t.Fatal("Failed: AssignableTo untyped int => int")
+	assigns := []struct {
+		v, t types.Type
+		ret  bool
+	}{
+		{types.Typ[types.UntypedInt], types.Typ[types.Int], true},
+		{types.Typ[types.Int], types.Typ[types.UntypedInt], false},
+		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedComplex], true},
+		{types.Typ[types.UntypedComplex], types.Typ[types.UntypedFloat], false},
+		{types.Typ[types.UntypedInt], types.Typ[types.UntypedFloat], true},
+		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedInt], false},
+		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedBool], false},
+		{types.Typ[types.UntypedInt], types.Typ[types.UntypedRune], false},
+		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedRune], false},
+		{types.Typ[types.UntypedRune], types.Typ[types.UntypedInt], true},
+		{types.Typ[types.UntypedRune], types.Typ[types.UntypedFloat], true},
 	}
-	if types.AssignableTo(types.Typ[types.Int], types.Typ[types.UntypedInt]) {
-		t.Fatal("AssignableTo int => untyped int?")
-	}
-	if !types.AssignableTo(types.Typ[types.UntypedFloat], types.Typ[types.UntypedComplex]) {
-		t.Fatal("Failed: AssignableTo untyped float => untyped complex")
-	}
-	if !types.AssignableTo(types.Typ[types.UntypedComplex], types.Typ[types.UntypedFloat]) {
-		t.Fatal("Failed: AssignableTo untyped complex => untyped float")
-	}
-	if !types.AssignableTo(types.Typ[types.UntypedInt], types.Typ[types.UntypedFloat]) {
-		t.Fatal("Failed: AssignableTo untyped int => untyped float")
-	}
-	if !types.AssignableTo(types.Typ[types.UntypedFloat], types.Typ[types.UntypedInt]) {
-		t.Fatal("Failed: AssignableTo untyped float => untyped int")
-	}
-	if types.AssignableTo(types.Typ[types.UntypedFloat], types.Typ[types.UntypedBool]) {
-		t.Fatal("AssignableTo untyped float => untyped bool?")
+	for _, a := range assigns {
+		if ret := gox.AssignableTo(a.v, a.t); ret != a.ret {
+			t.Fatalf("Failed: AssignableTo %v => %v returns %v\n", a.v, a.t, ret)
+		}
 	}
 }
 
@@ -111,6 +111,63 @@ func main() {
 `)
 }
 
+func TestMapLit(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewVarStart(nil, "a").
+		Val("a").Val(1).Val("b").Val(2).MapLit(nil, 4).EndInit(1)
+	pkg.NewVarStart(nil, "b").
+		Val("a").Val(1).Val("b").Val(1.2).MapLit(nil, 4).EndInit(1)
+	pkg.NewVarStart(nil, "c").
+		MapLit(nil, 0).EndInit(1)
+	pkg.NewVarStart(nil, "d").
+		MapLit(types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]), 0).EndInit(1)
+	domTest(t, pkg, `package main
+
+var a = map[string]int{"a": 1, "b": 2}
+var b = map[string]float64{"a": 1, "b": 1.2}
+var c = map[string]interface {
+}{}
+var d = map[int]bool{}
+`)
+}
+
+func TestSliceLit(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewVarStart(nil, "a").
+		Val("a").Val("b").SliceLit(nil, 2).EndInit(1)
+	pkg.NewVarStart(nil, "b").
+		Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1)
+	pkg.NewVarStart(nil, "c").
+		SliceLit(nil, 0).EndInit(1)
+	pkg.NewVarStart(nil, "d").
+		SliceLit(types.NewSlice(types.Typ[types.Int]), 0).EndInit(1)
+	domTest(t, pkg, `package main
+
+var a = []string{"a", "b"}
+var b = []float64{1, 1.2, 3}
+var c = []interface {
+}{}
+var d = []int{}
+`)
+}
+
+func TestArrayLit(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewVarStart(nil, "a").
+		Val("a").Val("b").ArrayLit(types.NewArray(types.Typ[types.String], 2), 2).EndInit(1)
+	pkg.NewVarStart(nil, "b").
+		Val(1).Val(1.2).Val(3).ArrayLit(types.NewArray(types.Typ[types.Float64], -1), 3).EndInit(1)
+	pkg.NewVarStart(nil, "c").
+		ArrayLit(types.NewArray(gox.TyEmptyInterface, 10), 0).EndInit(1)
+	domTest(t, pkg, `package main
+
+var a = [2]string{"a", "b"}
+var b = [3]float64{1, 1.2, 3}
+var c = [10]interface {
+}{}
+`)
+}
+
 func TestConst(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	tv := pkg.ConstStart().Val(1).Val(2).BinaryOp(token.ADD).EndConst()
@@ -135,32 +192,37 @@ func TestConstLenArray(t *testing.T) {
 
 func TestConstDecl(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
-	pkg.NewConst(nil, "n").InitStart(pkg).
-		Val(1).Val(2).BinaryOp(token.ADD).
-		EndInit(1)
-	pkg.NewConst(types.Typ[types.String], "x").InitStart(pkg).
-		Val("1").Val("2").BinaryOp(token.ADD).
-		EndInit(1)
+	pkg.NewConstStart(nil, "n").
+		Val(1).Val(2).BinaryOp(token.ADD).EndInit(1)
+	pkg.NewConstStart(types.Typ[types.String], "x").
+		Val("1").Val("2").BinaryOp(token.ADD).EndInit(1)
+	pkg.CB().NewConstStart(types.Typ[types.String], "y").
+		Val("Hello").EndInit(1)
 	domTest(t, pkg, `package main
 
 const n = 1 + 2
 const x string = "1" + "2"
+const y string = "Hello"
 `)
 }
 
 func TestVarDecl(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
-	pkg.NewVar(nil, "n", "s").InitStart(pkg).
+	pkg.NewVarStart(nil, "n", "s").
 		Val(1).Val(2).BinaryOp(token.ADD).
 		Val("1").Val("2").BinaryOp(token.ADD).
 		EndInit(2)
-	pkg.NewVar(types.Typ[types.String], "x").InitStart(pkg).
+	pkg.NewVarStart(types.Typ[types.String], "x").
 		Val("Hello, ").Val("Go+").BinaryOp(token.ADD).
+		EndInit(1)
+	pkg.CB().NewVarStart(types.Typ[types.String], "y").
+		Val("Hello").
 		EndInit(1)
 	domTest(t, pkg, `package main
 
 var n, s = 1 + 2, "1" + "2"
 var x string = "Hello, " + "Go+"
+var y string = "Hello"
 `)
 }
 
@@ -320,7 +382,7 @@ func main() {
 
 func TestEmptyInterface(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
-	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(nil, nil)))
+	v := pkg.NewParam("v", types.NewSlice(gox.TyEmptyInterface))
 	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -398,7 +460,7 @@ func TestDelayedLoad(t *testing.T) {
 	})
 	pkg.Types.Scope().Insert(println)
 	format := pkg.NewParam("format", types.Typ[types.String])
-	args := pkg.NewParam("args", types.NewSlice(types.NewInterfaceType(nil, nil)))
+	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
 	n := pkg.NewParam("", types.Typ[types.Int])
 	err := pkg.NewParam("", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
@@ -421,7 +483,7 @@ func main() {
 func TestReturn(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	format := pkg.NewParam("format", types.Typ[types.String])
-	args := pkg.NewParam("args", types.NewSlice(types.NewInterfaceType(nil, nil)))
+	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
 	n := pkg.NewParam("", types.Typ[types.Int])
 	err := pkg.NewParam("", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
@@ -444,7 +506,7 @@ func main() {
 func TestReturnExpr(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	format := pkg.NewParam("format", types.Typ[types.String])
-	args := pkg.NewParam("args", types.NewSlice(types.NewInterfaceType(nil, nil)))
+	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
 	n := pkg.NewParam("", types.Typ[types.Int])
 	err := pkg.NewParam("", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
@@ -465,7 +527,7 @@ func main() {
 func TestReturnNamedResults(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	format := pkg.NewParam("format", types.Typ[types.String])
-	args := pkg.NewParam("args", types.NewSlice(types.NewInterfaceType(nil, nil)))
+	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
 	n := pkg.NewParam("n", types.Typ[types.Int])
 	err := pkg.NewParam("err", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
@@ -726,6 +788,7 @@ func TestExample(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart("a", "b").Val("Hi").Val(3).EndInit(2).   // a, b := "Hi", 3
 		NewVarStart(nil, "c").Val(ctxRef(pkg, "b")).EndInit(1). // var c = b
+		NewVar(gox.TyEmptyInterface, "x", "y").                 // var x, y interface{}
 		Val(fmt.Ref("Println")).
 		/**/ Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "c")). // fmt.Println(a, b, c)
 		/**/ Call(3).EndStmt().
@@ -741,6 +804,8 @@ import fmt "fmt"
 func main() {
 	a, b := "Hi", 3
 	var c = b
+	var x, y interface {
+	}
 	fmt.Println(a, b, c)
 	func(v string) {
 		fmt.Println(v)

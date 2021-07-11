@@ -178,8 +178,16 @@ func (p *Package) NewConst(typ types.Type, names ...string) *ValueDecl {
 	return p.newValueDecl(token.CONST, typ, names...)
 }
 
+func (p *Package) NewConstStart(typ types.Type, names ...string) *CodeBuilder {
+	return p.newValueDecl(token.CONST, typ, names...).InitStart(p)
+}
+
 func (p *Package) NewVar(typ types.Type, names ...string) *ValueDecl {
 	return p.newValueDecl(token.VAR, typ, names...)
+}
+
+func (p *Package) NewVarStart(typ types.Type, names ...string) *CodeBuilder {
+	return p.newValueDecl(token.VAR, typ, names...).InitStart(p)
 }
 
 // ----------------------------------------------------------------------------
@@ -187,6 +195,10 @@ func (p *Package) NewVar(typ types.Type, names ...string) *ValueDecl {
 var (
 	TyByte = types.Universe.Lookup("byte").Type().(*types.Basic)
 	TyRune = types.Universe.Lookup("rune").Type().(*types.Basic)
+)
+
+var (
+	TyEmptyInterface = types.NewInterfaceType(nil, nil)
 )
 
 // refType: &T

@@ -97,9 +97,11 @@ func toType(pkg *Package, typ types.Type) ast.Expr {
 	case *types.Interface:
 		return toInterface(pkg, t)
 	case *types.Slice:
-		return &ast.ArrayType{Elt: toType(pkg, t.Elem())}
+		return toSliceType(pkg, t)
 	case *types.Array:
 		return toArrayType(pkg, t)
+	case *types.Map:
+		return toMapType(pkg, t)
 	case *types.Chan:
 		return toChanType(pkg, t)
 	case *types.Signature:
@@ -149,6 +151,14 @@ var (
 func toArrayType(pkg *Package, t *types.Array) ast.Expr {
 	len := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(t.Len(), 10)}
 	return &ast.ArrayType{Len: len, Elt: toType(pkg, t.Elem())}
+}
+
+func toSliceType(pkg *Package, t *types.Slice) ast.Expr {
+	return &ast.ArrayType{Elt: toType(pkg, t.Elem())}
+}
+
+func toMapType(pkg *Package, t *types.Map) ast.Expr {
+	return &ast.MapType{Key: toType(pkg, t.Key()), Value: toType(pkg, t.Elem())}
 }
 
 func toInterface(pkg *Package, t *types.Interface) ast.Expr {
@@ -496,7 +506,24 @@ func doMatchType(pkg *Package, arg, param types.Type) bool {
 		}
 		return boundType(pkg, arg, param)
 	}
-	return types.AssignableTo(arg, param)
+	return AssignableTo(arg, param)
+}
+
+// -----------------------------------------------------------------------------
+
+func boundElementType(elts []internal.Elem, base, max, step int) types.Type {
+	var tBound types.Type
+	for i := base; i < max; i += step {
+		e := elts[i]
+		if tBound == e.Type {
+			// nothing to do
+		} else if tBound == nil || AssignableTo(tBound, e.Type) {
+			tBound = e.Type
+		} else if !AssignableTo(e.Type, tBound) {
+			return TyEmptyInterface
+		}
+	}
+	return tBound
 }
 
 // -----------------------------------------------------------------------------

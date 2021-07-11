@@ -250,10 +250,9 @@ func InitBuiltinFuncs(builtin *types.Package) {
 	// func recover() interface{}
 	// func print(args ...interface{})
 	// func println(args ...interface{})
-	emptyIntf := types.NewInterfaceType(nil, nil)
-	emptyIntfVar := types.NewVar(token.NoPos, builtin, "v", emptyIntf)
+	emptyIntfVar := types.NewVar(token.NoPos, builtin, "v", TyEmptyInterface)
 	emptyIntfTuple := types.NewTuple(emptyIntfVar)
-	emptyIntfSlice := types.NewSlice(emptyIntf)
+	emptyIntfSlice := types.NewSlice(TyEmptyInterface)
 	emptyIntfSliceVar := types.NewVar(token.NoPos, builtin, "args", emptyIntfSlice)
 	emptyIntfSliceTuple := types.NewTuple(emptyIntfSliceVar)
 	gbl.Insert(types.NewFunc(token.NoPos, builtin, "panic", types.NewSignature(nil, emptyIntfTuple, nil, false)))
