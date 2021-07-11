@@ -109,6 +109,16 @@ func (p *CodeBuilder) endBlockStmt(old codeBlockCtx) []ast.Stmt {
 	return stmts
 }
 
+func (p *CodeBuilder) clearBlockStmt() []ast.Stmt {
+	stmts := p.current.stmts
+	p.current.stmts = nil
+	return stmts
+}
+
+func (p *CodeBuilder) emitStmt(stmt ast.Stmt) {
+	p.current.stmts = append(p.current.stmts, stmt)
+}
+
 func (p *CodeBuilder) startInitExpr(current codeBlock) (old codeBlock) {
 	p.current.codeBlock, old = current, p.current.codeBlock
 	return
@@ -174,7 +184,7 @@ func (p *CodeBuilder) NewAutoVar(name string, pv **AutoVar) *CodeBuilder {
 		log.Println("NewAutoVar", name)
 	}
 	// TODO: scope.Insert this variable
-	p.current.stmts = append(p.current.stmts, stmt)
+	p.emitStmt(stmt)
 	*pv = newAutoVar(name, &spec.Type)
 	return p
 }
@@ -518,7 +528,7 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	if debug {
 		log.Println("Assign", lhs, rhs)
 	}
-	p.current.stmts = append(p.current.stmts, stmt)
+	p.emitStmt(stmt)
 	p.stk.PopN(lhs + rhs)
 	return p
 }
@@ -558,7 +568,7 @@ func (p *CodeBuilder) Return(n int) *CodeBuilder {
 		}
 		p.stk.PopN(n)
 	}
-	p.current.stmts = append(p.current.stmts, &ast.ReturnStmt{Results: rets})
+	p.emitStmt(&ast.ReturnStmt{Results: rets})
 	return p
 }
 
@@ -629,12 +639,89 @@ var (
 
 // Defer func
 func (p *CodeBuilder) Defer() *CodeBuilder {
-	panic("CodeBuilder.Defer")
+	if debug {
+		log.Println("Defer")
+	}
+	panic("Defer")
 }
 
 // Go func
 func (p *CodeBuilder) Go() *CodeBuilder {
-	panic("CodeBuilder.Go")
+	if debug {
+		log.Println("Go")
+	}
+	panic("Go")
+}
+
+// If func
+func (p *CodeBuilder) If() *CodeBuilder {
+	if debug {
+		log.Println("If")
+	}
+	stmt := &ifStmt{}
+	p.startBlockStmt(stmt, "if statement", &stmt.old)
+	return p
+}
+
+// Then func
+func (p *CodeBuilder) Then() *CodeBuilder {
+	if debug {
+		log.Println("Then")
+	}
+	if p.stk.Len() == p.current.base {
+		panic("use None() for empty expr")
+	}
+	if flow, ok := p.current.codeBlock.(controlFlow); ok {
+		flow.Then(p)
+		return p
+	}
+	panic("use if..then or switch..then please")
+}
+
+// Else func
+func (p *CodeBuilder) Else() *CodeBuilder {
+	if debug {
+		log.Println("Else")
+	}
+	if flow, ok := p.current.codeBlock.(*ifStmt); ok {
+		flow.Else(p)
+		return p
+	}
+	panic("use if..else please")
+}
+
+// Switch func
+func (p *CodeBuilder) Switch() *CodeBuilder {
+	if debug {
+		log.Println("Then")
+	}
+	stmt := &switchStmt{}
+	p.startBlockStmt(stmt, "switch statement", &stmt.old)
+	return p
+}
+
+// Case func
+func (p *CodeBuilder) Case(n int) *CodeBuilder { // n=0 means default case
+	if debug {
+		log.Println("Case", n)
+	}
+	if flow, ok := p.current.codeBlock.(*switchStmt); ok {
+		flow.Case(p, n)
+		return p
+	}
+	panic("use switch..case please")
+}
+
+// Case func
+func (p *CodeBuilder) Fallthrough() *CodeBuilder {
+	if debug {
+		log.Println("Fallthrough")
+	}
+	if flow, ok := p.current.codeBlock.(*caseStmt); ok {
+		flow.Fallthrough(p)
+		return p
+	}
+	panic("please use fallthrough in case statement")
 }
 
 // EndStmt func
@@ -645,7 +732,7 @@ func (p *CodeBuilder) EndStmt() *CodeBuilder {
 			panic("syntax error: unexpected newline, expecting := or = or comma")
 		}
 		stmt := &ast.ExprStmt{X: p.stk.Pop().Val}
-		p.current.stmts = append(p.current.stmts, stmt)
+		p.emitStmt(stmt)
 	}
 	return p
 }

@@ -143,6 +143,13 @@ func AssignableTo(V, T types.Type) bool {
 	return false
 }
 
+func ComparableTo(V, T types.Type) bool {
+	if V.Underlying() != T.Underlying() {
+		return false
+	}
+	return types.Comparable(V)
+}
+
 // NewSignature returns a new function type for the given receiver, parameters,
 // and results, either of which may be nil. If variadic is set, the function
 // is variadic, it must have at least one parameter, and the last parameter

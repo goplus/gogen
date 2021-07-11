@@ -497,6 +497,118 @@ func main() {
 `)
 }
 
+func TestIf(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		/**/ If().DefineVarStart("x").Val(3).EndInit(1).
+		/******/ Val(ctxRef(pkg, "x")).Val(1).BinaryOp(token.GTR).Then().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("OK!").Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	if x := 3; x > 1 {
+		fmt.Println("OK!")
+	}
+}
+`)
+}
+
+func TestIfElse(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		/**/ If().DefineVarStart("x").Val(3).EndInit(1).
+		/******/ Val(ctxRef(pkg, "x")).Val(1).BinaryOp(token.GTR).Then().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("OK!").Call(1).EndStmt().
+		/**/ Else().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("Error!").Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	if x := 3; x > 1 {
+		fmt.Println("OK!")
+	} else {
+		fmt.Println("Error!")
+	}
+}
+`)
+}
+
+func TestSwitch(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		/**/ Switch().DefineVarStart("x").Val(3).EndInit(1).Val(ctxRef(pkg, "x")).Then(). // switch x := 3; x {
+		/**/ Val(1).Val(2).Case(2). // case 1, 2:
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("1 or 2").Call(1).EndStmt().
+		/******/ End().
+		/**/ Val(3).Case(1). // case 3:
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("3").Call(1).EndStmt().
+		/******/ End().
+		/**/ Case(0). // default:
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("other").Call(1).EndStmt().
+		/******/ End().
+		/**/ End(). // end switch
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	switch x := 3; x {
+	case 1, 2:
+		fmt.Println("1 or 2")
+	case 3:
+		fmt.Println("3")
+	default:
+		fmt.Println("other")
+	}
+}
+`)
+}
+
+func TestSwitchNoTag(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		/**/ DefineVarStart("x").Val(3).EndInit(1).
+		/**/ Switch().None().Then(). // switch {
+		/**/ Val(ctxRef(pkg, "x")).Val(2).BinaryOp(token.EQL).Case(1). // case x == 2:
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("x = 2").Call(1).EndStmt().
+		/******/ Fallthrough().
+		/******/ End().
+		/**/ Val(ctxRef(pkg, "x")).Val(3).BinaryOp(token.LSS).Case(1). // case x < 3:
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("x < 3").Call(1).EndStmt().
+		/******/ End().
+		/**/ Case(0). // default:
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("other").Call(1).EndStmt().
+		/******/ End().
+		/**/ End(). // end switch
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	x := 3
+	switch {
+	case x == 2:
+		fmt.Println("x = 2")
+		fallthrough
+	case x < 3:
+		fmt.Println("x < 3")
+	default:
+		fmt.Println("other")
+	}
+}
+`)
+}
+
 func TestReturn(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	format := pkg.NewParam("format", types.Typ[types.String])
@@ -792,7 +904,8 @@ func main() {
 // ----------------------------------------------------------------------------
 
 func ctxRef(pkg *gox.Package, name string) gox.Ref {
-	return pkg.CB().Scope().Lookup(name)
+	_, o := pkg.CB().Scope().LookupParent(name, token.NoPos)
+	return o
 }
 
 func TestExample(t *testing.T) {
