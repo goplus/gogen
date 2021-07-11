@@ -571,7 +571,7 @@ func (p *CodeBuilder) End() *CodeBuilder {
 // EndInit func
 func (p *CodeBuilder) EndInit(n int) *CodeBuilder {
 	if debug {
-		log.Println("EndInit")
+		log.Println("EndInit", n)
 	}
 	p.varDecl.EndInit(p, n)
 	p.varDecl = nil
