@@ -634,6 +634,8 @@ var (
 	unaryOps = [...]string{
 		token.SUB: "Neg",
 		token.XOR: "Not",
+		token.INC: "Inc",
+		token.DEC: "Dec",
 	}
 )
 
@@ -693,7 +695,7 @@ func (p *CodeBuilder) Else() *CodeBuilder {
 // Switch func
 func (p *CodeBuilder) Switch() *CodeBuilder {
 	if debug {
-		log.Println("Then")
+		log.Println("Switch")
 	}
 	stmt := &switchStmt{}
 	p.startBlockStmt(stmt, "switch statement", &stmt.old)
@@ -712,7 +714,7 @@ func (p *CodeBuilder) Case(n int) *CodeBuilder { // n=0 means default case
 	panic("use switch..case please")
 }
 
-// Case func
+// Fallthrough func
 func (p *CodeBuilder) Fallthrough() *CodeBuilder {
 	if debug {
 		log.Println("Fallthrough")
@@ -722,6 +724,28 @@ func (p *CodeBuilder) Fallthrough() *CodeBuilder {
 		return p
 	}
 	panic("please use fallthrough in case statement")
+}
+
+// For func
+func (p *CodeBuilder) For() *CodeBuilder {
+	if debug {
+		log.Println("For")
+	}
+	stmt := &forStmt{}
+	p.startBlockStmt(stmt, "for statement", &stmt.old)
+	return p
+}
+
+// Post func
+func (p *CodeBuilder) Post() *CodeBuilder {
+	if debug {
+		log.Println("Post")
+	}
+	if flow, ok := p.current.codeBlock.(*forStmt); ok {
+		flow.Post(p)
+		return p
+	}
+	panic("please use Post() in for statement")
 }
 
 // EndStmt func

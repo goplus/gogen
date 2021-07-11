@@ -74,6 +74,8 @@ func [T comparable] (a T) != (b T) bool // func gopo_NE[T comparable](a, b T) bo
 
 func [T number] -(a T) T    // func gopo_Neg[T number](a T) T
 func [T integer] ^(a T) T   // func gopo_Not[T integer](a T) T
+func [T integer] ++(a *T)   // func gopo_Inc[T integer](a *T)
+func [T integer] --(a *T)   // func gopo_Dec[T integer](a *T)
 
 // -----------------------------------------------------------------------------
 

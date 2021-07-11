@@ -44,7 +44,7 @@ type ifStmt struct {
 func (p *ifStmt) Then(cb *CodeBuilder) {
 	cond := cb.stk.Pop()
 	if !types.AssignableTo(cond.Type, types.Typ[types.Bool]) {
-		panic("TODO: if cond is not a boolean expr")
+		panic("TODO: if statement condition is not a boolean expr")
 	}
 	p.cond = cond.Val
 	switch stmts := cb.clearBlockStmt(); len(stmts) {
@@ -53,7 +53,7 @@ func (p *ifStmt) Then(cb *CodeBuilder) {
 	case 1:
 		p.init = stmts[0]
 	default:
-		panic("TODO: if stmt has too many init statements")
+		panic("TODO: if statement has too many init statements")
 	}
 }
 
@@ -100,7 +100,7 @@ func (p *switchStmt) Then(cb *CodeBuilder) {
 	case 1:
 		p.init = stmts[0]
 	default:
-		panic("TODO: switch stmt has too many init statements")
+		panic("TODO: switch statement has too many init statements")
 	}
 }
 
@@ -144,6 +144,54 @@ func (p *caseStmt) Fallthrough(cb *CodeBuilder) {
 func (p *caseStmt) End(cb *CodeBuilder) {
 	body := cb.endBlockStmt(p.old)
 	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
+}
+
+// ----------------------------------------------------------------------------
+//
+// for init; cond then
+//   body
+//   post
+// end
+//
+type forStmt struct {
+	init ast.Stmt
+	cond ast.Expr
+	body *ast.BlockStmt
+	old  codeBlockCtx
+}
+
+func (p *forStmt) Then(cb *CodeBuilder) {
+	cond := cb.stk.Pop()
+	if !types.AssignableTo(cond.Type, types.Typ[types.Bool]) {
+		panic("TODO: for statement condition is not a boolean expr")
+	}
+	p.cond = cond.Val
+	switch stmts := cb.clearBlockStmt(); len(stmts) {
+	case 0:
+		// nothing to do
+	case 1:
+		p.init = stmts[0]
+	default:
+		panic("TODO: for condition has too many init statements")
+	}
+}
+
+func (p *forStmt) Post(cb *CodeBuilder) {
+	p.body = &ast.BlockStmt{List: cb.clearBlockStmt()}
+}
+
+func (p *forStmt) End(cb *CodeBuilder) {
+	var stmts = cb.endBlockStmt(p.old)
+	var post ast.Stmt
+	if p.body != nil { // has post stmt
+		if len(stmts) != 1 {
+			panic("TODO: too many post statements")
+		}
+		post = stmts[0]
+	} else { // no post
+		p.body = &ast.BlockStmt{List: stmts}
+	}
+	cb.emitStmt(&ast.ForStmt{Init: p.init, Cond: p.cond, Post: post, Body: p.body})
 }
 
 // ----------------------------------------------------------------------------

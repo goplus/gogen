@@ -110,6 +110,12 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 
 		{"Not", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}}, 0},
 		// func gopo_Not[T integer](a T) T
+
+		{"Inc", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", xtPointer}}, -2},
+		// func gopo_Inc[T integer](a *T)
+
+		{"Dec", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", xtPointer}}, -2},
+		// func gopo_Dec[T integer](a *T)
 	}
 	gbl := builtin.Scope()
 	pre := prefix.Operator
@@ -118,16 +124,26 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 		n := len(op.params)
 		params := make([]*types.Var, n)
 		for i, param := range op.params {
-			params[i] = types.NewParam(token.NoPos, builtin, param.name, tparams[param.tidx])
+			var typ types.Type
+			if param.tidx == xtPointer {
+				typ = NewPointer(tparams[0])
+			} else {
+				typ = tparams[param.tidx]
+			}
+			params[i] = types.NewParam(token.NoPos, builtin, param.name, typ)
 		}
-		var ret types.Type
-		if op.result < 0 {
-			ret = types.Typ[types.Bool]
-		} else {
-			ret = tparams[op.result]
+		var results *types.Tuple
+		if op.result != -2 {
+			var ret types.Type
+			if op.result < 0 {
+				ret = types.Typ[types.Bool]
+			} else {
+				ret = tparams[op.result]
+			}
+			result := types.NewParam(token.NoPos, builtin, "", ret)
+			results = types.NewTuple(result)
 		}
-		result := types.NewParam(token.NoPos, builtin, "", ret)
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), types.NewTuple(result), false)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false)
 		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, pre+op.name, tsig))
 	}
 }
@@ -161,6 +177,7 @@ type typeXParam struct {
 
 const (
 	xtNone = iota << 16
+	xtPointer
 	xtEllipsis
 	xtSlice
 	xtMap

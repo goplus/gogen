@@ -519,12 +519,13 @@ func main() {
 
 func TestIfElse(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
+	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		/**/ If().DefineVarStart("x").Val(3).EndInit(1).
 		/******/ Val(ctxRef(pkg, "x")).Val(1).BinaryOp(token.GTR).Then().
-		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("OK!").Call(1).EndStmt().
+		/******/ Val(fmt.Ref("Println")).Val("OK!").Call(1).EndStmt().
 		/**/ Else().
-		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("Error!").Call(1).EndStmt().
+		/******/ Val(fmt.Ref("Println")).Val("Error!").Call(1).EndStmt().
 		/**/ End().
 		End()
 	domTest(t, pkg, `package main
@@ -543,16 +544,17 @@ func main() {
 
 func TestSwitch(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
+	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		/**/ Switch().DefineVarStart("x").Val(3).EndInit(1).Val(ctxRef(pkg, "x")).Then(). // switch x := 3; x {
 		/**/ Val(1).Val(2).Case(2). // case 1, 2:
-		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("1 or 2").Call(1).EndStmt().
+		/******/ Val(fmt.Ref("Println")).Val("1 or 2").Call(1).EndStmt().
 		/******/ End().
 		/**/ Val(3).Case(1). // case 3:
-		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("3").Call(1).EndStmt().
+		/******/ Val(fmt.Ref("Println")).Val("3").Call(1).EndStmt().
 		/******/ End().
 		/**/ Case(0). // default:
-		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("other").Call(1).EndStmt().
+		/******/ Val(fmt.Ref("Println")).Val("other").Call(1).EndStmt().
 		/******/ End().
 		/**/ End(). // end switch
 		End()
@@ -575,18 +577,19 @@ func main() {
 
 func TestSwitchNoTag(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
+	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		/**/ DefineVarStart("x").Val(3).EndInit(1).
 		/**/ Switch().None().Then(). // switch {
 		/**/ Val(ctxRef(pkg, "x")).Val(2).BinaryOp(token.EQL).Case(1). // case x == 2:
-		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("x = 2").Call(1).EndStmt().
+		/******/ Val(fmt.Ref("Println")).Val("x = 2").Call(1).EndStmt().
 		/******/ Fallthrough().
 		/******/ End().
 		/**/ Val(ctxRef(pkg, "x")).Val(3).BinaryOp(token.LSS).Case(1). // case x < 3:
-		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("x < 3").Call(1).EndStmt().
+		/******/ Val(fmt.Ref("Println")).Val("x < 3").Call(1).EndStmt().
 		/******/ End().
 		/**/ Case(0). // default:
-		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("other").Call(1).EndStmt().
+		/******/ Val(fmt.Ref("Println")).Val("other").Call(1).EndStmt().
 		/******/ End().
 		/**/ End(). // end switch
 		End()
@@ -604,6 +607,28 @@ func main() {
 		fmt.Println("x < 3")
 	default:
 		fmt.Println("other")
+	}
+}
+`)
+}
+
+func TestFor(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		/**/ For().DefineVarStart("i").Val(0).EndInit(1). // for i := 0; i < 10; i=i+1 {
+		/******/ Val(ctxRef(pkg, "i")).Val(10).BinaryOp(token.LSS).Then().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		/******/ Post().
+		/******/ VarRef(ctxRef(pkg, "i")).Val(ctxRef(pkg, "i")).Val(1).BinaryOp(token.ADD).Assign(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	for i := 0; i < 10; i = i + 1 {
+		fmt.Println(i)
 	}
 }
 `)
