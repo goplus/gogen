@@ -132,22 +132,34 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 
 // NewConstStart func
 func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilder {
+	if debug {
+		log.Println("NewConstStart", typ, names)
+	}
 	return p.pkg.newValueDecl(token.CONST, typ, names...).InitStart(p.pkg)
 }
 
 // NewVar func
 func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
+	if debug {
+		log.Println("NewVar", typ, names)
+	}
 	p.pkg.newValueDecl(token.VAR, typ, names...)
 	return p
 }
 
 // NewVarStart func
 func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder {
+	if debug {
+		log.Println("NewVarStart", typ, names)
+	}
 	return p.pkg.newValueDecl(token.VAR, typ, names...).InitStart(p.pkg)
 }
 
 // DefineVarStart func
 func (p *CodeBuilder) DefineVarStart(names ...string) *CodeBuilder {
+	if debug {
+		log.Println("DefineVarStart", names)
+	}
 	return p.pkg.newValueDecl(token.DEFINE, nil, names...).InitStart(p.pkg)
 }
 
@@ -203,12 +215,18 @@ func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 
 // None func
 func (p *CodeBuilder) None() *CodeBuilder {
+	if debug {
+		log.Println("None")
+	}
 	p.stk.Push(internal.Elem{})
 	return p
 }
 
 // MapLit func
 func (p *CodeBuilder) MapLit(t *types.Map, arity int) *CodeBuilder {
+	if debug {
+		log.Println("MapLit", t, arity)
+	}
 	pkg := p.pkg
 	if arity == 0 {
 		if t == nil {
@@ -278,7 +296,11 @@ func toLitElemExpr(args []internal.Elem, i int) ast.Expr {
 func (p *CodeBuilder) SliceLit(t *types.Slice, arity int, keyVal ...bool) *CodeBuilder {
 	var elts []ast.Expr
 	var pkg = p.pkg
-	if keyVal != nil && keyVal[0] { // in keyVal mode
+	var keyValMode = (keyVal != nil && keyVal[0])
+	if debug {
+		log.Println("SliceLit", t, arity, keyValMode)
+	}
+	if keyValMode { // in keyVal mode
 		if (arity & 1) != 0 {
 			panic("TODO: SliceLit - invalid arity")
 		}
@@ -331,7 +353,11 @@ func (p *CodeBuilder) SliceLit(t *types.Slice, arity int, keyVal ...bool) *CodeB
 // ArrayLit func
 func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeBuilder {
 	var elts []ast.Expr
-	if keyVal != nil && keyVal[0] { // in keyVal mode
+	var keyValMode = (keyVal != nil && keyVal[0])
+	if debug {
+		log.Println("ArrayLit", t, arity, keyValMode)
+	}
+	if keyValMode { // in keyVal mode
 		if (arity & 1) != 0 {
 			panic("TODO: ArrayLit - invalid arity")
 		}
