@@ -30,8 +30,6 @@ import (
 // Ref type
 type Ref = types.Object
 
-// ----------------------------------------------------------------------------
-
 // An Error describes a problem with a package's metadata, syntax, or types.
 type Error = packages.Error
 
@@ -81,7 +79,8 @@ func (p *PkgRef) Ref(name string) Ref {
 
 // ----------------------------------------------------------------------------
 
-func loadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int {
+// LoadGoPkgs loads and returns the Go packages named by the given pkgPaths.
+func LoadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int {
 	conf := at.InternalGetLoadConfig()
 	loadPkgs, err := packages.Load(conf, pkgPaths...)
 	if err != nil {
@@ -102,6 +101,71 @@ func loadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) 
 		}
 	}
 	return 0
+}
+
+type loadPkgsCached struct {
+	imports  map[string]*PkgRef
+	loadPkgs LoadPkgsFunc
+}
+
+func (p *loadPkgsCached) load(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int {
+	var unimportedPaths []string
+retry:
+	for _, pkgPath := range pkgPaths {
+		if loadPkg, ok := p.imports[pkgPath]; ok {
+			if pkg, ok := importPkgs[pkgPath]; ok {
+				typs := *loadPkg.Types
+				pkg.ID = loadPkg.ID
+				pkg.Errors = loadPkg.Errors
+				pkg.Types = &typs // clone *types.Package instance
+				pkg.Fset = loadPkg.Fset
+				pkg.Module = loadPkg.Module
+				pkg.IllTyped = loadPkg.IllTyped
+			}
+		} else {
+			unimportedPaths = append(unimportedPaths, pkgPath)
+		}
+	}
+	if len(unimportedPaths) > 0 {
+		conf := at.InternalGetLoadConfig()
+		if debug {
+			log.Println("==> LoadPkgs", unimportedPaths)
+		}
+		loadPkgs, err := packages.Load(conf, unimportedPaths...)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		if n := packages.PrintErrors(loadPkgs); n > 0 {
+			return n
+		}
+		for _, loadPkg := range loadPkgs {
+			if debug {
+				log.Println("===> Load", loadPkg.PkgPath)
+			}
+			p.imports[loadPkg.PkgPath] = &PkgRef{
+				pkg:      at,
+				ID:       loadPkg.ID,
+				Errors:   loadPkg.Errors,
+				Types:    loadPkg.Types,
+				Fset:     loadPkg.Fset,
+				Module:   loadPkg.Module,
+				IllTyped: loadPkg.IllTyped,
+			}
+		}
+		pkgPaths, unimportedPaths = unimportedPaths, nil
+		goto retry
+	}
+	return 0
+}
+
+// NewLoadPkgsCached returns a cached
+func NewLoadPkgsCached(loadPkgs LoadPkgsFunc) LoadPkgsFunc {
+	imports := make(map[string]*PkgRef)
+	if loadPkgs == nil {
+		loadPkgs = LoadGoPkgs
+	}
+	return (&loadPkgsCached{imports: imports, loadPkgs: loadPkgs}).load
 }
 
 // ----------------------------------------------------------------------------
@@ -142,11 +206,7 @@ func (p *Package) endImport() {
 	if len(p.pkgPaths) == 0 {
 		return
 	}
-	loadPkgs := p.conf.LoadPkgs
-	if loadPkgs == nil {
-		loadPkgs = loadGoPkgs
-	}
-	if n := loadPkgs(p, p.importPkgs, p.pkgPaths...); n > 0 {
+	if n := p.loadPkgs(p, p.importPkgs, p.pkgPaths...); n > 0 {
 		log.Panicf("total %d errors\n", n) // TODO: error message
 	}
 }

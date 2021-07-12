@@ -7,6 +7,8 @@ import (
 	"go/types"
 )
 
+type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
+
 // ----------------------------------------------------------------------------
 
 // NamePrefix config
@@ -77,7 +79,7 @@ type Config struct {
 	ParseFile func(fset *token.FileSet, filename string, src []byte) (*ast.File, error)
 
 	// LoadPkgs is called to load all import packages.
-	LoadPkgs func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
+	LoadPkgs LoadPkgsFunc
 
 	// Prefix is name prefix.
 	Prefix *NamePrefix
@@ -99,6 +101,7 @@ type Package struct {
 	conf       *Config
 	prefix     *NamePrefix
 	builtin    *types.Package
+	loadPkgs   LoadPkgsFunc
 }
 
 // NewPackage creates a new package.
@@ -118,10 +121,15 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if newBuiltin == nil {
 		newBuiltin = newBuiltinDefault
 	}
+	loadPkgs := conf.LoadPkgs
+	if loadPkgs == nil {
+		loadPkgs = LoadGoPkgs
+	}
 	pkg := &Package{
 		importPkgs: make(map[string]*PkgRef),
 		conf:       conf,
 		prefix:     prefix,
+		loadPkgs:   loadPkgs,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg)

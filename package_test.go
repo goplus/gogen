@@ -26,8 +26,26 @@ import (
 	"golang.org/x/tools/go/gcexportdata"
 )
 
+var (
+	gblFset     *token.FileSet
+	gblLoadPkgs gox.LoadPkgsFunc
+)
+
 func init() {
 	gox.SetDebug(true)
+	gblFset = token.NewFileSet()
+	gblLoadPkgs = gox.NewLoadPkgsCached(nil)
+}
+
+func newMainPackage(noCache ...bool) *gox.Package {
+	conf := &gox.Config{
+		Fset:     gblFset,
+		LoadPkgs: gblLoadPkgs,
+	}
+	if noCache != nil {
+		conf = nil
+	}
+	return gox.NewPackage("", "main", conf)
 }
 
 func domTest(t *testing.T, pkg *gox.Package, expected string) {
@@ -101,7 +119,7 @@ func bar(v mytype) rune {
 // ----------------------------------------------------------------------------
 
 func TestBasic(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	if pkg.Ref("main") == nil {
 		t.Fatal("main not found")
@@ -114,7 +132,7 @@ func main() {
 }
 
 func TestMapLit(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewVarStart(nil, "a").
 		Val("a").Val(1).Val("b").Val(2).MapLit(nil, 4).EndInit(1)
 	pkg.NewVarStart(nil, "b").
@@ -135,7 +153,7 @@ var d = map[int]bool{1: true}
 }
 
 func TestSliceLit(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewVarStart(nil, "a").
 		Val("a").Val("b").SliceLit(nil, 2).EndInit(1)
 	pkg.NewVarStart(nil, "b").
@@ -156,7 +174,7 @@ var d = []int{1}
 }
 
 func TestKeyValModeLit(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewVarStart(nil, "a").
 		None().Val(1).Val(3).Val(3.4).None().Val(5).
 		ArrayLit(types.NewArray(types.Typ[types.Float64], -1), 6, true).EndInit(1)
@@ -171,7 +189,7 @@ var b = []float64{2: 1.2, 3, 6: 4.5}
 }
 
 func TestArrayLit(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewVarStart(nil, "a").
 		Val("a").Val("b").ArrayLit(types.NewArray(types.Typ[types.String], 2), 2).EndInit(1)
 	pkg.NewVarStart(nil, "b").
@@ -188,7 +206,7 @@ var c = [10]interface {
 }
 
 func TestConst(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	tv := pkg.ConstStart().Val(1).Val(2).BinaryOp(token.ADD).EndConst()
 	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(3)) {
 		t.Fatal("TestConst: != 3, it is", tv.Value)
@@ -200,7 +218,7 @@ func TestConst(t *testing.T) {
 }
 
 func TestConstLenArray(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	typ := types.NewArray(types.Typ[types.Int], 10)
 	pkg.Types.Scope().Insert(types.NewVar(token.NoPos, pkg.Types, "array", typ))
 	tv := pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val(pkg.Ref("array")).Call(1).EndConst()
@@ -210,7 +228,7 @@ func TestConstLenArray(t *testing.T) {
 }
 
 func TestConstDecl(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewConstStart(nil, "n").
 		Val(1).Val(2).BinaryOp(token.ADD).EndInit(1)
 	pkg.NewConstStart(types.Typ[types.String], "x").
@@ -226,7 +244,7 @@ const y string = "Hello"
 }
 
 func TestVarDecl(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewVarStart(nil, "n", "s").
 		Val(1).Val(2).BinaryOp(token.ADD).
 		Val("1").Val("2").BinaryOp(token.ADD).
@@ -246,7 +264,7 @@ var y string = "Hello"
 }
 
 func TestVarDeclNoBody(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewVar(types.Typ[types.String], "x")
 	domTest(t, pkg, `package main
 
@@ -255,7 +273,7 @@ var x string
 }
 
 func TestVarDeclInFunc(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.String], "x", "y").
@@ -275,7 +293,7 @@ func main() {
 }
 
 func TestDefineVar(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.Int], "n").
@@ -293,7 +311,7 @@ func main() {
 }
 
 func TestFuncBasic(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	v := pkg.NewParam("v", gox.TyByte)
 	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).End().Pkg().
 		NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
@@ -307,7 +325,7 @@ func main() {
 }
 
 func TestFuncVariadic(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	v := pkg.NewParam("v", types.NewSlice(gox.TyByte))
 	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
@@ -321,7 +339,7 @@ func main() {
 }
 
 func TestFuncAsParam(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	v := pkg.NewParam("v", types.NewSignature(nil, nil, nil, false))
 	x := pkg.NewParam("x", types.NewPointer(types.Typ[types.Bool]))
 	y := pkg.NewParam("y", types.NewChan(types.SendOnly, types.Typ[types.Bool]))
@@ -341,7 +359,7 @@ func main() {
 
 func TestBuiltinFunc(t *testing.T) {
 	var a, n *goxVar
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	builtin := pkg.Builtin()
 	v := pkg.NewParam("v", types.NewSlice(types.Typ[types.Int]))
 	array := pkg.NewParam("array", types.NewArray(types.Typ[types.Int], 10))
@@ -370,7 +388,7 @@ func main() {
 
 func TestOverloadFunc(t *testing.T) {
 	var f, g, x, y *goxVar
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	builtin := pkg.Builtin()
 	c64 := pkg.NewParam("c64", types.Typ[types.Complex64])
 	c128 := pkg.NewParam("c128", types.Typ[types.Complex128])
@@ -400,7 +418,7 @@ func main() {
 }
 
 func TestEmptyInterface(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	v := pkg.NewParam("v", types.NewSlice(gox.TyEmptyInterface))
 	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
@@ -415,7 +433,7 @@ func main() {
 }
 
 func TestInterfaceMethods(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	bar := types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false))
 	methods := []*types.Func{bar}
 	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(methods, nil)))
@@ -433,7 +451,7 @@ func main() {
 }
 
 func TestFuncCall(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).Val("Hello").Call(1, false).EndStmt().
@@ -449,7 +467,7 @@ func main() {
 }
 
 func TestFuncCallEllipsis(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	bar := types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false))
 	methods := []*types.Func{bar}
@@ -473,7 +491,7 @@ func main() {
 }
 
 func TestDelayedLoad(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	println := gox.NewDelayedLoad(token.NoPos, pkg.Types, "println", func() types.Object {
 		return pkg.Import("fmt").Ref("Println")
 	})
@@ -500,7 +518,7 @@ func main() {
 }
 
 func TestIf(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		/**/ If().DefineVarStart("x").Val(3).EndInit(1).
 		/******/ Val(ctxRef(pkg, "x")).Val(1).BinaryOp(token.GTR).Then().
@@ -520,7 +538,7 @@ func main() {
 }
 
 func TestIfElse(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		/**/ If().DefineVarStart("x").Val(3).EndInit(1).
@@ -545,7 +563,7 @@ func main() {
 }
 
 func TestSwitch(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		/**/ Switch().DefineVarStart("x").Val(3).EndInit(1).Val(ctxRef(pkg, "x")).Then(). // switch x := 3; x {
@@ -578,7 +596,7 @@ func main() {
 }
 
 func TestSwitchNoTag(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		/**/ DefineVarStart("x").Val(3).EndInit(1).
@@ -615,7 +633,7 @@ func main() {
 }
 
 func TestFor(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		/**/ For().DefineVarStart("i").Val(0).EndInit(1). // for i := 0; i < 10; i=i+1 {
 		/******/ Val(ctxRef(pkg, "i")).Val(10).BinaryOp(token.LSS).Then().
@@ -637,7 +655,7 @@ func main() {
 }
 
 func TestForRange(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart("a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
 		/**/ ForRange("i").Val(ctxRef(pkg, "a")).RangeAssignThen().
@@ -658,7 +676,7 @@ func main() {
 }
 
 func TestForRangeKV(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart("a").Val(1).Val(1.2).Val(3).ArrayLit(types.NewArray(types.Typ[types.Float64], 3), 3).EndInit(1).
 		/**/ ForRange("_", "x").Val(ctxRef(pkg, "a")).RangeAssignThen().
@@ -679,7 +697,7 @@ func main() {
 }
 
 func TestForRangeNoAssign(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart("a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
 		/**/ ForRange().Val(ctxRef(pkg, "a")).RangeAssignThen().
@@ -700,7 +718,7 @@ func main() {
 }
 
 func TestForRangeAssignKV(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	tyString := types.Typ[types.String]
 	tyInt := types.Typ[types.Int]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -726,7 +744,7 @@ func main() {
 }
 
 func TestForRangeAssign(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	tyBool := types.Typ[types.Bool]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyBool, "k").
@@ -750,7 +768,7 @@ func main() {
 }
 
 func TestReturn(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	format := pkg.NewParam("format", types.Typ[types.String])
 	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
 	n := pkg.NewParam("", types.Typ[types.Int])
@@ -773,7 +791,7 @@ func main() {
 }
 
 func TestReturnExpr(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	format := pkg.NewParam("format", types.Typ[types.String])
 	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
 	n := pkg.NewParam("", types.Typ[types.Int])
@@ -794,7 +812,7 @@ func main() {
 }
 
 func TestReturnNamedResults(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	format := pkg.NewParam("format", types.Typ[types.String])
 	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
 	n := pkg.NewParam("n", types.Typ[types.Int])
@@ -817,7 +835,7 @@ func main() {
 }
 
 func TestImport(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage(true)
 	fmt := pkg.Import("fmt")
 
 	v := pkg.NewParam("v", types.NewSlice(gox.TyByte))
@@ -839,7 +857,7 @@ func main() {
 }
 
 func TestImportUnused(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -850,7 +868,7 @@ func main() {
 }
 
 func TestImportAnyWhere(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 
 	v := pkg.NewParam("v", types.NewSlice(gox.TyByte))
 	pkg.NewFunc(nil, "fmt", gox.NewTuple(v), nil, false).BodyStart(pkg).End()
@@ -872,7 +890,7 @@ func main() {
 
 func TestImportAndCallMethod(t *testing.T) {
 	var x *goxVar
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	strings := pkg.Import("strings")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("x", &x).
@@ -894,7 +912,7 @@ func main() {
 
 func TestAssign(t *testing.T) {
 	var a, b, c, d, e, f, g *goxVar
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("a", &a).NewAutoVar("b", &b).NewAutoVar("c", &c).NewAutoVar("d", &d).
 		NewAutoVar("e", &e).NewAutoVar("f", &f).NewAutoVar("g", &g).
@@ -921,7 +939,7 @@ func main() {
 
 func TestAssignFnCall(t *testing.T) {
 	var n, err *goxVar
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("n", &n).NewAutoVar("err", &err).
@@ -943,7 +961,7 @@ func main() {
 
 func TestAssignUnderscore(t *testing.T) {
 	var err *goxVar
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("err", &err).
@@ -964,7 +982,7 @@ func main() {
 
 func TestOperator(t *testing.T) {
 	var a, b, c, d *goxVar
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("a", &a).NewAutoVar("b", &b).NewAutoVar("c", &c).NewAutoVar("d", &d).
 		VarRef(a).Val("Hi").Assign(1).EndStmt().
@@ -989,7 +1007,7 @@ func main() {
 
 func TestOperatorComplex(t *testing.T) {
 	var a *goxVar
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("a", &a).
 		VarRef(a).Val(123.1).Val(&ast.BasicLit{Kind: token.IMAG, Value: "3i"}).BinaryOp(token.SUB).Assign(1).EndStmt().
@@ -1005,7 +1023,7 @@ func main() {
 
 func TestBinaryOpUntyped(t *testing.T) {
 	var a *goxVar
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("a", &a).
 		VarRef(a).Val("Hi").Val("!").BinaryOp(token.ADD).Assign(1).EndStmt().
@@ -1020,7 +1038,7 @@ func main() {
 }
 
 func TestClosure(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	paramV := pkg.NewParam("v", types.Typ[types.String]) // v string
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -1042,7 +1060,7 @@ func main() {
 }
 
 func TestClosureAutoRet(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 	ret := pkg.NewAutoParam("ret")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(types.NewSlice(types.Typ[types.Int]), "a").
@@ -1070,7 +1088,7 @@ func ctxRef(pkg *gox.Package, name string) gox.Ref {
 }
 
 func TestExample(t *testing.T) {
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := newMainPackage()
 
 	fmt := pkg.Import("fmt")
 
