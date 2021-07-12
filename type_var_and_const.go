@@ -25,21 +25,6 @@ import (
 
 // ----------------------------------------------------------------------------
 
-// A Variable represents a declared variable (including function parameters and results, and struct fields).
-type AutoVar struct {
-	name  string
-	typ   types.Type
-	ptype *ast.Expr
-}
-
-func newAutoVar(name string, ptype *ast.Expr) *AutoVar {
-	v := &AutoVar{name: name, ptype: ptype}
-	v.typ = &unboundType{v: v}
-	return v
-}
-
-// ----------------------------------------------------------------------------
-
 // ConstStart starts a constant expression.
 func (p *Package) ConstStart() *CodeBuilder {
 	return &p.cb
@@ -226,12 +211,7 @@ func (p *refType) String() string {
 // unboundType: unbound type
 type unboundType struct {
 	bound types.Type
-	v     *AutoVar
-}
-
-func isUnbound(t types.Type) bool {
-	ut, ok := t.(*unboundType)
-	return ok && ut.bound == nil
+	ptype *ast.Expr
 }
 
 func (p *unboundType) Underlying() types.Type {
@@ -240,6 +220,18 @@ func (p *unboundType) Underlying() types.Type {
 
 func (p *unboundType) String() string {
 	panic("unbound type")
+}
+
+func realType(typ types.Type) types.Type {
+	switch t := typ.(type) {
+	case *unboundType:
+		if t.bound == nil {
+			panic("TODO: variable type is unbound")
+		}
+		return t.bound
+	default:
+		return t
+	}
 }
 
 // overloadFuncType: overload function type

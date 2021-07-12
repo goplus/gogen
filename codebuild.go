@@ -136,6 +136,15 @@ func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
 
 // NewClosureWith func
 func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
+	if debug {
+		t := sig.Params()
+		for i, n := 0, t.Len(); i < n; i++ {
+			v := t.At(i)
+			if _, ok := v.Type().(*unboundType); ok {
+				panic("TODO: can't use auto type in func parameters")
+			}
+		}
+	}
 	fn := types.NewFunc(token.NoPos, p.pkg.Types, "", sig)
 	return &Func{Func: fn}
 }
@@ -174,7 +183,7 @@ func (p *CodeBuilder) DefineVarStart(names ...string) *CodeBuilder {
 }
 
 // NewAutoVar func
-func (p *CodeBuilder) NewAutoVar(name string, pv **AutoVar) *CodeBuilder {
+func (p *CodeBuilder) NewAutoVar(name string, pv **types.Var) *CodeBuilder {
 	spec := &ast.ValueSpec{Names: []*ast.Ident{ident(name)}}
 	decl := &ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{spec}}
 	stmt := &ast.DeclStmt{
@@ -183,9 +192,11 @@ func (p *CodeBuilder) NewAutoVar(name string, pv **AutoVar) *CodeBuilder {
 	if debug {
 		log.Println("NewAutoVar", name)
 	}
-	// TODO: scope.Insert this variable
 	p.emitStmt(stmt)
-	*pv = newAutoVar(name, &spec.Type)
+	*pv = types.NewVar(token.NoPos, p.pkg.Types, name, &unboundType{ptype: &spec.Type})
+	if p.current.scope.Insert(*pv) != nil {
+		log.Panicln("TODO: variable already defined -", name)
+	}
 	return p
 }
 
@@ -200,14 +211,6 @@ func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 		})
 	} else {
 		switch v := ref.(type) {
-		case *AutoVar:
-			if debug {
-				log.Println("VarRef", v.name)
-			}
-			p.stk.Push(internal.Elem{
-				Val:  ident(v.name),
-				Type: &refType{typ: v.typ},
-			})
 		case *types.Var:
 			if debug {
 				log.Println("VarRef", v.Name())

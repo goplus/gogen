@@ -54,7 +54,7 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 	for i := 0; i < n; i++ {
 		item := t.At(i)
 		names := []*ast.Ident{ident(item.Name())}
-		typ := toType(pkg, item.Type())
+		typ := toType(pkg, realType(item.Type()))
 		flds[i] = &ast.Field{Names: names, Type: typ}
 	}
 	return flds
@@ -87,6 +87,7 @@ func toFuncType(pkg *Package, sig *types.Signature) *ast.FuncType {
 // -----------------------------------------------------------------------------
 
 func toType(pkg *Package, typ types.Type) ast.Expr {
+retry:
 	switch t := typ.(type) {
 	case *types.Basic: // bool, int, etc
 		return toBasicType(pkg, t)
@@ -106,6 +107,12 @@ func toType(pkg *Package, typ types.Type) ast.Expr {
 		return toChanType(pkg, t)
 	case *types.Signature:
 		return toFuncType(pkg, t)
+	case *unboundType:
+		if t.bound == nil {
+			panic("TODO: unbound type")
+		}
+		typ = t.bound
+		goto retry
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil
@@ -192,14 +199,6 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 		}
 	}
 	switch v := val.(type) {
-	case *AutoVar:
-		if isUnbound(v.typ) {
-			panic("TODO: variable type is unbound")
-		}
-		return internal.Elem{
-			Val:  ident(v.name),
-			Type: v.typ,
-		}
 	case *ast.BasicLit:
 		return internal.Elem{
 			Val:  v,
@@ -503,13 +502,18 @@ func doMatchType(pkg *Package, arg, param types.Type) bool {
 		if t.bound == nil {
 			arg = types.Default(arg)
 			t.bound = arg
-			t.v.typ = arg
-			*t.v.ptype = toType(pkg, arg)
+			if t.ptype != nil {
+				*t.ptype = toType(pkg, arg)
+			}
 		}
 		param = t.bound
 	} else if isUnboundParam(param) {
-		if _, ok := arg.(*unboundType); ok {
-			panic("TODO: don't pass unbound variables as template function params.")
+		if t, ok := arg.(*unboundType); ok {
+			if t.bound == nil {
+				// panic("TODO: don't pass unbound variables as template function params.")
+				return true
+			}
+			arg = t.bound
 		}
 		return boundType(pkg, arg, param)
 	}

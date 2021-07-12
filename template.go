@@ -29,11 +29,11 @@ type Contract interface {
 type TemplateParamType struct {
 	name     string
 	contract Contract
-	index    int
+	idxFlag  int
 }
 
 func NewTemplateParamType(idx int, name string, contract Contract) *TemplateParamType {
-	return &TemplateParamType{index: idx, name: name, contract: contract}
+	return &TemplateParamType{idxFlag: idx, name: name, contract: contract}
 }
 
 func (p *TemplateParamType) Underlying() types.Type {
@@ -44,11 +44,30 @@ func (p *TemplateParamType) String() string {
 	panic("don't call me")
 }
 
+func (p *TemplateParamType) idx() int {
+	return p.idxFlag &^ paramAllowUntyped
+}
+
+func (p *TemplateParamType) allowUntyped() bool {
+	return (p.idxFlag & paramAllowUntyped) != 0
+}
+
+const (
+	paramAllowUntyped = 0x10000
+)
+
 // ----------------------------------------------------------------------------
 
 type unboundFuncParam struct {
-	bound types.Type
-	typ   *TemplateParamType
+	tBound types.Type
+	typ    *TemplateParamType
+}
+
+func (p *unboundFuncParam) boundTo(t types.Type) {
+	if !p.typ.allowUntyped() {
+		t = types.Default(t)
+	}
+	p.tBound = t
 }
 
 func (p *unboundFuncParam) Underlying() types.Type {
@@ -75,12 +94,12 @@ func boundType(pkg *Package, arg, param types.Type) bool {
 	switch p := param.(type) {
 	case *unboundFuncParam: // template function param
 		if p.typ.contract.Match(arg) {
-			if p.bound == nil {
-				p.bound = arg
-			} else if types.AssignableTo(arg, p.bound) {
-				if t, ok := p.bound.(*types.Basic); ok && (t.Info()&types.IsUntyped) != 0 { // untyped type
+			if p.tBound == nil {
+				p.boundTo(arg)
+			} else if types.AssignableTo(arg, p.tBound) {
+				if t, ok := p.tBound.(*types.Basic); ok && (t.Info()&types.IsUntyped) != 0 { // untyped type
 					if kind := arg.(*types.Basic).Kind(); kind > t.Kind() && kind != types.UntypedRune {
-						p.bound = types.Typ[kind]
+						p.boundTo(types.Typ[kind])
 					}
 				}
 			} else {
@@ -129,6 +148,7 @@ func boundType(pkg *Package, arg, param types.Type) bool {
 }
 
 func AssignableTo(V, T types.Type) bool {
+	V, T = realType(V), realType(T)
 	if types.AssignableTo(V, T) {
 		if t, ok := T.(*types.Basic); ok && (t.Info()&types.IsUntyped) != 0 { // untyped type
 			vkind := V.(*types.Basic).Kind()
@@ -262,10 +282,10 @@ func (p *instantiated) normalizeTuple(t *types.Tuple) *types.Tuple {
 func toNormalize(tparams []*unboundFuncParam, typ types.Type) (types.Type, bool) {
 	switch tt := typ.(type) {
 	case *unboundFuncParam:
-		if tt.bound == nil {
+		if tt.tBound == nil {
 			log.Panicln("TODO: unbound type -", tt.typ.name)
 		}
-		return tt.bound, true
+		return tt.tBound, true
 	case *unboundProxyParam:
 		switch t := tt.real.(type) {
 		case *types.Pointer:
@@ -342,7 +362,7 @@ type TemplateSignature struct {
 
 func assertValidTemplateSignature(tsig *TemplateSignature) {
 	for i, param := range tsig.params {
-		if param.index != i {
+		if param.idx() != i {
 			panic("TODO: invalid TemplateSignature - incorrect index")
 		}
 	}
@@ -351,8 +371,13 @@ func assertValidTemplateSignature(tsig *TemplateSignature) {
 // NewTemplateSignature creates type of a template function.
 func NewTemplateSignature(
 	templateParams []*TemplateParamType,
-	recv *types.Var, params, results *types.Tuple, variadic bool) *TemplateSignature {
+	recv *types.Var, params, results *types.Tuple, variadic bool, allowUntyped ...bool) *TemplateSignature {
 
+	if allowUntyped != nil && allowUntyped[0] {
+		for _, tparam := range templateParams {
+			tparam.idxFlag |= paramAllowUntyped
+		}
+	}
 	tsig := &TemplateSignature{params: templateParams, sig: types.NewSignature(recv, params, results, variadic)}
 	assertValidTemplateSignature(tsig)
 	return tsig
@@ -379,7 +404,7 @@ func (p *TemplateSignature) instantiate() (*types.Signature, *instantiated) {
 func toInstantiate(tparams []*unboundFuncParam, typ types.Type) (types.Type, bool) {
 	switch tt := typ.(type) {
 	case *TemplateParamType:
-		return tparams[tt.index], true
+		return tparams[tt.idx()], true
 	case *unboundProxyParam:
 		switch t := tt.real.(type) {
 		case *types.Pointer:

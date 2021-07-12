@@ -143,7 +143,8 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 			result := types.NewParam(token.NoPos, builtin, "", ret)
 			results = types.NewTuple(result)
 		}
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false)
+		var allowUntyped = (op.params[0].tidx != xtPointer)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, allowUntyped)
 		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, pre+op.name, tsig))
 	}
 }
@@ -228,7 +229,7 @@ func InitBuiltinFuncs(builtin *types.Package) {
 			typ := newXParamType(tparams, fn.result)
 			results = types.NewTuple(types.NewParam(token.NoPos, builtin, "", typ))
 		}
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis, false)
 		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, fn.name, tsig))
 	}
 	overloads := [...]struct {

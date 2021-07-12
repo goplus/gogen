@@ -27,6 +27,11 @@ import (
 // A Variable represents a function parameters and results.
 type Param = types.Var
 
+// NewAutoParam returns a new variable representing a function result parameter with auto type.
+func (p *Package) NewAutoParam(name string) *Param {
+	return types.NewParam(token.NoPos, p.Types, name, &unboundType{})
+}
+
 // NewParam returns a new variable representing a function parameter.
 func (p *Package) NewParam(name string, typ types.Type) *Param {
 	return types.NewParam(token.NoPos, p.Types, name, typ)

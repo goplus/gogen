@@ -42,6 +42,8 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 	}
 }
 
+type goxVar = types.Var
+
 // ----------------------------------------------------------------------------
 
 func TestAssignableTo(t *testing.T) {
@@ -338,7 +340,7 @@ func main() {
 }
 
 func TestBuiltinFunc(t *testing.T) {
-	var a, n *gox.AutoVar
+	var a, n *goxVar
 	pkg := gox.NewPackage("", "main", nil)
 	builtin := pkg.Builtin()
 	v := pkg.NewParam("v", types.NewSlice(types.Typ[types.Int]))
@@ -367,7 +369,7 @@ func main() {
 }
 
 func TestOverloadFunc(t *testing.T) {
-	var f, g, x, y *gox.AutoVar
+	var f, g, x, y *goxVar
 	pkg := gox.NewPackage("", "main", nil)
 	builtin := pkg.Builtin()
 	c64 := pkg.NewParam("c64", types.Typ[types.Complex64])
@@ -869,7 +871,7 @@ func main() {
 }
 
 func TestImportAndCallMethod(t *testing.T) {
-	var x *gox.AutoVar
+	var x *goxVar
 	pkg := gox.NewPackage("", "main", nil)
 	strings := pkg.Import("strings")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -891,7 +893,7 @@ func main() {
 }
 
 func TestAssign(t *testing.T) {
-	var a, b, c, d, e, f, g *gox.AutoVar
+	var a, b, c, d, e, f, g *goxVar
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("a", &a).NewAutoVar("b", &b).NewAutoVar("c", &c).NewAutoVar("d", &d).
@@ -918,7 +920,7 @@ func main() {
 }
 
 func TestAssignFnCall(t *testing.T) {
-	var n, err *gox.AutoVar
+	var n, err *goxVar
 	pkg := gox.NewPackage("", "main", nil)
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -940,7 +942,7 @@ func main() {
 }
 
 func TestAssignUnderscore(t *testing.T) {
-	var err *gox.AutoVar
+	var err *goxVar
 	pkg := gox.NewPackage("", "main", nil)
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -961,7 +963,7 @@ func main() {
 }
 
 func TestOperator(t *testing.T) {
-	var a, b, c, d *gox.AutoVar
+	var a, b, c, d *goxVar
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("a", &a).NewAutoVar("b", &b).NewAutoVar("c", &c).NewAutoVar("d", &d).
@@ -986,7 +988,7 @@ func main() {
 }
 
 func TestOperatorComplex(t *testing.T) {
-	var a *gox.AutoVar
+	var a *goxVar
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("a", &a).
@@ -1002,7 +1004,7 @@ func main() {
 }
 
 func TestBinaryOpUntyped(t *testing.T) {
-	var a *gox.AutoVar
+	var a *goxVar
 	pkg := gox.NewPackage("", "main", nil)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar("a", &a).
@@ -1035,6 +1037,27 @@ func main() {
 	func(v string) {
 		fmt.Println(v)
 	}("Hello")
+}
+`)
+}
+
+func TestClosureAutoRet(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	ret := pkg.NewAutoParam("ret")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(types.NewSlice(types.Typ[types.Int]), "a").
+		/**/ NewClosure(nil, gox.NewTuple(ret), false).BodyStart(pkg).
+		/******/ VarRef(ctxRef(pkg, "ret")).Val(pkg.Builtin().Ref("append")).Val(ctxRef(pkg, "ret")).Val(1).Call(2).Assign(1).
+		/******/ Return(0).
+		/**/ End().Call(0).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a []int = func() (ret []int) {
+		ret = append(ret, 1)
+		return
+	}()
 }
 `)
 }
