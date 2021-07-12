@@ -428,19 +428,18 @@ func (p *CodeBuilder) IndexGet(nidx int) *CodeBuilder {
 	return p
 }
 
-func (p *CodeBuilder) IndexSet(nidx int) *CodeBuilder {
+func (p *CodeBuilder) IndexRef(nidx int) *CodeBuilder {
 	if nidx != 1 {
-		panic("TODO: IndexSet doesn't support a[i, j...] = val already")
+		panic("TODO: IndexRef doesn't support a[i, j...] = val already")
 	}
-	args := p.stk.GetArgs(3)
+	args := p.stk.GetArgs(2)
 	typs := getIdxValTypes(args[0].Type)
 	elemRef := internal.Elem{
 		Val:  &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
 		Type: &refType{typ: typs[1]},
 	}
 	// TODO: check index type
-	p.stk.Ret(3, elemRef, args[2])
-	p.Assign(1)
+	p.stk.Ret(2, elemRef)
 	return p
 }
 

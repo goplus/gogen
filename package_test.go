@@ -931,12 +931,12 @@ func main() {
 `)
 }
 
-func TestIndexSet(t *testing.T) {
+func TestIndexRef(t *testing.T) {
 	pkg := newMainPackage()
 
 	v := pkg.NewParam("v", types.NewSlice(types.Typ[types.Int]))
 	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).
-		Val(v).Val(0).Val(1).IndexSet(1).
+		Val(v).Val(0).IndexRef(1).Val(1).Assign(1).
 		End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
