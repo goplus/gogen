@@ -128,9 +128,6 @@ retry:
 	}
 	if len(unimportedPaths) > 0 {
 		conf := at.InternalGetLoadConfig()
-		if debug {
-			log.Println("==> LoadPkgs", unimportedPaths)
-		}
 		loadPkgs, err := packages.Load(conf, unimportedPaths...)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -140,9 +137,6 @@ retry:
 			return n
 		}
 		for _, loadPkg := range loadPkgs {
-			if debug {
-				log.Println("===> Load", loadPkg.PkgPath)
-			}
 			p.imports[loadPkg.PkgPath] = &PkgRef{
 				pkg:      at,
 				ID:       loadPkg.ID,
