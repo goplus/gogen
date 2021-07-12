@@ -132,6 +132,30 @@ func main() {
 `)
 }
 
+func TestZeroLit(t *testing.T) {
+	pkg := newMainPackage()
+	tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
+	ret := pkg.NewAutoParam("ret")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tyMap, "a").
+		/**/ NewClosure(nil, gox.NewTuple(ret), false).BodyStart(pkg).
+		/******/ VarRef(ctxRef(pkg, "ret")).ZeroLit(ret.Type()).Assign(1).
+		/******/ Val(ctxRef(pkg, "ret")).Val("Hi").IndexRef(1).Val(1).Assign(1).
+		/******/ Return(0).
+		/**/ End().Call(0).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a map[string]int = func() (ret map[string]int) {
+		ret = map[string]int{}
+		ret["Hi"] = 1
+		return
+	}()
+}
+`)
+}
+
 func TestMapLit(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewVarStart(nil, "a").

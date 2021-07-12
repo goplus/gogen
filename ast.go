@@ -112,10 +112,10 @@ retry:
 	case *types.Signature:
 		return toFuncType(pkg, t)
 	case *unboundType:
-		if t.bound == nil {
+		if t.tBound == nil {
 			panic("TODO: unbound type")
 		}
-		typ = t.bound
+		typ = t.tBound
 		goto retry
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
@@ -502,24 +502,41 @@ func checkMatchType(pkg *Package, arg, param types.Type) error {
 }
 
 func doMatchType(pkg *Package, arg, param types.Type) bool {
-	if t, ok := param.(*unboundType); ok { // variable to bound type
-		if t.bound == nil {
+	switch t := param.(type) {
+	case *unboundType: // variable to bound type
+		if t2, ok := arg.(*unboundType); ok {
+			if t2.tBound == nil {
+				return t == t2
+			}
+			arg = t2.tBound
+		}
+		if t.tBound == nil {
 			arg = types.Default(arg)
-			t.bound = arg
-			if t.ptype != nil {
-				*t.ptype = toType(pkg, arg)
-			}
+			t.boundTo(pkg, arg)
 		}
-		param = t.bound
-	} else if isUnboundParam(param) {
-		if t, ok := arg.(*unboundType); ok {
-			if t.bound == nil {
-				// panic("TODO: don't pass unbound variables as template function params.")
-				return true
+		param = t.tBound
+	case *unboundMapElemType:
+		if t2, ok := arg.(*unboundType); ok {
+			if t2.tBound == nil {
+				panic("TODO: don't pass unbound variables")
 			}
-			arg = t.bound
+			arg = t2.tBound
 		}
-		return boundType(pkg, arg, param)
+		arg = types.Default(arg)
+		mapTy := types.NewMap(types.Default(t.key), arg)
+		t.typ.boundTo(pkg, mapTy)
+		return true
+	default:
+		if isUnboundParam(param) {
+			if t, ok := arg.(*unboundType); ok {
+				if t.tBound == nil {
+					// panic("TODO: don't pass unbound variables as template function params.")
+					return true
+				}
+				arg = t.tBound
+			}
+			return boundType(pkg, arg, param)
+		}
 	}
 	return AssignableTo(arg, param)
 }

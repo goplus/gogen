@@ -193,7 +193,8 @@ func (p *CodeBuilder) NewAutoVar(name string, pv **types.Var) *CodeBuilder {
 		log.Println("NewAutoVar", name)
 	}
 	p.emitStmt(stmt)
-	*pv = types.NewVar(token.NoPos, p.pkg.Types, name, &unboundType{ptype: &spec.Type})
+	typ := &unboundType{ptypes: []*ast.Expr{&spec.Type}}
+	*pv = types.NewVar(token.NoPos, p.pkg.Types, name, typ)
 	if p.current.scope.Insert(*pv) != nil {
 		log.Panicln("TODO: variable already defined -", name)
 	}
@@ -236,6 +237,22 @@ func (p *CodeBuilder) None() *CodeBuilder {
 }
 
 func (p *CodeBuilder) ZeroLit(typ types.Type) *CodeBuilder {
+	if debug {
+		log.Println("ZeroLit")
+	}
+	ret := &ast.CompositeLit{}
+	switch t := typ.(type) {
+	case *unboundType:
+		if t.tBound == nil {
+			t.ptypes = append(t.ptypes, &ret.Type)
+		} else {
+			typ = t.tBound
+			ret.Type = toType(p.pkg, typ)
+		}
+	default:
+		ret.Type = toType(p.pkg, typ)
+	}
+	p.stk.Push(internal.Elem{Type: typ, Val: ret})
 	return p
 }
 
@@ -422,9 +439,12 @@ func (p *CodeBuilder) IndexGet(nidx int, twoValue bool) *CodeBuilder {
 		panic("TODO: IndexGet doesn't support a[i, j...] already")
 	}
 	args := p.stk.GetArgs(2)
-	typs := getIdxValTypes(args[0].Type)
+	typs, allowTwoValue := getIdxValTypes(args[0].Type)
 	var tyRet types.Type
 	if twoValue { // elem, ok = a[key]
+		if !allowTwoValue {
+			panic("TODO: doesn't return twoValue")
+		}
 		pkg := p.pkg
 		tyRet = types.NewTuple(pkg.NewParam("", typs[1]), pkg.NewParam("", types.Typ[types.Bool]))
 	} else { // elem = a[key]
@@ -444,32 +464,42 @@ func (p *CodeBuilder) IndexRef(nidx int) *CodeBuilder {
 		panic("TODO: IndexRef doesn't support a[i, j...] = val already")
 	}
 	args := p.stk.GetArgs(2)
-	typs := getIdxValTypes(args[0].Type)
+	typ := args[0].Type
 	elemRef := internal.Elem{
-		Val:  &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
-		Type: &refType{typ: typs[1]},
+		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
 	}
-	// TODO: check index type
+	if t, ok := typ.(*unboundType); ok {
+		tyMapElem := &unboundMapElemType{key: args[1].Type, typ: t}
+		elemRef.Type = &refType{typ: tyMapElem}
+	} else {
+		typs, _ := getIdxValTypes(typ)
+		elemRef.Type = &refType{typ: typs[1]}
+		// TODO: check index type
+	}
 	p.stk.Ret(2, elemRef)
 	return p
 }
 
-func getIdxValTypes(typ types.Type) []types.Type {
+func getIdxValTypes(typ types.Type) ([]types.Type, bool) {
 	switch t := typ.(type) {
 	case *types.Slice:
-		return []types.Type{types.Typ[types.Int], t.Elem()}
+		return []types.Type{tyInt, t.Elem()}, false
 	case *types.Map:
-		return []types.Type{t.Key(), t.Elem()}
+		return []types.Type{t.Key(), t.Elem()}, true
 	case *types.Array:
-		return []types.Type{types.Typ[types.Int], t.Elem()}
+		return []types.Type{tyInt, t.Elem()}, false
 	case *types.Pointer:
 		if e, ok := t.Elem().(*types.Array); ok {
-			return []types.Type{types.Typ[types.Int], e.Elem()}
+			return []types.Type{tyInt, e.Elem()}, false
 		}
 	}
 	log.Panicln("TODO: can't index of type", typ)
-	return nil
+	return nil, false
 }
+
+var (
+	tyInt = types.Typ[types.Int]
+)
 
 // Val func
 func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
@@ -560,6 +590,9 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	} else {
 		rhs = lhs
 	}
+	if debug {
+		log.Println("Assign", lhs, rhs)
+	}
 	args := p.stk.GetArgs(lhs + rhs)
 	stmt := &ast.AssignStmt{
 		Tok: token.ASSIGN,
@@ -585,9 +618,6 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 		stmt.Rhs[0] = args[lhs].Val
 	} else {
 		panic("TODO: unmatch assignment")
-	}
-	if debug {
-		log.Println("Assign", lhs, rhs)
 	}
 	p.emitStmt(stmt)
 	p.stk.PopN(lhs + rhs)

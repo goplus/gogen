@@ -210,8 +210,19 @@ func (p *refType) String() string {
 
 // unboundType: unbound type
 type unboundType struct {
-	bound types.Type
-	ptype *ast.Expr
+	tBound types.Type
+	ptypes []*ast.Expr
+}
+
+func (p *unboundType) boundTo(pkg *Package, arg types.Type) {
+	if p.tBound != nil {
+		panic("TODO: type is already bounded")
+	}
+	p.tBound = arg
+	for _, pt := range p.ptypes {
+		*pt = toType(pkg, arg)
+	}
+	p.ptypes = nil
 }
 
 func (p *unboundType) Underlying() types.Type {
@@ -225,13 +236,26 @@ func (p *unboundType) String() string {
 func realType(typ types.Type) types.Type {
 	switch t := typ.(type) {
 	case *unboundType:
-		if t.bound == nil {
+		if t.tBound == nil {
 			panic("TODO: variable type is unbound")
 		}
-		return t.bound
+		return t.tBound
 	default:
 		return t
 	}
+}
+
+type unboundMapElemType struct {
+	key types.Type
+	typ *unboundType
+}
+
+func (p *unboundMapElemType) Underlying() types.Type {
+	panic("unbound map elem type")
+}
+
+func (p *unboundMapElemType) String() string {
+	panic("unbound map elem type")
 }
 
 // overloadFuncType: overload function type
