@@ -510,7 +510,7 @@ func TestDelayedLoad(t *testing.T) {
 import fmt "fmt"
 
 func foo(format string, args ...interface {
-}) ( int,  error) {
+}) (int, error) {
 	return fmt.Println(format, args...)
 }
 func main() {
@@ -783,7 +783,7 @@ func TestReturn(t *testing.T) {
 import fmt "fmt"
 
 func foo(format string, args ...interface {
-}) ( int,  error) {
+}) (int, error) {
 	return fmt.Println(format, args...)
 }
 func main() {
@@ -804,7 +804,7 @@ func TestReturnExpr(t *testing.T) {
 	domTest(t, pkg, `package main
 
 func foo(format string, args ...interface {
-}) ( int,  error) {
+}) (int, error) {
 	return 0, nil
 }
 func main() {
