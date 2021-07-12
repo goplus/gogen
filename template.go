@@ -98,6 +98,10 @@ func boundType(pkg *Package, arg, param types.Type) error {
 			if p.tBound == nil {
 				p.boundTo(arg)
 			} else if !AssignableTo(arg, p.tBound) {
+				if isUntyped(p.tBound) && AssignableTo(p.tBound, arg) {
+					p.tBound = arg
+					return nil
+				}
 				return fmt.Errorf("TODO: boundType %v => %v failed", arg, p.tBound)
 			}
 			return nil
@@ -175,7 +179,8 @@ func AssignableTo(V, T types.Type) bool {
 }
 
 func ComparableTo(V, T types.Type) bool {
-	if V.Underlying() != T.Underlying() {
+	V, T = types.Default(V), types.Default(V)
+	if V != T && V.Underlying() != T.Underlying() {
 		return false
 	}
 	return types.Comparable(V)
