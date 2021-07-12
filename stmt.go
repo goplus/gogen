@@ -268,11 +268,14 @@ func getKeyValTypes(typ types.Type) []types.Type {
 		return []types.Type{t.Key(), t.Elem()}
 	case *types.Array:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
+	case *types.Pointer:
+		if e, ok := t.Elem().(*types.Array); ok {
+			return []types.Type{types.Typ[types.Int], e.Elem()}
+		}
 	case *types.Chan:
 		return []types.Type{t.Elem(), nil}
-	default:
-		log.Panicln("TODO: can't for range to type", t)
 	}
+	log.Panicln("TODO: can't for range to type", typ)
 	return nil
 }
 

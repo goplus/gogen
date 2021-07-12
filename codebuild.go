@@ -451,9 +451,12 @@ func getIdxValTypes(typ types.Type) []types.Type {
 		return []types.Type{t.Key(), t.Elem()}
 	case *types.Array:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
-	default:
-		log.Panicln("TODO: can't index of type", t)
+	case *types.Pointer:
+		if e, ok := t.Elem().(*types.Array); ok {
+			return []types.Type{types.Typ[types.Int], e.Elem()}
+		}
 	}
+	log.Panicln("TODO: can't index of type", typ)
 	return nil
 }
 

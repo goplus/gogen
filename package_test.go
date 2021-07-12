@@ -697,6 +697,29 @@ func main() {
 `)
 }
 
+func TestForRangeArrayPointer(t *testing.T) {
+	pkg := newMainPackage()
+	v := pkg.NewParam("a", types.NewPointer(types.NewArray(types.Typ[types.Float64], 3)))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).
+		/**/ ForRange("_", "x").Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "x")).Call(1).EndStmt().
+		/**/ End().
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func foo(a *[3]float64) {
+	for _, x := range a {
+		fmt.Println(x)
+	}
+}
+func main() {
+}
+`)
+}
+
 func TestForRangeNoAssign(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -934,16 +957,23 @@ func main() {
 func TestIndexRef(t *testing.T) {
 	pkg := newMainPackage()
 
-	v := pkg.NewParam("v", types.NewSlice(types.Typ[types.Int]))
-	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).
-		Val(v).Val(0).IndexRef(1).Val(1).Assign(1).
+	tyArray := types.NewArray(types.Typ[types.Int], 10)
+	x := pkg.NewParam("x", tyArray)
+	y := pkg.NewParam("y", types.NewPointer(tyArray))
+	z := pkg.NewParam("z", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(x, y, z), nil, false).BodyStart(pkg).
+		Val(x).Val(0).IndexRef(1).Val(1).Assign(1).
+		Val(y).Val(1).IndexRef(1).Val(2).Assign(1).
+		Val(z).Val("a").IndexRef(1).Val(3).Assign(1).
 		End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(v []int) {
-	v[0] = 1
+func foo(x [10]int, y *[10]int, z map[string]int) {
+	x[0] = 1
+	y[1] = 2
+	z["a"] = 3
 }
 func main() {
 }
