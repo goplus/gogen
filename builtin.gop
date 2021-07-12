@@ -110,7 +110,7 @@ type capable interface {
 
 type lenable interface {
     capable
-    type map
+    type map, string
 }
 
 type makable interface {

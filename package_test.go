@@ -660,8 +660,8 @@ func main() {
 func TestFor(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		/**/ For().DefineVarStart("i").Val(0).EndInit(1). // for i := 0; i < 10; i=i+1 {
-		/******/ Val(ctxRef(pkg, "i")).Val(10).BinaryOp(token.LSS).Then().
+		/**/ For().DefineVarStart("i").Val(0).EndInit(1). // for i := 0; i < len("Hello"); i=i+1 {
+		/******/ Val(ctxRef(pkg, "i")).Val(ctxRef(pkg, "len")).Val("Hello").Call(1).BinaryOp(token.LSS).Then().
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
 		/******/ Post().
 		/******/ VarRef(ctxRef(pkg, "i")).Val(ctxRef(pkg, "i")).Val(1).BinaryOp(token.ADD).Assign(1).EndStmt().
@@ -672,7 +672,7 @@ func TestFor(t *testing.T) {
 import fmt "fmt"
 
 func main() {
-	for i := 0; i < 10; i = i + 1 {
+	for i := 0; i < len("Hello"); i = i + 1 {
 		fmt.Println(i)
 	}
 }

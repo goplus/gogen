@@ -115,11 +115,12 @@ func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) {
 				panic("TODO: constant already defined")
 			}
 		} else if typ == nil {
-			if old := scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, rets[i].Type)); old != nil {
+			retType := types.Default(rets[i].Type)
+			if old := scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {
 					log.Panicln("TODO: variable already defined -", name)
 				}
-				if err := checkMatchType(pkg, rets[i].Type, old.Type()); err != nil {
+				if err := checkMatchType(pkg, retType, old.Type()); err != nil {
 					panic(err)
 				}
 			}

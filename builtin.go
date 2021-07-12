@@ -445,12 +445,20 @@ func (p capableT) String() string {
 
 type lenableT struct {
 	// capable
-	// type map
+	// type map, string
 }
 
 func (p lenableT) Match(typ types.Type) bool {
-	if _, ok := typ.(*types.Map); ok {
+retry:
+	switch t := typ.(type) {
+	case *types.Basic:
+		k := t.Kind()
+		return k == types.String || k == types.UntypedString
+	case *types.Map:
 		return true
+	case *types.Named:
+		typ = t.Underlying()
+		goto retry
 	}
 	return capable.Match(typ)
 }

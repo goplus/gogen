@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"fmt"
 	"go/token"
 	"go/types"
 	"log"
@@ -37,11 +38,11 @@ func NewTemplateParamType(idx int, name string, contract Contract) *TemplatePara
 }
 
 func (p *TemplateParamType) Underlying() types.Type {
-	panic("don't call me")
+	panic("TemplateParamType")
 }
 
 func (p *TemplateParamType) String() string {
-	panic("don't call me")
+	panic("TemplateParamType")
 }
 
 func (p *TemplateParamType) idx() int {
@@ -71,11 +72,11 @@ func (p *unboundFuncParam) boundTo(t types.Type) {
 }
 
 func (p *unboundFuncParam) Underlying() types.Type {
-	panic("don't call me")
+	panic("unboundFuncParam")
 }
 
 func (p *unboundFuncParam) String() string {
-	panic("don't call me")
+	panic("unboundFuncParam")
 }
 
 type unboundProxyParam struct {
@@ -83,31 +84,25 @@ type unboundProxyParam struct {
 }
 
 func (p *unboundProxyParam) Underlying() types.Type {
-	panic("don't call me")
+	panic("unboundProxyParam")
 }
 
 func (p *unboundProxyParam) String() string {
-	panic("don't call me")
+	panic("unboundProxyParam")
 }
 
-func boundType(pkg *Package, arg, param types.Type) bool {
+func boundType(pkg *Package, arg, param types.Type) error {
 	switch p := param.(type) {
 	case *unboundFuncParam: // template function param
 		if p.typ.contract.Match(arg) {
 			if p.tBound == nil {
 				p.boundTo(arg)
-			} else if types.AssignableTo(arg, p.tBound) {
-				if t, ok := p.tBound.(*types.Basic); ok && (t.Info()&types.IsUntyped) != 0 { // untyped type
-					if kind := arg.(*types.Basic).Kind(); kind > t.Kind() && kind != types.UntypedRune {
-						p.boundTo(types.Typ[kind])
-					}
-				}
-			} else {
-				return false
+			} else if !AssignableTo(arg, p.tBound) {
+				return fmt.Errorf("TODO: boundType %v => %v failed", arg, p.tBound)
 			}
-			return true
+			return nil
 		}
-		return false
+		return fmt.Errorf("TODO: contract.Match %v => %v failed", arg, p.typ.contract)
 	case *unboundProxyParam:
 		switch param := p.real.(type) {
 		case *types.Pointer:
@@ -120,8 +115,10 @@ func boundType(pkg *Package, arg, param types.Type) bool {
 			}
 		case *types.Map:
 			if t, ok := arg.(*types.Map); ok {
-				ok1 := boundType(pkg, t.Key(), param.Key())
-				return ok1 && boundType(pkg, t.Elem(), param.Elem())
+				if err1 := boundType(pkg, t.Key(), param.Key()); err1 != nil {
+					return fmt.Errorf("TODO: bound map keyType %v => %v failed", t.Key(), param.Key())
+				}
+				return boundType(pkg, t.Elem(), param.Elem())
 			}
 		case *types.Chan:
 			if t, ok := arg.(*types.Chan); ok {
@@ -134,17 +131,20 @@ func boundType(pkg *Package, arg, param types.Type) bool {
 		default:
 			log.Panicln("TODO: boundType - unknown type:", param)
 		}
-		return false
+		return fmt.Errorf("TODO: bound %v => unboundProxyParam", arg)
 	case *types.Slice:
 		if t, ok := arg.(*types.Slice); ok {
 			return boundType(pkg, t.Elem(), p.Elem())
 		}
+		return fmt.Errorf("TODO: bound slice failed - %v not a slice", arg)
 	case *types.Signature:
 		panic("TODO: boundType function signature")
 	default:
-		return AssignableTo(arg, param)
+		if AssignableTo(arg, param) {
+			return nil
+		}
 	}
-	return false
+	return fmt.Errorf("TODO: bound %v => %v", arg, param)
 }
 
 func AssignableTo(V, T types.Type) bool {
@@ -395,11 +395,11 @@ func NewTemplateSignature(
 }
 
 func (p *TemplateSignature) Underlying() types.Type {
-	panic("don't call me")
+	panic("TemplateSignature")
 }
 
 func (p *TemplateSignature) String() string {
-	panic("don't call me")
+	panic("TemplateSignature")
 }
 
 // TODO: check name

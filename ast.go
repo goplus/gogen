@@ -208,6 +208,11 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 			Val:  v,
 			Type: types.Typ[toBasicKind(v.Kind)],
 		}
+	case *types.Builtin:
+		if o := pkg.builtin.Scope().Lookup(v.Name()); o != nil {
+			return toObject(pkg, o)
+		}
+		log.Panicln("TODO: unsupported builtin -", v.Name())
 	case types.Object:
 		return toObject(pkg, v)
 	case int:
@@ -359,7 +364,7 @@ retry:
 		fn = toObject(pkg, t.Obj())
 		goto retry
 	default:
-		panic("TODO: call to non function")
+		log.Panicln("TODO: call to non function -", t)
 	}
 	n := len(args)
 	tyArgs := make([]types.Type, n)
@@ -495,18 +500,14 @@ func assignMatchType(pkg *Package, varRef types.Type, val types.Type) {
 }
 
 func checkMatchType(pkg *Package, arg, param types.Type) error {
-	if doMatchType(pkg, arg, param) {
-		return nil
-	}
-	return fmt.Errorf("TODO: can't pass %v to %v", arg, param)
-}
-
-func doMatchType(pkg *Package, arg, param types.Type) bool {
 	switch t := param.(type) {
 	case *unboundType: // variable to bound type
 		if t2, ok := arg.(*unboundType); ok {
 			if t2.tBound == nil {
-				return t == t2
+				if t == t2 {
+					return nil
+				}
+				return fmt.Errorf("TODO: can't match two unboundTypes")
 			}
 			arg = t2.tBound
 		}
@@ -525,20 +526,23 @@ func doMatchType(pkg *Package, arg, param types.Type) bool {
 		arg = types.Default(arg)
 		mapTy := types.NewMap(types.Default(t.key), arg)
 		t.typ.boundTo(pkg, mapTy)
-		return true
+		return nil
 	default:
 		if isUnboundParam(param) {
 			if t, ok := arg.(*unboundType); ok {
 				if t.tBound == nil {
 					// panic("TODO: don't pass unbound variables as template function params.")
-					return true
+					return nil
 				}
 				arg = t.tBound
 			}
 			return boundType(pkg, arg, param)
 		}
 	}
-	return AssignableTo(arg, param)
+	if AssignableTo(arg, param) {
+		return nil
+	}
+	return fmt.Errorf("TODO: can't pass %v to %v", arg, param)
 }
 
 // -----------------------------------------------------------------------------
