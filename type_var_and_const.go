@@ -236,13 +236,11 @@ func (p *unboundType) String() string {
 func realType(typ types.Type) types.Type {
 	switch t := typ.(type) {
 	case *unboundType:
-		if t.tBound == nil {
-			panic("TODO: variable type is unbound")
+		if t.tBound != nil {
+			return t.tBound
 		}
-		return t.tBound
-	default:
-		return t
 	}
+	return typ
 }
 
 type unboundMapElemType struct {

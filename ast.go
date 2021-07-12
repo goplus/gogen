@@ -58,7 +58,7 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 		if name != "" {
 			names = []*ast.Ident{ident(name)}
 		}
-		typ := toType(pkg, realType(item.Type()))
+		typ := toType(pkg, item.Type())
 		flds[i] = &ast.Field{Names: names, Type: typ}
 	}
 	return flds
@@ -256,7 +256,7 @@ var (
 func toObject(pkg *Package, v types.Object) internal.Elem {
 	return internal.Elem{
 		Val:  toObjectExpr(pkg, v),
-		Type: v.Type(),
+		Type: realType(v.Type()),
 	}
 }
 
