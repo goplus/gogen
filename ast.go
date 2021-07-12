@@ -53,7 +53,11 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 	flds := make([]*ast.Field, n)
 	for i := 0; i < n; i++ {
 		item := t.At(i)
-		names := []*ast.Ident{ident(item.Name())}
+		name := item.Name()
+		var names []*ast.Ident
+		if name != "" {
+			names = []*ast.Ident{ident(name)}
+		}
 		typ := toType(pkg, realType(item.Type()))
 		flds[i] = &ast.Field{Names: names, Type: typ}
 	}

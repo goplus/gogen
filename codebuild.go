@@ -413,6 +413,21 @@ func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeB
 	return p
 }
 
+func (p *CodeBuilder) IndexGet(nidx int) *CodeBuilder {
+	if nidx != 1 {
+		panic("TODO: IndexGet doesn't support a[i, j...] already")
+	}
+	args := p.stk.GetArgs(2)
+	typs := getIdxValTypes(args[0].Type)
+	elem := internal.Elem{
+		Val:  &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
+		Type: typs[1],
+	}
+	// TODO: check index type
+	p.stk.Ret(2, elem)
+	return p
+}
+
 func (p *CodeBuilder) IndexSet(nidx int) *CodeBuilder {
 	if nidx != 1 {
 		panic("TODO: IndexSet doesn't support a[i, j...] = val already")
