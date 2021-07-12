@@ -413,6 +413,36 @@ func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeB
 	return p
 }
 
+func (p *CodeBuilder) IndexSet(nidx int) *CodeBuilder {
+	if nidx != 1 {
+		panic("TODO: IndexSet doesn't support a[i, j...] = val already")
+	}
+	args := p.stk.GetArgs(3)
+	typs := getIdxValTypes(args[0].Type)
+	elemRef := internal.Elem{
+		Val:  &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
+		Type: &refType{typ: typs[1]},
+	}
+	// TODO: check index type
+	p.stk.Ret(3, elemRef, args[2])
+	p.Assign(1)
+	return p
+}
+
+func getIdxValTypes(typ types.Type) []types.Type {
+	switch t := typ.(type) {
+	case *types.Slice:
+		return []types.Type{types.Typ[types.Int], t.Elem()}
+	case *types.Map:
+		return []types.Type{t.Key(), t.Elem()}
+	case *types.Array:
+		return []types.Type{types.Typ[types.Int], t.Elem()}
+	default:
+		log.Panicln("TODO: can't index of type", t)
+	}
+	return nil
+}
+
 // Val func
 func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 	if debug {
@@ -637,8 +667,8 @@ var (
 	unaryOps = [...]string{
 		token.SUB: "Neg",
 		token.XOR: "Not",
-		token.INC: "Inc",
-		token.DEC: "Dec",
+		// token.INC: "Inc",
+		// token.DEC: "Dec",
 	}
 )
 

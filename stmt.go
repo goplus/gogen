@@ -261,20 +261,19 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
 }
 
 func getKeyValTypes(typ types.Type) []types.Type {
-	typs := make([]types.Type, 2)
 	switch t := typ.(type) {
-	case *types.Map:
-		typs[0], typs[1] = t.Key(), t.Elem()
 	case *types.Slice:
-		typs[0], typs[1] = types.Typ[types.Int], t.Elem()
+		return []types.Type{types.Typ[types.Int], t.Elem()}
+	case *types.Map:
+		return []types.Type{t.Key(), t.Elem()}
 	case *types.Array:
-		typs[0], typs[1] = types.Typ[types.Int], t.Elem()
+		return []types.Type{types.Typ[types.Int], t.Elem()}
 	case *types.Chan:
-		typs[0] = t.Elem()
+		return []types.Type{t.Elem(), nil}
 	default:
 		log.Panicln("TODO: can't for range to type", t)
 	}
-	return typs
+	return nil
 }
 
 func (p *forRangeStmt) End(cb *CodeBuilder) {

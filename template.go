@@ -150,13 +150,24 @@ func boundType(pkg *Package, arg, param types.Type) bool {
 func AssignableTo(V, T types.Type) bool {
 	V, T = realType(V), realType(T)
 	if types.AssignableTo(V, T) {
-		if t, ok := T.(*types.Basic); ok && (t.Info()&types.IsUntyped) != 0 { // untyped type
+		if t, ok := T.(*types.Basic); ok { // untyped type
 			vkind := V.(*types.Basic).Kind()
 			tkind := t.Kind()
-			if vkind == tkind || vkind == types.UntypedRune {
-				return true
+			switch {
+			case vkind >= types.UntypedInt && vkind <= types.UntypedComplex:
+				if tkind >= types.UntypedInt && tkind <= types.UntypedComplex {
+					if vkind == tkind || vkind == types.UntypedRune {
+						return true
+					}
+					return tkind != types.UntypedRune && tkind > vkind
+				}
+				if vkind == types.UntypedFloat {
+					return tkind >= types.Float32
+				}
+				if vkind == types.UntypedComplex {
+					return tkind >= types.Complex64
+				}
 			}
-			return tkind != types.UntypedRune && tkind > vkind
 		}
 		return true
 	}

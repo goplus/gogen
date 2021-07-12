@@ -111,10 +111,10 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 		{"Not", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}}, 0},
 		// func gopo_Not[T integer](a T) T
 
-		{"Inc", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", xtPointer}}, -2},
+		// {"Inc", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", xtPointer}}, -2},
 		// func gopo_Inc[T integer](a *T)
 
-		{"Dec", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", xtPointer}}, -2},
+		// {"Dec", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", xtPointer}}, -2},
 		// func gopo_Dec[T integer](a *T)
 	}
 	gbl := builtin.Scope()

@@ -322,8 +322,8 @@ var (
 
 		"Neg": {token.SUB, 1},
 		"Not": {token.XOR, 1},
-		"Inc": {token.INC, 1},
-		"Dec": {token.DEC, 1},
+		// "Inc": {token.INC, 1},
+		// "Dec": {token.DEC, 1},
 	}
 )
 

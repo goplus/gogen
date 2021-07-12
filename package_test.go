@@ -77,6 +77,7 @@ func TestAssignableTo(t *testing.T) {
 		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedInt], false},
 		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedBool], false},
 		{types.Typ[types.UntypedInt], types.Typ[types.UntypedRune], false},
+		{types.Typ[types.UntypedFloat], types.Typ[types.Int], false},
 		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedRune], false},
 		{types.Typ[types.UntypedRune], types.Typ[types.UntypedInt], true},
 		{types.Typ[types.UntypedRune], types.Typ[types.UntypedFloat], true},
@@ -906,6 +907,25 @@ func main() {
 	var x string
 	x = strings.NewReplacer("?", "!").Replace("hello, world???")
 	println(x)
+}
+`)
+}
+
+func TestIndexSet(t *testing.T) {
+	pkg := newMainPackage()
+
+	v := pkg.NewParam("v", types.NewSlice(types.Typ[types.Int]))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).
+		Val(v).Val(0).Val(1).IndexSet(1).
+		End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(v []int) {
+	v[0] = 1
+}
+func main() {
 }
 `)
 }
