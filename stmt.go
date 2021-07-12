@@ -195,3 +195,91 @@ func (p *forStmt) End(cb *CodeBuilder) {
 }
 
 // ----------------------------------------------------------------------------
+
+type forRangeStmt struct {
+	names []string
+	stmt  *ast.RangeStmt
+	old   codeBlockCtx
+}
+
+func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
+	if names := p.names; names != nil { // for k, v := range XXX {
+		var val ast.Expr
+		switch len(names) {
+		case 1:
+		case 2:
+			val = ident(names[1])
+		default:
+			panic("TODO: invalid syntax of for range :=")
+		}
+		x := cb.stk.Pop()
+		pkg, scope := cb.pkg, cb.current.scope
+		typs := getKeyValTypes(x.Type)
+		for i, name := range names {
+			if name == "_" {
+				continue
+			}
+			if scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, typs[i])) != nil {
+				log.Panicln("TODO: variable already defined -", name)
+			}
+		}
+		p.stmt = &ast.RangeStmt{
+			Key:   ident(names[0]),
+			Value: val,
+			Tok:   token.DEFINE,
+			X:     x.Val,
+		}
+	} else { // for k, v = range XXX {
+		var key, val, x internal.Elem
+		n := cb.stk.Len() - cb.current.base
+		args := cb.stk.GetArgs(n)
+		switch n {
+		case 1:
+			x = args[0]
+		case 2:
+			key, x = args[0], args[1]
+		case 3:
+			key, val, x = args[0], args[1], args[2]
+		default:
+			panic("TODO: invalid syntax of for range =")
+		}
+		cb.stk.PopN(n)
+		p.stmt = &ast.RangeStmt{
+			Key:   key.Val,
+			Value: val.Val,
+			X:     x.Val,
+		}
+		if n > 1 {
+			p.stmt.Tok = token.ASSIGN
+			typs := getKeyValTypes(x.Type)
+			assignMatchType(cb.pkg, key.Type, typs[0])
+			if val.Val != nil {
+				assignMatchType(cb.pkg, val.Type, typs[1])
+			}
+		}
+	}
+}
+
+func getKeyValTypes(typ types.Type) []types.Type {
+	typs := make([]types.Type, 2)
+	switch t := typ.(type) {
+	case *types.Map:
+		typs[0], typs[1] = t.Key(), t.Elem()
+	case *types.Slice:
+		typs[0], typs[1] = types.Typ[types.Int], t.Elem()
+	case *types.Array:
+		typs[0], typs[1] = types.Typ[types.Int], t.Elem()
+	case *types.Chan:
+		typs[0] = t.Elem()
+	default:
+		log.Panicln("TODO: can't for range to type", t)
+	}
+	return typs
+}
+
+func (p *forRangeStmt) End(cb *CodeBuilder) {
+	p.stmt.Body = &ast.BlockStmt{List: cb.endBlockStmt(p.old)}
+	cb.emitStmt(p.stmt)
+}
+
+// ----------------------------------------------------------------------------

@@ -748,6 +748,27 @@ func (p *CodeBuilder) Post() *CodeBuilder {
 	panic("please use Post() in for statement")
 }
 
+func (p *CodeBuilder) ForRange(names ...string) *CodeBuilder {
+	if debug {
+		log.Println("ForRange", names)
+	}
+	stmt := &forRangeStmt{names: names}
+	p.startBlockStmt(stmt, "for range statement", &stmt.old)
+	return p
+}
+
+// RangeAssignThen func
+func (p *CodeBuilder) RangeAssignThen() *CodeBuilder {
+	if debug {
+		log.Println("RangeAssignThen")
+	}
+	if flow, ok := p.current.codeBlock.(*forRangeStmt); ok {
+		flow.RangeAssignThen(p)
+		return p
+	}
+	panic("please use RangeAssignThen() in for range statement")
+}
+
 // EndStmt func
 func (p *CodeBuilder) EndStmt() *CodeBuilder {
 	n := p.stk.Len() - p.current.base

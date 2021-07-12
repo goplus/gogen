@@ -634,6 +634,119 @@ func main() {
 `)
 }
 
+func TestForRange(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart("a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
+		/**/ ForRange("i").Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	a := []float64{1, 1.2, 3}
+	for i := range a {
+		fmt.Println(i)
+	}
+}
+`)
+}
+
+func TestForRangeKV(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart("a").Val(1).Val(1.2).Val(3).ArrayLit(types.NewArray(types.Typ[types.Float64], 3), 3).EndInit(1).
+		/**/ ForRange("_", "x").Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "x")).Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	a := [3]float64{1, 1.2, 3}
+	for _, x := range a {
+		fmt.Println(x)
+	}
+}
+`)
+}
+
+func TestForRangeNoAssign(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart("a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
+		/**/ ForRange().Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	a := []float64{1, 1.2, 3}
+	for range a {
+		fmt.Println("Hi")
+	}
+}
+`)
+}
+
+func TestForRangeAssignKV(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	tyString := types.Typ[types.String]
+	tyInt := types.Typ[types.Int]
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyString, "k").NewVar(tyInt, "v").
+		DefineVarStart("a").Val("a").Val(1).Val("b").Val(3).MapLit(nil, 4).EndInit(1).
+		/**/ ForRange().VarRef(ctxRef(pkg, "k")).VarRef(ctxRef(pkg, "v")).Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "k")).Val(ctxRef(pkg, "v")).Call(2).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	var k string
+	var v int
+	a := map[string]int{"a": 1, "b": 3}
+	for k, v = range a {
+		fmt.Println(k, v)
+	}
+}
+`)
+}
+
+func TestForRangeAssign(t *testing.T) {
+	pkg := gox.NewPackage("", "main", nil)
+	tyBool := types.Typ[types.Bool]
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyBool, "k").
+		NewVar(types.NewChan(types.SendRecv, tyBool), "a").
+		/**/ ForRange().VarRef(ctxRef(pkg, "k")).Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "k")).Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	var k bool
+	var a chan bool
+	for k = range a {
+		fmt.Println(k)
+	}
+}
+`)
+}
+
 func TestReturn(t *testing.T) {
 	pkg := gox.NewPackage("", "main", nil)
 	format := pkg.NewParam("format", types.Typ[types.String])

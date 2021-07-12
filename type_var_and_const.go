@@ -132,7 +132,7 @@ func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) {
 		} else if typ == nil {
 			if old := scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, rets[i].Type)); old != nil {
 				if p.tok != token.DEFINE {
-					panic("TODO: variable already defined")
+					log.Panicln("TODO: variable already defined -", name)
 				}
 				if err := checkMatchType(pkg, rets[i].Type, old.Type()); err != nil {
 					panic(err)
@@ -153,7 +153,7 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 			nameIdents[i] = ident(name)
 		}
 		stmt := &ast.AssignStmt{Tok: token.DEFINE, Lhs: nameIdents}
-		p.cb.current.stmts = append(p.cb.current.stmts, stmt)
+		p.cb.emitStmt(stmt)
 		return &ValueDecl{names: names, tok: tok, vals: &stmt.Rhs}
 	}
 	// var a, b = expr
@@ -178,7 +178,7 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 	if scope == p.Types.Scope() {
 		p.decls = append(p.decls, decl)
 	} else {
-		p.cb.current.stmts = append(p.cb.current.stmts, &ast.DeclStmt{Decl: decl})
+		p.cb.emitStmt(&ast.DeclStmt{Decl: decl})
 	}
 	return &ValueDecl{typ: typ, names: names, tok: tok, vals: &spec.Values}
 }
