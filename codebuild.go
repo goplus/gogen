@@ -235,6 +235,10 @@ func (p *CodeBuilder) None() *CodeBuilder {
 	return p
 }
 
+func (p *CodeBuilder) ZeroLit(typ types.Type) *CodeBuilder {
+	return p
+}
+
 // MapLit func
 func (p *CodeBuilder) MapLit(t *types.Map, arity int) *CodeBuilder {
 	if debug {
@@ -413,15 +417,22 @@ func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeB
 	return p
 }
 
-func (p *CodeBuilder) IndexGet(nidx int) *CodeBuilder {
+func (p *CodeBuilder) IndexGet(nidx int, twoValue bool) *CodeBuilder {
 	if nidx != 1 {
 		panic("TODO: IndexGet doesn't support a[i, j...] already")
 	}
 	args := p.stk.GetArgs(2)
 	typs := getIdxValTypes(args[0].Type)
+	var tyRet types.Type
+	if twoValue { // elem, ok = a[key]
+		pkg := p.pkg
+		tyRet = types.NewTuple(pkg.NewParam("", typs[1]), pkg.NewParam("", types.Typ[types.Bool]))
+	} else { // elem = a[key]
+		tyRet = typs[1]
+	}
 	elem := internal.Elem{
 		Val:  &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
-		Type: typs[1],
+		Type: tyRet,
 	}
 	// TODO: check index type
 	p.stk.Ret(2, elem)

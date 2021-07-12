@@ -937,17 +937,20 @@ func main() {
 func TestIndexGet(t *testing.T) {
 	pkg := newMainPackage()
 
-	v := pkg.NewParam("v", types.NewSlice(types.Typ[types.Int]))
+	x := pkg.NewParam("x", types.NewSlice(types.Typ[types.Int]))
+	y := pkg.NewParam("y", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
 	ret := pkg.NewParam("", types.Typ[types.Int])
-	pkg.NewFunc(nil, "foo", gox.NewTuple(v), gox.NewTuple(ret), false).BodyStart(pkg).
-		Val(v).Val(0).IndexGet(1).Return(1).
+	pkg.NewFunc(nil, "foo", gox.NewTuple(x, y), gox.NewTuple(ret), false).BodyStart(pkg).
+		DefineVarStart("v", "ok").Val(y).Val("a").IndexGet(1, true).EndInit(1).
+		Val(x).Val(0).IndexGet(1, false).Return(1).
 		End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(v []int) int {
-	return v[0]
+func foo(x []int, y map[string]int) int {
+	v, ok := y["a"]
+	return x[0]
 }
 func main() {
 }
