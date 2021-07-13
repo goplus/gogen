@@ -1058,20 +1058,24 @@ func TestSliceGet(t *testing.T) {
 	pkg := newMainPackage()
 
 	tySlice := types.NewSlice(types.Typ[types.Int])
+	tyString := types.Typ[types.String]
 	x := pkg.NewParam("x", tySlice)
-	pkg.NewFunc(nil, "foo", gox.NewTuple(x), nil, false).BodyStart(pkg).
+	y := pkg.NewParam("y", tyString)
+	pkg.NewFunc(nil, "foo", gox.NewTuple(x, y), nil, false).BodyStart(pkg).
 		NewVarStart(tySlice, "a").Val(x).None().Val(2).SliceGet(false).EndInit(1).
 		NewVarStart(tySlice, "b").Val(x).None().None().SliceGet(false).EndInit(1).
 		NewVarStart(tySlice, "c").Val(x).Val(1).Val(3).Val(10).SliceGet(true).EndInit(1).
+		NewVarStart(tyString, "d").Val(y).Val(1).Val(3).SliceGet(false).EndInit(1).
 		End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(x []int) {
+func foo(x []int, y string) {
 	var a []int = x[:2]
 	var b []int = x[:]
 	var c []int = x[1:3:10]
+	var d string = y[1:3]
 }
 func main() {
 }

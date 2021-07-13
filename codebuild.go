@@ -444,8 +444,15 @@ func (p *CodeBuilder) SliceGet(slice3 bool) *CodeBuilder { // a[i:j:k]
 	}
 	args := p.stk.GetArgs(n)
 	x := args[0]
-	if _, ok := x.Type.(*types.Slice); !ok {
-		log.Panicln("TODO: slice on non slice object -", x.Type)
+	typ := x.Type
+	if _, ok := typ.(*types.Slice); !ok {
+		if t, ok := typ.(*types.Basic); ok && t.Kind() == types.String || t.Kind() == types.UntypedString {
+			if slice3 {
+				log.Panicln("TODO: invalid operation `???` (3-index slice of string)")
+			}
+		} else {
+			log.Panicln("TODO: slice on non slice object -", x.Type)
+		}
 	}
 	var exprMax ast.Expr
 	if slice3 {
@@ -456,7 +463,7 @@ func (p *CodeBuilder) SliceGet(slice3 bool) *CodeBuilder { // a[i:j:k]
 		Val: &ast.SliceExpr{
 			X: x.Val, Low: args[1].Val, High: args[2].Val, Max: exprMax, Slice3: slice3,
 		},
-		Type: x.Type,
+		Type: typ,
 	}
 	p.stk.Ret(n, elem)
 	return p
