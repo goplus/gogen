@@ -281,8 +281,6 @@ func InitBuiltinFuncs(builtin *types.Package) {
 	gbl.Insert(types.NewFunc(token.NoPos, builtin, "println", types.NewSignature(nil, emptyIntfSliceTuple, nil, true)))
 
 	// new & make are special cases, they require to pass a type.
-	// func [] new(T any) *T
-	// func [N ninteger] make(Type makable, size ...N) Type
 	gbl.Insert(NewInstruction(token.NoPos, builtin, "new", &newInst{}))
 	gbl.Insert(NewInstruction(token.NoPos, builtin, "make", &makeInst{}))
 }
@@ -322,13 +320,30 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 type newInst struct {
 }
 
+// func [] new(T any) *T
 func (p *newInst) Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error) {
+	if len(args) != 1 {
+		panic("TODO: use new(T) please")
+	}
+	ttyp, ok := args[0].Type.(*TypeType)
+	if !ok {
+		panic("TODO: new arg isn't a type")
+	}
+	typ := ttyp.Type()
+	ret = Element{
+		Val: &ast.CallExpr{
+			Fun:  ident("new"),
+			Args: []ast.Expr{args[0].Val},
+		},
+		Type: types.NewPointer(typ),
+	}
 	return
 }
 
 type makeInst struct {
 }
 
+// func [N ninteger] make(Type makable, size ...N) Type
 func (p *makeInst) Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error) {
 	n := len(args)
 	if n == 0 {

@@ -147,6 +147,21 @@ func main() {
 `)
 }
 
+func TestNew(t *testing.T) {
+	pkg := newMainPackage()
+	tyInt := types.Typ[types.Int]
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(types.NewPointer(tyInt), "a").Val(pkg.Builtin().Ref("new")).
+		Typ(tyInt).Call(1).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a *int = new(int)
+}
+`)
+}
+
 func TestZeroLit(t *testing.T) {
 	pkg := newMainPackage()
 	tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
