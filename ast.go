@@ -140,11 +140,7 @@ func isUntyped(typ types.Type) bool {
 }
 
 func toNamedType(pkg *Package, t *types.Named) ast.Expr {
-	o := t.Obj()
-	if at := o.Pkg(); at == nil || at == pkg.Types {
-		return &ast.Ident{Name: o.Name()}
-	}
-	panic("TODO: toNamedType")
+	return toObjectExpr(pkg, t.Obj())
 }
 
 func toChanType(pkg *Package, t *types.Chan) ast.Expr {
