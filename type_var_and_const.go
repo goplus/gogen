@@ -169,10 +169,6 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 	return &ValueDecl{typ: typ, names: names, tok: tok, vals: &spec.Values}
 }
 
-func (p *Package) NewConst(typ types.Type, names ...string) *ValueDecl {
-	return p.newValueDecl(token.CONST, typ, names...)
-}
-
 func (p *Package) NewConstStart(typ types.Type, names ...string) *CodeBuilder {
 	return p.newValueDecl(token.CONST, typ, names...).InitStart(p)
 }
