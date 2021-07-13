@@ -152,7 +152,7 @@ func TestNew(t *testing.T) {
 	tyInt := types.Typ[types.Int]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(types.NewPointer(tyInt), "a").Val(pkg.Builtin().Ref("new")).
-		Typ(tyInt).Call(1).EndInit(1).
+		Val(ctxRef(pkg, "int")).Call(1).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 

@@ -253,6 +253,8 @@ func (p *unboundMapElemType) String() string {
 	panic("unbound map elem type")
 }
 
+// ----------------------------------------------------------------------------
+
 // overloadFuncType: overload function type
 type overloadFuncType struct {
 	funcs []types.Object
@@ -276,6 +278,16 @@ func (p *instructionType) Underlying() types.Type {
 
 func (p *instructionType) String() string {
 	panic("instruction type")
+}
+
+func isType(t types.Type) bool {
+	switch t.(type) {
+	case *overloadFuncType:
+		return false
+	case *instructionType:
+		return false
+	}
+	return true
 }
 
 // ----------------------------------------------------------------------------
