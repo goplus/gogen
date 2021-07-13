@@ -434,7 +434,38 @@ func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeB
 	return p
 }
 
+func (p *CodeBuilder) SliceGet(slice3 bool) *CodeBuilder { // a[i:j:k]
+	if debug {
+		log.Println("SliceGet", slice3)
+	}
+	n := 3
+	if slice3 {
+		n++
+	}
+	args := p.stk.GetArgs(n)
+	x := args[0]
+	if _, ok := x.Type.(*types.Slice); !ok {
+		log.Panicln("TODO: slice on non slice object -", x.Type)
+	}
+	var exprMax ast.Expr
+	if slice3 {
+		exprMax = args[3].Val
+	}
+	// TODO: check type
+	elem := internal.Elem{
+		Val: &ast.SliceExpr{
+			X: x.Val, Low: args[1].Val, High: args[2].Val, Max: exprMax, Slice3: slice3,
+		},
+		Type: x.Type,
+	}
+	p.stk.Ret(n, elem)
+	return p
+}
+
 func (p *CodeBuilder) IndexGet(nidx int, twoValue bool) *CodeBuilder {
+	if debug {
+		log.Println("IndexGet", nidx, twoValue)
+	}
 	if nidx != 1 {
 		panic("TODO: IndexGet doesn't support a[i, j...] already")
 	}
@@ -460,6 +491,9 @@ func (p *CodeBuilder) IndexGet(nidx int, twoValue bool) *CodeBuilder {
 }
 
 func (p *CodeBuilder) IndexRef(nidx int) *CodeBuilder {
+	if debug {
+		log.Println("IndexRef", nidx)
+	}
 	if nidx != 1 {
 		panic("TODO: IndexRef doesn't support a[i, j...] = val already")
 	}

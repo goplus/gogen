@@ -195,7 +195,15 @@ func (p *forStmt) End(cb *CodeBuilder) {
 }
 
 // ----------------------------------------------------------------------------
-
+//
+// forRange names... exprX rangeAssignThen
+//   ...
+// end
+//
+// forRange exprKey exprVal exprX rangeAssignThen
+//   ...
+// end
+//
 type forRangeStmt struct {
 	names []string
 	stmt  *ast.RangeStmt

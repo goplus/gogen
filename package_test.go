@@ -1054,6 +1054,30 @@ func main() {
 `)
 }
 
+func TestSliceGet(t *testing.T) {
+	pkg := newMainPackage()
+
+	tySlice := types.NewSlice(types.Typ[types.Int])
+	x := pkg.NewParam("x", tySlice)
+	pkg.NewFunc(nil, "foo", gox.NewTuple(x), nil, false).BodyStart(pkg).
+		NewVarStart(tySlice, "a").Val(x).None().Val(2).SliceGet(false).EndInit(1).
+		NewVarStart(tySlice, "b").Val(x).None().None().SliceGet(false).EndInit(1).
+		NewVarStart(tySlice, "c").Val(x).Val(1).Val(3).Val(10).SliceGet(true).EndInit(1).
+		End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(x []int) {
+	var a []int = x[:2]
+	var b []int = x[:]
+	var c []int = x[1:3:10]
+}
+func main() {
+}
+`)
+}
+
 func TestIndexGet(t *testing.T) {
 	pkg := newMainPackage()
 
