@@ -132,6 +132,21 @@ func main() {
 `)
 }
 
+func TestMake(t *testing.T) {
+	pkg := newMainPackage()
+	tySlice := types.NewSlice(types.Typ[types.Int])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tySlice, "a").Val(pkg.Builtin().Ref("make")).
+		Typ(tySlice).Val(0).Val(2).Call(3).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a []int = make([]int, 0, 2)
+}
+`)
+}
+
 func TestZeroLit(t *testing.T) {
 	pkg := newMainPackage()
 	tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])

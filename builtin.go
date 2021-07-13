@@ -14,8 +14,10 @@
 package gox
 
 import (
+	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
 )
 
 var (
@@ -277,6 +279,12 @@ func InitBuiltinFuncs(builtin *types.Package) {
 	gbl.Insert(types.NewFunc(token.NoPos, builtin, "recover", types.NewSignature(nil, nil, emptyIntfTuple, false)))
 	gbl.Insert(types.NewFunc(token.NoPos, builtin, "print", types.NewSignature(nil, emptyIntfSliceTuple, nil, true)))
 	gbl.Insert(types.NewFunc(token.NoPos, builtin, "println", types.NewSignature(nil, emptyIntfSliceTuple, nil, true)))
+
+	// new & make are special cases, they require to pass a type.
+	// func [] new(T any) *T
+	// func [N ninteger] make(Type makable, size ...N) Type
+	gbl.Insert(NewInstruction(token.NoPos, builtin, "new", &newInst{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, "make", &makeInst{}))
 }
 
 func newBFunc(builtin *types.Package, name string, t typeBFunc) types.Object {
@@ -307,6 +315,62 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 		}
 	}
 	return x.(types.Type)
+}
+
+// ----------------------------------------------------------------------------
+
+type newInst struct {
+}
+
+func (p *newInst) Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error) {
+	return
+}
+
+type makeInst struct {
+}
+
+func (p *makeInst) Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error) {
+	n := len(args)
+	if n == 0 {
+		panic("TODO: make without args")
+	} else if n > 3 {
+		n, args = 3, args[:3]
+	}
+	ttyp, ok := args[0].Type.(*TypeType)
+	if !ok {
+		panic("TODO: make: first arg isn't a type")
+	}
+	typ := ttyp.Type()
+	if !makable.Match(typ) {
+		log.Panicln("TODO: can't make this type -", typ)
+	}
+	argsExpr := make([]ast.Expr, n)
+	for i, arg := range args {
+		argsExpr[i] = arg.Val
+	}
+	ret = Element{
+		Val: &ast.CallExpr{
+			Fun:  ident("make"),
+			Args: argsExpr,
+		},
+		Type: typ,
+	}
+	return
+}
+
+func retTypeFromResults(pkg *Package, results []Element) types.Type {
+	switch n := len(results); n {
+	case 0:
+		return nil
+	case 1:
+		return results[0].Type
+	default:
+		vars := make([]*types.Var, n)
+		for i, ret := range results {
+			vars[i] = pkg.NewParam("", ret.Type)
+		}
+		return types.NewTuple(vars...)
+	}
 }
 
 // ----------------------------------------------------------------------------

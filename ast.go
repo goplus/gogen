@@ -359,11 +359,13 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 			}
 		}
 		return
+	case *instructionType:
+		return t.instr.Call(pkg, args, ellipsis != token.NoPos)
 	default:
 		log.Panicln("TODO: call to non function -", t)
 	}
 	n := len(args)
-	tyArgs := make([]types.Type, n)
+	tyArgs := make([]types.Type, n) // TODO: is this really need to copy?
 	valArgs := make([]ast.Expr, n)
 	for i, v := range args {
 		valArgs[i] = v.Val

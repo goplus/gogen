@@ -270,4 +270,38 @@ func (p *overloadFuncType) String() string {
 	panic("overload function type")
 }
 
+type instructionType struct {
+	instr Instruction
+}
+
+func (p *instructionType) Underlying() types.Type {
+	panic("instruction type")
+}
+
+func (p *instructionType) String() string {
+	panic("instruction type")
+}
+
+// ----------------------------------------------------------------------------
+
+type TypeType struct {
+	typ types.Type
+}
+
+func NewTypeType(typ types.Type) *TypeType {
+	return &TypeType{typ: typ}
+}
+
+func (p *TypeType) Type() types.Type {
+	return p.typ
+}
+
+func (p *TypeType) Underlying() types.Type {
+	panic("type of type")
+}
+
+func (p *TypeType) String() string {
+	panic("type of type")
+}
+
 // ----------------------------------------------------------------------------

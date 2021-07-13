@@ -15,6 +15,7 @@ package internal
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/types"
 )
 
@@ -25,6 +26,7 @@ const defaultStkSize = 64
 type Elem struct {
 	Val  ast.Expr
 	Type types.Type
+	CVal constant.Value
 }
 
 // A Stack represents a FILO container.

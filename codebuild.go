@@ -501,6 +501,18 @@ var (
 	tyInt = types.Typ[types.Int]
 )
 
+// Typ func
+func (p *CodeBuilder) Typ(typ types.Type) *CodeBuilder {
+	if debug {
+		log.Println("Typ", typ)
+	}
+	p.stk.Push(internal.Elem{
+		Val:  toType(p.pkg, typ),
+		Type: NewTypeType(typ),
+	})
+	return p
+}
+
 // Val func
 func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 	if debug {

@@ -110,3 +110,15 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 }
 
 // ----------------------------------------------------------------------------
+
+type Element = internal.Elem
+
+type Instruction interface {
+	Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error)
+}
+
+func NewInstruction(pos token.Pos, pkg *types.Package, name string, instr Instruction) *types.TypeName {
+	return types.NewTypeName(pos, pkg, name, &instructionType{instr})
+}
+
+// ----------------------------------------------------------------------------
