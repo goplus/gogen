@@ -179,6 +179,22 @@ func main() {
 `)
 }
 
+func TestIncDec(t *testing.T) {
+	pkg := newMainPackage()
+	tyInt := types.Typ[types.Uint]
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyInt, "a").
+		VarRef(ctxRef(pkg, "a")).IncDec(token.INC).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a uint
+	a++
+}
+`)
+}
+
 func TestZeroLit(t *testing.T) {
 	pkg := newMainPackage()
 	tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])

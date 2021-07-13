@@ -112,12 +112,6 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 
 		{"Not", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}}, 0},
 		// func gopo_Not[T integer](a T) T
-
-		// {"Inc", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", xtPointer}}, -2},
-		// func gopo_Inc[T integer](a *T)
-
-		// {"Dec", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", xtPointer}}, -2},
-		// func gopo_Dec[T integer](a *T)
 	}
 	gbl := builtin.Scope()
 	pre := prefix.Operator
@@ -126,13 +120,7 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 		n := len(op.params)
 		params := make([]*types.Var, n)
 		for i, param := range op.params {
-			var typ types.Type
-			if param.tidx == xtPointer {
-				typ = NewPointer(tparams[0])
-			} else {
-				typ = tparams[param.tidx]
-			}
-			params[i] = types.NewParam(token.NoPos, builtin, param.name, typ)
+			params[i] = types.NewParam(token.NoPos, builtin, param.name, tparams[param.tidx])
 		}
 		var results *types.Tuple
 		if op.result != -2 {
@@ -145,10 +133,13 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 			result := types.NewParam(token.NoPos, builtin, "", ret)
 			results = types.NewTuple(result)
 		}
-		var allowUntyped = (op.params[0].tidx != xtPointer)
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, allowUntyped)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, true)
 		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, pre+op.name, tsig))
 	}
+
+	// Inc/Dec are special cases
+	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Inc", &incInst{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Dec", &decInst{}))
 }
 
 func newTParams(params []typeTParam) []*TemplateParamType {
@@ -180,7 +171,6 @@ type typeXParam struct {
 
 const (
 	xtNone = iota << 16
-	xtPointer
 	xtEllipsis
 	xtSlice
 	xtMap
@@ -316,6 +306,34 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 }
 
 // ----------------------------------------------------------------------------
+
+type incInst struct {
+}
+
+type decInst struct {
+}
+
+// val++
+func (p *incInst) Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error) {
+	return callIncDec(pkg, args, token.INC)
+}
+
+// val--
+func (p *decInst) Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error) {
+	return callIncDec(pkg, args, token.DEC)
+}
+
+func callIncDec(pkg *Package, args []Element, tok token.Token) (ret Element, err error) {
+	if len(args) != 1 {
+		panic("TODO: please use val" + tok.String())
+	}
+	if _, ok := args[0].Type.(*refType); !ok {
+		panic("TODO: not addressable")
+	}
+	// TODO: type check
+	pkg.cb.emitStmt(&ast.IncDecStmt{X: args[0].Val, Tok: tok})
+	return Element{}, nil
+}
 
 type newInst struct {
 }

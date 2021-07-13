@@ -288,10 +288,12 @@ func toOperatorExpr(fullName string) ast.Expr {
 	if pos := strings.LastIndex(fullName, "_"); pos > 0 {
 		name := fullName[pos+1:]
 		if op, ok := nameToOps[name]; ok {
-			if op.Arity == 2 {
+			switch op.Arity {
+			case 2:
 				return &ast.BinaryExpr{Op: op.Tok}
+			case 1:
+				return &ast.UnaryExpr{Op: op.Tok}
 			}
-			return &ast.UnaryExpr{Op: op.Tok}
 		}
 	}
 	log.Panicln("TODO: not a valid operator -", fullName)
@@ -327,8 +329,6 @@ var (
 
 		"Neg": {token.SUB, 1},
 		"Not": {token.XOR, 1},
-		// "Inc": {token.INC, 1},
-		// "Dec": {token.DEC, 1},
 	}
 )
 

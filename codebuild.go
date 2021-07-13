@@ -747,8 +747,36 @@ var (
 	unaryOps = [...]string{
 		token.SUB: "Neg",
 		token.XOR: "Not",
-		// token.INC: "Inc",
-		// token.DEC: "Dec",
+	}
+)
+
+func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
+	if debug {
+		log.Println("IncDec", op)
+	}
+	pkg := p.pkg
+	args := p.stk.GetArgs(1)
+	name := pkg.prefix.Operator + incdecOps[op]
+	fn := pkg.builtin.Scope().Lookup(name)
+	if fn == nil {
+		panic("TODO: operator not matched")
+	}
+	switch t := fn.Type().(type) {
+	case *instructionType:
+		if _, err := t.instr.Call(pkg, args, false); err != nil {
+			panic(err)
+		}
+	default:
+		panic("TODO: IncDec not found?")
+	}
+	p.stk.Pop()
+	return p
+}
+
+var (
+	incdecOps = [...]string{
+		token.INC: "Inc",
+		token.DEC: "Dec",
 	}
 )
 
