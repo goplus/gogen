@@ -270,29 +270,4 @@ func (p *overloadFuncType) String() string {
 	panic("overload function type")
 }
 
-// delayedLoadType: delay load object type
-type delayedLoadType struct {
-	obj   func() types.Object
-	cache types.Object
-}
-
-func (p *delayedLoadType) Underlying() types.Type {
-	panic("overload function type")
-}
-
-func (p *delayedLoadType) String() string {
-	panic("overload function type")
-}
-
-func (p *delayedLoadType) Obj() types.Object {
-	if p.cache == nil {
-		p.cache = p.obj()
-	}
-	return p.cache
-}
-
-func NewDelayedLoad(pos token.Pos, pkg *types.Package, name string, obj func() types.Object) *types.TypeName {
-	return types.NewTypeName(pos, pkg, name, &delayedLoadType{obj: obj})
-}
-
 // ----------------------------------------------------------------------------

@@ -214,7 +214,7 @@ func (p *Package) getDecls() (decls []ast.Decl) {
 	names := p.newAutoNames()
 	for _, pkgPath := range p.pkgPaths {
 		pkg := p.importPkgs[pkgPath]
-		if pkg.Types == nil { // unused
+		if pkg.nameRefs == nil { // unused
 			continue
 		}
 		pkgName, renamed := names.RequireName(pkg.Types.Name())

@@ -515,11 +515,27 @@ func main() {
 `)
 }
 
-func TestDelayedLoad(t *testing.T) {
+func TestDelayedLoadUnused(t *testing.T) {
 	pkg := newMainPackage()
-	println := gox.NewDelayedLoad(token.NoPos, pkg.Types, "println", func() types.Object {
-		return pkg.Import("fmt").Ref("Println")
-	})
+	println := gox.NewOverloadFunc(token.NoPos, pkg.Types, "println", pkg.Import("fmt").Ref("Println"))
+	pkg.Types.Scope().Insert(println)
+	format := pkg.NewParam("format", types.Typ[types.String])
+	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
+	n := pkg.NewParam("", types.Typ[types.Int])
+	err := pkg.NewParam("", types.Universe.Lookup("error").Type())
+	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
+		End()
+	domTest(t, pkg, `package main
+
+func foo(format string, args ...interface {
+}) (int, error) {
+}
+`)
+}
+
+func TestDelayedLoadUsed(t *testing.T) {
+	pkg := newMainPackage()
+	println := gox.NewOverloadFunc(token.NoPos, pkg.Types, "println", pkg.Import("fmt").Ref("Println"))
 	pkg.Types.Scope().Insert(println)
 	format := pkg.NewParam("format", types.Typ[types.String])
 	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
@@ -528,7 +544,6 @@ func TestDelayedLoad(t *testing.T) {
 	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
 		Val(println).Val(format).Val(args).Call(2, true).Return(1).
 		End()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
 import fmt "fmt"
@@ -536,8 +551,6 @@ import fmt "fmt"
 func foo(format string, args ...interface {
 }) (int, error) {
 	return fmt.Println(format, args...)
-}
-func main() {
 }
 `)
 }
