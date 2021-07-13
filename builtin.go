@@ -314,12 +314,12 @@ type decInst struct {
 }
 
 // val++
-func (p *incInst) Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error) {
+func (p *incInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	return callIncDec(pkg, args, token.INC)
 }
 
 // val--
-func (p *decInst) Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error) {
+func (p *decInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	return callIncDec(pkg, args, token.DEC)
 }
 
@@ -339,7 +339,7 @@ type newInst struct {
 }
 
 // func [] new(T any) *T
-func (p *newInst) Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error) {
+func (p *newInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: use new(T) please")
 	}
@@ -362,7 +362,7 @@ type makeInst struct {
 }
 
 // func [N ninteger] make(Type makable, size ...N) Type
-func (p *makeInst) Call(pkg *Package, args []Element, ellipsis bool) (ret Element, err error) {
+func (p *makeInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	n := len(args)
 	if n == 0 {
 		panic("TODO: make without args")

@@ -763,7 +763,7 @@ func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
 	}
 	switch t := fn.Type().(type) {
 	case *instructionType:
-		if _, err := t.instr.Call(pkg, args, false); err != nil {
+		if _, err := t.instr.Call(pkg, args, token.NoPos); err != nil {
 			panic(err)
 		}
 	default:

@@ -366,7 +366,7 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 		}
 		return
 	case *instructionType:
-		return t.instr.Call(pkg, args, ellipsis != token.NoPos)
+		return t.instr.Call(pkg, args, ellipsis)
 	default:
 		log.Panicln("TODO: call to non function -", t)
 	}
@@ -378,7 +378,7 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 		tyArgs[i] = v.Type
 	}
 	params := sig.Params()
-	if sig.Variadic() {
+	if sig.Variadic() && ellipsis == token.NoPos {
 		n1 := params.Len() - 1
 		if n < n1 {
 			return internal.Elem{}, errors.New("TODO: not enough function parameters")
@@ -394,8 +394,9 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 			return
 		}
 	} else {
-		if params.Len() != n {
-			return internal.Elem{}, errors.New("TODO: unmatched function parameters count")
+		if nreq := params.Len(); nreq != n {
+			err = fmt.Errorf("TODO: unmatched function parameters count, requires %v but got %v", nreq, n)
+			return
 		}
 		if err = checkMatchFuncArgs(pkg, tyArgs, params); err != nil {
 			return

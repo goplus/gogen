@@ -474,6 +474,26 @@ func main() {
 `)
 }
 
+func TestAppend(t *testing.T) {
+	pkg := newMainPackage()
+	builtin := pkg.Builtin()
+	tySlice := types.NewSlice(types.Typ[types.Int])
+	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam("a", tySlice)), nil, false).BodyStart(pkg).
+		NewVar(tySlice, "b").VarRef(ctxRef(pkg, "b")).Val(builtin.Ref("append")).
+		Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "a")).Call(2, true).Assign(1).EndStmt().
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(a []int) {
+	var b []int
+	b = append(b, a...)
+}
+func main() {
+}
+`)
+}
+
 func TestOverloadFunc(t *testing.T) {
 	var f, g, x, y *goxVar
 	pkg := newMainPackage()
@@ -598,14 +618,14 @@ func foo(format string, args ...interface {
 
 func TestDelayedLoadUsed(t *testing.T) {
 	pkg := newMainPackage()
-	println := gox.NewOverloadFunc(token.NoPos, pkg.Types, "println", pkg.Import("fmt").Ref("Println"))
-	pkg.Types.Scope().Insert(println)
+	printf := gox.NewOverloadFunc(token.NoPos, pkg.Types, "printf", pkg.Import("fmt").Ref("Printf"))
+	pkg.Types.Scope().Insert(printf)
 	format := pkg.NewParam("format", types.Typ[types.String])
 	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
 	n := pkg.NewParam("", types.Typ[types.Int])
 	err := pkg.NewParam("", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
-		Val(println).Val(format).Val(args).Call(2, true).Return(1).
+		Val(printf).Val(format).Val(args).Call(2, true).Return(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -613,7 +633,7 @@ import fmt "fmt"
 
 func foo(format string, args ...interface {
 }) (int, error) {
-	return fmt.Println(format, args...)
+	return fmt.Printf(format, args...)
 }
 `)
 }
@@ -898,7 +918,7 @@ func TestReturn(t *testing.T) {
 	n := pkg.NewParam("", types.Typ[types.Int])
 	err := pkg.NewParam("", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
-		Val(pkg.Import("fmt").Ref("Println")).Val(format).Val(args).Call(2, true).Return(1).
+		Val(pkg.Import("fmt").Ref("Printf")).Val(format).Val(args).Call(2, true).Return(1).
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -907,7 +927,7 @@ import fmt "fmt"
 
 func foo(format string, args ...interface {
 }) (int, error) {
-	return fmt.Println(format, args...)
+	return fmt.Printf(format, args...)
 }
 func main() {
 }
