@@ -346,6 +346,16 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 	switch t := fn.Type.(type) {
 	case *types.Signature:
 		sig = t
+	case *TypeType: // type convert
+		valArgs := make([]ast.Expr, len(args))
+		for i, v := range args { // TODO: type check
+			valArgs[i] = v.Val
+		}
+		ret = internal.Elem{
+			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: ellipsis},
+			Type: t.Type(),
+		}
+		return
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
 	case *overloadFuncType:

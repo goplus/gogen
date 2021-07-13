@@ -162,6 +162,23 @@ func main() {
 `)
 }
 
+func TestTypeConv(t *testing.T) {
+	pkg := newMainPackage()
+	tyInt := types.Typ[types.Uint32]
+	tyPInt := types.NewPointer(tyInt)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tyInt, "a").Typ(tyInt).Val(0).Call(1).EndInit(1).
+		NewVarStart(tyPInt, "b").Typ(tyPInt).Val(nil).Call(1).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a uint32 = uint32(0)
+	var b *uint32 = (*uint32)(nil)
+}
+`)
+}
+
 func TestZeroLit(t *testing.T) {
 	pkg := newMainPackage()
 	tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
