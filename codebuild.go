@@ -801,6 +801,7 @@ var (
 	}
 )
 
+// IncDec func
 func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
 	if debug {
 		log.Println("IncDec", op)
@@ -830,6 +831,14 @@ var (
 		token.DEC: "Dec",
 	}
 )
+
+// Send func
+func (p *CodeBuilder) Send() *CodeBuilder {
+	if debug {
+		log.Println("Send")
+	}
+	panic("Send")
+}
 
 // Defer func
 func (p *CodeBuilder) Defer() *CodeBuilder {
@@ -904,6 +913,38 @@ func (p *CodeBuilder) Case(n int) *CodeBuilder { // n=0 means default case
 		return p
 	}
 	panic("use switch..case please")
+}
+
+// Label func
+func (p *CodeBuilder) Label(name string) *CodeBuilder {
+	if debug {
+		log.Println("Label", name)
+	}
+	panic("Label")
+}
+
+// Goto func
+func (p *CodeBuilder) Goto(name string) *CodeBuilder {
+	if debug {
+		log.Println("Goto", name)
+	}
+	panic("Goto")
+}
+
+// Break func
+func (p *CodeBuilder) Break(name string) *CodeBuilder {
+	if debug {
+		log.Println("Break", name)
+	}
+	panic("Break")
+}
+
+// Continue func
+func (p *CodeBuilder) Continue(name string) *CodeBuilder {
+	if debug {
+		log.Println("Continue", name)
+	}
+	panic("Continue")
 }
 
 // Fallthrough func
