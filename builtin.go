@@ -321,7 +321,7 @@ type appendStringInstr struct {
 
 // func append(slice []byte, val ..string) []byte
 func (p appendStringInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
-	if len(args) == 2 || ellipsis != 0 {
+	if len(args) == 2 && ellipsis != 0 {
 		if t, ok := args[0].Type.(*types.Slice); ok {
 			if elem, ok := t.Elem().(*types.Basic); ok && elem.Kind() == types.Byte {
 				if v, ok := args[1].Type.(*types.Basic); ok {
