@@ -19,6 +19,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"syscall"
 )
 
 var (
@@ -143,8 +144,8 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 	}
 
 	// Inc/Dec are special cases
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Inc", incInst{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Dec", decInst{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Inc", incInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Dec", decInstr{}))
 }
 
 func newTParams(params []typeTParam) []*TemplateParamType {
@@ -221,7 +222,12 @@ func InitBuiltinFuncs(builtin *types.Package) {
 			results = types.NewTuple(types.NewParam(token.NoPos, builtin, "", typ))
 		}
 		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis)
-		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, fn.name, tsig))
+		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, fn.name, tsig)
+		if fn.name == "append" { // append is a special case
+			appendString := NewInstruction(token.NoPos, builtin, "append", appendStringInstr{})
+			tfn = NewOverloadFunc(token.NoPos, builtin, "append", appendString, tfn)
+		}
+		gbl.Insert(tfn)
 	}
 	overloads := [...]struct {
 		name string
@@ -270,12 +276,12 @@ func InitBuiltinFuncs(builtin *types.Package) {
 	gbl.Insert(types.NewFunc(token.NoPos, builtin, "println", types.NewSignature(nil, emptyIntfSliceTuple, nil, true)))
 
 	// new & make are special cases, they require to pass a type.
-	gbl.Insert(NewInstruction(token.NoPos, builtin, "new", newInst{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, "make", makeInst{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, "new", newInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, "make", makeInstr{}))
 
 	// len & cap are special cases, because they may return a constant value.
-	gbl.Insert(NewInstruction(token.NoPos, builtin, "len", lenInst{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, "cap", capInst{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, "len", lenInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, "cap", capInstr{}))
 }
 
 func newBFunc(builtin *types.Package, name string, t typeBFunc) types.Object {
@@ -310,14 +316,40 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 
 // ----------------------------------------------------------------------------
 
-type lenInst struct {
+type appendStringInstr struct {
 }
 
-type capInst struct {
+// func append(slice []byte, val ..string) []byte
+func (p appendStringInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+	if len(args) == 2 || ellipsis != 0 {
+		if t, ok := args[0].Type.(*types.Slice); ok {
+			if elem, ok := t.Elem().(*types.Basic); ok && elem.Kind() == types.Byte {
+				if v, ok := args[1].Type.(*types.Basic); ok {
+					if v.Kind() == types.String || v.Kind() == types.UntypedString {
+						return Element{
+							Val: &ast.CallExpr{
+								Fun:      ident("append"),
+								Args:     []ast.Expr{args[0].Val, args[1].Val},
+								Ellipsis: 1,
+							},
+							Type: t,
+						}, nil
+					}
+				}
+			}
+		}
+	}
+	return Element{}, syscall.EINVAL
+}
+
+type lenInstr struct {
+}
+
+type capInstr struct {
 }
 
 // func [Type lenable] len(v Type) int
-func (p lenInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p lenInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: len() should have one parameter")
 	}
@@ -355,7 +387,7 @@ func (p lenInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Ele
 }
 
 // func [Type capable] cap(v Type) int
-func (p capInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p capInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: cap() should have one parameter")
 	}
@@ -382,19 +414,19 @@ func (p capInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Ele
 	return
 }
 
-type incInst struct {
+type incInstr struct {
 }
 
-type decInst struct {
+type decInstr struct {
 }
 
 // val++
-func (p incInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p incInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	return callIncDec(pkg, args, token.INC)
 }
 
 // val--
-func (p decInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p decInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	return callIncDec(pkg, args, token.DEC)
 }
 
@@ -410,11 +442,11 @@ func callIncDec(pkg *Package, args []Element, tok token.Token) (ret Element, err
 	return Element{}, nil
 }
 
-type newInst struct {
+type newInstr struct {
 }
 
 // func [] new(T any) *T
-func (p newInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p newInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: use new(T) please")
 	}
@@ -433,11 +465,11 @@ func (p newInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Ele
 	return
 }
 
-type makeInst struct {
+type makeInstr struct {
 }
 
 // func [N ninteger] make(Type makable, size ...N) Type
-func (p makeInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p makeInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	n := len(args)
 	if n == 0 {
 		panic("TODO: make without args")
