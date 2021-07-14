@@ -195,6 +195,22 @@ func main() {
 `)
 }
 
+func TestSend(t *testing.T) {
+	pkg := newMainPackage()
+	tyInt := types.NewChan(types.SendRecv, types.Typ[types.Uint])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyInt, "a").
+		Val(ctxRef(pkg, "a")).Val(1).Send().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a chan uint
+	a <- 1
+}
+`)
+}
+
 func TestZeroLit(t *testing.T) {
 	pkg := newMainPackage()
 	tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
@@ -730,6 +746,42 @@ func TestGoto(t *testing.T) {
 func main() {
 retry:
 	goto retry
+}
+`)
+}
+
+func TestBreakContinue(t *testing.T) { // TODO: check invalid syntax
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Label("retry").Break("").Continue("").
+		Break("retry").Continue("retry").
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+retry:
+	break
+	continue
+	break retry
+	continue retry
+}
+`)
+}
+
+func TestGoDefer(t *testing.T) { // TODO: check invalid syntax
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hi").Call(1).Go().
+		Val(fmt.Ref("Println")).Val("Go+").Call(1).Defer().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	go fmt.Println("Hi")
+	defer fmt.Println("Go+")
 }
 `)
 }

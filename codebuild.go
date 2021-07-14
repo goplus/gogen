@@ -849,7 +849,7 @@ func (p *CodeBuilder) Send() *CodeBuilder {
 	ch := p.stk.Pop()
 	// TODO: check types
 	p.emitStmt(&ast.SendStmt{Chan: ch.Val, Value: val.Val})
-	panic("Send")
+	return p
 }
 
 // Defer func
