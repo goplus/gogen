@@ -755,6 +755,16 @@ func (p *CodeBuilder) Return(n int) *CodeBuilder {
 	return p
 }
 
+func lookupMethod(t *types.Named, name string) types.Object {
+	for i, n := 0, t.NumMethods(); i < n; i++ {
+		m := t.Method(i)
+		if m.Name() == name {
+			return m
+		}
+	}
+	return nil
+}
+
 // BinaryOp func
 func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 	if debug {
@@ -763,7 +773,12 @@ func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 	pkg := p.pkg
 	args := p.stk.GetArgs(2)
 	name := pkg.prefix + binaryOps[op]
-	fn := pkg.builtin.Scope().Lookup(name)
+	var fn types.Object
+	if t, ok := args[0].Type.(*types.Named); ok {
+		fn = lookupMethod(t, name)
+	} else {
+		fn = pkg.builtin.Scope().Lookup(name)
+	}
 	if fn == nil {
 		panic("TODO: operator not matched")
 	}

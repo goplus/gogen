@@ -366,6 +366,24 @@ func binaryOp(tok token.Token, args []internal.Elem) constant.Value {
 	return nil
 }
 
+func getParamLen(sig *types.Signature) int {
+	n := sig.Params().Len()
+	if sig.Recv() != nil {
+		n++
+	}
+	return n
+}
+
+func getParamType(sig *types.Signature, i int) types.Type {
+	if sig.Recv() != nil {
+		i--
+	}
+	if i < 0 {
+		return sig.Recv().Type()
+	}
+	return sig.Params().At(i).Type()
+}
+
 func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags InstrFlags) (ret internal.Elem, err error) {
 	var it *instantiated
 	var sig *types.Signature
@@ -403,46 +421,43 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 		log.Panicln("TODO: call to non function -", t)
 	}
 	n := len(args)
-	tyArgs := make([]types.Type, n) // TODO: is this really need to copy?
-	valArgs := make([]ast.Expr, n)
-	for i, v := range args {
-		valArgs[i] = v.Val
-		tyArgs[i] = v.Type
-	}
-	params := sig.Params()
 	if sig.Variadic() && (flags&InstrFlagEllipsis) == token.NoPos {
-		n1 := params.Len() - 1
+		n1 := getParamLen(sig) - 1
 		if n < n1 {
 			return internal.Elem{}, errors.New("TODO: not enough function parameters")
 		}
-		tyVariadic, ok := params.At(n1).Type().(*types.Slice)
+		tyVariadic, ok := getParamType(sig, n1).(*types.Slice)
 		if !ok {
 			return internal.Elem{}, errors.New("TODO: tyVariadic not a slice")
 		}
-		if err = checkMatchFuncArgs(pkg, tyArgs[:n1], params); err != nil {
+		if err = checkMatchFuncArgs(pkg, args[:n1], sig); err != nil {
 			return
 		}
-		if err = checkMatchElemType(pkg, tyArgs[n1:], tyVariadic.Elem()); err != nil {
+		if err = checkMatchElemType(pkg, args[n1:], tyVariadic.Elem()); err != nil {
 			return
 		}
 	} else {
-		if nreq := params.Len(); nreq != n {
+		if nreq := getParamLen(sig); nreq != n {
 			err = fmt.Errorf("TODO: unmatched function parameters count, requires %v but got %v", nreq, n)
 			return
 		}
-		if err = checkMatchFuncArgs(pkg, tyArgs, params); err != nil {
+		if err = checkMatchFuncArgs(pkg, args, sig); err != nil {
 			return
 		}
 	}
 	tyRet := toRetType(sig.Results(), it)
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
-		t.X, t.Y = valArgs[0], valArgs[1]
+		t.X, t.Y = args[0].Val, args[1].Val
 		return internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	case *ast.UnaryExpr:
-		t.X = valArgs[0]
+		t.X = args[0].Val
 		return internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	default:
+		valArgs := make([]ast.Expr, n)
+		for i, arg := range args {
+			valArgs[i] = arg.Val
+		}
 		return internal.Elem{
 			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 			Type: tyRet, CVal: cval,
@@ -459,9 +474,9 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
-func checkMatchFuncArgs(pkg *Package, args []types.Type, params *types.Tuple) error {
+func checkMatchFuncArgs(pkg *Package, args []internal.Elem, sig *types.Signature) error {
 	for i, arg := range args {
-		if err := checkMatchType(pkg, arg, params.At(i).Type()); err != nil {
+		if err := checkMatchType(pkg, arg.Type, getParamType(sig, i)); err != nil {
 			return err
 		}
 	}
@@ -515,9 +530,9 @@ func isUnnamedParams(t *types.Tuple) bool {
 	return false
 }
 
-func checkMatchElemType(pkg *Package, vals []types.Type, elt types.Type) error {
+func checkMatchElemType(pkg *Package, vals []internal.Elem, elt types.Type) error {
 	for _, val := range vals {
-		if err := checkMatchType(pkg, val, elt); err != nil {
+		if err := checkMatchType(pkg, val.Type, elt); err != nil {
 			return err
 		}
 	}

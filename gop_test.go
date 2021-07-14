@@ -14,6 +14,7 @@
 package gox_test
 
 import (
+	"go/token"
 	"go/types"
 	"testing"
 
@@ -63,7 +64,19 @@ var a builtin.Gop_bigint
 `)
 }
 
-func TestBigIntAdd(t *testing.T) {
+func _TestBigIntAdd(t *testing.T) {
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(big.Ref("Gop_bigint").Type(), "a", "b")
+	pkg.NewVarStart(big.Ref("Gop_bigint").Type(), "c").
+		Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "a")).BinaryOp(token.ADD).EndInit(1)
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+var a, b builtin.Gop_bigint
+var c builtin.Gop_bigint = a.Gop_Add(b)
+`)
 }
 
 // ----------------------------------------------------------------------------
