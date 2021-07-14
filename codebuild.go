@@ -315,7 +315,7 @@ func toBoundArrayLen(pkg *Package, elts []internal.Elem, arity int) int {
 	n := -1
 	max := -1
 	for i := 0; i < arity; i += 2 {
-		if elt := elts[i].Val; elt != nil {
+		if elts[i].Val != nil {
 			n = toIntVal(elts[i].CVal)
 		} else {
 			n++

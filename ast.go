@@ -204,7 +204,7 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 		return internal.Elem{
 			Val:  v,
 			Type: types.Typ[toBasicKind(v.Kind)],
-			CVal: nil, // TODO: make constant value
+			CVal: constant.MakeFromLiteral(v.Value, v.Kind, 0),
 		}
 	case *types.Builtin:
 		if o := pkg.builtin.Scope().Lookup(v.Name()); o != nil {
