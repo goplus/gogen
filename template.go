@@ -370,10 +370,15 @@ func toNormalizeSignature(
 
 // ----------------------------------------------------------------------------
 
+const (
+	tokUnaryFlag token.Token = 0x80000
+)
+
 // TemplateSignature: type of template function
 type TemplateSignature struct {
-	params []*TemplateParamType
-	sig    *types.Signature
+	params  []*TemplateParamType
+	sig     *types.Signature
+	tokFlag token.Token // only for builtin operator
 }
 
 func assertValidTemplateSignature(tsig *TemplateSignature) {
@@ -387,14 +392,22 @@ func assertValidTemplateSignature(tsig *TemplateSignature) {
 // NewTemplateSignature creates type of a template function.
 func NewTemplateSignature(
 	templateParams []*TemplateParamType,
-	recv *types.Var, params, results *types.Tuple, variadic bool, allowUntyped ...bool) *TemplateSignature {
+	recv *types.Var, params, results *types.Tuple, variadic bool, tok ...token.Token) *TemplateSignature {
 
-	if allowUntyped != nil && allowUntyped[0] {
+	var tokFlag token.Token
+	if tok != nil {
+		tokFlag = tok[0]
+	}
+	if tokFlag != 0 {
 		for _, tparam := range templateParams {
 			tparam.idxFlag |= paramAllowUntyped
 		}
 	}
-	tsig := &TemplateSignature{params: templateParams, sig: types.NewSignature(recv, params, results, variadic)}
+	tsig := &TemplateSignature{
+		params:  templateParams,
+		sig:     types.NewSignature(recv, params, results, variadic),
+		tokFlag: tokFlag,
+	}
 	assertValidTemplateSignature(tsig)
 	return tsig
 }

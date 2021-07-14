@@ -15,7 +15,6 @@ package gox
 
 import (
 	"go/ast"
-	"go/constant"
 	"go/token"
 	"go/types"
 	"log"
@@ -32,25 +31,10 @@ func (p *Package) ConstStart() *CodeBuilder {
 
 func (p *CodeBuilder) EndConst() types.TypeAndValue {
 	elem := p.stk.Pop()
-	return evalConstExpr(p.pkg, elem.Val)
-}
-
-func evalConstExpr(pkg *Package, expr ast.Expr) types.TypeAndValue {
-	info := &types.Info{
-		Types: make(map[ast.Expr]types.TypeAndValue),
+	if elem.CVal == nil {
+		panic("TODO: expression is not a constant")
 	}
-	if err := types.CheckExpr(pkg.Fset, pkg.Types, token.NoPos, expr, info); err != nil {
-		log.Panicln("TODO: eval constant -", err)
-	}
-	return info.Types[expr]
-}
-
-func evalIntExpr(pkg *Package, expr ast.Expr) int {
-	tv := evalConstExpr(pkg, expr)
-	if v, ok := constant.Int64Val(tv.Value); ok {
-		return int(v)
-	}
-	panic("TODO: require integer constant")
+	return types.TypeAndValue{Type: elem.Type, Value: elem.CVal}
 }
 
 // ----------------------------------------------------------------------------
@@ -110,8 +94,8 @@ func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) {
 			continue
 		}
 		if p.tok == token.CONST {
-			tv := evalConstExpr(pkg, rets[i].Val)
-			if scope.Insert(types.NewConst(token.NoPos, pkg.Types, name, tv.Type, tv.Value)) != nil {
+			tv := rets[i]
+			if scope.Insert(types.NewConst(token.NoPos, pkg.Types, name, tv.Type, tv.CVal)) != nil {
 				panic("TODO: constant already defined")
 			}
 		} else if typ == nil {

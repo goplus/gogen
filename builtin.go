@@ -15,6 +15,7 @@ package gox
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"log"
@@ -133,13 +134,17 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 			result := types.NewParam(token.NoPos, builtin, "", ret)
 			results = types.NewTuple(result)
 		}
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, true)
+		tokFlag := nameToOps[op.name].Tok
+		if n == 1 {
+			tokFlag |= tokUnaryFlag
+		}
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
 		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, pre+op.name, tsig))
 	}
 
 	// Inc/Dec are special cases
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Inc", &incInst{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Dec", &decInst{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Inc", incInst{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Dec", decInst{}))
 }
 
 func newTParams(params []typeTParam) []*TemplateParamType {
@@ -191,12 +196,6 @@ func InitBuiltinFuncs(builtin *types.Package) {
 		{"close", []typeTParam{{"Type", any}}, []typeXParam{{"c", xtChanIn}}, nil},
 		//func [Type any] close(c chan<- Type)
 
-		{"len", []typeTParam{{"Type", lenable}}, []typeXParam{{"v", 0}}, types.Typ[types.Int]},
-		// func [Type lenable] len(v Type) int
-
-		{"cap", []typeTParam{{"Type", capable}}, []typeXParam{{"v", 0}}, types.Typ[types.Int]},
-		// func [Type capable] cap(v Type) int
-
 		{"append", []typeTParam{{"Type", any}}, []typeXParam{{"slice", xtSlice}, {"elems", xtEllipsis}}, xtSlice},
 		// func [Type any] append(slice []Type, elems ...Type) []Type
 
@@ -221,7 +220,7 @@ func InitBuiltinFuncs(builtin *types.Package) {
 			typ := newXParamType(tparams, fn.result)
 			results = types.NewTuple(types.NewParam(token.NoPos, builtin, "", typ))
 		}
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis, false)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis)
 		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, fn.name, tsig))
 	}
 	overloads := [...]struct {
@@ -271,8 +270,12 @@ func InitBuiltinFuncs(builtin *types.Package) {
 	gbl.Insert(types.NewFunc(token.NoPos, builtin, "println", types.NewSignature(nil, emptyIntfSliceTuple, nil, true)))
 
 	// new & make are special cases, they require to pass a type.
-	gbl.Insert(NewInstruction(token.NoPos, builtin, "new", &newInst{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, "make", &makeInst{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, "new", newInst{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, "make", makeInst{}))
+
+	// len & cap are special cases, because they may return a constant value.
+	gbl.Insert(NewInstruction(token.NoPos, builtin, "len", lenInst{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, "cap", capInst{}))
 }
 
 func newBFunc(builtin *types.Package, name string, t typeBFunc) types.Object {
@@ -307,6 +310,78 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 
 // ----------------------------------------------------------------------------
 
+type lenInst struct {
+}
+
+type capInst struct {
+}
+
+// func [Type lenable] len(v Type) int
+func (p lenInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+	if len(args) != 1 {
+		panic("TODO: len() should have one parameter")
+	}
+	var cval constant.Value
+	switch t := args[0].Type.(type) {
+	case *types.Basic:
+		switch t.Kind() {
+		case types.String, types.UntypedString:
+			if v := args[0].CVal; v != nil {
+				n := len(constant.StringVal(v))
+				cval = constant.MakeInt64(int64(n))
+			}
+		default:
+			panic("TODO: call len() to a basic type")
+		}
+	case *types.Array:
+		cval = constant.MakeInt64(t.Len())
+	case *types.Pointer:
+		if tt, ok := t.Elem().(*types.Array); ok {
+			cval = constant.MakeInt64(tt.Len())
+		} else {
+			panic("TODO: call len() to a pointer")
+		}
+	default:
+		if !lenable.Match(t) {
+			log.Panicln("TODO: can't call len() to", t)
+		}
+	}
+	ret = Element{
+		Val:  &ast.CallExpr{Fun: ident("len"), Args: []ast.Expr{args[0].Val}},
+		Type: types.Typ[types.Int],
+		CVal: cval,
+	}
+	return
+}
+
+// func [Type capable] cap(v Type) int
+func (p capInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+	if len(args) != 1 {
+		panic("TODO: cap() should have one parameter")
+	}
+	var cval constant.Value
+	switch t := args[0].Type.(type) {
+	case *types.Array:
+		cval = constant.MakeInt64(t.Len())
+	case *types.Pointer:
+		if tt, ok := t.Elem().(*types.Array); ok {
+			cval = constant.MakeInt64(tt.Len())
+		} else {
+			panic("TODO: call cap() to a pointer")
+		}
+	default:
+		if !capable.Match(t) {
+			log.Panicln("TODO: can't call cap() to", t)
+		}
+	}
+	ret = Element{
+		Val:  &ast.CallExpr{Fun: ident("cap"), Args: []ast.Expr{args[0].Val}},
+		Type: types.Typ[types.Int],
+		CVal: cval,
+	}
+	return
+}
+
 type incInst struct {
 }
 
@@ -314,12 +389,12 @@ type decInst struct {
 }
 
 // val++
-func (p *incInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p incInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	return callIncDec(pkg, args, token.INC)
 }
 
 // val--
-func (p *decInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p decInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	return callIncDec(pkg, args, token.DEC)
 }
 
@@ -339,7 +414,7 @@ type newInst struct {
 }
 
 // func [] new(T any) *T
-func (p *newInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p newInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: use new(T) please")
 	}
@@ -362,7 +437,7 @@ type makeInst struct {
 }
 
 // func [N ninteger] make(Type makable, size ...N) Type
-func (p *makeInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p makeInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
 	n := len(args)
 	if n == 0 {
 		panic("TODO: make without args")
@@ -389,21 +464,6 @@ func (p *makeInst) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret E
 		Type: typ,
 	}
 	return
-}
-
-func retTypeFromResults(pkg *Package, results []Element) types.Type {
-	switch n := len(results); n {
-	case 0:
-		return nil
-	case 1:
-		return results[0].Type
-	default:
-		vars := make([]*types.Var, n)
-		for i, ret := range results {
-			vars[i] = pkg.NewParam("", ret.Type)
-		}
-		return types.NewTuple(vars...)
-	}
 }
 
 // ----------------------------------------------------------------------------

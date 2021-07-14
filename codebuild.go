@@ -15,6 +15,7 @@ package gox
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"log"
@@ -307,7 +308,7 @@ func toBoundArrayLen(pkg *Package, elts []internal.Elem, arity int) int {
 	max := -1
 	for i := 0; i < arity; i += 2 {
 		if elt := elts[i].Val; elt != nil {
-			n = evalIntExpr(pkg, elt)
+			n = toIntVal(elts[i].CVal)
 		} else {
 			n++
 		}
@@ -316,6 +317,15 @@ func toBoundArrayLen(pkg *Package, elts []internal.Elem, arity int) int {
 		}
 	}
 	return max + 1
+}
+
+func toIntVal(cval constant.Value) int {
+	if cval != nil {
+		if v, ok := constant.Int64Val(cval); ok {
+			return int(v)
+		}
+	}
+	panic("TODO: not a constant integer or too large")
 }
 
 func toLitElemExpr(args []internal.Elem, i int) ast.Expr {

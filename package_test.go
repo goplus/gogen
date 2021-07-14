@@ -305,11 +305,29 @@ func TestConst(t *testing.T) {
 	}
 }
 
-func TestConstLenArray(t *testing.T) {
+func TestConstLenCap(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewArray(types.Typ[types.Int], 10)
+	typAP := types.NewPointer(typ)
 	pkg.Types.Scope().Insert(types.NewVar(token.NoPos, pkg.Types, "array", typ))
+	pkg.Types.Scope().Insert(types.NewVar(token.NoPos, pkg.Types, "parray", typAP))
 	tv := pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val(pkg.Ref("array")).Call(1).EndConst()
+	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.Value)
+	}
+	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val(pkg.Ref("parray")).Call(1).EndConst()
+	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.Value)
+	}
+	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val("Hi").Call(1).EndConst()
+	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(2)) {
+		t.Fatal("TestConst: != 2, it is", tv.Value)
+	}
+	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("cap")).Val(pkg.Ref("array")).Call(1).EndConst()
+	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.Value)
+	}
+	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("cap")).Val(pkg.Ref("parray")).Call(1).EndConst()
 	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
 		t.Fatal("TestConst: != 10, it is", tv.Value)
 	}

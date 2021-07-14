@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"log"
@@ -203,6 +204,7 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 		return internal.Elem{
 			Val:  v,
 			Type: types.Typ[toBasicKind(v.Kind)],
+			CVal: nil, // TODO: make constant value
 		}
 	case *types.Builtin:
 		if o := pkg.builtin.Scope().Lookup(v.Name()); o != nil {
@@ -215,26 +217,31 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 		return internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(v)},
 			Type: types.Typ[types.UntypedInt],
+			CVal: constant.MakeInt64(int64(v)),
 		}
 	case string:
 		return internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(v)},
 			Type: types.Typ[types.UntypedString],
+			CVal: constant.MakeString(v),
 		}
 	case bool:
 		return internal.Elem{
 			Val:  boolean(v),
 			Type: types.Typ[types.UntypedBool],
+			CVal: constant.MakeBool(v),
 		}
 	case rune:
 		return internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.CHAR, Value: strconv.QuoteRune(v)},
 			Type: types.Typ[types.UntypedRune],
+			CVal: constant.MakeInt64(int64(v)),
 		}
 	case float64:
 		return internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.FLOAT, Value: strconv.FormatFloat(v, 'g', -1, 64)},
 			Type: types.Typ[types.UntypedFloat],
+			CVal: constant.MakeFloat64(v),
 		}
 	}
 	panic("TODO: toExpr")
@@ -340,9 +347,28 @@ func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis t
 	return ret
 }
 
+func unaryOp(tok token.Token, args []internal.Elem) constant.Value {
+	if len(args) == 1 {
+		if a := args[0].CVal; a != nil {
+			return constant.UnaryOp(tok, a, 0) // TODO: prec should not be 0
+		}
+	}
+	return nil
+}
+
+func binaryOp(tok token.Token, args []internal.Elem) constant.Value {
+	if len(args) == 2 {
+		if a, b := args[0].CVal, args[1].CVal; a != nil && b != nil {
+			return constant.BinaryOp(a, tok, b)
+		}
+	}
+	return nil
+}
+
 func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) (ret internal.Elem, err error) {
 	var it *instantiated
 	var sig *types.Signature
+	var cval constant.Value
 	switch t := fn.Type.(type) {
 	case *types.Signature:
 		sig = t
@@ -358,6 +384,11 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 		return
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
+		if (t.tokFlag & tokUnaryFlag) != 0 {
+			cval = unaryOp(t.tokFlag&^tokUnaryFlag, args)
+		} else if t.tokFlag != 0 {
+			cval = binaryOp(t.tokFlag, args)
+		}
 	case *overloadFuncType:
 		for _, o := range t.funcs {
 			if ret, err = checkFuncCall(pkg, toObject(pkg, o), args, ellipsis); err == nil {
@@ -406,14 +437,14 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
 		t.X, t.Y = valArgs[0], valArgs[1]
-		return internal.Elem{Val: t, Type: tyRet}, nil
+		return internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	case *ast.UnaryExpr:
 		t.X = valArgs[0]
-		return internal.Elem{Val: t, Type: tyRet}, nil
+		return internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	default:
 		return internal.Elem{
 			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: ellipsis},
-			Type: tyRet,
+			Type: tyRet, CVal: cval,
 		}, nil
 	}
 }
