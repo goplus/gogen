@@ -837,6 +837,10 @@ func (p *CodeBuilder) Send() *CodeBuilder {
 	if debug {
 		log.Println("Send")
 	}
+	val := p.stk.Pop()
+	ch := p.stk.Pop()
+	// TODO: check types
+	p.emitStmt(&ast.SendStmt{Chan: ch.Val, Value: val.Val})
 	panic("Send")
 }
 
@@ -845,7 +849,13 @@ func (p *CodeBuilder) Defer() *CodeBuilder {
 	if debug {
 		log.Println("Defer")
 	}
-	panic("Defer")
+	arg := p.stk.Pop()
+	call, ok := arg.Val.(*ast.CallExpr)
+	if !ok {
+		panic("TODO: please use defer callExpr()")
+	}
+	p.emitStmt(&ast.DeferStmt{Call: call})
+	return p
 }
 
 // Go func
@@ -853,7 +863,13 @@ func (p *CodeBuilder) Go() *CodeBuilder {
 	if debug {
 		log.Println("Go")
 	}
-	panic("Go")
+	arg := p.stk.Pop()
+	call, ok := arg.Val.(*ast.CallExpr)
+	if !ok {
+		panic("TODO: please use go callExpr()")
+	}
+	p.emitStmt(&ast.GoStmt{Call: call})
+	return p
 }
 
 // If func
@@ -920,7 +936,11 @@ func (p *CodeBuilder) Label(name string) *CodeBuilder {
 	if debug {
 		log.Println("Label", name)
 	}
-	panic("Label")
+	label := types.NewLabel(token.NoPos, p.pkg.Types, name)
+	if p.current.scope.Insert(label) != nil {
+		log.Panicf("TODO: label name %v exists\n", name)
+	}
+	return p
 }
 
 // Goto func
@@ -928,7 +948,26 @@ func (p *CodeBuilder) Goto(name string) *CodeBuilder {
 	if debug {
 		log.Println("Goto", name)
 	}
-	panic("Goto")
+	label := p.getLabel(name, true)
+	p.emitStmt(&ast.BranchStmt{Tok: token.GOTO, Label: label})
+	return p
+}
+
+func (p *CodeBuilder) getLabel(name string, must bool) *ast.Ident {
+	if name == "" {
+		if must {
+			log.Panicln("TODO: need label name")
+		}
+		return nil
+	}
+	_, o := p.current.scope.LookupParent(name, token.NoPos)
+	if o == nil {
+		log.Panicln("TODO: label not found -", name)
+	}
+	if o.Type() != types.Typ[types.Invalid] {
+		log.Panicf("TODO: %v not a label name\n", name)
+	}
+	return ident(name)
 }
 
 // Break func
@@ -936,7 +975,9 @@ func (p *CodeBuilder) Break(name string) *CodeBuilder {
 	if debug {
 		log.Println("Break", name)
 	}
-	panic("Break")
+	label := p.getLabel(name, false)
+	p.emitStmt(&ast.BranchStmt{Tok: token.BREAK, Label: label})
+	return p
 }
 
 // Continue func
@@ -944,7 +985,9 @@ func (p *CodeBuilder) Continue(name string) *CodeBuilder {
 	if debug {
 		log.Println("Continue", name)
 	}
-	panic("Continue")
+	label := p.getLabel(name, false)
+	p.emitStmt(&ast.BranchStmt{Tok: token.CONTINUE, Label: label})
+	return p
 }
 
 // Fallthrough func
