@@ -464,7 +464,7 @@ func (p *CodeBuilder) SliceGet(slice3 bool) *CodeBuilder { // a[i:j:k]
 	x := args[0]
 	typ := x.Type
 	if _, ok := typ.(*types.Slice); !ok {
-		if t, ok := typ.(*types.Basic); ok && t.Kind() == types.String || t.Kind() == types.UntypedString {
+		if t, ok := typ.(*types.Basic); ok && (t.Kind() == types.String || t.Kind() == types.UntypedString) {
 			if slice3 {
 				log.Panicln("TODO: invalid operation `???` (3-index slice of string)")
 			}
