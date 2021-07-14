@@ -894,6 +894,25 @@ func main() {
 `)
 }
 
+func TestLoopFor(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		/**/ For().None().Then(). // for {
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	for {
+		fmt.Println("Hi")
+	}
+}
+`)
+}
+
 func TestForRange(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

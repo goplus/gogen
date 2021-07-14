@@ -162,10 +162,12 @@ type forStmt struct {
 
 func (p *forStmt) Then(cb *CodeBuilder) {
 	cond := cb.stk.Pop()
-	if !types.AssignableTo(cond.Type, types.Typ[types.Bool]) {
-		panic("TODO: for statement condition is not a boolean expr")
+	if cond.Val != nil {
+		if !types.AssignableTo(cond.Type, types.Typ[types.Bool]) {
+			panic("TODO: for statement condition is not a boolean expr")
+		}
+		p.cond = cond.Val
 	}
-	p.cond = cond.Val
 	switch stmts := cb.clearBlockStmt(); len(stmts) {
 	case 0:
 		// nothing to do
