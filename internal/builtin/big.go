@@ -19,6 +19,7 @@ import (
 
 //
 // Gop_: Go+ object prefix
+// Gop_xxx_Cast: type Gop_xxx typecast
 // xxxx__N: the Nth overload function
 //
 
@@ -141,13 +142,13 @@ func (a Gop_bigint) Gop_Not() Gop_bigint {
 	return Gop_bigint{tmpint1(a).Not(a.Int)}
 }
 
-// Gop_bigint__0: func bigint() bigint
-func Gop_bigint__0() Gop_bigint {
+// Gop_bigint_Cast__0: func bigint() bigint
+func Gop_bigint_Cast__0() Gop_bigint {
 	return Gop_bigint{new(big.Int)}
 }
 
-// Gop_bigint__1: func bigint(x int64) bigint
-func Gop_bigint__1(x int64) Gop_bigint {
+// Gop_bigint_Cast__1: func bigint(x int64) bigint
+func Gop_bigint_Cast__1(x int64) Gop_bigint {
 	return Gop_bigint{big.NewInt(x)}
 }
 
@@ -233,18 +234,18 @@ func (a Gop_bigrat) Gop_Inv() Gop_bigrat {
 	return Gop_bigrat{tmprat1(a).Inv(a.Rat)}
 }
 
-// Gop__bigrat__0: func bigrat() bigrat
-func Gop__bigrat__0() Gop_bigrat {
+// Gop_bigrat_Cast__0: func bigrat() bigrat
+func Gop_bigrat_Cast__0() Gop_bigrat {
 	return Gop_bigrat{new(big.Rat)}
 }
 
-// Gop__bigrat__1: func bigrat(a bigint) bigrat
-func Gop__bigrat__1(a Gop_bigint) Gop_bigrat {
+// Gop_bigrat_Cast__1: func bigrat(a bigint) bigrat
+func Gop_bigrat_Cast__1(a Gop_bigint) Gop_bigrat {
 	return Gop_bigrat{new(big.Rat).SetInt(a.Int)}
 }
 
-// Gop__bigrat__2: func bigrat(a, b int64) bigrat
-func Gop__bigrat__2(a, b int64) Gop_bigrat {
+// Gop_bigrat_Cast__2: func bigrat(a, b int64) bigrat
+func Gop_bigrat_Cast__2(a, b int64) Gop_bigrat {
 	return Gop_bigrat{big.NewRat(a, b)}
 }
 

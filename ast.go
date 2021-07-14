@@ -275,7 +275,15 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 	}
 	if atPkg == pkg.builtin { // at builtin package
 		if strings.HasPrefix(name, pkg.prefix) {
-			return toOperatorExpr(name)
+			opName := name[len(pkg.prefix):]
+			if op, ok := nameToOps[opName]; ok {
+				switch op.Arity {
+				case 2:
+					return &ast.BinaryExpr{Op: op.Tok}
+				case 1:
+					return &ast.UnaryExpr{Op: op.Tok}
+				}
+			}
 		}
 		return ident(name)
 	}
@@ -289,22 +297,6 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 		X:   x,
 		Sel: ident(v.Name()),
 	}
-}
-
-func toOperatorExpr(fullName string) ast.Expr {
-	if pos := strings.LastIndex(fullName, "_"); pos > 0 {
-		name := fullName[pos+1:]
-		if op, ok := nameToOps[name]; ok {
-			switch op.Arity {
-			case 2:
-				return &ast.BinaryExpr{Op: op.Tok}
-			case 1:
-				return &ast.UnaryExpr{Op: op.Tok}
-			}
-		}
-	}
-	log.Panicln("TODO: not a valid operator -", fullName)
-	return nil
 }
 
 type operator struct {
