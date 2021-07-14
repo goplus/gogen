@@ -143,9 +143,10 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, pre+op.name, tsig))
 	}
 
-	// Inc/Dec are special cases
+	// Inc/Dec/Recv are special cases
 	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Inc", incInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Dec", decInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Recv", recvInstr{}))
 }
 
 func newTParams(params []typeTParam) []*TemplateParamType {
@@ -320,8 +321,8 @@ type appendStringInstr struct {
 }
 
 // func append(slice []byte, val ..string) []byte
-func (p appendStringInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
-	if len(args) == 2 && ellipsis != 0 {
+func (p appendStringInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+	if len(args) == 2 && flags != 0 {
 		if t, ok := args[0].Type.(*types.Slice); ok {
 			if elem, ok := t.Elem().(*types.Basic); ok && elem.Kind() == types.Byte {
 				if v, ok := args[1].Type.(*types.Basic); ok {
@@ -349,7 +350,7 @@ type capInstr struct {
 }
 
 // func [Type lenable] len(v Type) int
-func (p lenInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p lenInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: len() should have one parameter")
 	}
@@ -387,7 +388,7 @@ func (p lenInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret El
 }
 
 // func [Type capable] cap(v Type) int
-func (p capInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p capInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: cap() should have one parameter")
 	}
@@ -421,12 +422,12 @@ type decInstr struct {
 }
 
 // val++
-func (p incInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p incInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
 	return callIncDec(pkg, args, token.INC)
 }
 
 // val--
-func (p decInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p decInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
 	return callIncDec(pkg, args, token.DEC)
 }
 
@@ -439,14 +440,36 @@ func callIncDec(pkg *Package, args []Element, tok token.Token) (ret Element, err
 	}
 	// TODO: type check
 	pkg.cb.emitStmt(&ast.IncDecStmt{X: args[0].Val, Tok: tok})
-	return Element{}, nil
+	return
+}
+
+type recvInstr struct {
+}
+
+// <-ch
+func (p recvInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+	if len(args) != 1 {
+		panic("TODO: please use <-ch")
+	}
+	if t, ok := args[0].Type.(*types.Chan); ok {
+		if t.Dir() != types.SendOnly {
+			typ := t.Elem()
+			if flags != 0 { // twoValue mode
+				typ = types.NewTuple(pkg.NewParam("", typ), pkg.NewParam("", types.Typ[types.Bool]))
+			}
+			ret = Element{Val: &ast.UnaryExpr{Op: token.ARROW, X: args[0].Val}, Type: typ}
+			return
+		}
+		panic("TODO: <-ch is a send only chan")
+	}
+	panic("TODO: <-ch not a chan type")
 }
 
 type newInstr struct {
 }
 
 // func [] new(T any) *T
-func (p newInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p newInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: use new(T) please")
 	}
@@ -469,7 +492,7 @@ type makeInstr struct {
 }
 
 // func [N ninteger] make(Type makable, size ...N) Type
-func (p makeInstr) Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error) {
+func (p makeInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
 	n := len(args)
 	if n == 0 {
 		panic("TODO: make without args")

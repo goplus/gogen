@@ -213,9 +213,9 @@ func main() {
 
 func TestSend(t *testing.T) {
 	pkg := newMainPackage()
-	tyInt := types.NewChan(types.SendRecv, types.Typ[types.Uint])
+	tyChan := types.NewChan(types.SendRecv, types.Typ[types.Uint])
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVar(tyInt, "a").
+		NewVar(tyChan, "a").
 		Val(ctxRef(pkg, "a")).Val(1).Send().
 		End()
 	domTest(t, pkg, `package main
@@ -223,6 +223,24 @@ func TestSend(t *testing.T) {
 func main() {
 	var a chan uint
 	a <- 1
+}
+`)
+}
+
+func TestRecv(t *testing.T) {
+	pkg := newMainPackage()
+	tyChan := types.NewChan(types.SendRecv, types.Typ[types.Uint])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyChan, "a").
+		NewVarStart(types.Typ[types.Uint], "b").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW).EndInit(1).
+		DefineVarStart("c", "ok").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW, true).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a chan uint
+	var b uint = <-a
+	c, ok := <-a
 }
 `)
 }

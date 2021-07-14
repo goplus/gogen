@@ -334,13 +334,14 @@ var (
 		"EQ": {token.EQL, 2},
 		"NE": {token.NEQ, 2},
 
-		"Neg": {token.SUB, 1},
-		"Not": {token.XOR, 1},
+		"Neg":  {token.SUB, 1},
+		"Not":  {token.XOR, 1},
+		"Recv": {token.ARROW, 1},
 	}
 )
 
-func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) internal.Elem {
-	ret, err := checkFuncCall(pkg, fn, args, ellipsis)
+func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags InstrFlags) internal.Elem {
+	ret, err := checkFuncCall(pkg, fn, args, flags)
 	if err != nil {
 		panic(err)
 	}
@@ -365,7 +366,7 @@ func binaryOp(tok token.Token, args []internal.Elem) constant.Value {
 	return nil
 }
 
-func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsis token.Pos) (ret internal.Elem, err error) {
+func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags InstrFlags) (ret internal.Elem, err error) {
 	var it *instantiated
 	var sig *types.Signature
 	var cval constant.Value
@@ -378,7 +379,7 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 			valArgs[i] = v.Val
 		}
 		ret = internal.Elem{
-			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: ellipsis},
+			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 			Type: t.Type(),
 		}
 		return
@@ -391,13 +392,13 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 		}
 	case *overloadFuncType:
 		for _, o := range t.funcs {
-			if ret, err = checkFuncCall(pkg, toObject(pkg, o), args, ellipsis); err == nil {
+			if ret, err = checkFuncCall(pkg, toObject(pkg, o), args, flags); err == nil {
 				return
 			}
 		}
 		return
 	case *instructionType:
-		return t.instr.Call(pkg, args, ellipsis)
+		return t.instr.Call(pkg, args, flags)
 	default:
 		log.Panicln("TODO: call to non function -", t)
 	}
@@ -409,7 +410,7 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 		tyArgs[i] = v.Type
 	}
 	params := sig.Params()
-	if sig.Variadic() && ellipsis == token.NoPos {
+	if sig.Variadic() && (flags&InstrFlagEllipsis) == token.NoPos {
 		n1 := params.Len() - 1
 		if n < n1 {
 			return internal.Elem{}, errors.New("TODO: not enough function parameters")
@@ -443,7 +444,7 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, ellipsi
 		return internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	default:
 		return internal.Elem{
-			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: ellipsis},
+			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 			Type: tyRet, CVal: cval,
 		}, nil
 	}

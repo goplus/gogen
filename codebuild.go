@@ -710,14 +710,14 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	args := p.stk.GetArgs(n)
 	n++
 	fn := p.stk.Get(-n)
-	var hasEllipsis token.Pos
+	var flags InstrFlags
 	if ellipsis != nil && ellipsis[0] {
-		hasEllipsis = 1
+		flags = InstrFlagEllipsis
 	}
 	if debug {
-		log.Println("Call", n-1, int(hasEllipsis))
+		log.Println("Call", n-1, int(flags))
 	}
-	ret := toFuncCall(p.pkg, fn, args, hasEllipsis)
+	ret := toFuncCall(p.pkg, fn, args, flags)
 	p.stk.Ret(n, ret)
 	return p
 }
@@ -746,6 +746,9 @@ func (p *CodeBuilder) Return(n int) *CodeBuilder {
 
 // BinaryOp func
 func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
+	if debug {
+		log.Println("BinaryOp", op)
+	}
 	pkg := p.pkg
 	args := p.stk.GetArgs(2)
 	name := pkg.prefix.Operator + binaryOps[op]
@@ -753,10 +756,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 	if fn == nil {
 		panic("TODO: operator not matched")
 	}
-	ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
-	if debug {
-		log.Println("BinaryOp", op, "// ret", ret.Type)
-	}
+	ret := toFuncCall(pkg, toObject(pkg, fn), args, 0)
 	p.stk.Ret(2, ret)
 	return p
 }
@@ -786,7 +786,14 @@ var (
 )
 
 // UnaryOp func
-func (p *CodeBuilder) UnaryOp(op token.Token) *CodeBuilder {
+func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
+	var flags InstrFlags
+	if twoValue != nil && twoValue[0] {
+		flags = InstrFlagTwoValue
+	}
+	if debug {
+		log.Println("UnaryOp", op, flags)
+	}
 	pkg := p.pkg
 	args := p.stk.GetArgs(1)
 	name := pkg.prefix.Operator + unaryOps[op]
@@ -794,18 +801,16 @@ func (p *CodeBuilder) UnaryOp(op token.Token) *CodeBuilder {
 	if fn == nil {
 		panic("TODO: operator not matched")
 	}
-	ret := toFuncCall(pkg, toObject(pkg, fn), args, token.NoPos)
-	if debug {
-		log.Println("UnaryOp", op, "// ret", ret.Type)
-	}
+	ret := toFuncCall(pkg, toObject(pkg, fn), args, flags)
 	p.stk.Ret(1, ret)
 	return p
 }
 
 var (
 	unaryOps = [...]string{
-		token.SUB: "Neg",
-		token.XOR: "Not",
+		token.SUB:   "Neg",
+		token.XOR:   "Not",
+		token.ARROW: "Recv",
 	}
 )
 

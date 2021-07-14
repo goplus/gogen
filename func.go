@@ -112,9 +112,15 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 // ----------------------------------------------------------------------------
 
 type Element = internal.Elem
+type InstrFlags = token.Pos
+
+const (
+	InstrFlagEllipsis InstrFlags = 1 << iota
+	InstrFlagTwoValue
+)
 
 type Instruction interface {
-	Call(pkg *Package, args []Element, ellipsis token.Pos) (ret Element, err error)
+	Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error)
 }
 
 func NewInstruction(pos token.Pos, pkg *types.Package, name string, instr Instruction) *types.TypeName {
