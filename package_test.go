@@ -913,6 +913,30 @@ func main() {
 `)
 }
 
+func TestLabeledFor(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Label("label").
+		/**/ For().DefineVarStart("i").Val(0).EndInit(1). // for i := 0; i < 10; i=i+1 {
+		/******/ Val(ctxRef(pkg, "i")).Val(10).BinaryOp(token.LSS).Then().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		/******/ Post().
+		/******/ VarRef(ctxRef(pkg, "i")).Val(ctxRef(pkg, "i")).Val(1).BinaryOp(token.ADD).Assign(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+label:
+	for i := 0; i < 10; i = i + 1 {
+		fmt.Println(i)
+	}
+}
+`)
+}
+
 func TestForRange(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

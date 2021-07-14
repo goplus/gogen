@@ -43,6 +43,7 @@ type codeBlockCtx struct {
 	scope *types.Scope
 	base  int
 	stmts []ast.Stmt
+	label *ast.LabeledStmt
 }
 
 type funcBodyCtx struct {
@@ -54,7 +55,6 @@ type funcBodyCtx struct {
 type CodeBuilder struct {
 	stk     internal.Stack
 	current funcBodyCtx
-	label   *ast.LabeledStmt
 	pkg     *Package
 	varDecl *ValueDecl
 }
@@ -100,12 +100,12 @@ func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
 
 func (p *CodeBuilder) startBlockStmt(current codeBlock, comment string, old *codeBlockCtx) *CodeBuilder {
 	scope := types.NewScope(p.current.scope, token.NoPos, token.NoPos, comment)
-	p.current.codeBlockCtx, *old = codeBlockCtx{current, scope, p.stk.Len(), nil}, p.current.codeBlockCtx
+	p.current.codeBlockCtx, *old = codeBlockCtx{current, scope, p.stk.Len(), nil, nil}, p.current.codeBlockCtx
 	return p
 }
 
 func (p *CodeBuilder) endBlockStmt(old codeBlockCtx) []ast.Stmt {
-	if p.label != nil {
+	if p.current.label != nil {
 		p.emitStmt(&ast.EmptyStmt{})
 	}
 	stmts := p.current.stmts
@@ -121,9 +121,9 @@ func (p *CodeBuilder) clearBlockStmt() []ast.Stmt {
 }
 
 func (p *CodeBuilder) emitStmt(stmt ast.Stmt) {
-	if p.label != nil {
-		p.label.Stmt = stmt
-		stmt, p.label = p.label, nil
+	if p.current.label != nil {
+		p.current.label.Stmt = stmt
+		stmt, p.current.label = p.current.label, nil
 	}
 	p.current.stmts = append(p.current.stmts, stmt)
 }
@@ -968,7 +968,7 @@ func (p *CodeBuilder) Label(name string) *CodeBuilder {
 	if p.current.scope.Insert(label) != nil {
 		log.Panicf("TODO: label name %v exists\n", name)
 	}
-	p.label = &ast.LabeledStmt{Label: ident(name)}
+	p.current.label = &ast.LabeledStmt{Label: ident(name)}
 	return p
 }
 
