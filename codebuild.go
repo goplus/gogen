@@ -54,6 +54,7 @@ type funcBodyCtx struct {
 type CodeBuilder struct {
 	stk     internal.Stack
 	current funcBodyCtx
+	label   *ast.LabeledStmt
 	pkg     *Package
 	varDecl *ValueDecl
 }
@@ -104,6 +105,9 @@ func (p *CodeBuilder) startBlockStmt(current codeBlock, comment string, old *cod
 }
 
 func (p *CodeBuilder) endBlockStmt(old codeBlockCtx) []ast.Stmt {
+	if p.label != nil {
+		p.emitStmt(&ast.EmptyStmt{})
+	}
 	stmts := p.current.stmts
 	p.stk.SetLen(p.current.base)
 	p.current.codeBlockCtx = old
@@ -117,6 +121,10 @@ func (p *CodeBuilder) clearBlockStmt() []ast.Stmt {
 }
 
 func (p *CodeBuilder) emitStmt(stmt ast.Stmt) {
+	if p.label != nil {
+		p.label.Stmt = stmt
+		stmt, p.label = p.label, nil
+	}
 	p.current.stmts = append(p.current.stmts, stmt)
 }
 
@@ -940,6 +948,7 @@ func (p *CodeBuilder) Label(name string) *CodeBuilder {
 	if p.current.scope.Insert(label) != nil {
 		log.Panicf("TODO: label name %v exists\n", name)
 	}
+	p.label = &ast.LabeledStmt{Label: ident(name)}
 	return p
 }
 

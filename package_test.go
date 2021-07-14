@@ -720,6 +720,20 @@ func main() {
 `)
 }
 
+func TestGoto(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Label("retry").Goto("retry").
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+retry:
+	goto retry
+}
+`)
+}
+
 func TestSwitch(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
