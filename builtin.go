@@ -23,15 +23,10 @@ import (
 )
 
 var (
-	defaultNamePrefix = &NamePrefix{
-		BuiltinType: "Gopb_",
-		TypeExtend:  "Gope_",
-		Operator:    "Gopo_",
-		TypeConv:    "Gopc_",
-	}
+	defaultNamePrefix = "Gop_"
 )
 
-func newBuiltinDefault(pkg PkgImporter, prefix *NamePrefix, contracts *BuiltinContracts) *types.Package {
+func newBuiltinDefault(pkg PkgImporter, prefix string, contracts *BuiltinContracts) *types.Package {
 	builtin := types.NewPackage("", "")
 	InitBuiltinOps(builtin, prefix, contracts)
 	InitBuiltinFuncs(builtin)
@@ -51,7 +46,7 @@ type typeParam struct {
 }
 
 // InitBuiltinOps initializes operators of the builtin package.
-func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *BuiltinContracts) {
+func InitBuiltinOps(builtin *types.Package, pre string, contracts *BuiltinContracts) {
 	ops := [...]struct {
 		name    string
 		tparams []typeTParam
@@ -116,7 +111,6 @@ func InitBuiltinOps(builtin *types.Package, prefix *NamePrefix, contracts *Built
 		// func gopo_Not[T integer](a T) T
 	}
 	gbl := builtin.Scope()
-	pre := prefix.Operator
 	for _, op := range ops {
 		tparams := newTParams(op.tparams)
 		n := len(op.params)

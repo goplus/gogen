@@ -751,7 +751,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 	}
 	pkg := p.pkg
 	args := p.stk.GetArgs(2)
-	name := pkg.prefix.Operator + binaryOps[op]
+	name := pkg.prefix + binaryOps[op]
 	fn := pkg.builtin.Scope().Lookup(name)
 	if fn == nil {
 		panic("TODO: operator not matched")
@@ -796,7 +796,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 	}
 	pkg := p.pkg
 	args := p.stk.GetArgs(1)
-	name := pkg.prefix.Operator + unaryOps[op]
+	name := pkg.prefix + unaryOps[op]
 	fn := pkg.builtin.Scope().Lookup(name)
 	if fn == nil {
 		panic("TODO: operator not matched")
@@ -841,7 +841,7 @@ func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
 	}
 	pkg := p.pkg
 	args := p.stk.GetArgs(1)
-	name := pkg.prefix.Operator + incdecOps[op]
+	name := pkg.prefix + incdecOps[op]
 	fn := pkg.builtin.Scope().Lookup(name)
 	if fn == nil {
 		panic("TODO: operator not matched")

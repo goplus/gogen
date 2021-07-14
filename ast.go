@@ -274,7 +274,7 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 		return ident(name)
 	}
 	if atPkg == pkg.builtin { // at builtin package
-		if strings.HasPrefix(name, pkg.prefix.Operator) {
+		if strings.HasPrefix(name, pkg.prefix) {
 			return toOperatorExpr(name)
 		}
 		return ident(name)

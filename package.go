@@ -11,14 +11,6 @@ type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ..
 
 // ----------------------------------------------------------------------------
 
-// NamePrefix config
-type NamePrefix struct {
-	BuiltinType string // builtin type
-	TypeExtend  string // type extend
-	Operator    string // operator
-	TypeConv    string // type convert
-}
-
 type BuiltinContracts struct {
 	NInteger, Integer, Float, Complex, Number, Addable, Orderable, Comparable Contract
 }
@@ -82,13 +74,13 @@ type Config struct {
 	LoadPkgs LoadPkgsFunc
 
 	// Prefix is name prefix.
-	Prefix *NamePrefix
+	Prefix string
 
 	// Contracts are the builtin contracts.
 	Contracts *BuiltinContracts
 
 	// NewBuiltin is to create the builin package.
-	NewBuiltin func(pkg PkgImporter, prefix *NamePrefix, contracts *BuiltinContracts) *types.Package
+	NewBuiltin func(pkg PkgImporter, prefix string, contracts *BuiltinContracts) *types.Package
 }
 
 // Package type
@@ -99,7 +91,7 @@ type Package struct {
 	importPkgs map[string]*PkgRef
 	pkgPaths   []string
 	conf       *Config
-	prefix     *NamePrefix
+	prefix     string
 	builtin    *types.Package
 	loadPkgs   LoadPkgsFunc
 }
@@ -110,7 +102,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		conf = &Config{}
 	}
 	prefix := conf.Prefix
-	if prefix == nil {
+	if prefix == "" {
 		prefix = defaultNamePrefix
 	}
 	contracts := conf.Contracts
