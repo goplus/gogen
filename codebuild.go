@@ -463,13 +463,24 @@ func (p *CodeBuilder) SliceGet(slice3 bool) *CodeBuilder { // a[i:j:k]
 	args := p.stk.GetArgs(n)
 	x := args[0]
 	typ := x.Type
-	if _, ok := typ.(*types.Slice); !ok {
-		if t, ok := typ.(*types.Basic); ok && (t.Kind() == types.String || t.Kind() == types.UntypedString) {
+	switch t := typ.(type) {
+	case *types.Slice:
+		// nothing to do
+	case *types.Basic:
+		if t.Kind() == types.String || t.Kind() == types.UntypedString {
 			if slice3 {
 				log.Panicln("TODO: invalid operation `???` (3-index slice of string)")
 			}
 		} else {
-			log.Panicln("TODO: slice on non slice object -", x.Type)
+			log.Panicln("TODO: invalid operation: slice of", typ)
+		}
+	case *types.Array:
+		typ = types.NewSlice(t.Elem())
+	case *types.Pointer:
+		if tt, ok := t.Elem().(*types.Array); ok {
+			typ = types.NewSlice(tt.Elem())
+		} else {
+			log.Panicln("TODO: invalid operation: slice of non-array pointer -", typ)
 		}
 	}
 	var exprMax ast.Expr

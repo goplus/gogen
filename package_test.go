@@ -1238,24 +1238,32 @@ func TestSliceGet(t *testing.T) {
 	pkg := newMainPackage()
 
 	tySlice := types.NewSlice(types.Typ[types.Int])
+	tyArray := types.NewArray(types.Typ[types.Int], 10)
+	tyPArray := types.NewPointer(tyArray)
 	tyString := types.Typ[types.String]
+	p := pkg.NewParam("p", tyPArray)
 	x := pkg.NewParam("x", tySlice)
 	y := pkg.NewParam("y", tyString)
-	pkg.NewFunc(nil, "foo", gox.NewTuple(x, y), nil, false).BodyStart(pkg).
+	z := pkg.NewParam("z", tyArray)
+	pkg.NewFunc(nil, "foo", gox.NewTuple(p, x, y, z), nil, false).BodyStart(pkg).
 		NewVarStart(tySlice, "a").Val(x).None().Val(2).SliceGet(false).EndInit(1).
 		NewVarStart(tySlice, "b").Val(x).None().None().SliceGet(false).EndInit(1).
 		NewVarStart(tySlice, "c").Val(x).Val(1).Val(3).Val(10).SliceGet(true).EndInit(1).
 		NewVarStart(tyString, "d").Val(y).Val(1).Val(3).SliceGet(false).EndInit(1).
+		NewVarStart(tySlice, "e").Val(p).None().Val(5).SliceGet(false).EndInit(1).
+		NewVarStart(tySlice, "f").Val(z).None().Val(5).SliceGet(false).EndInit(1).
 		End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(x []int, y string) {
+func foo(p *[10]int, x []int, y string, z [10]int) {
 	var a []int = x[:2]
 	var b []int = x[:]
 	var c []int = x[1:3:10]
 	var d string = y[1:3]
+	var e []int = p[:5]
+	var f []int = z[:5]
 }
 func main() {
 }
