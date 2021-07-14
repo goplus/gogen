@@ -809,6 +809,26 @@ var (
 	}
 )
 
+// Star func
+func (p *CodeBuilder) Star() *CodeBuilder {
+	if debug {
+		log.Println("Star")
+	}
+	arg := p.stk.Get(-1)
+	ret := internal.Elem{Val: &ast.StarExpr{X: arg.Val}}
+	switch t := arg.Type.(type) {
+	case *TypeType:
+		t.typ = types.NewPointer(t.typ)
+		ret.Type = arg.Type
+	case *types.Pointer:
+		ret.Type = t.Elem()
+	default:
+		log.Panicln("TODO: can't use *X to a non pointer value -", t)
+	}
+	p.stk.Ret(1, ret)
+	return p
+}
+
 // IncDec func
 func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
 	if debug {

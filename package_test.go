@@ -162,6 +162,22 @@ func main() {
 `)
 }
 
+func TestStar(t *testing.T) {
+	pkg := newMainPackage()
+	tyInt := types.Typ[types.Uint32]
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart("a").Typ(tyInt).Star().Val(nil).Call(1).EndInit(1).
+		NewVarStart(tyInt, "b").Val(ctxRef(pkg, "a")).Star().EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	a := (*uint32)(nil)
+	var b uint32 = *a
+}
+`)
+}
+
 func TestTypeConv(t *testing.T) {
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint32]
