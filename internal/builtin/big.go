@@ -67,6 +67,11 @@ func (a Gop_bigint) Gop_Quo(b Gop_bigint) Gop_bigint {
 	return Gop_bigint{tmpint(a, b).Quo(a.Int, b.Int)}
 }
 
+// Gop_Quo_untyped: func (a untyped_bigint) / (b untyped_bigint) bigint {
+func (a Gop_bigint) Gop_Quo_untyped(b Gop_bigint) Gop_bigrat {
+	return Gop_bigrat_Cast__1(a).Gop_Quo(Gop_bigrat_Cast__1(b))
+}
+
 // Gop_Rem: func (a bigint) % (b bigint) bigint
 func (a Gop_bigint) Gop_Rem(b Gop_bigint) Gop_bigint {
 	return Gop_bigint{tmpint(a, b).Rem(a.Int, b.Int)}
