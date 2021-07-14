@@ -765,24 +765,34 @@ func lookupMethod(t *types.Named, name string) types.Object {
 	return nil
 }
 
+func callOpFunc(pkg *Package, name string, args []internal.Elem, flags InstrFlags) (ret internal.Elem) {
+	if t, ok := args[0].Type.(*types.Named); ok {
+		op := lookupMethod(t, name)
+		if op == nil {
+			panic("TODO: operator not matched")
+		}
+		fn := internal.Elem{
+			Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
+			Type: realType(op.Type()),
+		}
+		ret = toFuncCall(pkg, fn, args, flags)
+	} else {
+		op := pkg.builtin.Scope().Lookup(name)
+		if op == nil {
+			panic("TODO: operator not matched")
+		}
+		ret = toFuncCall(pkg, toObject(pkg, op), args, flags)
+	}
+	return
+}
+
 // BinaryOp func
 func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 	if debug {
 		log.Println("BinaryOp", op)
 	}
-	pkg := p.pkg
-	args := p.stk.GetArgs(2)
-	name := pkg.prefix + binaryOps[op]
-	var fn types.Object
-	if t, ok := args[0].Type.(*types.Named); ok {
-		fn = lookupMethod(t, name)
-	} else {
-		fn = pkg.builtin.Scope().Lookup(name)
-	}
-	if fn == nil {
-		panic("TODO: operator not matched")
-	}
-	ret := toFuncCall(pkg, toObject(pkg, fn), args, 0)
+	name := p.pkg.prefix + binaryOps[op]
+	ret := callOpFunc(p.pkg, name, p.stk.GetArgs(2), 0)
 	p.stk.Ret(2, ret)
 	return p
 }
@@ -820,14 +830,8 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 	if debug {
 		log.Println("UnaryOp", op, flags)
 	}
-	pkg := p.pkg
-	args := p.stk.GetArgs(1)
-	name := pkg.prefix + unaryOps[op]
-	fn := pkg.builtin.Scope().Lookup(name)
-	if fn == nil {
-		panic("TODO: operator not matched")
-	}
-	ret := toFuncCall(pkg, toObject(pkg, fn), args, flags)
+	name := p.pkg.prefix + unaryOps[op]
+	ret := callOpFunc(p.pkg, name, p.stk.GetArgs(1), flags)
 	p.stk.Ret(1, ret)
 	return p
 }

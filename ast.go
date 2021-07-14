@@ -384,6 +384,13 @@ func getParamType(sig *types.Signature, i int) types.Type {
 	return sig.Params().At(i).Type()
 }
 
+func getParam1st(sig *types.Signature) int {
+	if sig.Recv() != nil {
+		return 1
+	}
+	return 0
+}
+
 func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags InstrFlags) (ret internal.Elem, err error) {
 	var it *instantiated
 	var sig *types.Signature
@@ -453,16 +460,19 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 	case *ast.UnaryExpr:
 		t.X = args[0].Val
 		return internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
-	default:
-		valArgs := make([]ast.Expr, n)
-		for i, arg := range args {
-			valArgs[i] = arg.Val
-		}
-		return internal.Elem{
-			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
-			Type: tyRet, CVal: cval,
-		}, nil
 	}
+	var valArgs []ast.Expr
+	var recv = getParam1st(sig)
+	if n > recv { // for method, args[0] is already in fn.Val
+		valArgs = make([]ast.Expr, n-recv)
+		for i := recv; i < n; i++ {
+			valArgs[i-recv] = args[i].Val
+		}
+	}
+	return internal.Elem{
+		Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
+		Type: tyRet, CVal: cval,
+	}, nil
 }
 
 func toRetType(t *types.Tuple, it *instantiated) types.Type {

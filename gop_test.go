@@ -64,18 +64,36 @@ var a builtin.Gop_bigint
 `)
 }
 
-func _TestBigIntAdd(t *testing.T) {
+func TestBigInt(t *testing.T) {
 	pkg := newGopMainPackage()
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.NewVar(big.Ref("Gop_bigint").Type(), "a", "b")
 	pkg.NewVarStart(big.Ref("Gop_bigint").Type(), "c").
-		Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "a")).BinaryOp(token.ADD).EndInit(1)
+		Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.ADD).EndInit(1)
 	domTest(t, pkg, `package main
 
 import builtin "github.com/goplus/gox/internal/builtin"
 
 var a, b builtin.Gop_bigint
 var c builtin.Gop_bigint = a.Gop_Add(b)
+`)
+}
+
+func TestBigRat(t *testing.T) {
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(big.Ref("Gop_bigrat").Type(), "a", "b")
+	pkg.NewVarStart(big.Ref("Gop_bigrat").Type(), "c").
+		Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.QUO).EndInit(1)
+	pkg.NewVarStart(big.Ref("Gop_bigrat").Type(), "d").
+		Val(ctxRef(pkg, "a")).UnaryOp(token.SUB).EndInit(1)
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+var a, b builtin.Gop_bigrat
+var c builtin.Gop_bigrat = a.Gop_Quo(b)
+var d builtin.Gop_bigrat = a.Gop_Neg()
 `)
 }
 
