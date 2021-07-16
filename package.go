@@ -9,6 +9,17 @@ import (
 
 type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
 
+// TypeExtend is to extend Go builtin types.
+type TypeExtend interface {
+	// Default returns the default "typed" type for an "untyped" type;
+	// it returns the incoming type for all other types. The default type
+	// for untyped nil is untyped nil.
+	Default(t types.Type) types.Type
+
+	// AssignableTo reports whether a value of type V is assignable to a variable of type T.
+	AssignableTo(V, T types.Type) bool
+}
+
 // ----------------------------------------------------------------------------
 
 type BuiltinContracts struct {
@@ -73,6 +84,9 @@ type Config struct {
 	// LoadPkgs is called to load all import packages.
 	LoadPkgs LoadPkgsFunc
 
+	// TypeExtend is to extend Go builtin types.
+	TypeExtend TypeExtend
+
 	// Prefix is name prefix.
 	Prefix string
 
@@ -94,6 +108,7 @@ type Package struct {
 	prefix     string
 	builtin    *types.Package
 	loadPkgs   LoadPkgsFunc
+	typExt     TypeExtend
 }
 
 // NewPackage creates a new package.
@@ -117,11 +132,16 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if loadPkgs == nil {
 		loadPkgs = LoadGoPkgs
 	}
+	typExt := conf.TypeExtend
+	if typExt == nil {
+		typExt = &goTypes{}
+	}
 	pkg := &Package{
 		importPkgs: make(map[string]*PkgRef),
 		conf:       conf,
 		prefix:     prefix,
 		loadPkgs:   loadPkgs,
+		typExt:     typExt,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg)

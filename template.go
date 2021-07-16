@@ -151,6 +151,15 @@ func boundType(pkg *Package, arg, param types.Type) error {
 	return fmt.Errorf("TODO: bound %v => %v", arg, param)
 }
 
+// Default returns the default "typed" type for an "untyped" type;
+// it returns the incoming type for all other types. The default type
+// for untyped nil is untyped nil.
+//
+func Default(t types.Type) types.Type {
+	return types.Default(t)
+}
+
+// AssignableTo reports whether a value of type V is assignable to a variable of type T.
 func AssignableTo(V, T types.Type) bool {
 	V, T = realType(V), realType(T)
 	if types.AssignableTo(V, T) {

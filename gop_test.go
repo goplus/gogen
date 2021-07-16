@@ -14,11 +14,18 @@
 package gox_test
 
 import (
+	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
+	"math/big"
 	"testing"
 
 	"github.com/goplus/gox"
+)
+
+var (
+	gopNamePrefix = "Gop_"
 )
 
 func toIndex(c byte) int {
@@ -74,11 +81,75 @@ func newGopMainPackage() *gox.Package {
 		Fset:       gblFset,
 		LoadPkgs:   gblLoadPkgs,
 		NewBuiltin: newGopBuiltinDefault,
+		Prefix:     gopNamePrefix,
 	}
 	return gox.NewPackage("", "main", conf)
 }
 
+type untypedRatType struct {
+	bigint bool
+}
+
+func (p *untypedRatType) Underlying() types.Type {
+	panic("untypedRatType")
+}
+
+func (p *untypedRatType) String() string {
+	panic("untypedRatType")
+}
+
+type gopTypeExtend struct {
+	bigint types.Type
+	bigrat types.Type
+}
+
+func newGopTypeSys(pkg *gox.Package) *gopTypeExtend {
+	bigint := pkg.Builtin().Ref("Gop_bigint").Type()
+	bigrat := pkg.Builtin().Ref("Gop_bigrat").Type()
+	return &gopTypeExtend{bigint: bigint, bigrat: bigrat}
+}
+
+func (p *gopTypeExtend) Default(typ types.Type) types.Type {
+	if t, ok := typ.(*untypedRatType); ok {
+		if t.bigint {
+			return p.bigint
+		}
+		return p.bigrat
+	}
+	return types.Default(typ)
+}
+
+func untypedRat(pkg *gox.Package, v int) *gox.Element {
+	return &gox.Element{
+		Val:  nil, // TODO: generate expr AST
+		Type: &untypedRatType{true},
+		CVal: constant.Make(big.NewRat(int64(v), 1)),
+	}
+}
+
+func ident(name string) *ast.Ident {
+	return &ast.Ident{Name: name}
+}
+
 // ----------------------------------------------------------------------------
+
+func TestBigRatConstant(t *testing.T) {
+	a := constant.Make(new(big.Rat).SetInt64(1))
+	b := constant.Make(new(big.Rat).SetInt64(2))
+	c := constant.BinaryOp(a, token.ADD, b)
+	if c.Kind() != constant.Float {
+		t.Fatal("c.Kind() != constant.Float -", c)
+	}
+	d := constant.BinaryOp(a, token.QUO, b)
+	if !constant.Compare(constant.Make(big.NewRat(1, 2)), token.EQL, d) {
+		t.Fatal("d != 1/2r")
+	}
+
+	e := constant.MakeFromLiteral("1.2", token.FLOAT, 0)
+	if _, ok := constant.Val(e).(*big.Rat); !ok {
+		t.Fatal("constant.MakeFromLiteral 1.2 not *big.Rat", constant.Val(e))
+	}
+}
 
 func TestBigIntVar(t *testing.T) {
 	pkg := newGopMainPackage()
@@ -130,7 +201,7 @@ var a, b builtin.Gop_bigrat
 var c builtin.Gop_bigrat = a.Gop_Quo(b)
 var d builtin.Gop_bigrat = a.Gop_Neg()
 var e builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__0()
-var f builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__2(1, 2)
+var f builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__3(1, 2)
 var g builtin.Gop_bigint
 var h builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__1(g)
 `)

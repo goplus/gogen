@@ -211,8 +211,16 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 			return toObject(pkg, o)
 		}
 		log.Panicln("TODO: unsupported builtin -", v.Name())
+	case *types.TypeName:
+		if typ := v.Type(); isType(typ) {
+			return internal.Elem{Val: toType(pkg, typ), Type: NewTypeType(typ)}
+		} else {
+			return toObject(pkg, v)
+		}
 	case types.Object:
 		return toObject(pkg, v)
+	case *Element:
+		return *v
 	case int:
 		return internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(v)},

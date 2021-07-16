@@ -592,17 +592,7 @@ func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 			log.Println("Val", v)
 		}
 	}
-	var ret internal.Elem
-	if o, ok := v.(*types.TypeName); ok {
-		if typ := o.Type(); isType(typ) {
-			ret = internal.Elem{Val: toType(p.pkg, typ), Type: NewTypeType(typ)}
-		} else {
-			ret = toObject(p.pkg, o)
-		}
-	} else {
-		ret = toExpr(p.pkg, v)
-	}
-	p.stk.Push(ret)
+	p.stk.Push(toExpr(p.pkg, v))
 	return p
 }
 

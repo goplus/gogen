@@ -14,6 +14,7 @@
 package builtin
 
 import (
+	"go/constant"
 	"math/big"
 )
 
@@ -25,6 +26,10 @@ import (
 
 type Gop_ninteger uint
 
+func Gop_istmp(a interface{}) bool {
+	return false
+}
+
 // -----------------------------------------------------------------------------
 // type bigint
 
@@ -35,16 +40,29 @@ type Gop_bigint struct {
 }
 
 func tmpint(a, b Gop_bigint) Gop_bigint {
+	if Gop_istmp(a) {
+		return a
+	} else if Gop_istmp(b) {
+		return b
+	}
 	return Gop_bigint{new(big.Int)}
 }
 
 func tmpint1(a Gop_bigint) Gop_bigint {
+	if Gop_istmp(a) {
+		return a
+	}
 	return Gop_bigint{new(big.Int)}
 }
 
 // IsNil returns a bigint object is nil or not
 func (a Gop_bigint) IsNil() bool {
 	return a.Int == nil
+}
+
+// Copy returns a copy instance of a
+func (a Gop_bigint) Copy() Gop_bigint {
+	return Gop_bigint{new(big.Int).Set(a.Int)}
 }
 
 // Gop_Add: func (a bigint) + (b bigint) bigint
@@ -65,11 +83,6 @@ func (a Gop_bigint) Gop_Mul(b Gop_bigint) Gop_bigint {
 // Gop_Quo: func (a bigint) / (b bigint) bigint {
 func (a Gop_bigint) Gop_Quo(b Gop_bigint) Gop_bigint {
 	return Gop_bigint{tmpint(a, b).Quo(a.Int, b.Int)}
-}
-
-// Gop_Quo_untyped: func (a untyped_bigint) / (b untyped_bigint) bigint {
-func (a Gop_bigint) Gop_Quo_untyped(b Gop_bigint) Gop_bigrat {
-	return Gop_bigrat_Cast__1(a).Gop_Quo(Gop_bigrat_Cast__1(b))
 }
 
 // Gop_Rem: func (a bigint) % (b bigint) bigint
@@ -147,14 +160,62 @@ func (a Gop_bigint) Gop_Not() Gop_bigint {
 	return Gop_bigint{tmpint1(a).Not(a.Int)}
 }
 
-// Gop_bigint_Cast__0: func bigint() bigint
+// Gop_bigint_Cast: func bigint() bigint
 func Gop_bigint_Cast__0() Gop_bigint {
 	return Gop_bigint{new(big.Int)}
 }
 
-// Gop_bigint_Cast__1: func bigint(x int64) bigint
+// Gop_bigint_Cast: func bigint(x int64) bigint
 func Gop_bigint_Cast__1(x int64) Gop_bigint {
 	return Gop_bigint{big.NewInt(x)}
+}
+
+// Gop_bigint_Cast: func bigint(x int) bigint
+func Gop_bigint_Cast__2(x int) Gop_bigint {
+	return Gop_bigint{big.NewInt(int64(x))}
+}
+
+// Gop_bigint_Cast: func bigint(x uint64) bigint
+func Gop_bigint_Cast__3(x uint64) Gop_bigint {
+	return Gop_bigint{new(big.Int).SetUint64(x)}
+}
+
+// Gop_bigint_Cast: func bigint(x uint) bigint
+func Gop_bigint_Cast__4(x uint) Gop_bigint {
+	return Gop_bigint{new(big.Int).SetUint64(uint64(x))}
+}
+
+// Gop_bigint_Cast: func bigint(x *big.Int) bigint
+func Gop_bigint_Cast__5(x *big.Int) Gop_bigint {
+	return Gop_bigint{x}
+}
+
+// Gop_bigint_Cast: func bigint(x *big.Rat) bigint
+func Gop_bigint_Cast__6(x *big.Rat) Gop_bigint {
+	if x.IsInt() {
+		return Gop_bigint{x.Num()}
+	}
+	ret, _ := new(big.Float).SetRat(x).Int(nil)
+	return Gop_bigint{ret}
+}
+
+// Gop_bigint_Init: func bigint.init(x *big.Rat) bigint
+func Gop_bigint_Init__0(x *big.Rat) Gop_bigint {
+	if x.IsInt() {
+		return Gop_bigint{x.Num()}
+	}
+	panic("TODO: can't init bigint from bigrat")
+}
+
+// Gop_bigint_Init: func bigint.init(x constant.Value) bigint
+func Gop_bigint_Init__1(x constant.Value) Gop_bigint {
+	switch v := constant.Val(x).(type) {
+	case int64:
+		return Gop_bigint{big.NewInt(v)}
+	case *big.Int:
+		return Gop_bigint{v}
+	}
+	panic("TODO: can't init bigint from a non integer")
 }
 
 // -----------------------------------------------------------------------------
@@ -167,16 +228,33 @@ type Gop_bigrat struct {
 }
 
 func tmprat(a, b Gop_bigrat) Gop_bigrat {
+	if Gop_istmp(a) {
+		return a
+	} else if Gop_istmp(b) {
+		return b
+	}
 	return Gop_bigrat{new(big.Rat)}
 }
 
 func tmprat1(a Gop_bigrat) Gop_bigrat {
+	if Gop_istmp(a) {
+		return a
+	}
 	return Gop_bigrat{new(big.Rat)}
 }
 
 // IsNil returns a bigrat object is nil or not
 func (a Gop_bigrat) IsNil() bool {
 	return a.Rat == nil
+}
+
+// Gop_Assign: func (a bigint) = (b bigint)
+func (a Gop_bigrat) Gop_Assign(b Gop_bigrat) {
+	if Gop_istmp(b) {
+		a.Rat = b.Rat
+	} else {
+		a.Rat.Set(b.Rat)
+	}
 }
 
 // Gop_Add: func (a bigrat) + (b bigrat) bigrat
@@ -239,19 +317,50 @@ func (a Gop_bigrat) Gop_Inv() Gop_bigrat {
 	return Gop_bigrat{tmprat1(a).Inv(a.Rat)}
 }
 
-// Gop_bigrat_Cast__0: func bigrat() bigrat
+// Gop_bigrat_Cast: func bigrat() bigrat
 func Gop_bigrat_Cast__0() Gop_bigrat {
 	return Gop_bigrat{new(big.Rat)}
 }
 
-// Gop_bigrat_Cast__1: func bigrat(a bigint) bigrat
+// Gop_bigrat_Cast: func bigrat(a bigint) bigrat
 func Gop_bigrat_Cast__1(a Gop_bigint) Gop_bigrat {
 	return Gop_bigrat{new(big.Rat).SetInt(a.Int)}
 }
 
-// Gop_bigrat_Cast__2: func bigrat(a, b int64) bigrat
-func Gop_bigrat_Cast__2(a, b int64) Gop_bigrat {
+// Gop_bigrat_Cast: func bigrat(a *big.Int) bigrat
+func Gop_bigrat_Cast__2(a *big.Int) Gop_bigrat {
+	return Gop_bigrat{new(big.Rat).SetInt(a)}
+}
+
+// Gop_bigrat_Cast: func bigrat(a, b int64) bigrat
+func Gop_bigrat_Cast__3(a, b int64) Gop_bigrat {
 	return Gop_bigrat{big.NewRat(a, b)}
+}
+
+// Gop_bigrat_Cast: func bigrat(a *big.Rat) bigrat
+func Gop_bigrat_Cast__4(a *big.Rat) Gop_bigrat {
+	return Gop_bigrat{a}
+}
+
+// Gop_bigrat_Init: func bigrat.init(x untyped_rat) bigrat
+func Gop_bigrat_Init__0(x *big.Rat) Gop_bigrat {
+	return Gop_bigrat{x}
+}
+
+// Gop_bigrat_Init: func bigrat.init(x constant.Value) bigrat
+func Gop_bigrat_Init__1(x constant.Value) Gop_bigrat {
+	switch v := constant.Val(x).(type) {
+	case int64:
+		return Gop_bigrat{big.NewRat(v, 1)}
+	case *big.Int:
+		return Gop_bigrat{new(big.Rat).SetInt(v)}
+	case *big.Rat:
+		return Gop_bigrat{v}
+	case *big.Float:
+		ret, _ := v.Rat(nil)
+		return Gop_bigrat{ret}
+	}
+	panic("TODO: init bigrat: not a number")
 }
 
 // -----------------------------------------------------------------------------

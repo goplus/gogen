@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	defaultNamePrefix = "Gop_"
+	defaultNamePrefix = "Go_"
 )
 
 func newBuiltinDefault(pkg PkgImporter, prefix string, contracts *BuiltinContracts) *types.Package {
@@ -31,6 +31,21 @@ func newBuiltinDefault(pkg PkgImporter, prefix string, contracts *BuiltinContrac
 	InitBuiltinOps(builtin, prefix, contracts)
 	InitBuiltinFuncs(builtin)
 	return builtin
+}
+
+type goTypes struct {
+}
+
+// Default returns the default "typed" type for an "untyped" type;
+// it returns the incoming type for all other types. The default type
+// for untyped nil is untyped nil.
+func (p *goTypes) Default(t types.Type) types.Type {
+	return Default(t)
+}
+
+// AssignableTo reports whether a value of type V is assignable to a variable of type T.
+func (p *goTypes) AssignableTo(V, T types.Type) bool {
+	return AssignableTo(V, T)
 }
 
 // ----------------------------------------------------------------------------
