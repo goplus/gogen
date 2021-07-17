@@ -48,7 +48,34 @@ type codeBlockCtx struct {
 
 type funcBodyCtx struct {
 	codeBlockCtx
-	fn *Func
+	fn     *Func
+	labels map[string]bool
+}
+
+func (p *funcBodyCtx) checkLabels() {
+	for name, define := range p.labels {
+		if !define {
+			log.Panicf("TODO: label name %v is not defined\n", name)
+		}
+	}
+}
+
+func (p *funcBodyCtx) getLabels() map[string]bool {
+	if p.labels == nil {
+		p.labels = make(map[string]bool)
+	}
+	return p.labels
+}
+
+func (p *funcBodyCtx) useLabel(name string, define bool) {
+	labels := p.getLabels()
+	exists := labels[name]
+	if exists && define {
+		log.Panicf("TODO: label name %v exists\n", name)
+	}
+	if !exists {
+		labels[name] = define
+	}
 }
 
 // CodeBuilder type
@@ -96,6 +123,7 @@ func insertParams(scope *types.Scope, params *types.Tuple) {
 }
 
 func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
+	p.current.checkLabels()
 	p.current.fn = old.fn
 	return p.endBlockStmt(old.codeBlockCtx)
 }
@@ -1104,10 +1132,7 @@ func (p *CodeBuilder) Label(name string) *CodeBuilder {
 	if debug {
 		log.Println("Label", name)
 	}
-	label := types.NewLabel(token.NoPos, p.pkg.Types, name)
-	if p.current.scope.Insert(label) != nil {
-		log.Panicf("TODO: label name %v exists\n", name)
-	}
+	p.current.useLabel(name, true)
 	p.current.label = &ast.LabeledStmt{Label: ident(name)}
 	return p
 }
@@ -1117,26 +1142,9 @@ func (p *CodeBuilder) Goto(name string) *CodeBuilder {
 	if debug {
 		log.Println("Goto", name)
 	}
-	label := p.getLabel(name, true)
-	p.emitStmt(&ast.BranchStmt{Tok: token.GOTO, Label: label})
+	p.current.useLabel(name, false)
+	p.emitStmt(&ast.BranchStmt{Tok: token.GOTO, Label: ident(name)})
 	return p
-}
-
-func (p *CodeBuilder) getLabel(name string, must bool) *ast.Ident {
-	if name == "" {
-		if must {
-			log.Panicln("TODO: need label name")
-		}
-		return nil
-	}
-	_, o := p.current.scope.LookupParent(name, token.NoPos)
-	if o == nil {
-		log.Panicln("TODO: label not found -", name)
-	}
-	if o.Type() != types.Typ[types.Invalid] {
-		log.Panicf("TODO: %v not a label name\n", name)
-	}
-	return ident(name)
 }
 
 // Break func
@@ -1144,8 +1152,10 @@ func (p *CodeBuilder) Break(name string) *CodeBuilder {
 	if debug {
 		log.Println("Break", name)
 	}
-	label := p.getLabel(name, false)
-	p.emitStmt(&ast.BranchStmt{Tok: token.BREAK, Label: label})
+	if name != "" {
+		p.current.useLabel(name, false)
+	}
+	p.emitStmt(&ast.BranchStmt{Tok: token.BREAK, Label: ident(name)})
 	return p
 }
 
@@ -1154,8 +1164,10 @@ func (p *CodeBuilder) Continue(name string) *CodeBuilder {
 	if debug {
 		log.Println("Continue", name)
 	}
-	label := p.getLabel(name, false)
-	p.emitStmt(&ast.BranchStmt{Tok: token.CONTINUE, Label: label})
+	if name != "" {
+		p.current.useLabel(name, false)
+	}
+	p.emitStmt(&ast.BranchStmt{Tok: token.CONTINUE, Label: ident(name)})
 	return p
 }
 
