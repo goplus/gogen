@@ -434,7 +434,7 @@ func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 		log.Panicln("TODO: call to non function -", t)
 	}
 	if err = matchFuncType(pkg, args, (flags&InstrFlagEllipsis) != token.NoPos, sig); err != nil {
-		log.Println("matchFuncType:", err) // TODO: remove (debug only)
+		log.Println("matchFuncType:", args[0].Type.(*unboundType).tBound, err) // TODO: remove (debug only)
 		return
 	}
 	tyRet := toRetType(sig.Results(), it)
