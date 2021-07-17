@@ -341,7 +341,7 @@ var (
 )
 
 func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags InstrFlags) internal.Elem {
-	ret, err := checkFuncCall(pkg, fn, args, flags)
+	ret, err := matchFuncCall(pkg, fn, args, flags)
 	if err != nil {
 		panic(err)
 	}
@@ -374,14 +374,14 @@ func getParamLen(sig *types.Signature) int {
 	return n
 }
 
-func getParamType(sig *types.Signature, i int) types.Type {
+func getParam(sig *types.Signature, i int) *types.Var {
 	if sig.Recv() != nil {
 		i--
 	}
 	if i < 0 {
-		return sig.Recv().Type()
+		return sig.Recv()
 	}
-	return sig.Params().At(i).Type()
+	return sig.Params().At(i)
 }
 
 func getParam1st(sig *types.Signature) int {
@@ -391,7 +391,7 @@ func getParam1st(sig *types.Signature) int {
 	return 0
 }
 
-func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags InstrFlags) (ret internal.Elem, err error) {
+func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags InstrFlags) (ret internal.Elem, err error) {
 	var it *instantiated
 	var sig *types.Signature
 	var cval constant.Value
@@ -417,7 +417,7 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 		}
 	case *overloadFuncType:
 		for _, o := range t.funcs {
-			if ret, err = checkFuncCall(pkg, toObject(pkg, o), args, flags); err == nil {
+			if ret, err = matchFuncCall(pkg, toObject(pkg, o), args, flags); err == nil {
 				return
 			}
 		}
@@ -427,30 +427,8 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 	default:
 		log.Panicln("TODO: call to non function -", t)
 	}
-	n := len(args)
-	if sig.Variadic() && (flags&InstrFlagEllipsis) == token.NoPos {
-		n1 := getParamLen(sig) - 1
-		if n < n1 {
-			return internal.Elem{}, errors.New("TODO: not enough function parameters")
-		}
-		tyVariadic, ok := getParamType(sig, n1).(*types.Slice)
-		if !ok {
-			return internal.Elem{}, errors.New("TODO: tyVariadic not a slice")
-		}
-		if err = checkMatchFuncArgs(pkg, args[:n1], sig); err != nil {
-			return
-		}
-		if err = checkMatchElemType(pkg, args[n1:], tyVariadic.Elem()); err != nil {
-			return
-		}
-	} else {
-		if nreq := getParamLen(sig); nreq != n {
-			err = fmt.Errorf("TODO: unmatched function parameters count, requires %v but got %v", nreq, n)
-			return
-		}
-		if err = checkMatchFuncArgs(pkg, args, sig); err != nil {
-			return
-		}
+	if err = matchFuncType(pkg, args, (flags&InstrFlagEllipsis) != token.NoPos, sig); err != nil {
+		return
 	}
 	tyRet := toRetType(sig.Results(), it)
 	switch t := fn.Val.(type) {
@@ -463,7 +441,7 @@ func checkFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 	}
 	var valArgs []ast.Expr
 	var recv = getParam1st(sig)
-	if n > recv { // for method, args[0] is already in fn.Val
+	if n := len(args); n > recv { // for method, args[0] is already in fn.Val
 		valArgs = make([]ast.Expr, n-recv)
 		for i := recv; i < n; i++ {
 			valArgs[i-recv] = args[i].Val
@@ -484,16 +462,42 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
-func checkMatchFuncArgs(pkg *Package, args []internal.Elem, sig *types.Signature) error {
+func matchFuncType(pkg *Package, args []internal.Elem, ellipsis bool, sig *types.Signature) error {
+	n := len(args)
+	if sig.Variadic() {
+		if !ellipsis {
+			n1 := getParamLen(sig) - 1
+			if n < n1 {
+				return errors.New("TODO: not enough function parameters")
+			}
+			tyVariadic, ok := getParam(sig, n1).Type().(*types.Slice)
+			if !ok {
+				return errors.New("TODO: tyVariadic not a slice")
+			}
+			if err := matchFuncArgs(pkg, args[:n1], sig); err != nil {
+				return err
+			}
+			return matchElemType(pkg, args[n1:], tyVariadic.Elem())
+		}
+	} else if ellipsis {
+		return errors.New("TODO: call with ... to non variadic function")
+	}
+	if nreq := getParamLen(sig); nreq != n {
+		return fmt.Errorf("TODO: unmatched function parameters count, requires %v but got %v", nreq, n)
+	}
+	return matchFuncArgs(pkg, args, sig)
+}
+
+func matchFuncArgs(pkg *Package, args []internal.Elem, sig *types.Signature) error {
 	for i, arg := range args {
-		if err := checkMatchType(pkg, arg.Type, getParamType(sig, i)); err != nil {
+		if err := matchType(pkg, arg.Type, getParam(sig, i).Type()); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func checkMatchFuncResults(pkg *Package, rets []internal.Elem, results *types.Tuple) error {
+func matchFuncResults(pkg *Package, rets []internal.Elem, results *types.Tuple) error {
 	n := len(rets)
 	need := results.Len()
 	switch n {
@@ -509,7 +513,7 @@ func checkMatchFuncResults(pkg *Package, rets []internal.Elem, results *types.Tu
 					return fmt.Errorf("TODO: require %d results, but got %d", need, n1)
 				}
 				for i := 0; i < need; i++ {
-					if err := checkMatchType(pkg, t.At(i).Type(), results.At(i).Type()); err != nil {
+					if err := matchType(pkg, t.At(i).Type(), results.At(i).Type()); err != nil {
 						return err
 					}
 				}
@@ -519,7 +523,7 @@ func checkMatchFuncResults(pkg *Package, rets []internal.Elem, results *types.Tu
 	}
 	if n == need {
 		for i := 0; i < need; i++ {
-			if err := checkMatchType(pkg, rets[i].Type, results.At(i).Type()); err != nil {
+			if err := matchType(pkg, rets[i].Type, results.At(i).Type()); err != nil {
 				return err
 			}
 		}
@@ -540,9 +544,9 @@ func isUnnamedParams(t *types.Tuple) bool {
 	return false
 }
 
-func checkMatchElemType(pkg *Package, vals []internal.Elem, elt types.Type) error {
+func matchElemType(pkg *Package, vals []internal.Elem, elt types.Type) error {
 	for _, val := range vals {
-		if err := checkMatchType(pkg, val.Type, elt); err != nil {
+		if err := matchType(pkg, val.Type, elt); err != nil {
 			return err
 		}
 	}
@@ -551,7 +555,7 @@ func checkMatchElemType(pkg *Package, vals []internal.Elem, elt types.Type) erro
 
 func assignMatchType(pkg *Package, varRef types.Type, val types.Type) {
 	if rt, ok := varRef.(*refType); ok {
-		if err := checkMatchType(pkg, val, rt.typ); err != nil {
+		if err := matchType(pkg, val, rt.typ); err != nil {
 			panic(err)
 		}
 	} else if varRef == nil { // underscore
@@ -561,7 +565,7 @@ func assignMatchType(pkg *Package, varRef types.Type, val types.Type) {
 	}
 }
 
-func checkMatchType(pkg *Package, arg, param types.Type) error {
+func matchType(pkg *Package, arg, param types.Type) error {
 	switch t := param.(type) {
 	case *unboundType: // variable to bound type
 		if t2, ok := arg.(*unboundType); ok {

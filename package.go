@@ -109,6 +109,8 @@ type Package struct {
 	builtin    *types.Package
 	loadPkgs   LoadPkgsFunc
 	typExt     TypeExtend
+	autoPrefix string
+	autoIdx    int
 }
 
 // NewPackage creates a new package.
@@ -142,6 +144,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		prefix:     prefix,
 		loadPkgs:   loadPkgs,
 		typExt:     typExt,
+		autoPrefix: "_auto" + prefix,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg)

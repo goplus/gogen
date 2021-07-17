@@ -57,12 +57,14 @@ type CodeBuilder struct {
 	current funcBodyCtx
 	pkg     *Package
 	varDecl *ValueDecl
+	closureParamInsts
 }
 
 func (p *CodeBuilder) init(pkg *Package) {
 	p.pkg = pkg
 	p.current.scope = pkg.Types.Scope()
 	p.stk.Init()
+	p.closureParamInsts.init()
 }
 
 // Scope returns current scope.
@@ -135,6 +137,115 @@ func (p *CodeBuilder) startInitExpr(current codeBlock) (old codeBlock) {
 
 func (p *CodeBuilder) endInitExpr(old codeBlock) {
 	p.current.codeBlock = old
+}
+
+// Return func
+func (p *CodeBuilder) Return(n int, outerReturn ...bool) *CodeBuilder {
+	if debug {
+		log.Println("Return", n)
+	}
+	results := p.current.fn.Type().(*types.Signature).Results()
+	args := p.stk.GetArgs(n)
+	if err := matchFuncResults(p.pkg, args, results); err != nil {
+		panic(err)
+	}
+	var rets []ast.Expr
+	if n > 0 {
+		rets = make([]ast.Expr, n)
+		for i := 0; i < n; i++ {
+			rets[i] = args[i].Val
+		}
+		p.stk.PopN(n)
+	}
+	p.emitStmt(&ast.ReturnStmt{Results: rets})
+	return p
+}
+
+// Call func
+func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
+	args := p.stk.GetArgs(n)
+	n++
+	fn := p.stk.Get(-n)
+	var flags InstrFlags
+	if ellipsis != nil && ellipsis[0] {
+		flags = InstrFlagEllipsis
+	}
+	if debug {
+		log.Println("Call", n-1, int(flags))
+	}
+	ret := toFuncCall(p.pkg, fn, args, flags)
+	p.stk.Ret(n, ret)
+	return p
+}
+
+type inlineClosure struct {
+	sig *types.Signature
+	old codeBlockCtx
+}
+
+type closureParamInst struct {
+	inst  *inlineClosure
+	param *types.Var
+}
+
+type closureParamInsts struct {
+	paramInsts map[closureParamInst]*types.Var
+}
+
+func (p *closureParamInsts) init() {
+	p.paramInsts = make(map[closureParamInst]*types.Var)
+}
+
+func (p *inlineClosure) End(cb *CodeBuilder) {
+	cb.emitStmt(&ast.BlockStmt{List: cb.endBlockStmt(p.old)})
+	sig := p.sig
+	results := sig.Results()
+	for i, n := 0, results.Len(); i < n; i++ { // return results & clean env
+		key := closureParamInst{p, results.At(i)}
+		cb.Val(cb.paramInsts[key])
+		delete(cb.paramInsts, key)
+	}
+	for i, n := 0, getParamLen(sig); i < n; i++ { // clean env
+		key := closureParamInst{p, getParam(sig, i)}
+		delete(cb.paramInsts, key)
+	}
+}
+
+// CallInlineClosureStart func
+func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, ellipsis bool) *CodeBuilder {
+	if debug {
+		log.Println("CallInlineClosureStart", arity, ellipsis)
+	}
+	pkg := p.pkg
+	closure := &inlineClosure{sig: sig}
+	results := sig.Results()
+	for i, n := 0, results.Len(); i < n; i++ {
+		p.emitVar(pkg, closure, results.At(i), false)
+	}
+	p.startBlockStmt(closure, "inline closure", &closure.old)
+	args := p.stk.GetArgs(arity)
+	if err := matchFuncType(pkg, args, ellipsis, sig); err != nil {
+		panic(err)
+	}
+	n1 := getParamLen(sig) - 1
+	if sig.Variadic() && !ellipsis {
+		p.SliceLit(getParam(sig, n1).Type().(*types.Slice), arity-n1)
+	}
+	for i := n1; i >= 0; i-- {
+		p.emitVar(pkg, closure, getParam(sig, i), true)
+	}
+	return p
+}
+
+func (p *CodeBuilder) emitVar(pkg *Package, closure *inlineClosure, param *types.Var, withInit bool) {
+	name := pkg.autoName()
+	if withInit {
+		p.NewVarStart(param.Type(), name).EndInit(1)
+	} else {
+		p.NewVar(param.Type(), name)
+	}
+	key := closureParamInst{closure, param}
+	p.paramInsts[key] = p.current.scope.Lookup(name).(*types.Var)
 }
 
 // NewClosure func
@@ -703,45 +814,6 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	}
 	p.emitStmt(stmt)
 	p.stk.PopN(lhs + rhs)
-	return p
-}
-
-// Call func
-func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
-	args := p.stk.GetArgs(n)
-	n++
-	fn := p.stk.Get(-n)
-	var flags InstrFlags
-	if ellipsis != nil && ellipsis[0] {
-		flags = InstrFlagEllipsis
-	}
-	if debug {
-		log.Println("Call", n-1, int(flags))
-	}
-	ret := toFuncCall(p.pkg, fn, args, flags)
-	p.stk.Ret(n, ret)
-	return p
-}
-
-// Return func
-func (p *CodeBuilder) Return(n int) *CodeBuilder {
-	if debug {
-		log.Println("Return", n)
-	}
-	results := p.current.fn.Type().(*types.Signature).Results()
-	args := p.stk.GetArgs(n)
-	if err := checkMatchFuncResults(p.pkg, args, results); err != nil {
-		panic(err)
-	}
-	var rets []ast.Expr
-	if n > 0 {
-		rets = make([]ast.Expr, n)
-		for i := 0; i < n; i++ {
-			rets[i] = args[i].Val
-		}
-		p.stk.PopN(n)
-	}
-	p.emitStmt(&ast.ReturnStmt{Results: rets})
 	return p
 }
 

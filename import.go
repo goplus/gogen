@@ -242,15 +242,22 @@ func (p *Package) getDecls() (decls []ast.Decl) {
 
 type null struct{}
 type autoNames struct {
-	gbl   *types.Scope
-	names map[string]null
-	idx   int
+	gbl     *types.Scope
+	builtin *types.Scope
+	names   map[string]null
+	idx     int
+}
+
+func (p *Package) autoName() string {
+	p.autoIdx++
+	return p.autoPrefix + strconv.Itoa(p.autoIdx)
 }
 
 func (p *Package) newAutoNames() *autoNames {
 	return &autoNames{
-		gbl:   p.Types.Scope(),
-		names: make(map[string]null),
+		gbl:     p.Types.Scope(),
+		builtin: p.builtin.Scope(),
+		names:   make(map[string]null),
 	}
 }
 
@@ -273,7 +280,8 @@ func (p *autoNames) importHasName(name string) bool {
 }
 
 func (p *autoNames) hasName(name string) bool {
-	return scopeHasName(p.gbl, name) || p.importHasName(name) || types.Universe.Lookup(name) != nil
+	return scopeHasName(p.gbl, name) || p.importHasName(name) ||
+		p.builtin.Lookup(name) != nil || types.Universe.Lookup(name) != nil
 }
 
 func (p *autoNames) RequireName(name string) (ret string, renamed bool) {

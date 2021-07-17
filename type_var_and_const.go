@@ -84,7 +84,7 @@ func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) {
 	typ := p.typ
 	if typ != nil {
 		for _, ret := range rets {
-			if err := checkMatchType(pkg, ret.Type, typ); err != nil {
+			if err := matchType(pkg, ret.Type, typ); err != nil {
 				panic(err)
 			}
 		}
@@ -104,7 +104,7 @@ func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) {
 				if p.tok != token.DEFINE {
 					log.Panicln("TODO: variable already defined -", name)
 				}
-				if err := checkMatchType(pkg, retType, old.Type()); err != nil {
+				if err := matchType(pkg, retType, old.Type()); err != nil {
 					panic(err)
 				}
 			}
