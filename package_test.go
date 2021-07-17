@@ -1468,7 +1468,7 @@ func main() {
 `)
 }
 
-func TestClosureAutoRet(t *testing.T) {
+func TestClosureAutoParamRet(t *testing.T) {
 	pkg := newMainPackage()
 	ret := pkg.NewAutoParam("ret")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -1485,6 +1485,67 @@ func main() {
 		ret = append(ret, 1)
 		return
 	}()
+}
+`)
+}
+
+func TestCallInlineClosure(t *testing.T) {
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+	ret := pkg.NewAutoParam("ret")
+	sig := types.NewSignature(nil, nil, gox.NewTuple(ret), false)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).
+		CallInlineClosureStart(sig, 0, false).
+		/**/ DefineVarStart("n", "err").Val(fmt.Ref("Println")).Val("Hi").Call(1).EndInit(1).
+		/**/ Val(ctxRef(pkg, "n")).Return(1).
+		/**/ End().
+		Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	var _autoGo_1 int
+	{
+		n, err := fmt.Println("Hi")
+		_autoGo_1 = n
+	}
+	fmt.Println(_autoGo_1)
+}
+`)
+}
+
+func TestCallInlineClosureEllipsis(t *testing.T) {
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+	x := pkg.NewParam("x", types.NewSlice(gox.TyEmptyInterface))
+	ret := pkg.NewAutoParam("ret")
+	sig := types.NewSignature(nil, types.NewTuple(x), types.NewTuple(ret), true)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).
+		Val(1).SliceLit(types.NewSlice(gox.TyEmptyInterface), 1).
+		CallInlineClosureStart(sig, 1, true).
+		/**/ DefineVarStart("n", "err").Val(fmt.Ref("Println")).Val(x).Call(1, true).EndInit(1).
+		/**/ Val(ctxRef(pkg, "n")).Return(1).
+		/**/ End().
+		Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	var _autoGo_1 int
+	{
+		var _autoGo_2 []interface {
+		} = []interface {
+		}{1}
+		n, err := fmt.Println(_autoGo_2...)
+		_autoGo_1 = n
+	}
+	fmt.Println(_autoGo_1)
 }
 `)
 }

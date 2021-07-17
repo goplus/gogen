@@ -68,9 +68,12 @@ func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 
 // End is for internal use.
 func (p *Func) End(cb *CodeBuilder) {
+	if p.isInline() {
+		p.inlineClosureEnd(cb)
+		return
+	}
 	pkg := cb.pkg
-	stmts := cb.endFuncBody(p.old)
-	body := &ast.BlockStmt{List: stmts}
+	body := &ast.BlockStmt{List: cb.endFuncBody(p.old)}
 	t := p.Type().(*types.Signature)
 	if fn := p.decl; fn == nil { // is closure
 		expr := &ast.FuncLit{Type: toFuncType(pkg, t), Body: body}
@@ -101,6 +104,22 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 	decl := &ast.FuncDecl{}
 	p.decls = append(p.decls, decl)
 	return &Func{Func: fn, decl: decl}
+}
+
+type closureType = token.Pos
+
+const (
+	closureNormal     closureType = 0
+	closureFlagInline closureType = (1 << 30)
+)
+
+func (p *Package) newClosure(sig *types.Signature, ct closureType) *Func {
+	fn := types.NewFunc(ct, p.Types, "", sig)
+	return &Func{Func: fn}
+}
+
+func (p *Func) isInline() bool {
+	return (p.Pos() & closureFlagInline) != 0
 }
 
 // ----------------------------------------------------------------------------

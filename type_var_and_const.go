@@ -128,10 +128,6 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 	}
 	// var a, b = expr
 	// const a, b = expr
-	var typExpr ast.Expr
-	if typ != nil {
-		typExpr = toType(p, typ)
-	}
 	scope := p.cb.current.scope
 	nameIdents := make([]*ast.Ident, n)
 	for i, name := range names {
@@ -143,7 +139,14 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 			scope.Insert(types.NewVar(token.NoPos, p.Types, name, typ))
 		}
 	}
-	spec := &ast.ValueSpec{Names: nameIdents, Type: typExpr}
+	spec := &ast.ValueSpec{Names: nameIdents}
+	if typ != nil {
+		if ut, ok := typ.(*unboundType); ok && ut.tBound == nil {
+			ut.ptypes = append(ut.ptypes, &spec.Type)
+		} else {
+			spec.Type = toType(p, typ)
+		}
+	}
 	decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
 	if scope == p.Types.Scope() {
 		p.decls = append(p.decls, decl)

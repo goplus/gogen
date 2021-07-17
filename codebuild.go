@@ -144,25 +144,38 @@ func (p *CodeBuilder) Return(n int, outerReturn ...bool) *CodeBuilder {
 	if debug {
 		log.Println("Return", n)
 	}
-	results := p.current.fn.Type().(*types.Signature).Results()
+	fn := p.current.fn
+	results := fn.Type().(*types.Signature).Results()
 	args := p.stk.GetArgs(n)
 	if err := matchFuncResults(p.pkg, args, results); err != nil {
 		panic(err)
 	}
-	var rets []ast.Expr
-	if n > 0 {
-		rets = make([]ast.Expr, n)
-		for i := 0; i < n; i++ {
-			rets[i] = args[i].Val
+	if fn.isInline() && outerReturn == nil {
+		for i := n - 1; i >= 0; i-- {
+			key := closureParamInst{fn, results.At(i)}
+			log.Println("inline:", p.stk.Len())
+			elem := p.stk.Pop()
+			p.VarRef(p.paramInsts[key])
+			p.stk.Push(elem)
+			p.Assign(1)
 		}
-		p.stk.PopN(n)
+	} else {
+		var rets []ast.Expr
+		if n > 0 {
+			rets = make([]ast.Expr, n)
+			for i := 0; i < n; i++ {
+				rets[i] = args[i].Val
+			}
+			p.stk.PopN(n)
+		}
+		p.emitStmt(&ast.ReturnStmt{Results: rets})
 	}
-	p.emitStmt(&ast.ReturnStmt{Results: rets})
 	return p
 }
 
 // Call func
 func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
+	log.Println("call:", p.stk.Len())
 	args := p.stk.GetArgs(n)
 	n++
 	fn := p.stk.Get(-n)
@@ -178,13 +191,8 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	return p
 }
 
-type inlineClosure struct {
-	sig *types.Signature
-	old codeBlockCtx
-}
-
 type closureParamInst struct {
-	inst  *inlineClosure
+	inst  *Func
 	param *types.Var
 }
 
@@ -196,9 +204,10 @@ func (p *closureParamInsts) init() {
 	p.paramInsts = make(map[closureParamInst]*types.Var)
 }
 
-func (p *inlineClosure) End(cb *CodeBuilder) {
-	cb.emitStmt(&ast.BlockStmt{List: cb.endBlockStmt(p.old)})
-	sig := p.sig
+func (p *Func) inlineClosureEnd(cb *CodeBuilder) {
+	sig := p.Type().(*types.Signature)
+	cb.emitStmt(&ast.BlockStmt{List: cb.endFuncBody(p.old)})
+	cb.stk.PopN(p.getInlineCallArity())
 	results := sig.Results()
 	for i, n := 0, results.Len(); i < n; i++ { // return results & clean env
 		key := closureParamInst{p, results.At(i)}
@@ -211,18 +220,26 @@ func (p *inlineClosure) End(cb *CodeBuilder) {
 	}
 }
 
+func (p *Func) getInlineCallArity() int {
+	return int(p.Pos() &^ closureFlagInline)
+}
+
+func makeInlineCall(arity int) closureType {
+	return closureFlagInline | closureType(arity)
+}
+
 // CallInlineClosureStart func
 func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, ellipsis bool) *CodeBuilder {
 	if debug {
 		log.Println("CallInlineClosureStart", arity, ellipsis)
 	}
 	pkg := p.pkg
-	closure := &inlineClosure{sig: sig}
+	closure := pkg.newClosure(sig, makeInlineCall(arity))
 	results := sig.Results()
 	for i, n := 0, results.Len(); i < n; i++ {
 		p.emitVar(pkg, closure, results.At(i), false)
 	}
-	p.startBlockStmt(closure, "inline closure", &closure.old)
+	p.startFuncBody(closure, &closure.old)
 	args := p.stk.GetArgs(arity)
 	if err := matchFuncType(pkg, args, ellipsis, sig); err != nil {
 		panic(err)
@@ -237,7 +254,7 @@ func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, el
 	return p
 }
 
-func (p *CodeBuilder) emitVar(pkg *Package, closure *inlineClosure, param *types.Var, withInit bool) {
+func (p *CodeBuilder) emitVar(pkg *Package, closure *Func, param *types.Var, withInit bool) {
 	name := pkg.autoName()
 	if withInit {
 		p.NewVarStart(param.Type(), name).EndInit(1)
@@ -265,14 +282,13 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 			}
 		}
 	}
-	fn := types.NewFunc(token.NoPos, p.pkg.Types, "", sig)
-	return &Func{Func: fn}
+	return p.pkg.newClosure(sig, closureNormal)
 }
 
 // NewConstStart func
 func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilder {
 	if debug {
-		log.Println("NewConstStart", typ, names)
+		log.Println("NewConstStart", names)
 	}
 	return p.pkg.newValueDecl(token.CONST, typ, names...).InitStart(p.pkg)
 }
@@ -280,7 +296,7 @@ func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilde
 // NewVar func
 func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
 	if debug {
-		log.Println("NewVar", typ, names)
+		log.Println("NewVar", names)
 	}
 	p.pkg.newValueDecl(token.VAR, typ, names...)
 	return p
@@ -289,7 +305,7 @@ func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
 // NewVarStart func
 func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder {
 	if debug {
-		log.Println("NewVarStart", typ, names)
+		log.Println("NewVarStart", names)
 	}
 	return p.pkg.newValueDecl(token.VAR, typ, names...).InitStart(p.pkg)
 }
@@ -703,6 +719,15 @@ func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 			log.Println("Val", v)
 		}
 	}
+	fn := p.current.fn
+	if fn != nil && fn.isInline() { // is in an inline call
+		if param, ok := v.(*types.Var); ok {
+			key := closureParamInst{fn, param}
+			if arg, ok := p.paramInsts[key]; ok { // replace param with arg
+				v = arg
+			}
+		}
+	}
 	p.stk.Push(toExpr(p.pkg, v))
 	return p
 }
@@ -814,6 +839,7 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	}
 	p.emitStmt(stmt)
 	p.stk.PopN(lhs + rhs)
+	log.Println("assign finish:", p.stk.Len())
 	return p
 }
 
@@ -1188,6 +1214,9 @@ func (p *CodeBuilder) EndStmt() *CodeBuilder {
 func (p *CodeBuilder) End() *CodeBuilder {
 	if debug {
 		log.Println("End")
+		if p.stk.Len() > p.current.base {
+			panic("forget to call EndStmt()?")
+		}
 	}
 	p.current.End(p)
 	return p
