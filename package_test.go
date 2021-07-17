@@ -309,6 +309,38 @@ func main() {
 `)
 }
 
+func TestStructLit(t *testing.T) {
+	pkg := newMainPackage()
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typ := types.NewStruct(fields, nil)
+	pkg.NewVarStart(nil, "a").
+		StructLit(typ, 0, false).EndInit(1)
+	pkg.NewVarStart(nil, "b").
+		Val(123).Val("Hi").
+		StructLit(typ, 2, false).EndInit(1)
+	pkg.NewVarStart(nil, "c").
+		Val(1).Val("abc").
+		StructLit(typ, 2, true).EndInit(1)
+	domTest(t, pkg, `package main
+
+var a = struct {
+	x int
+	y string
+}{}
+var b = struct {
+	x int
+	y string
+}{123, "Hi"}
+var c = struct {
+	x int
+	y string
+}{y: "abc"}
+`)
+}
+
 func TestMapLit(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewVarStart(nil, "a").

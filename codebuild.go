@@ -699,6 +699,54 @@ func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeB
 	return p
 }
 
+// StructLit func
+func (p *CodeBuilder) StructLit(t *types.Struct, arity int, keyVal bool) *CodeBuilder {
+	if debug {
+		log.Println("StructLit", keyVal)
+	}
+	var elts []ast.Expr
+	var n = t.NumFields()
+	var args = p.stk.GetArgs(arity)
+	if keyVal {
+		if (arity & 1) != 0 {
+			panic("TODO: StructLit - invalid arity")
+		}
+		elts = make([]ast.Expr, arity>>1)
+		for i := 0; i < arity; i += 2 {
+			idx := toIntVal(args[i].CVal)
+			if idx >= n {
+				panic("TODO: invalid struct field index")
+			}
+			eltTy := t.Field(idx).Type()
+			if !AssignableTo(args[i+1].Type, eltTy) {
+				log.Panicf("TODO: StructLit - can't assign %v to %v\n", args[i+1].Type, eltTy)
+			}
+			eltName := ident(t.Field(idx).Name())
+			elts[i>>1] = &ast.KeyValueExpr{Key: eltName, Value: args[i+1].Val}
+		}
+	} else if arity != n {
+		if arity != 0 {
+			log.Panicln("TODO: too few values in struct")
+		}
+	} else {
+		elts = make([]ast.Expr, arity)
+		for i, arg := range args {
+			elts[i] = arg.Val
+			eltTy := t.Field(i).Type()
+			if !AssignableTo(arg.Type, eltTy) {
+				log.Panicf("TODO: StructLit - can't assign %v to %v\n", arg.Type, eltTy)
+			}
+		}
+	}
+	ret := &ast.CompositeLit{
+		Type: toStructType(p.pkg, t),
+		Elts: elts,
+	}
+	p.stk.Ret(arity, internal.Elem{Type: t, Val: ret})
+	return p
+}
+
+// SliceGet func
 func (p *CodeBuilder) SliceGet(slice3 bool) *CodeBuilder { // a[i:j:k]
 	if debug {
 		log.Println("SliceGet", slice3)
@@ -745,6 +793,7 @@ func (p *CodeBuilder) SliceGet(slice3 bool) *CodeBuilder { // a[i:j:k]
 	return p
 }
 
+// IndexGet func
 func (p *CodeBuilder) IndexGet(nidx int, twoValue bool) *CodeBuilder {
 	if debug {
 		log.Println("IndexGet", nidx, twoValue)
@@ -773,6 +822,7 @@ func (p *CodeBuilder) IndexGet(nidx int, twoValue bool) *CodeBuilder {
 	return p
 }
 
+// IndexRef func
 func (p *CodeBuilder) IndexRef(nidx int) *CodeBuilder {
 	if debug {
 		log.Println("IndexRef", nidx)

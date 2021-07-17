@@ -71,6 +71,26 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 	return flds
 }
 
+func toFields(pkg *Package, t *types.Struct) []*ast.Field {
+	n := t.NumFields()
+	flds := make([]*ast.Field, n)
+	for i := 0; i < n; i++ {
+		item := t.Field(i)
+		name := item.Name()
+		var names []*ast.Ident
+		if name != "" {
+			names = []*ast.Ident{ident(name)}
+		}
+		typ := toType(pkg, item.Type())
+		fld := &ast.Field{Names: names, Type: typ}
+		if tag := t.Tag(i); tag != "" {
+			fld.Tag = &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(tag)}
+		}
+		flds[i] = fld
+	}
+	return flds
+}
+
 func toVariadic(fld *ast.Field) {
 	t, ok := fld.Type.(*ast.ArrayType)
 	if !ok {
@@ -161,6 +181,11 @@ var (
 		types.RecvOnly: ast.RECV,
 	}
 )
+
+func toStructType(pkg *Package, t *types.Struct) ast.Expr {
+	list := toFields(pkg, t)
+	return &ast.StructType{Fields: &ast.FieldList{List: list}}
+}
 
 func toArrayType(pkg *Package, t *types.Array) ast.Expr {
 	var len ast.Expr
