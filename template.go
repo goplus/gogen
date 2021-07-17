@@ -92,7 +92,12 @@ func (p *unboundProxyParam) String() string {
 }
 
 func boundType(pkg *Package, arg, param types.Type) error {
-	arg = realType(arg)
+	if t, ok := arg.(*unboundType); ok { // TODO: remove (debug only)
+		log.Println("boundType unboundType:", t.tBound)
+		if t.tBound == nil {
+			panic("TODO: boundType to nil")
+		}
+	}
 	switch p := param.(type) {
 	case *unboundFuncParam: // template function param
 		if p.typ.contract.Match(arg) {
