@@ -153,7 +153,6 @@ func (p *CodeBuilder) Return(n int, outerReturn ...bool) *CodeBuilder {
 	if fn.isInline() && outerReturn == nil {
 		for i := n - 1; i >= 0; i-- {
 			key := closureParamInst{fn, results.At(i)}
-			log.Println("inline:", p.stk.Len())
 			elem := p.stk.Pop()
 			p.VarRef(p.paramInsts[key])
 			p.stk.Push(elem)
@@ -175,7 +174,6 @@ func (p *CodeBuilder) Return(n int, outerReturn ...bool) *CodeBuilder {
 
 // Call func
 func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
-	log.Println("call:", p.stk.Len())
 	args := p.stk.GetArgs(n)
 	n++
 	fn := p.stk.Get(-n)
@@ -839,7 +837,6 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	}
 	p.emitStmt(stmt)
 	p.stk.PopN(lhs + rhs)
-	log.Println("assign finish:", p.stk.Len())
 	return p
 }
 
