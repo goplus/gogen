@@ -1033,6 +1033,9 @@ func (p *CodeBuilder) CompareNil(op token.Token) *CodeBuilder {
 	if op != token.EQL && op != token.NEQ {
 		panic("TODO: compare nil can only be == or !=")
 	}
+	if debug {
+		log.Println("CompareNil", op)
+	}
 	arg := p.stk.Get(-1)
 	// TODO: type check
 	ret := internal.Elem{
