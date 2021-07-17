@@ -434,7 +434,6 @@ func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 		log.Panicln("TODO: call to non function -", t)
 	}
 	if err = matchFuncType(pkg, args, (flags&InstrFlagEllipsis) != token.NoPos, sig); err != nil {
-		log.Println("matchFuncType:", args[0].Type.(*unboundType).tBound, err) // TODO: remove (debug only)
 		return
 	}
 	tyRet := toRetType(sig.Results(), it)
@@ -560,7 +559,7 @@ func matchElemType(pkg *Package, vals []internal.Elem, elt types.Type) error {
 	return nil
 }
 
-func assignMatchType(pkg *Package, varRef types.Type, val types.Type) {
+func matchAssignType(pkg *Package, varRef types.Type, val types.Type) {
 	if rt, ok := varRef.(*refType); ok {
 		if err := matchType(pkg, val, rt.typ); err != nil {
 			panic(err)
@@ -576,7 +575,6 @@ func matchType(pkg *Package, arg, param types.Type) error {
 	switch t := param.(type) {
 	case *unboundType: // variable to bound type
 		if t2, ok := arg.(*unboundType); ok {
-			log.Println("matchType:", t2.tBound) // TODO: remove (debug only)
 			if t2.tBound == nil {
 				if t == t2 {
 					return nil

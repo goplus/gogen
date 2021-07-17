@@ -818,7 +818,7 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 	pkg := p.pkg
 	if lhs == rhs {
 		for i := 0; i < lhs; i++ {
-			assignMatchType(pkg, args[i].Type, args[lhs+i].Type)
+			matchAssignType(pkg, args[i].Type, args[lhs+i].Type)
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
 		}
@@ -828,7 +828,7 @@ func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
 			panic("TODO: unmatch assignment")
 		}
 		for i := 0; i < lhs; i++ {
-			assignMatchType(pkg, args[i].Type, rhsVals.At(i).Type())
+			matchAssignType(pkg, args[i].Type, rhsVals.At(i).Type())
 			stmt.Lhs[i] = args[i].Val
 		}
 		stmt.Rhs[0] = args[lhs].Val
