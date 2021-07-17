@@ -1572,11 +1572,15 @@ func TestCallInlineClosure(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	ret := pkg.NewAutoParam("ret")
-	sig := types.NewSignature(nil, nil, gox.NewTuple(ret), false)
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+	err := pkg.NewParam("", gox.TyError)
+	sig := types.NewSignature(nil, nil, types.NewTuple(ret), false)
+	pkg.NewFunc(nil, "foo", nil, types.NewTuple(err), false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).
 		CallInlineClosureStart(sig, 0, false).
 		/**/ DefineVarStart("n", "err").Val(fmt.Ref("Println")).Val("Hi").Call(1).EndInit(1).
+		/**/ If().Val(ctxRef(pkg, "err")).CompareNil(token.NEQ).Then().
+		/******/ Val(ctxRef(pkg, "err")).ReturnErr(true).
+		/******/ End().
 		/**/ Val(ctxRef(pkg, "n")).Return(1).
 		/**/ End().
 		Call(1).EndStmt().
@@ -1585,10 +1589,13 @@ func TestCallInlineClosure(t *testing.T) {
 
 import fmt "fmt"
 
-func main() {
+func foo() error {
 	var _autoGo_1 int
 	{
 		n, err := fmt.Println("Hi")
+		if err != nil {
+			return err
+		}
 		_autoGo_1 = n
 		goto _autoGo_2
 	_autoGo_2:

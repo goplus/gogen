@@ -186,7 +186,7 @@ func (p *CodeBuilder) ReturnErr(outer bool) *CodeBuilder {
 		if last.Type() == TyError { // last result is error
 			err := p.stk.Pop()
 			for i := 0; i < n-1; i++ {
-				p.ZeroLit(results.At(i).Type())
+				p.doZeroLit(results.At(i).Type(), false)
 			}
 			p.stk.Push(err)
 			p.returnResults(n)
@@ -223,9 +223,9 @@ func (p *CodeBuilder) Return(n int) *CodeBuilder {
 		for i := n - 1; i >= 0; i-- {
 			key := closureParamInst{fn, results.At(i)}
 			elem := p.stk.Pop()
-			p.VarRef(p.paramInsts[key])
+			p.doVarRef(p.paramInsts[key], false)
 			p.stk.Push(elem)
-			p.Assign(1)
+			p.doAssign(1, nil, false)
 		}
 		p.Goto(p.getEndingLabel(fn))
 	} else {
@@ -420,8 +420,12 @@ func (p *CodeBuilder) NewAutoVar(name string, pv **types.Var) *CodeBuilder {
 
 // VarRef func: p.VarRef(nil) means underscore (_)
 func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
+	return p.doVarRef(ref, true)
+}
+
+func (p *CodeBuilder) doVarRef(ref interface{}, allowDebug bool) *CodeBuilder {
 	if ref == nil {
-		if debug {
+		if allowDebug && debug {
 			log.Println("VarRef _")
 		}
 		p.stk.Push(internal.Elem{
@@ -430,7 +434,7 @@ func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 	} else {
 		switch v := ref.(type) {
 		case *types.Var:
-			if debug {
+			if allowDebug && debug {
 				log.Println("VarRef", v.Name())
 			}
 			fn := p.current.fn
@@ -460,8 +464,13 @@ func (p *CodeBuilder) None() *CodeBuilder {
 	return p
 }
 
+// ZeroLit func
 func (p *CodeBuilder) ZeroLit(typ types.Type) *CodeBuilder {
-	if debug {
+	return p.doZeroLit(typ, true)
+}
+
+func (p *CodeBuilder) doZeroLit(typ types.Type, allowDebug bool) *CodeBuilder {
+	if allowDebug && debug {
 		log.Println("ZeroLit")
 	}
 	switch t := typ.(type) {
@@ -916,14 +925,18 @@ func indirect(typ types.Type) types.Type {
 }
 
 // Assign func
-func (p *CodeBuilder) Assign(lhs int, v ...int) *CodeBuilder {
+func (p *CodeBuilder) Assign(lhs int, rhs ...int) *CodeBuilder {
+	return p.doAssign(lhs, rhs, true)
+}
+
+func (p *CodeBuilder) doAssign(lhs int, v []int, allowDebug bool) *CodeBuilder {
 	var rhs int
 	if v != nil {
 		rhs = v[0]
 	} else {
 		rhs = lhs
 	}
-	if debug {
+	if allowDebug && debug {
 		log.Println("Assign", lhs, rhs)
 	}
 	args := p.stk.GetArgs(lhs + rhs)
