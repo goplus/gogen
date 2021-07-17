@@ -1529,6 +1529,39 @@ func main() {
 	{
 		n, err := fmt.Println("Hi")
 		_autoGo_1 = n
+		goto _autoGo_2
+	_autoGo_2:
+	}
+	fmt.Println(_autoGo_1)
+}
+`)
+}
+
+func TestCallInlineClosureAssign(t *testing.T) {
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+	ret := pkg.NewAutoParam("ret")
+	sig := types.NewSignature(nil, nil, gox.NewTuple(ret), false)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).
+		CallInlineClosureStart(sig, 0, false).
+		/**/ NewVar(types.Universe.Lookup("error").Type(), "err").
+		/**/ VarRef(ret).VarRef(ctxRef(pkg, "err")).Val(fmt.Ref("Println")).Val("Hi").Call(1).Assign(2, 1).
+		/**/ Return(0).
+		/**/ End().
+		Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	var _autoGo_1 int
+	{
+		var err error
+		_autoGo_1, err = fmt.Println("Hi")
+		goto _autoGo_2
+	_autoGo_2:
 	}
 	fmt.Println(_autoGo_1)
 }
@@ -1562,6 +1595,8 @@ func main() {
 		}{1}
 		n, err := fmt.Println(_autoGo_2...)
 		_autoGo_1 = n
+		goto _autoGo_3
+	_autoGo_3:
 	}
 	fmt.Println(_autoGo_1)
 }

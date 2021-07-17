@@ -186,6 +186,7 @@ func (p *CodeBuilder) Return(n int, outerReturn ...bool) *CodeBuilder {
 			p.stk.Push(elem)
 			p.Assign(1)
 		}
+		p.Goto(p.getEndingLabel(fn))
 	} else {
 		var rets []ast.Expr
 		if n > 0 {
@@ -230,14 +231,35 @@ func (p *closureParamInsts) init() {
 	p.paramInsts = make(map[closureParamInst]*types.Var)
 }
 
+func (p *CodeBuilder) getEndingLabel(fn *Func) string {
+	key := closureParamInst{fn, nil}
+	if v, ok := p.paramInsts[key]; ok {
+		return v.Name()
+	}
+	ending := p.pkg.autoName()
+	p.paramInsts[key] = types.NewParam(token.NoPos, nil, ending, nil)
+	return ending
+}
+
+func (p *CodeBuilder) needEndingLabel(fn *Func) (string, bool) {
+	key := closureParamInst{fn, nil}
+	if v, ok := p.paramInsts[key]; ok {
+		return v.Name(), true
+	}
+	return "", false
+}
+
 func (p *Func) inlineClosureEnd(cb *CodeBuilder) {
+	if ending, ok := cb.needEndingLabel(p); ok {
+		cb.Label(ending)
+	}
 	sig := p.Type().(*types.Signature)
 	cb.emitStmt(&ast.BlockStmt{List: cb.endFuncBody(p.old)})
 	cb.stk.PopN(p.getInlineCallArity())
 	results := sig.Results()
 	for i, n := 0, results.Len(); i < n; i++ { // return results & clean env
 		key := closureParamInst{p, results.At(i)}
-		cb.Val(cb.paramInsts[key])
+		cb.pushVal(cb.paramInsts[key])
 		delete(cb.paramInsts, key)
 	}
 	for i, n := 0, getParamLen(sig); i < n; i++ { // clean env
@@ -377,6 +399,13 @@ func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 		case *types.Var:
 			if debug {
 				log.Println("VarRef", v.Name())
+			}
+			fn := p.current.fn
+			if fn != nil && fn.isInline() { // is in an inline call
+				key := closureParamInst{fn, v}
+				if arg, ok := p.paramInsts[key]; ok { // replace param with arg
+					v = arg
+				}
 			}
 			p.stk.Push(internal.Elem{
 				Val:  ident(v.Name()),
@@ -754,6 +783,10 @@ func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 			}
 		}
 	}
+	return p.pushVal(v)
+}
+
+func (p *CodeBuilder) pushVal(v interface{}) *CodeBuilder {
 	p.stk.Push(toExpr(p.pkg, v))
 	return p
 }
