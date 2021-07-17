@@ -575,6 +575,7 @@ func matchType(pkg *Package, arg, param types.Type) error {
 	switch t := param.(type) {
 	case *unboundType: // variable to bound type
 		if t2, ok := arg.(*unboundType); ok {
+			log.Println("matchType:", t2.tBound) // TODO: remove (debug only)
 			if t2.tBound == nil {
 				if t == t2 {
 					return nil
