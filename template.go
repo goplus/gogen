@@ -92,6 +92,7 @@ func (p *unboundProxyParam) String() string {
 }
 
 func boundType(pkg *Package, arg, param types.Type) error {
+	arg = realType(arg)
 	switch p := param.(type) {
 	case *unboundFuncParam: // template function param
 		if p.typ.contract.Match(arg) {
