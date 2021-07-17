@@ -1446,6 +1446,24 @@ func main() {
 `)
 }
 
+func TestBinaryOpCmpNil(t *testing.T) {
+	pkg := newMainPackage()
+	typ := types.NewSlice(gox.TyEmptyInterface)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(typ, "a").
+		NewVarStart(types.Typ[types.Bool], "b").
+		Val(ctxRef(pkg, "a")).Val(nil).BinaryOp(token.NEQ).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a []interface {
+	}
+	var b bool = a != nil
+}
+`)
+}
+
 func TestClosure(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")

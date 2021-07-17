@@ -876,11 +876,16 @@ func callOpFunc(pkg *Package, name string, args []internal.Elem, flags InstrFlag
 
 // BinaryOp func
 func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
+	name := p.pkg.prefix + binaryOps[op]
+	args := p.stk.GetArgs(2)
+	if args[1].Type == types.Typ[types.UntypedNil] { // is nil
+		p.stk.PopN(1)
+		return p.CompareNil(op)
+	}
 	if debug {
 		log.Println("BinaryOp", op)
 	}
-	name := p.pkg.prefix + binaryOps[op]
-	ret := callOpFunc(p.pkg, name, p.stk.GetArgs(2), 0)
+	ret := callOpFunc(p.pkg, name, args, 0)
 	p.stk.Ret(2, ret)
 	return p
 }
@@ -908,6 +913,21 @@ var (
 		token.NEQ: "NE",
 	}
 )
+
+// CompareNil func
+func (p *CodeBuilder) CompareNil(op token.Token) *CodeBuilder {
+	if op != token.EQL && op != token.NEQ {
+		panic("TODO: compare nil can only be == or !=")
+	}
+	arg := p.stk.Get(-1)
+	// TODO: type check
+	ret := internal.Elem{
+		Val:  &ast.BinaryExpr{X: arg.Val, Op: op, Y: identNil},
+		Type: types.Typ[types.Bool],
+	}
+	p.stk.Ret(1, ret)
+	return p
+}
 
 // UnaryOp func
 func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {

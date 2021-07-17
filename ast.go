@@ -21,15 +21,21 @@ var (
 	underscore ast.Expr = &ast.Ident{Name: "_"}
 )
 
+var (
+	identTrue  = ident("true")
+	identFalse = ident("false")
+	identNil   = ident("nil")
+)
+
 func ident(name string) *ast.Ident {
 	return &ast.Ident{Name: name}
 }
 
 func boolean(v bool) *ast.Ident {
 	if v {
-		return &ast.Ident{Name: "true"}
+		return identTrue
 	}
-	return &ast.Ident{Name: "false"}
+	return identFalse
 }
 
 func newField(pkg *Package, name string, typ types.Type) *ast.Field {
@@ -195,7 +201,7 @@ func toInterface(pkg *Package, t *types.Interface) ast.Expr {
 func toExpr(pkg *Package, val interface{}) internal.Elem {
 	if val == nil {
 		return internal.Elem{
-			Val:  ident("nil"),
+			Val:  identNil,
 			Type: types.Typ[types.UntypedNil],
 		}
 	}
