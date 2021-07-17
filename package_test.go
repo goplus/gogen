@@ -269,6 +269,46 @@ func main() {
 `)
 }
 
+func TestZeroLitAllTypes(t *testing.T) {
+	pkg := newMainPackage()
+	tyString := types.Typ[types.String]
+	tyBool := types.Typ[types.Bool]
+	tyUP := types.Typ[types.UnsafePointer]
+	tyMap := types.NewMap(tyString, types.Typ[types.Int])
+	tySlice := types.NewSlice(types.Typ[types.Int])
+	tyArray := types.NewArray(types.Typ[types.Int], 10)
+	tyPointer := types.NewPointer(types.Typ[types.Int])
+	tyChan := types.NewChan(types.SendRecv, types.Typ[types.Int])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tyMap, "a").ZeroLit(tyMap).EndInit(1).
+		NewVarStart(tySlice, "b").ZeroLit(tySlice).EndInit(1).
+		NewVarStart(tyPointer, "c").ZeroLit(tyPointer).EndInit(1).
+		NewVarStart(tyChan, "d").ZeroLit(tyChan).EndInit(1).
+		NewVarStart(tyBool, "e").ZeroLit(tyBool).EndInit(1).
+		NewVarStart(tyString, "f").ZeroLit(tyString).EndInit(1).
+		NewVarStart(tyUP, "g").ZeroLit(tyUP).EndInit(1).
+		NewVarStart(gox.TyEmptyInterface, "h").ZeroLit(gox.TyEmptyInterface).EndInit(1).
+		NewVarStart(tyArray, "i").ZeroLit(tyArray).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+import unsafe "unsafe"
+
+func main() {
+	var a map[string]int = nil
+	var b []int = nil
+	var c *int = nil
+	var d chan int = nil
+	var e bool = false
+	var f string = ""
+	var g unsafe.Pointer = nil
+	var h interface {
+	} = nil
+	var i [10]int = [10]int{}
+}
+`)
+}
+
 func TestMapLit(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewVarStart(nil, "a").
@@ -1503,6 +1543,27 @@ func main() {
 		ret = append(ret, 1)
 		return
 	}()
+}
+`)
+}
+
+func TestReturnErr(t *testing.T) {
+	pkg := newMainPackage()
+	tyErr := types.Universe.Lookup("error").Type()
+	format := pkg.NewParam("format", types.Typ[types.String])
+	args := pkg.NewParam("args", types.NewSlice(gox.TyEmptyInterface))
+	n := pkg.NewParam("", types.Typ[types.Int])
+	err := pkg.NewParam("", tyErr)
+	pkg.NewFunc(nil, "foo", gox.NewTuple(format, args), gox.NewTuple(n, err), true).BodyStart(pkg).
+		NewVar(tyErr, "_gop_err").
+		Val(ctxRef(pkg, "_gop_err")).ReturnErr(false).
+		End()
+	domTest(t, pkg, `package main
+
+func foo(format string, args ...interface {
+}) (int, error) {
+	var _gop_err error
+	return 0, _gop_err
 }
 `)
 }

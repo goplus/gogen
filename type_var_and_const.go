@@ -177,6 +177,7 @@ var (
 
 var (
 	TyEmptyInterface = types.NewInterfaceType(nil, nil)
+	TyError          = types.Universe.Lookup("error").Type()
 )
 
 // refType: &T

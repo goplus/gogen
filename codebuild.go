@@ -167,18 +167,59 @@ func (p *CodeBuilder) endInitExpr(old codeBlock) {
 	p.current.codeBlock = old
 }
 
+// ReturnErr func
+func (p *CodeBuilder) ReturnErr(outer bool) *CodeBuilder {
+	if debug {
+		log.Println("ReturnErr", outer)
+	}
+	fn := p.current.fn
+	if outer {
+		if !fn.isInline() {
+			panic("only support ReturnOuterErr in an inline call")
+		}
+		fn = fn.old.fn
+	}
+	results := fn.Type().(*types.Signature).Results()
+	n := results.Len()
+	if n > 0 {
+		last := results.At(n - 1)
+		if last.Type() == TyError { // last result is error
+			err := p.stk.Pop()
+			for i := 0; i < n-1; i++ {
+				p.ZeroLit(results.At(i).Type())
+			}
+			p.stk.Push(err)
+			p.returnResults(n)
+			return p
+		}
+	}
+	panic("TODO: last result type isn't an error")
+}
+
+func (p *CodeBuilder) returnResults(n int) {
+	var rets []ast.Expr
+	if n > 0 {
+		args := p.stk.GetArgs(n)
+		rets = make([]ast.Expr, n)
+		for i := 0; i < n; i++ {
+			rets[i] = args[i].Val
+		}
+		p.stk.PopN(n)
+	}
+	p.emitStmt(&ast.ReturnStmt{Results: rets})
+}
+
 // Return func
-func (p *CodeBuilder) Return(n int, outerReturn ...bool) *CodeBuilder {
+func (p *CodeBuilder) Return(n int) *CodeBuilder {
 	if debug {
 		log.Println("Return", n)
 	}
 	fn := p.current.fn
 	results := fn.Type().(*types.Signature).Results()
-	args := p.stk.GetArgs(n)
-	if err := matchFuncResults(p.pkg, args, results); err != nil {
+	if err := matchFuncResults(p.pkg, p.stk.GetArgs(n), results); err != nil {
 		panic(err)
 	}
-	if fn.isInline() && outerReturn == nil {
+	if fn.isInline() {
 		for i := n - 1; i >= 0; i-- {
 			key := closureParamInst{fn, results.At(i)}
 			elem := p.stk.Pop()
@@ -188,15 +229,7 @@ func (p *CodeBuilder) Return(n int, outerReturn ...bool) *CodeBuilder {
 		}
 		p.Goto(p.getEndingLabel(fn))
 	} else {
-		var rets []ast.Expr
-		if n > 0 {
-			rets = make([]ast.Expr, n)
-			for i := 0; i < n; i++ {
-				rets[i] = args[i].Val
-			}
-			p.stk.PopN(n)
-		}
-		p.emitStmt(&ast.ReturnStmt{Results: rets})
+		p.returnResults(n)
 	}
 	return p
 }
@@ -430,6 +463,29 @@ func (p *CodeBuilder) None() *CodeBuilder {
 func (p *CodeBuilder) ZeroLit(typ types.Type) *CodeBuilder {
 	if debug {
 		log.Println("ZeroLit")
+	}
+	switch t := typ.(type) {
+	case *types.Basic:
+		switch kind := t.Kind(); kind {
+		case types.Bool:
+			return p.Val(false)
+		case types.String:
+			return p.Val("")
+		case types.UnsafePointer:
+			return p.Val(nil)
+		default:
+			return p.Val(0)
+		}
+	case *types.Interface:
+		return p.Val(nil)
+	case *types.Map:
+		return p.Val(nil)
+	case *types.Slice:
+		return p.Val(nil)
+	case *types.Pointer:
+		return p.Val(nil)
+	case *types.Chan:
+		return p.Val(nil)
 	}
 	ret := &ast.CompositeLit{}
 	switch t := typ.(type) {
