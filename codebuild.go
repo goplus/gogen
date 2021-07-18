@@ -458,7 +458,7 @@ func (p *CodeBuilder) doVarRef(ref interface{}, allowDebug bool) *CodeBuilder {
 				}
 			}
 			p.stk.Push(internal.Elem{
-				Val:  ident(v.Name()),
+				Val:  toObjectExpr(p.pkg, v),
 				Type: &refType{typ: v.Type()},
 			})
 		default:

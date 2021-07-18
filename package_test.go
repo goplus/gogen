@@ -1536,6 +1536,22 @@ func main() {
 `)
 }
 
+func TestPkgVar(t *testing.T) {
+	pkg := newMainPackage()
+	flag := pkg.Import("flag")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(flag.Ref("Usage")).Val(nil).Assign(1).
+		End()
+	domTest(t, pkg, `package main
+
+import flag "flag"
+
+func main() {
+	flag.Usage = nil
+}
+`)
+}
+
 func TestStructMember(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{
