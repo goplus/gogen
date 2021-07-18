@@ -52,6 +52,9 @@ func (p *TypeDecl) Type() *types.Named {
 
 // InitType initializes a uncompleted type.
 func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
+	if debug {
+		log.Println("InitType", p.typ.Obj().Name(), typ)
+	}
 	p.typ.SetUnderlying(typ)
 	*p.typExpr = toType(pkg, typ)
 	return p.typ
@@ -59,12 +62,18 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 
 // AliasType gives a specified type with a new name
 func (p *Package) AliasType(name string, typ types.Type) *types.Named {
+	if debug {
+		log.Println("AliasType", name, typ)
+	}
 	decl := p.newType(name, typ, 1)
 	return decl.typ
 }
 
 // NewType creates a new type (which need to call InitType later).
 func (p *Package) NewType(name string) *TypeDecl {
+	if debug {
+		log.Println("NewType", name)
+	}
 	return p.newType(name, nil, 0)
 }
 
@@ -72,7 +81,7 @@ func (p *Package) newType(name string, typ types.Type, alias token.Pos) *TypeDec
 	typName := types.NewTypeName(token.NoPos, p.Types, name, typ)
 	scope := p.cb.current.scope
 	if scope.Insert(typName) != nil {
-		log.Panic("TODO: type already defined -", name)
+		log.Panicln("TODO: type already defined -", name)
 	}
 	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
 	decl := &ast.GenDecl{Tok: token.TYPE, Specs: []ast.Spec{spec}}
