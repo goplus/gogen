@@ -117,6 +117,41 @@ func bar(v mytype) rune {
 	}
 }
 
+func TestMethods(t *testing.T) {
+	const src = `package foo
+
+type foo struct {}
+func (a foo) A() {}
+func (p *foo) Bar() {}
+`
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "foo.go", src, 0)
+	if err != nil {
+		t.Fatal("parser.ParseFile:", err)
+	}
+
+	packages := make(map[string]*types.Package)
+	imp := gcexportdata.NewImporter(fset, packages)
+	conf := types.Config{Importer: imp}
+	pkg, err := conf.Check("foo", fset, []*ast.File{f}, nil)
+	if err != nil {
+		t.Fatal("conf.Check:", err)
+	}
+	foo, ok := pkg.Scope().Lookup("foo").Type().(*types.Named)
+	if !ok {
+		t.Fatal("foo not found")
+	}
+	if foo.NumMethods() != 2 {
+		t.Fatal("foo.NumMethods:", foo.NumMethods())
+	}
+	if foo0 := foo.Method(0).String(); foo0 != "func (foo.foo).A()" {
+		t.Fatal("foo.0 =", foo0)
+	}
+	if foo1 := foo.Method(1).String(); foo1 != "func (*foo.foo).Bar()" {
+		t.Fatal("foo.1 =", foo1)
+	}
+}
+
 // ----------------------------------------------------------------------------
 
 func TestBasic(t *testing.T) {
@@ -309,7 +344,7 @@ func main() {
 `)
 }
 
-func TestTypeDecl(t *testing.T) {
+func TestTypeDeclInFunc(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{
 		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
@@ -337,7 +372,7 @@ func main() {
 `)
 }
 
-func TestTypeDeclInFunc(t *testing.T) {
+func TestTypeDecl(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{
 		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
@@ -358,6 +393,35 @@ type bar = struct {
 	y string
 }
 type a = foo
+`)
+}
+
+func TestTypeMethods(t *testing.T) {
+	pkg := newMainPackage()
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typ := types.NewStruct(fields, nil)
+	foo := pkg.NewType("foo").InitType(pkg, typ)
+	recv := pkg.NewParam("a", foo)
+	precv := pkg.NewParam("p", types.NewPointer(foo))
+	pkg.NewFunc(recv, "Bar", nil, nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(precv, "Print", nil, nil, false).BodyStart(pkg).End()
+	if foo.NumMethods() != 2 {
+		t.Fatal("foo.NumMethods != 2")
+	}
+	domTest(t, pkg, `package main
+
+type foo struct {
+	x int
+	y string
+}
+
+func (a foo) Bar() {
+}
+func (p *foo) Print() {
+}
 `)
 }
 

@@ -110,6 +110,9 @@ func (p *CodeBuilder) startFuncBody(fn *Func, old *funcBodyCtx) *CodeBuilder {
 	sig := fn.Type().(*types.Signature)
 	insertParams(scope, sig.Params())
 	insertParams(scope, sig.Results())
+	if recv := sig.Recv(); recv != nil {
+		scope.Insert(recv)
+	}
 	return p
 }
 

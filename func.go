@@ -100,6 +100,18 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 
 	fn := types.NewFunc(token.NoPos, p.Types, name, sig)
 	p.Types.Scope().Insert(fn)
+	if recv := sig.Recv(); recv != nil { // add method to this type
+		var t *types.Named
+		switch typ := recv.Type().(type) {
+		case *types.Named:
+			t = typ
+		case *types.Pointer:
+			t = typ.Elem().(*types.Named)
+		default:
+			panic("TODO: invalid recv type")
+		}
+		t.AddMethod(fn)
+	}
 
 	decl := &ast.FuncDecl{}
 	p.decls = append(p.decls, decl)
