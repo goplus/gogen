@@ -489,12 +489,12 @@ func TestNamedStructLit(t *testing.T) {
 	typU := types.NewStruct(fields, nil)
 	typ := pkg.NewType("foo").InitType(pkg, typU)
 	bar := pkg.AliasType("bar", typ)
-	pkg.NewVarStart(nil, "a").
+	pkg.NewVarStart(typ, "a").
 		StructLit(typ, 0, false).EndInit(1)
-	pkg.NewVarStart(nil, "b").
+	pkg.NewVarStart(bar, "b").
 		Val(123).Val("Hi").
 		StructLit(bar, 2, false).EndInit(1)
-	pkg.NewVarStart(nil, "c").
+	pkg.NewVarStart(bar, "c").
 		Val(1).Val("abc").
 		StructLit(typ, 2, true).EndInit(1)
 	domTest(t, pkg, `package main
@@ -505,9 +505,9 @@ type foo struct {
 }
 type bar = foo
 
-var a = foo{}
-var b = bar{123, "Hi"}
-var c = foo{y: "abc"}
+var a foo = foo{}
+var b bar = bar{123, "Hi"}
+var c bar = foo{y: "abc"}
 `)
 }
 
@@ -536,10 +536,10 @@ func TestNamedMapLit(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.NewType("foo").InitType(pkg, types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]))
 	bar := pkg.AliasType("bar", foo)
-	pkg.NewVarStart(nil, "a").
+	pkg.NewVarStart(foo, "a").
 		Val(1).Val(true).
 		MapLit(foo, 2).EndInit(1)
-	pkg.NewVarStart(nil, "b").
+	pkg.NewVarStart(bar, "b").
 		Val(1).Val(true).
 		MapLit(bar, 2).EndInit(1)
 	domTest(t, pkg, `package main
@@ -547,8 +547,8 @@ func TestNamedMapLit(t *testing.T) {
 type foo map[int]bool
 type bar = foo
 
-var a = foo{1: true}
-var b = bar{1: true}
+var a foo = foo{1: true}
+var b bar = bar{1: true}
 `)
 }
 
@@ -570,6 +570,26 @@ var b = []float64{1, 1.2, 3}
 var c = []interface {
 }{}
 var d = []int{1}
+`)
+}
+
+func TestNamedSliceLit(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.NewType("foo").InitType(pkg, types.NewSlice(types.Typ[types.Int]))
+	bar := pkg.AliasType("bar", foo)
+	pkg.NewVarStart(foo, "a").
+		Val(1).
+		SliceLit(foo, 1).EndInit(1)
+	pkg.NewVarStart(bar, "b").
+		Val(1).
+		SliceLit(bar, 1).EndInit(1)
+	domTest(t, pkg, `package main
+
+type foo []int
+type bar = foo
+
+var a foo = foo{1}
+var b bar = bar{1}
 `)
 }
 

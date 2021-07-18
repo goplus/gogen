@@ -616,12 +616,25 @@ func toLitElemExpr(args []internal.Elem, i int) ast.Expr {
 }
 
 // SliceLit func
-func (p *CodeBuilder) SliceLit(t *types.Slice, arity int, keyVal ...bool) *CodeBuilder {
+func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeBuilder {
 	var elts []ast.Expr
-	var pkg = p.pkg
 	var keyValMode = (keyVal != nil && keyVal[0])
 	if debug {
-		log.Println("SliceLit", t, arity, keyValMode)
+		log.Println("SliceLit", typ, arity, keyValMode)
+	}
+	var t *types.Slice
+	var typExpr ast.Expr
+	if typ != nil {
+		switch tt := typ.(type) {
+		case *types.Named:
+			typExpr = toNamedType(p.pkg, tt)
+			t = tt.Underlying().(*types.Slice)
+		case *types.Slice:
+			typExpr = toSliceType(p.pkg, tt)
+			t = tt
+		default:
+			log.Panicln("TODO: MapLit: typ isn't a map type -", reflect.TypeOf(typ))
+		}
 	}
 	if keyValMode { // in keyVal mode
 		if (arity & 1) != 0 {
@@ -641,9 +654,9 @@ func (p *CodeBuilder) SliceLit(t *types.Slice, arity int, keyVal ...bool) *CodeB
 		if arity == 0 {
 			if t == nil {
 				t = types.NewSlice(TyEmptyInterface)
+				typExpr = toSliceType(p.pkg, t)
 			}
-			ret := &ast.CompositeLit{Type: toSliceType(pkg, t)}
-			p.stk.Push(internal.Elem{Type: t, Val: ret})
+			p.stk.Push(internal.Elem{Type: t, Val: &ast.CompositeLit{Type: typExpr}})
 			return p
 		}
 		var val types.Type
@@ -654,6 +667,7 @@ func (p *CodeBuilder) SliceLit(t *types.Slice, arity int, keyVal ...bool) *CodeB
 		} else {
 			val = boundElementType(args, 0, arity, 1)
 			t = types.NewSlice(types.Default(val))
+			typExpr = toSliceType(p.pkg, t)
 		}
 		elts = make([]ast.Expr, arity)
 		for i, arg := range args {
@@ -665,11 +679,7 @@ func (p *CodeBuilder) SliceLit(t *types.Slice, arity int, keyVal ...bool) *CodeB
 			}
 		}
 	}
-	ret := &ast.CompositeLit{
-		Type: toSliceType(pkg, t),
-		Elts: elts,
-	}
-	p.stk.Ret(arity, internal.Elem{Type: t, Val: ret})
+	p.stk.Ret(arity, internal.Elem{Type: t, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 
