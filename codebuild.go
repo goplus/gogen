@@ -962,6 +962,31 @@ func (p *CodeBuilder) pushVal(v interface{}) *CodeBuilder {
 	return p
 }
 
+// MemberRef func
+func (p *CodeBuilder) MemberRef(name string) *CodeBuilder {
+	if debug {
+		log.Println("MemberRef", name)
+	}
+	arg := p.stk.Get(-1)
+	t, ok := arg.Type.(*refType)
+	if !ok {
+		log.Panicln("MemberRef can only apply to exprLHS")
+	}
+	switch o := indirect(t.typ).(type) {
+	case *types.Named:
+		if struc, ok := o.Underlying().(*types.Struct); ok {
+			p.fieldRef(arg.Val, struc, name)
+		} else {
+			panic("TODO: member not found - " + name)
+		}
+	case *types.Struct:
+		p.fieldRef(arg.Val, o, name)
+	default:
+		log.Panicln("TODO: MemberRef - unexpected type:", o)
+	}
+	return p
+}
+
 // MemberVal func
 func (p *CodeBuilder) MemberVal(name string) *CodeBuilder {
 	if debug {
@@ -991,6 +1016,17 @@ func (p *CodeBuilder) MemberVal(name string) *CodeBuilder {
 		log.Panicln("TODO: MemberVal - unexpected type:", o)
 	}
 	return p
+}
+
+func (p *CodeBuilder) fieldRef(x ast.Expr, struc *types.Struct, name string) {
+	if t := structFieldType(struc, name); t != nil {
+		p.stk.Ret(1, internal.Elem{
+			Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
+			Type: &refType{typ: t},
+		})
+	} else {
+		panic("TODO: member not found - " + name)
+	}
 }
 
 func (p *CodeBuilder) fieldVal(x ast.Expr, struc *types.Struct, name string) {

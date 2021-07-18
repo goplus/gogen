@@ -1554,6 +1554,10 @@ func TestStructMember(t *testing.T) {
 		StructLit(foo, 2, false).EndInit(1)
 	pkg.NewVarStart(nil, "d").
 		Val(ctxRef(pkg, "c")).MemberVal("x").EndInit(1)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(ctxRef(pkg, "c")).MemberRef("x").Val(1).Assign(1).
+		VarRef(ctxRef(pkg, "a")).MemberRef("y").Val("1").Assign(1).
+		End()
 	domTest(t, pkg, `package main
 
 type foo struct {
@@ -1568,6 +1572,11 @@ var a = struct {
 var b = a.y
 var c = foo{123, "Hi"}
 var d = c.x
+
+func main() {
+	c.x = 1
+	a.y = "1"
+}
 `)
 }
 
