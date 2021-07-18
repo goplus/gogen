@@ -152,10 +152,11 @@ func InitBuiltinOps(builtin *types.Package, pre string, contracts *BuiltinContra
 		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, pre+op.name, tsig))
 	}
 
-	// Inc/Dec/Recv are special cases
+	// Inc++, Dec--, Recv<-, Addr& are special cases
 	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Inc", incInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Dec", decInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Recv", recvInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Addr", addrInstr{}))
 }
 
 func newTParams(params []typeTParam) []*TemplateParamType {
@@ -472,6 +473,20 @@ func (p recvInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Ele
 		panic("TODO: <-ch is a send only chan")
 	}
 	panic("TODO: <-ch not a chan type")
+}
+
+type addrInstr struct {
+}
+
+// &variable
+func (p addrInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+	if len(args) != 1 {
+		panic("TODO: please use &variable to get its address")
+	}
+	// TODO: type check
+	t := args[0].Type
+	ret = Element{Val: &ast.UnaryExpr{Op: token.AND, X: args[0].Val}, Type: types.NewPointer(t)}
+	return
 }
 
 type newInstr struct {

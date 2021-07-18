@@ -547,10 +547,11 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 	if arity == 0 {
 		if t == nil {
 			t = types.NewMap(types.Typ[types.String], TyEmptyInterface)
+			typ = t
 			typExpr = toMapType(p.pkg, t)
 		}
 		ret := &ast.CompositeLit{Type: typExpr}
-		p.stk.Push(internal.Elem{Type: t, Val: ret})
+		p.stk.Push(internal.Elem{Type: typ, Val: ret})
 		return p
 	}
 	if (arity & 1) != 0 {
@@ -565,6 +566,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 		key = boundElementType(args, 0, arity, 2)
 		val = boundElementType(args, 1, arity, 2)
 		t = types.NewMap(types.Default(key), types.Default(val))
+		typ = t
 		typExpr = toMapType(p.pkg, t)
 	}
 	elts := make([]ast.Expr, arity>>1)
@@ -578,7 +580,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 			}
 		}
 	}
-	p.stk.Ret(arity, internal.Elem{Type: t, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 
@@ -654,9 +656,10 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		if arity == 0 {
 			if t == nil {
 				t = types.NewSlice(TyEmptyInterface)
+				typ = t
 				typExpr = toSliceType(p.pkg, t)
 			}
-			p.stk.Push(internal.Elem{Type: t, Val: &ast.CompositeLit{Type: typExpr}})
+			p.stk.Push(internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr}})
 			return p
 		}
 		var val types.Type
@@ -667,6 +670,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		} else {
 			val = boundElementType(args, 0, arity, 1)
 			t = types.NewSlice(types.Default(val))
+			typ = t
 			typExpr = toSliceType(p.pkg, t)
 		}
 		elts = make([]ast.Expr, arity)
@@ -679,7 +683,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			}
 		}
 	}
-	p.stk.Ret(arity, internal.Elem{Type: t, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 
@@ -711,6 +715,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		val := t.Elem()
 		if n := t.Len(); n < 0 {
 			t = types.NewArray(val, int64(max))
+			typ = t
 		} else if int(n) < max {
 			log.Panicf("TODO: array index %v out of bounds [0:%v]\n", max, n)
 		}
@@ -725,6 +730,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		val := t.Elem()
 		if n := t.Len(); n < 0 {
 			t = types.NewArray(val, int64(arity))
+			typ = t
 		} else if int(n) < arity {
 			log.Panicf("TODO: array index %v out of bounds [0:%v]\n", arity, n)
 		}
@@ -737,7 +743,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			}
 		}
 	}
-	p.stk.Ret(arity, internal.Elem{Type: t, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 
@@ -792,7 +798,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 			}
 		}
 	}
-	p.stk.Ret(arity, internal.Elem{Type: t, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 
@@ -1083,22 +1089,19 @@ func lookupMethod(t *types.Named, name string) types.Object {
 func callOpFunc(pkg *Package, name string, args []internal.Elem, flags InstrFlags) (ret internal.Elem) {
 	if t, ok := args[0].Type.(*types.Named); ok {
 		op := lookupMethod(t, name)
-		if op == nil {
-			panic("TODO: operator not matched")
+		if op != nil {
+			fn := internal.Elem{
+				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
+				Type: realType(op.Type()),
+			}
+			return toFuncCall(pkg, fn, args, flags)
 		}
-		fn := internal.Elem{
-			Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
-			Type: realType(op.Type()),
-		}
-		ret = toFuncCall(pkg, fn, args, flags)
-	} else {
-		op := pkg.builtin.Scope().Lookup(name)
-		if op == nil {
-			panic("TODO: operator not matched")
-		}
-		ret = toFuncCall(pkg, toObject(pkg, op), args, flags)
 	}
-	return
+	op := pkg.builtin.Scope().Lookup(name)
+	if op == nil {
+		panic("TODO: operator not matched")
+	}
+	return toFuncCall(pkg, toObject(pkg, op), args, flags)
 }
 
 // BinaryOp func
@@ -1110,7 +1113,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 		return p.CompareNil(op)
 	}
 	if debug {
-		log.Println("BinaryOp", op)
+		log.Println("BinaryOp", op, name)
 	}
 	ret := callOpFunc(p.pkg, name, args, 0)
 	p.stk.Ret(2, ret)
@@ -1165,10 +1168,10 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 	if twoValue != nil && twoValue[0] {
 		flags = InstrFlagTwoValue
 	}
-	if debug {
-		log.Println("UnaryOp", op, flags)
-	}
 	name := p.pkg.prefix + unaryOps[op]
+	if debug {
+		log.Println("UnaryOp", op, flags, name)
+	}
 	ret := callOpFunc(p.pkg, name, p.stk.GetArgs(1), flags)
 	p.stk.Ret(1, ret)
 	return p
@@ -1179,6 +1182,7 @@ var (
 		token.SUB:   "Neg",
 		token.XOR:   "Not",
 		token.ARROW: "Recv",
+		token.AND:   "Addr",
 	}
 )
 

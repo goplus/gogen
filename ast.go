@@ -370,6 +370,7 @@ var (
 		"Neg":  {token.SUB, 1},
 		"Not":  {token.XOR, 1},
 		"Recv": {token.ARROW, 1},
+		"Addr": {token.AND, 1},
 	}
 )
 

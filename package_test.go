@@ -491,9 +491,11 @@ func TestNamedStructLit(t *testing.T) {
 	bar := pkg.AliasType("bar", typ)
 	pkg.NewVarStart(typ, "a").
 		StructLit(typ, 0, false).EndInit(1)
-	pkg.NewVarStart(bar, "b").
+	pkg.NewVarStart(types.NewPointer(bar), "b").
 		Val(123).Val("Hi").
-		StructLit(bar, 2, false).EndInit(1)
+		StructLit(bar, 2, false).
+		UnaryOp(token.AND).
+		EndInit(1)
 	pkg.NewVarStart(bar, "c").
 		Val(1).Val("abc").
 		StructLit(typ, 2, true).EndInit(1)
@@ -506,7 +508,7 @@ type foo struct {
 type bar = foo
 
 var a foo = foo{}
-var b bar = bar{123, "Hi"}
+var b *bar = &bar{123, "Hi"}
 var c bar = foo{y: "abc"}
 `)
 }

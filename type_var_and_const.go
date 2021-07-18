@@ -146,7 +146,7 @@ func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) {
 	if typ != nil {
 		for _, ret := range rets {
 			if err := matchType(pkg, ret.Type, typ); err != nil {
-				panic(err)
+				log.Panicln(err)
 			}
 		}
 	}
@@ -284,6 +284,10 @@ func realType(typ types.Type) types.Type {
 	case *unboundType:
 		if t.tBound != nil {
 			return t.tBound
+		}
+	case *types.Named:
+		if tn := t.Obj(); tn.IsAlias() {
+			return tn.Type()
 		}
 	}
 	return typ
