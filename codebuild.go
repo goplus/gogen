@@ -962,6 +962,36 @@ func (p *CodeBuilder) pushVal(v interface{}) *CodeBuilder {
 	return p
 }
 
+// Elem func
+func (p *CodeBuilder) Elem() *CodeBuilder {
+	if debug {
+		log.Println("Elem")
+	}
+	arg := p.stk.Get(-1)
+	t, ok := arg.Type.(*types.Pointer)
+	if !ok {
+		log.Panicln("TODO: not a pointer")
+	}
+	p.stk.Ret(1, internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Type: t.Elem()})
+	return p
+}
+
+// Elem func
+func (p *CodeBuilder) ElemRef() *CodeBuilder {
+	if debug {
+		log.Println("ElemRef")
+	}
+	arg := p.stk.Get(-1)
+	t, ok := arg.Type.(*types.Pointer)
+	if !ok {
+		log.Panicln("TODO: not a pointer")
+	}
+	p.stk.Ret(1, internal.Elem{
+		Val: &ast.StarExpr{X: arg.Val}, Type: &refType{typ: t.Elem()},
+	})
+	return p
+}
+
 // MemberRef func
 func (p *CodeBuilder) MemberRef(name string) *CodeBuilder {
 	if debug {
