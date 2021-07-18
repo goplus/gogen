@@ -603,8 +603,26 @@ func TestKeyValModeLit(t *testing.T) {
 		SliceLit(types.NewSlice(types.Typ[types.Float64]), 6, true).EndInit(1)
 	domTest(t, pkg, `package main
 
-var a = [5]float64{1, 3: 3.4, 5}
+var a = [...]float64{1, 3: 3.4, 5}
 var b = []float64{2: 1.2, 3, 6: 4.5}
+`)
+}
+
+func TestNamedArrayLit(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.NewType("foo").InitType(pkg, types.NewArray(types.Typ[types.String], 2))
+	bar := pkg.AliasType("bar", foo)
+	pkg.NewVarStart(foo, "a").
+		Val("a").Val("b").ArrayLit(foo, 2).EndInit(1)
+	pkg.NewVarStart(bar, "b").
+		Val("a").Val("b").ArrayLit(bar, 2).EndInit(1)
+	domTest(t, pkg, `package main
+
+type foo [2]string
+type bar = foo
+
+var a foo = foo{"a", "b"}
+var b bar = bar{"a", "b"}
 `)
 }
 
@@ -619,7 +637,7 @@ func TestArrayLit(t *testing.T) {
 	domTest(t, pkg, `package main
 
 var a = [2]string{"a", "b"}
-var b = [3]float64{1, 1.2, 3}
+var b = [...]float64{1, 1.2, 3}
 var c = [10]interface {
 }{}
 `)

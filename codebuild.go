@@ -633,7 +633,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			typExpr = toSliceType(p.pkg, tt)
 			t = tt
 		default:
-			log.Panicln("TODO: MapLit: typ isn't a map type -", reflect.TypeOf(typ))
+			log.Panicln("TODO: SliceLit: typ isn't a slice type -", reflect.TypeOf(typ))
 		}
 	}
 	if keyValMode { // in keyVal mode
@@ -684,11 +684,23 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 }
 
 // ArrayLit func
-func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeBuilder {
+func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeBuilder {
 	var elts []ast.Expr
 	var keyValMode = (keyVal != nil && keyVal[0])
 	if debug {
-		log.Println("ArrayLit", t, arity, keyValMode)
+		log.Println("ArrayLit", typ, arity, keyValMode)
+	}
+	var t *types.Array
+	var typExpr ast.Expr
+	switch tt := typ.(type) {
+	case *types.Named:
+		typExpr = toNamedType(p.pkg, tt)
+		t = tt.Underlying().(*types.Array)
+	case *types.Array:
+		typExpr = toArrayType(p.pkg, tt)
+		t = tt
+	default:
+		log.Panicln("TODO: ArrayLit: typ isn't a array type -", reflect.TypeOf(typ))
 	}
 	if keyValMode { // in keyVal mode
 		if (arity & 1) != 0 {
@@ -725,11 +737,7 @@ func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeB
 			}
 		}
 	}
-	ret := &ast.CompositeLit{
-		Type: toArrayType(p.pkg, t),
-		Elts: elts,
-	}
-	p.stk.Ret(arity, internal.Elem{Type: t, Val: ret})
+	p.stk.Ret(arity, internal.Elem{Type: t, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 
