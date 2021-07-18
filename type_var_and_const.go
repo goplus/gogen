@@ -41,20 +41,29 @@ func (p *CodeBuilder) EndConst() types.TypeAndValue {
 
 // TypeDecl type
 type TypeDecl struct {
-	typName *types.TypeName
-	typ     *ast.Expr
+	typ     *types.Named
+	typExpr *ast.Expr
 }
 
+// Type returns the type.
+func (p *TypeDecl) Type() *types.Named {
+	return p.typ
+}
+
+// InitType initializes a uncompleted type.
 func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
-	t := types.NewNamed(p.typName, typ, nil)
-	*p.typ = toType(pkg, typ)
-	return t
+	p.typ.SetUnderlying(typ)
+	*p.typExpr = toType(pkg, typ)
+	return p.typ
 }
 
-func (p *Package) AliasType(name string, typ types.Type) {
-	p.newType(name, typ, 1)
+// AliasType gives a specified type with a new name
+func (p *Package) AliasType(name string, typ types.Type) *types.Named {
+	decl := p.newType(name, typ, 1)
+	return decl.typ
 }
 
+// NewType creates a new type (which need to call InitType later).
 func (p *Package) NewType(name string) *TypeDecl {
 	return p.newType(name, nil, 0)
 }
@@ -74,9 +83,10 @@ func (p *Package) newType(name string, typ types.Type, alias token.Pos) *TypeDec
 	}
 	if alias != 0 { // alias don't need to call InitType
 		spec.Type = toType(p, typ)
-		return nil
+		typ = typ.Underlying()
 	}
-	return &TypeDecl{typName: typName, typ: &spec.Type}
+	named := types.NewNamed(typName, typ, nil)
+	return &TypeDecl{typ: named, typExpr: &spec.Type}
 }
 
 // ----------------------------------------------------------------------------

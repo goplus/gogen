@@ -353,8 +353,9 @@ func TestTypeDeclInFunc(t *testing.T) {
 	typ := types.NewStruct(fields, nil)
 	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
 	foo := cb.NewType("foo").InitType(pkg, typ)
-	cb.AliasType("bar", typ).
-		AliasType("a", foo)
+	cb.AliasType("bar", typ)
+	a := cb.AliasType("a", foo)
+	cb.AliasType("b", a)
 	cb.End()
 	domTest(t, pkg, `package main
 
@@ -368,6 +369,7 @@ func main() {
 		y string
 	}
 	type a = foo
+	type b = a
 }
 `)
 }
@@ -381,7 +383,8 @@ func TestTypeDecl(t *testing.T) {
 	typ := types.NewStruct(fields, nil)
 	foo := pkg.NewType("foo").InitType(pkg, typ)
 	pkg.AliasType("bar", typ)
-	pkg.AliasType("a", foo)
+	a := pkg.AliasType("a", foo)
+	pkg.AliasType("b", a)
 	domTest(t, pkg, `package main
 
 type foo struct {
@@ -393,6 +396,26 @@ type bar = struct {
 	y string
 }
 type a = foo
+type b = a
+`)
+}
+
+func TestTypeCycleDef(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.NewType("foo")
+	a := pkg.AliasType("a", foo.Type())
+	b := pkg.AliasType("b", a)
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "p", types.NewPointer(b), false),
+	}
+	foo.InitType(pkg, types.NewStruct(fields, nil))
+	domTest(t, pkg, `package main
+
+type foo struct {
+	p *b
+}
+type a = foo
+type b = a
 `)
 }
 

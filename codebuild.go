@@ -375,9 +375,8 @@ func (p *CodeBuilder) NewType(name string) *TypeDecl {
 }
 
 // AliasType func
-func (p *CodeBuilder) AliasType(name string, typ types.Type) *CodeBuilder {
-	p.pkg.AliasType(name, typ)
-	return p
+func (p *CodeBuilder) AliasType(name string, typ types.Type) *types.Named {
+	return p.pkg.AliasType(name, typ)
 }
 
 // NewConstStart func
