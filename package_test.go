@@ -1819,6 +1819,8 @@ func TestBinaryOpCmpNil(t *testing.T) {
 		NewVar(typ, "a").
 		NewVarStart(types.Typ[types.Bool], "b").
 		Val(ctxRef(pkg, "a")).Val(nil).BinaryOp(token.NEQ).EndInit(1).
+		NewVarStart(types.Typ[types.Bool], "c").
+		Val(nil).Val(ctxRef(pkg, "a")).BinaryOp(token.EQL).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -1826,6 +1828,7 @@ func main() {
 	var a []interface {
 	}
 	var b bool = a != nil
+	var c bool = a == nil
 }
 `)
 }

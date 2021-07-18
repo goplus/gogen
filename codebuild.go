@@ -1190,7 +1190,11 @@ func callOpFunc(pkg *Package, name string, args []internal.Elem, flags InstrFlag
 func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 	name := p.pkg.prefix + binaryOps[op]
 	args := p.stk.GetArgs(2)
-	if args[1].Type == types.Typ[types.UntypedNil] { // is nil
+	if args[1].Type == types.Typ[types.UntypedNil] { // arg1 is nil
+		p.stk.PopN(1)
+		return p.CompareNil(op)
+	} else if args[0].Type == types.Typ[types.UntypedNil] { // arg0 is nil
+		args[0] = args[1]
 		p.stk.PopN(1)
 		return p.CompareNil(op)
 	}
