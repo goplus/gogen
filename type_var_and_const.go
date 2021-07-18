@@ -39,6 +39,48 @@ func (p *CodeBuilder) EndConst() types.TypeAndValue {
 
 // ----------------------------------------------------------------------------
 
+// TypeDecl type
+type TypeDecl struct {
+	typName *types.TypeName
+	typ     *ast.Expr
+}
+
+func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
+	t := types.NewNamed(p.typName, typ, nil)
+	*p.typ = toType(pkg, typ)
+	return t
+}
+
+func (p *Package) AliasType(name string, typ types.Type) {
+	p.newType(name, typ, 1)
+}
+
+func (p *Package) NewType(name string) *TypeDecl {
+	return p.newType(name, nil, 0)
+}
+
+func (p *Package) newType(name string, typ types.Type, alias token.Pos) *TypeDecl {
+	typName := types.NewTypeName(token.NoPos, p.Types, name, typ)
+	scope := p.cb.current.scope
+	if scope.Insert(typName) != nil {
+		log.Panic("TODO: type already defined -", name)
+	}
+	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
+	decl := &ast.GenDecl{Tok: token.TYPE, Specs: []ast.Spec{spec}}
+	if scope == p.Types.Scope() {
+		p.decls = append(p.decls, decl)
+	} else {
+		p.cb.emitStmt(&ast.DeclStmt{Decl: decl})
+	}
+	if alias != 0 { // alias don't need to call InitType
+		spec.Type = toType(p, typ)
+		return nil
+	}
+	return &TypeDecl{typName: typName, typ: &spec.Type}
+}
+
+// ----------------------------------------------------------------------------
+
 // ValueDecl type
 type ValueDecl struct {
 	names []string

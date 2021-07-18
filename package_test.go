@@ -309,6 +309,58 @@ func main() {
 `)
 }
 
+func TestTypeDecl(t *testing.T) {
+	pkg := newMainPackage()
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typ := types.NewStruct(fields, nil)
+	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+	foo := cb.NewType("foo").InitType(pkg, typ)
+	cb.AliasType("bar", typ).
+		AliasType("a", foo)
+	cb.End()
+	domTest(t, pkg, `package main
+
+func main() {
+	type foo struct {
+		x int
+		y string
+	}
+	type bar = struct {
+		x int
+		y string
+	}
+	type a = foo
+}
+`)
+}
+
+func TestTypeDeclInFunc(t *testing.T) {
+	pkg := newMainPackage()
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typ := types.NewStruct(fields, nil)
+	foo := pkg.NewType("foo").InitType(pkg, typ)
+	pkg.AliasType("bar", typ)
+	pkg.AliasType("a", foo)
+	domTest(t, pkg, `package main
+
+type foo struct {
+	x int
+	y string
+}
+type bar = struct {
+	x int
+	y string
+}
+type a = foo
+`)
+}
+
 func TestStructLit(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{

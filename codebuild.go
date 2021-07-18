@@ -366,6 +366,17 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 	return p.pkg.newClosure(sig, closureNormal)
 }
 
+// NewType func
+func (p *CodeBuilder) NewType(name string) *TypeDecl {
+	return p.pkg.NewType(name)
+}
+
+// AliasType func
+func (p *CodeBuilder) AliasType(name string, typ types.Type) *CodeBuilder {
+	p.pkg.AliasType(name, typ)
+	return p
+}
+
 // NewConstStart func
 func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilder {
 	if debug {

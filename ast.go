@@ -134,6 +134,8 @@ retry:
 		return toArrayType(pkg, t)
 	case *types.Map:
 		return toMapType(pkg, t)
+	case *types.Struct:
+		return toStructType(pkg, t)
 	case *types.Chan:
 		return toChanType(pkg, t)
 	case *types.Signature:
