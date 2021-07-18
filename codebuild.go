@@ -713,9 +713,21 @@ func (p *CodeBuilder) ArrayLit(t *types.Array, arity int, keyVal ...bool) *CodeB
 }
 
 // StructLit func
-func (p *CodeBuilder) StructLit(t *types.Struct, arity int, keyVal bool) *CodeBuilder {
+func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBuilder {
 	if debug {
 		log.Println("StructLit", keyVal)
+	}
+	var t *types.Struct
+	var typExpr ast.Expr
+	switch tt := typ.(type) {
+	case *types.Named:
+		typExpr = toNamedType(p.pkg, tt)
+		t = tt.Underlying().(*types.Struct)
+	case *types.Struct:
+		typExpr = toStructType(p.pkg, tt)
+		t = tt
+	default:
+		log.Panicln("TODO: StructLit: typ isn't a struct type -", reflect.TypeOf(typ))
 	}
 	var elts []ast.Expr
 	var n = t.NumFields()
@@ -751,11 +763,7 @@ func (p *CodeBuilder) StructLit(t *types.Struct, arity int, keyVal bool) *CodeBu
 			}
 		}
 	}
-	ret := &ast.CompositeLit{
-		Type: toStructType(p.pkg, t),
-		Elts: elts,
-	}
-	p.stk.Ret(arity, internal.Elem{Type: t, Val: ret})
+	p.stk.Ret(arity, internal.Elem{Type: t, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 

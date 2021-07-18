@@ -480,6 +480,35 @@ var c = struct {
 `)
 }
 
+func TestNamedStructLit(t *testing.T) {
+	pkg := newMainPackage()
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typU := types.NewStruct(fields, nil)
+	typ := pkg.NewType("foo").InitType(pkg, typU)
+	pkg.NewVarStart(nil, "a").
+		StructLit(typ, 0, false).EndInit(1)
+	pkg.NewVarStart(nil, "b").
+		Val(123).Val("Hi").
+		StructLit(typ, 2, false).EndInit(1)
+	pkg.NewVarStart(nil, "c").
+		Val(1).Val("abc").
+		StructLit(typ, 2, true).EndInit(1)
+	domTest(t, pkg, `package main
+
+type foo struct {
+	x int
+	y string
+}
+
+var a = foo{}
+var b = foo{123, "Hi"}
+var c = foo{y: "abc"}
+`)
+}
+
 func TestMapLit(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewVarStart(nil, "a").
