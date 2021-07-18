@@ -1548,12 +1548,12 @@ func TestSliceGet(t *testing.T) {
 	y := pkg.NewParam("y", tyString)
 	z := pkg.NewParam("z", tyArray)
 	pkg.NewFunc(nil, "foo", gox.NewTuple(p, x, y, z), nil, false).BodyStart(pkg).
-		NewVarStart(tySlice, "a").Val(x).None().Val(2).SliceGet(false).EndInit(1).
-		NewVarStart(tySlice, "b").Val(x).None().None().SliceGet(false).EndInit(1).
-		NewVarStart(tySlice, "c").Val(x).Val(1).Val(3).Val(10).SliceGet(true).EndInit(1).
-		NewVarStart(tyString, "d").Val(y).Val(1).Val(3).SliceGet(false).EndInit(1).
-		NewVarStart(tySlice, "e").Val(p).None().Val(5).SliceGet(false).EndInit(1).
-		NewVarStart(tySlice, "f").Val(z).None().Val(5).SliceGet(false).EndInit(1).
+		NewVarStart(tySlice, "a").Val(x).None().Val(2).Slice(false).EndInit(1).
+		NewVarStart(tySlice, "b").Val(x).None().None().Slice(false).EndInit(1).
+		NewVarStart(tySlice, "c").Val(x).Val(1).Val(3).Val(10).Slice(true).EndInit(1).
+		NewVarStart(tyString, "d").Val(y).Val(1).Val(3).Slice(false).EndInit(1).
+		NewVarStart(tySlice, "e").Val(p).None().Val(5).Slice(false).EndInit(1).
+		NewVarStart(tySlice, "f").Val(z).None().Val(5).Slice(false).EndInit(1).
 		End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
@@ -1579,8 +1579,8 @@ func TestIndexGet(t *testing.T) {
 	y := pkg.NewParam("y", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
 	ret := pkg.NewParam("", types.Typ[types.Int])
 	pkg.NewFunc(nil, "foo", gox.NewTuple(x, y), gox.NewTuple(ret), false).BodyStart(pkg).
-		DefineVarStart("v", "ok").Val(y).Val("a").IndexGet(1, true).EndInit(1).
-		Val(x).Val(0).IndexGet(1, false).Return(1).
+		DefineVarStart("v", "ok").Val(y).Val("a").Index(1, true).EndInit(1).
+		Val(x).Val(0).Index(1, false).Return(1).
 		End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()

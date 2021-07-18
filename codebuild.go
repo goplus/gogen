@@ -802,10 +802,10 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 	return p
 }
 
-// SliceGet func
-func (p *CodeBuilder) SliceGet(slice3 bool) *CodeBuilder { // a[i:j:k]
+// Slice func
+func (p *CodeBuilder) Slice(slice3 bool) *CodeBuilder { // a[i:j:k]
 	if debug {
-		log.Println("SliceGet", slice3)
+		log.Println("Slice", slice3)
 	}
 	n := 3
 	if slice3 {
@@ -849,13 +849,13 @@ func (p *CodeBuilder) SliceGet(slice3 bool) *CodeBuilder { // a[i:j:k]
 	return p
 }
 
-// IndexGet func
-func (p *CodeBuilder) IndexGet(nidx int, twoValue bool) *CodeBuilder {
+// Index func
+func (p *CodeBuilder) Index(nidx int, twoValue bool) *CodeBuilder {
 	if debug {
-		log.Println("IndexGet", nidx, twoValue)
+		log.Println("Index", nidx, twoValue)
 	}
 	if nidx != 1 {
-		panic("TODO: IndexGet doesn't support a[i, j...] already")
+		panic("TODO: IndexGet doesn't support a[i, j...] yet")
 	}
 	args := p.stk.GetArgs(2)
 	typs, allowTwoValue := getIdxValTypes(args[0].Type)
@@ -884,7 +884,7 @@ func (p *CodeBuilder) IndexRef(nidx int) *CodeBuilder {
 		log.Println("IndexRef", nidx)
 	}
 	if nidx != 1 {
-		panic("TODO: IndexRef doesn't support a[i, j...] = val already")
+		panic("TODO: IndexRef doesn't support a[i, j...] = val yet")
 	}
 	args := p.stk.GetArgs(2)
 	typ := args[0].Type
