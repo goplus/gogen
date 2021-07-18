@@ -1536,7 +1536,42 @@ func main() {
 `)
 }
 
-func TestSliceGet(t *testing.T) {
+func TestStructMember(t *testing.T) {
+	pkg := newMainPackage()
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typ := types.NewStruct(fields, nil)
+	foo := pkg.NewType("foo").InitType(pkg, typ)
+	pkg.NewVarStart(nil, "a").
+		Val(123).Val("Hi").
+		StructLit(typ, 2, false).EndInit(1)
+	pkg.NewVarStart(nil, "b").
+		Val(ctxRef(pkg, "a")).MemberVal("y").EndInit(1)
+	pkg.NewVarStart(nil, "c").
+		Val(123).Val("Hi").
+		StructLit(foo, 2, false).EndInit(1)
+	pkg.NewVarStart(nil, "d").
+		Val(ctxRef(pkg, "c")).MemberVal("x").EndInit(1)
+	domTest(t, pkg, `package main
+
+type foo struct {
+	x int
+	y string
+}
+
+var a = struct {
+	x int
+	y string
+}{123, "Hi"}
+var b = a.y
+var c = foo{123, "Hi"}
+var d = c.x
+`)
+}
+
+func TestSlice(t *testing.T) {
 	pkg := newMainPackage()
 
 	tySlice := types.NewSlice(types.Typ[types.Int])
@@ -1572,7 +1607,7 @@ func main() {
 `)
 }
 
-func TestIndexGet(t *testing.T) {
+func TestIndex(t *testing.T) {
 	pkg := newMainPackage()
 
 	x := pkg.NewParam("x", types.NewSlice(types.Typ[types.Int]))
