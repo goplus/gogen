@@ -526,16 +526,30 @@ func (p *CodeBuilder) doZeroLit(typ types.Type, allowDebug bool) *CodeBuilder {
 }
 
 // MapLit func
-func (p *CodeBuilder) MapLit(t *types.Map, arity int) *CodeBuilder {
+func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 	if debug {
-		log.Println("MapLit", t, arity)
+		log.Println("MapLit", typ, arity)
 	}
-	pkg := p.pkg
+	var t *types.Map
+	var typExpr ast.Expr
+	if typ != nil {
+		switch tt := typ.(type) {
+		case *types.Named:
+			typExpr = toNamedType(p.pkg, tt)
+			t = tt.Underlying().(*types.Map)
+		case *types.Map:
+			typExpr = toMapType(p.pkg, tt)
+			t = tt
+		default:
+			log.Panicln("TODO: MapLit: typ isn't a map type -", reflect.TypeOf(typ))
+		}
+	}
 	if arity == 0 {
 		if t == nil {
 			t = types.NewMap(types.Typ[types.String], TyEmptyInterface)
+			typExpr = toMapType(p.pkg, t)
 		}
-		ret := &ast.CompositeLit{Type: toMapType(pkg, t)}
+		ret := &ast.CompositeLit{Type: typExpr}
 		p.stk.Push(internal.Elem{Type: t, Val: ret})
 		return p
 	}
@@ -551,6 +565,7 @@ func (p *CodeBuilder) MapLit(t *types.Map, arity int) *CodeBuilder {
 		key = boundElementType(args, 0, arity, 2)
 		val = boundElementType(args, 1, arity, 2)
 		t = types.NewMap(types.Default(key), types.Default(val))
+		typExpr = toMapType(p.pkg, t)
 	}
 	elts := make([]ast.Expr, arity>>1)
 	for i := 0; i < arity; i += 2 {
@@ -563,11 +578,7 @@ func (p *CodeBuilder) MapLit(t *types.Map, arity int) *CodeBuilder {
 			}
 		}
 	}
-	ret := &ast.CompositeLit{
-		Type: toMapType(pkg, t),
-		Elts: elts,
-	}
-	p.stk.Ret(arity, internal.Elem{Type: t, Val: ret})
+	p.stk.Ret(arity, internal.Elem{Type: t, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 

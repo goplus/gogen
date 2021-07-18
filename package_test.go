@@ -488,11 +488,12 @@ func TestNamedStructLit(t *testing.T) {
 	}
 	typU := types.NewStruct(fields, nil)
 	typ := pkg.NewType("foo").InitType(pkg, typU)
+	bar := pkg.AliasType("bar", typ)
 	pkg.NewVarStart(nil, "a").
 		StructLit(typ, 0, false).EndInit(1)
 	pkg.NewVarStart(nil, "b").
 		Val(123).Val("Hi").
-		StructLit(typ, 2, false).EndInit(1)
+		StructLit(bar, 2, false).EndInit(1)
 	pkg.NewVarStart(nil, "c").
 		Val(1).Val("abc").
 		StructLit(typ, 2, true).EndInit(1)
@@ -502,9 +503,10 @@ type foo struct {
 	x int
 	y string
 }
+type bar = foo
 
 var a = foo{}
-var b = foo{123, "Hi"}
+var b = bar{123, "Hi"}
 var c = foo{y: "abc"}
 `)
 }
@@ -527,6 +529,26 @@ var b = map[string]float64{"a": 1, "b": 1.2}
 var c = map[string]interface {
 }{}
 var d = map[int]bool{1: true}
+`)
+}
+
+func TestNamedMapLit(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.NewType("foo").InitType(pkg, types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]))
+	bar := pkg.AliasType("bar", foo)
+	pkg.NewVarStart(nil, "a").
+		Val(1).Val(true).
+		MapLit(foo, 2).EndInit(1)
+	pkg.NewVarStart(nil, "b").
+		Val(1).Val(true).
+		MapLit(bar, 2).EndInit(1)
+	domTest(t, pkg, `package main
+
+type foo map[int]bool
+type bar = foo
+
+var a = foo{1: true}
+var b = bar{1: true}
 `)
 }
 
