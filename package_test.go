@@ -1571,8 +1571,8 @@ func TestStructMember(t *testing.T) {
 	pkg.NewVarStart(nil, "d").
 		Val(ctxRef(pkg, "c")).MemberVal("x").EndInit(1)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		VarRef(ctxRef(pkg, "c")).MemberRef("x").Val(1).Assign(1).
-		VarRef(ctxRef(pkg, "a")).MemberRef("y").Val("1").Assign(1).
+		Val(ctxRef(pkg, "c")).MemberRef("x").Val(1).Assign(1).
+		Val(ctxRef(pkg, "a")).MemberRef("y").Val("1").Assign(1).
 		End()
 	domTest(t, pkg, `package main
 

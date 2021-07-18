@@ -968,11 +968,7 @@ func (p *CodeBuilder) MemberRef(name string) *CodeBuilder {
 		log.Println("MemberRef", name)
 	}
 	arg := p.stk.Get(-1)
-	t, ok := arg.Type.(*refType)
-	if !ok {
-		log.Panicln("MemberRef can only apply to exprLHS")
-	}
-	switch o := indirect(t.typ).(type) {
+	switch o := indirect(arg.Type).(type) {
 	case *types.Named:
 		if struc, ok := o.Underlying().(*types.Struct); ok {
 			p.fieldRef(arg.Val, struc, name)
