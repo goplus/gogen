@@ -1129,6 +1129,7 @@ func (p *CodeBuilder) MemberVal(name string, mflags ...*int) *CodeBuilder {
 		o.Complete()
 		for i, n := 0, o.NumMethods(); i < n; i++ {
 			method := o.Method(i)
+			log.Println("Interface Method:", method.Name(), method.Type())
 			if method.Name() == name {
 				p.stk.Ret(1, internal.Elem{
 					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
