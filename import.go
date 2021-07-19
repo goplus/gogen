@@ -71,10 +71,15 @@ type PkgRef struct {
 // Ref returns the object in scope s with the given name if such an
 // object exists; otherwise the result is nil.
 func (p *PkgRef) Ref(name string) Ref {
+	p.EnsureImported()
+	return p.Types.Scope().Lookup(name)
+}
+
+// EnsureImported ensures this package is imported.
+func (p *PkgRef) EnsureImported() {
 	if p.Types == nil {
 		p.pkg.endImport()
 	}
-	return p.Types.Scope().Lookup(name)
 }
 
 // ----------------------------------------------------------------------------
