@@ -1111,19 +1111,25 @@ func (p *CodeBuilder) MemberVal(name string, mflags ...*int) *CodeBuilder {
 			}
 		}
 	case *types.Named:
+		log.Println("*types.Named") // TODO: remove
 		if p.method(o, arg.Val, name, mflags) {
 			return p
 		}
+		log.Println("*types.Named underlying") // TODO: remove
 		switch t := o.Underlying().(type) {
 		case *types.Struct:
+			log.Println("*types.Named underlying *types.Struct") // TODO: remove
 			if p.field(t, arg.Val, name, mflags) {
 				return p
 			}
 		case *types.Interface:
+			log.Println("*types.Named underlying *types.Interface") // TODO: remove
 			t.Complete()
 			if p.method(t, arg.Val, name, mflags) {
 				return p
 			}
+		default:
+			log.Println("*types.Named underlying -", reflect.TypeOf(t)) // TODO: remove
 		}
 	case *types.Struct:
 		if p.field(o, arg.Val, name, mflags) {
