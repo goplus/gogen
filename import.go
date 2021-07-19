@@ -233,13 +233,17 @@ func pkgPathNotFound(allPkgPaths []string, pkgPath string) bool {
 }
 
 func (p *Package) endImport() {
-	if len(p.delayPkgPaths) == 0 {
+	pkgPaths := p.delayPkgPaths
+	if len(pkgPaths) == 0 {
 		return
 	}
-	if n := p.loadPkgs(p, p.importPkgs, p.delayPkgPaths...); n > 0 {
+	if debugImport {
+		log.Println("==> LoadPkgs", pkgPaths)
+	}
+	if n := p.loadPkgs(p, p.importPkgs, pkgPaths...); n > 0 {
 		log.Panicf("total %d errors\n", n) // TODO: error message
 	}
-	p.delayPkgPaths = p.delayPkgPaths[:0]
+	p.delayPkgPaths = pkgPaths[:0]
 }
 
 func (p *Package) getDecls() (decls []ast.Decl) {
