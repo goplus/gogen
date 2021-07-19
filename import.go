@@ -105,7 +105,7 @@ func LoadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) 
 
 type loadPkgsCached struct {
 	imports  map[string]*PkgRef
-	loadPkgs LoadPkgsFunc
+	pkgsLoad func(cfg *packages.Config, patterns ...string) ([]*packages.Package, error)
 }
 
 func (p *loadPkgsCached) load(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int {
@@ -128,7 +128,7 @@ retry:
 	}
 	if len(unimportedPaths) > 0 {
 		conf := at.InternalGetLoadConfig()
-		loadPkgs, err := packages.Load(conf, unimportedPaths...)
+		loadPkgs, err := p.pkgsLoad(conf, unimportedPaths...)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -137,15 +137,7 @@ retry:
 			return n
 		}
 		for _, loadPkg := range loadPkgs {
-			p.imports[loadPkg.PkgPath] = &PkgRef{
-				pkg:      at,
-				ID:       loadPkg.ID,
-				Errors:   loadPkg.Errors,
-				Types:    loadPkg.Types,
-				Fset:     loadPkg.Fset,
-				Module:   loadPkg.Module,
-				IllTyped: loadPkg.IllTyped,
-			}
+			loadGoPkg(at, p.imports, loadPkg)
 		}
 		pkgPaths, unimportedPaths = unimportedPaths, nil
 		goto retry
@@ -153,13 +145,32 @@ retry:
 	return 0
 }
 
-// NewLoadPkgsCached returns a cached
-func NewLoadPkgsCached(loadPkgs LoadPkgsFunc) LoadPkgsFunc {
-	imports := make(map[string]*PkgRef)
-	if loadPkgs == nil {
-		loadPkgs = LoadGoPkgs
+func loadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Package) {
+	for _, impPkg := range loadPkg.Imports {
+		if _, ok := imports[impPkg.PkgPath]; ok {
+			continue
+		}
+		loadGoPkg(at, imports, impPkg)
 	}
-	return (&loadPkgsCached{imports: imports, loadPkgs: loadPkgs}).load
+	imports[loadPkg.PkgPath] = &PkgRef{
+		pkg:      at,
+		ID:       loadPkg.ID,
+		Errors:   loadPkg.Errors,
+		Types:    loadPkg.Types,
+		Fset:     loadPkg.Fset,
+		Module:   loadPkg.Module,
+		IllTyped: loadPkg.IllTyped,
+	}
+}
+
+// NewLoadPkgsCached returns a cached
+func NewLoadPkgsCached(
+	load func(cfg *packages.Config, patterns ...string) ([]*packages.Package, error)) LoadPkgsFunc {
+	imports := make(map[string]*PkgRef)
+	if load == nil {
+		load = packages.Load
+	}
+	return (&loadPkgsCached{imports: imports, pkgsLoad: load}).load
 }
 
 // ----------------------------------------------------------------------------
