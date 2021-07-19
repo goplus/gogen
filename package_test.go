@@ -915,18 +915,28 @@ func main() {
 
 func TestInterfaceMethods(t *testing.T) {
 	pkg := newMainPackage()
-	bar := types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false))
-	methods := []*types.Func{bar}
-	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(methods, nil)))
-	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).
+	methods := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+	}
+	tyInterf := types.NewInterfaceType(methods, nil)
+	bar := pkg.NewType("bar").InitType(pkg, tyInterf)
+	b := pkg.NewParam("b", bar)
+	v := pkg.NewParam("v", types.NewSlice(tyInterf))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(b, v), nil, true).BodyStart(pkg).
+		Val(b).MemberVal("Bar").Call(0).EndStmt().
 		Val(v).Val(0).Index(1, false).MemberVal("Bar").Call(0).EndStmt().
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(v ...interface {
+type bar interface {
+	Bar()
+}
+
+func foo(b bar, v ...interface {
 	Bar()
 }) {
+	b.Bar()
 	v[0].Bar()
 }
 func main() {
@@ -1560,6 +1570,14 @@ func TestStructMember(t *testing.T) {
 		StructLit(foo, 2, false).EndInit(1)
 	pkg.NewVarStart(nil, "d").
 		Val(ctxRef(pkg, "c")).MemberVal("x").EndInit(1)
+	pkg.NewVarStart(nil, "e").
+		Val(ctxRef(pkg, "a")).UnaryOp(token.AND).EndInit(1)
+	pkg.NewVarStart(nil, "f").
+		Val(ctxRef(pkg, "e")).MemberVal("x").EndInit(1)
+	pkg.NewVarStart(nil, "g").
+		Val(ctxRef(pkg, "c")).UnaryOp(token.AND).EndInit(1)
+	pkg.NewVarStart(nil, "h").
+		Val(ctxRef(pkg, "g")).MemberVal("y").EndInit(1)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "c")).MemberRef("x").Val(1).Assign(1).
 		Val(ctxRef(pkg, "a")).MemberRef("y").Val("1").Assign(1).
@@ -1581,6 +1599,10 @@ var a = struct {
 var b = a.y
 var c = foo{123, "Hi"}
 var d = c.x
+var e = &a
+var f = e.x
+var g = &c
+var h = g.y
 
 func main() {
 	c.x = 1

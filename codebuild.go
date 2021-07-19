@@ -1093,51 +1093,46 @@ func (p *CodeBuilder) MemberVal(name string, mflags ...*int) *CodeBuilder {
 		log.Println("MemberVal", name)
 	}
 	arg := p.stk.Get(-1)
-	switch o := indirect(arg.Type).(type) {
-	case *types.Named:
-		for i, n := 0, o.NumMethods(); i < n; i++ {
-			method := o.Method(i)
-			if method.Name() == name {
-				p.stk.Ret(1, internal.Elem{
-					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
-					Type: methodTypeOf(method.Type()),
-				})
-				assignMFlag(mflags, MFlagMethod)
+	switch o := arg.Type.(type) {
+	case *types.Pointer:
+		switch t := o.Elem().(type) {
+		case *types.Named:
+			if p.method(t, arg.Val, name, mflags) {
+				return p
+			}
+			if struc, ok := t.Underlying().(*types.Struct); ok {
+				if p.field(struc, arg.Val, name, mflags) {
+					return p
+				}
+			}
+		case *types.Struct:
+			if p.field(t, arg.Val, name, mflags) {
 				return p
 			}
 		}
-		if struc, ok := o.Underlying().(*types.Struct); ok {
-			if t := structFieldType(struc, name); t != nil {
-				p.stk.Ret(1, internal.Elem{
-					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
-					Type: t,
-				})
-				assignMFlag(mflags, MFlagVar)
+	case *types.Named:
+		if p.method(o, arg.Val, name, mflags) {
+			return p
+		}
+		switch t := o.Underlying().(type) {
+		case *types.Struct:
+			if p.field(t, arg.Val, name, mflags) {
+				return p
+			}
+		case *types.Interface:
+			t.Complete()
+			if p.method(t, arg.Val, name, mflags) {
 				return p
 			}
 		}
 	case *types.Struct:
-		if t := structFieldType(o, name); t != nil {
-			p.stk.Ret(1, internal.Elem{
-				Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
-				Type: t,
-			})
-			assignMFlag(mflags, MFlagVar)
+		if p.field(o, arg.Val, name, mflags) {
 			return p
 		}
 	case *types.Interface:
 		o.Complete()
-		for i, n := 0, o.NumMethods(); i < n; i++ {
-			method := o.Method(i)
-			log.Println("Interface Method:", method.Name(), method.Type())
-			if method.Name() == name {
-				p.stk.Ret(1, internal.Elem{
-					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
-					Type: methodTypeOf(method.Type()),
-				})
-				assignMFlag(mflags, MFlagMethod)
-				return p
-			}
+		if p.method(o, arg.Val, name, mflags) {
+			return p
 		}
 	default:
 		log.Panicln("TODO: MemberVal - unexpected type:", o)
@@ -1146,6 +1141,41 @@ func (p *CodeBuilder) MemberVal(name string, mflags ...*int) *CodeBuilder {
 		panic("TODO: member not found - " + name)
 	}
 	return p
+}
+
+type methodList interface {
+	NumMethods() int
+	Method(i int) *types.Func
+}
+
+func (p *CodeBuilder) method(o methodList, argVal ast.Expr, name string, mflags []*int) bool {
+	for i, n := 0, o.NumMethods(); i < n; i++ {
+		method := o.Method(i)
+		if method.Name() == name {
+			p.stk.Ret(1, internal.Elem{
+				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
+				Type: methodTypeOf(method.Type()),
+			})
+			assignMFlag(mflags, MFlagMethod)
+			return true
+		}
+	}
+	return false
+}
+
+func (p *CodeBuilder) field(o *types.Struct, argVal ast.Expr, name string, mflags []*int) bool {
+	for i, n := 0, o.NumFields(); i < n; i++ {
+		fld := o.Field(i)
+		if fld.Name() == name {
+			p.stk.Ret(1, internal.Elem{
+				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
+				Type: fld.Type(),
+			})
+			assignMFlag(mflags, MFlagVar)
+			return true
+		}
+	}
+	return false
 }
 
 func assignMFlag(ret []*int, mflag int) {
