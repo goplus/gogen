@@ -918,13 +918,16 @@ func TestInterfaceMethods(t *testing.T) {
 	bar := types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false))
 	methods := []*types.Func{bar}
 	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(methods, nil)))
-	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).
+		Val(v).Val(0).Index(1, false).MemberVal("Bar").Call(0).EndStmt().
+		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
 func foo(v ...interface {
 	Bar()
 }) {
+	v[0].Bar()
 }
 func main() {
 }

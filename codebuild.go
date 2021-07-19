@@ -1125,6 +1125,19 @@ func (p *CodeBuilder) MemberVal(name string, mflags ...*int) *CodeBuilder {
 			assignMFlag(mflags, MFlagVar)
 			return p
 		}
+	case *types.Interface:
+		o.Complete()
+		for i, n := 0, o.NumMethods(); i < n; i++ {
+			method := o.Method(i)
+			if method.Name() == name {
+				p.stk.Ret(1, internal.Elem{
+					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
+					Type: methodTypeOf(method.Type()),
+				})
+				assignMFlag(mflags, MFlagMethod)
+				return p
+			}
+		}
 	default:
 		log.Panicln("TODO: MemberVal - unexpected type:", o)
 	}
