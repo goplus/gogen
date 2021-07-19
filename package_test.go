@@ -1544,11 +1544,14 @@ func TestStructMember(t *testing.T) {
 	}
 	typ := types.NewStruct(fields, nil)
 	foo := pkg.NewType("foo").InitType(pkg, typ)
+	unkExists, yExists := false, false
 	pkg.NewVarStart(nil, "a").
 		Val(123).Val("Hi").
 		StructLit(typ, 2, false).EndInit(1)
 	pkg.NewVarStart(nil, "b").
-		Val(ctxRef(pkg, "a")).MemberVal("y").EndInit(1)
+		Val(ctxRef(pkg, "a")).
+		MemberVal("unknown", &unkExists).
+		MemberVal("y", &yExists).EndInit(1)
 	pkg.NewVarStart(nil, "c").
 		Val(123).Val("Hi").
 		StructLit(foo, 2, false).EndInit(1)
@@ -1558,6 +1561,9 @@ func TestStructMember(t *testing.T) {
 		Val(ctxRef(pkg, "c")).MemberRef("x").Val(1).Assign(1).
 		Val(ctxRef(pkg, "a")).MemberRef("y").Val("1").Assign(1).
 		End()
+	if unkExists || !yExists {
+		t.Fatal(`unkExists || !yExists ?`)
+	}
 	domTest(t, pkg, `package main
 
 type foo struct {

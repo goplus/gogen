@@ -1004,7 +1004,7 @@ func (p *CodeBuilder) Elem() *CodeBuilder {
 	return p
 }
 
-// Elem func
+// ElemRef func
 func (p *CodeBuilder) ElemRef() *CodeBuilder {
 	if debug {
 		log.Println("ElemRef")
@@ -1041,53 +1041,11 @@ func (p *CodeBuilder) MemberRef(name string) *CodeBuilder {
 	return p
 }
 
-// MemberVal func
-func (p *CodeBuilder) MemberVal(name string) *CodeBuilder {
-	if debug {
-		log.Println("MemberVal", name)
-	}
-	arg := p.stk.Get(-1)
-	switch o := indirect(arg.Type).(type) {
-	case *types.Named:
-		for i, n := 0, o.NumMethods(); i < n; i++ {
-			method := o.Method(i)
-			if method.Name() == name {
-				p.stk.Ret(1, internal.Elem{
-					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
-					Type: methodTypeOf(method.Type()),
-				})
-				return p
-			}
-		}
-		if struc, ok := o.Underlying().(*types.Struct); ok {
-			p.fieldVal(arg.Val, struc, name)
-		} else {
-			panic("TODO: member not found - " + name)
-		}
-	case *types.Struct:
-		p.fieldVal(arg.Val, o, name)
-	default:
-		log.Panicln("TODO: MemberVal - unexpected type:", o)
-	}
-	return p
-}
-
 func (p *CodeBuilder) fieldRef(x ast.Expr, struc *types.Struct, name string) {
 	if t := structFieldType(struc, name); t != nil {
 		p.stk.Ret(1, internal.Elem{
 			Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
 			Type: &refType{typ: t},
-		})
-	} else {
-		panic("TODO: member not found - " + name)
-	}
-}
-
-func (p *CodeBuilder) fieldVal(x ast.Expr, struc *types.Struct, name string) {
-	if t := structFieldType(struc, name); t != nil {
-		p.stk.Ret(1, internal.Elem{
-			Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
-			Type: t,
 		})
 	} else {
 		panic("TODO: member not found - " + name)
@@ -1102,6 +1060,59 @@ func structFieldType(o *types.Struct, name string) types.Type {
 		}
 	}
 	return nil
+}
+
+// MemberVal func
+func (p *CodeBuilder) MemberVal(name string, exists ...*bool) *CodeBuilder {
+	if debug {
+		log.Println("MemberVal", name)
+	}
+	arg := p.stk.Get(-1)
+	switch o := indirect(arg.Type).(type) {
+	case *types.Named:
+		for i, n := 0, o.NumMethods(); i < n; i++ {
+			method := o.Method(i)
+			if method.Name() == name {
+				p.stk.Ret(1, internal.Elem{
+					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
+					Type: methodTypeOf(method.Type()),
+				})
+				assignTrue(exists)
+				return p
+			}
+		}
+		if struc, ok := o.Underlying().(*types.Struct); ok {
+			if t := structFieldType(struc, name); t != nil {
+				p.stk.Ret(1, internal.Elem{
+					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
+					Type: t,
+				})
+				assignTrue(exists)
+				return p
+			}
+		}
+	case *types.Struct:
+		if t := structFieldType(o, name); t != nil {
+			p.stk.Ret(1, internal.Elem{
+				Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
+				Type: t,
+			})
+			assignTrue(exists)
+			return p
+		}
+	default:
+		log.Panicln("TODO: MemberVal - unexpected type:", o)
+	}
+	if exists == nil {
+		panic("TODO: member not found - " + name)
+	}
+	return p
+}
+
+func assignTrue(exists []*bool) {
+	if exists != nil {
+		*exists[0] = true
+	}
 }
 
 func methodTypeOf(typ types.Type) types.Type {
