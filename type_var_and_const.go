@@ -122,7 +122,6 @@ func (p *ValueDecl) End(cb *CodeBuilder) {
 }
 
 func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) *ValueDecl {
-	log.Println("EndInit:", p, arity)
 	n := len(p.names)
 	rets := cb.stk.GetArgs(arity)
 	if arity == 1 && n != 1 {
