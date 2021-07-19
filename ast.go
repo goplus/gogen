@@ -328,10 +328,7 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 		}
 		return ident(name)
 	}
-	importPkg, ok := pkg.importPkgs[atPkg.Path()]
-	if !ok {
-		log.Panicln("TODO: package not found -", atPkg.Name(), atPkg.Path())
-	}
+	importPkg := pkg.Import(atPkg.Path())
 	x := ident(atPkg.Name())
 	importPkg.nameRefs = append(importPkg.nameRefs, x)
 	return &ast.SelectorExpr{
