@@ -1151,6 +1151,7 @@ type methodList interface {
 func (p *CodeBuilder) method(o methodList, argVal ast.Expr, name string, mflags []*int) bool {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
+		log.Println("method:", name, method.Type()) // TODO: remove
 		if method.Name() == name {
 			p.stk.Ret(1, internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
