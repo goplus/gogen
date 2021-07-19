@@ -104,7 +104,7 @@ func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Packag
 		LoadGoPkg(at, imports, impPkg)
 	}
 	if debugImport {
-		log.Println("==> Importing", loadPkg.PkgPath)
+		log.Println("==> Import", loadPkg.PkgPath)
 	}
 	pkg, ok := imports[loadPkg.PkgPath]
 	if ok {

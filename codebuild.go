@@ -161,6 +161,26 @@ func (p *CodeBuilder) clearBlockStmt() []ast.Stmt {
 	return stmts
 }
 
+func (p *CodeBuilder) startStmtAt(stmt ast.Stmt) int {
+	idx := len(p.current.stmts)
+	p.emitStmt(stmt)
+	return idx
+}
+
+// Usage:
+//   idx := cb.startStmtAt(stmt)
+//   ...
+//   cb.commitStmt(idx)
+func (p *CodeBuilder) commitStmt(idx int) {
+	stmts := p.current.stmts
+	n := len(stmts) - 1
+	if n > idx {
+		stmt := stmts[idx]
+		copy(stmts[idx:], stmts[idx+1:])
+		stmts[n] = stmt
+	}
+}
+
 func (p *CodeBuilder) emitStmt(stmt ast.Stmt) {
 	if p.current.label != nil {
 		p.current.label.Stmt = stmt
@@ -1555,8 +1575,7 @@ func (p *CodeBuilder) EndInit(n int) *CodeBuilder {
 	if debug {
 		log.Println("EndInit", n)
 	}
-	p.varDecl.EndInit(p, n)
-	p.varDecl = nil
+	p.varDecl = p.varDecl.EndInit(p, n)
 	return p
 }
 

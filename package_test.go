@@ -1910,7 +1910,7 @@ func TestCallInlineClosure(t *testing.T) {
 	err := pkg.NewParam("", gox.TyError)
 	sig := types.NewSignature(nil, nil, types.NewTuple(ret), false)
 	pkg.NewFunc(nil, "foo", nil, types.NewTuple(err), false).BodyStart(pkg).
-		Val(fmt.Ref("Println")).
+		DefineVarStart("n").
 		CallInlineClosureStart(sig, 0, false).
 		/**/ DefineVarStart("n", "err").Val(fmt.Ref("Println")).Val("Hi").Call(1).EndInit(1).
 		/**/ If().Val(ctxRef(pkg, "err")).CompareNil(token.NEQ).Then().
@@ -1918,7 +1918,7 @@ func TestCallInlineClosure(t *testing.T) {
 		/******/ End().
 		/**/ Val(ctxRef(pkg, "n")).Return(1).
 		/**/ End().
-		Call(1).EndStmt().
+		EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -1935,7 +1935,7 @@ func foo() error {
 		goto _autoGo_2
 	_autoGo_2:
 	}
-	fmt.Println(_autoGo_1)
+	n := _autoGo_1
 }
 `)
 }

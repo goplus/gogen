@@ -105,12 +105,14 @@ type ValueDecl struct {
 	names []string
 	typ   types.Type
 	old   codeBlock
+	oldv  *ValueDecl
 	vals  *[]ast.Expr
 	tok   token.Token
+	at    int
 }
 
 func (p *ValueDecl) InitStart(pkg *Package) *CodeBuilder {
-	pkg.cb.varDecl = p
+	p.oldv, pkg.cb.varDecl = pkg.cb.varDecl, p
 	p.old = pkg.cb.startInitExpr(p)
 	return &pkg.cb
 }
@@ -119,7 +121,8 @@ func (p *ValueDecl) End(cb *CodeBuilder) {
 	panic("don't call End(), please use EndInit() instead")
 }
 
-func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) {
+func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) *ValueDecl {
+	log.Println("EndInit:", p, arity)
 	n := len(p.names)
 	rets := cb.stk.GetArgs(arity)
 	if arity == 1 && n != 1 {
@@ -173,7 +176,10 @@ func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) {
 	}
 	cb.stk.PopN(arity)
 	cb.endInitExpr(p.old)
-	return
+	if p.at >= 0 {
+		cb.commitStmt(p.at) // to support inline call, we must emitStmt at EndInit stage
+	}
+	return p.oldv
 }
 
 func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string) *ValueDecl {
@@ -184,8 +190,8 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 			nameIdents[i] = ident(name)
 		}
 		stmt := &ast.AssignStmt{Tok: token.DEFINE, Lhs: nameIdents}
-		p.cb.emitStmt(stmt)
-		return &ValueDecl{names: names, tok: tok, vals: &stmt.Rhs}
+		at := p.cb.startStmtAt(stmt)
+		return &ValueDecl{names: names, tok: tok, vals: &stmt.Rhs, at: at}
 	}
 	// var a, b = expr
 	// const a, b = expr
@@ -208,13 +214,14 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 			spec.Type = toType(p, typ)
 		}
 	}
+	at := -1
 	decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
 	if scope == p.Types.Scope() {
 		p.decls = append(p.decls, decl)
 	} else {
-		p.cb.emitStmt(&ast.DeclStmt{Decl: decl})
+		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
 	}
-	return &ValueDecl{typ: typ, names: names, tok: tok, vals: &spec.Values}
+	return &ValueDecl{typ: typ, names: names, tok: tok, vals: &spec.Values, at: at}
 }
 
 func (p *Package) NewConstStart(typ types.Type, names ...string) *CodeBuilder {
