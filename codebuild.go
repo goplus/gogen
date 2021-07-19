@@ -1062,8 +1062,13 @@ func structFieldType(o *types.Struct, name string) types.Type {
 	return nil
 }
 
+const (
+	MFlagMethod = 1 << iota
+	MFlagVar
+)
+
 // MemberVal func
-func (p *CodeBuilder) MemberVal(name string, exists ...*bool) *CodeBuilder {
+func (p *CodeBuilder) MemberVal(name string, mflags ...*int) *CodeBuilder {
 	if debug {
 		log.Println("MemberVal", name)
 	}
@@ -1077,7 +1082,7 @@ func (p *CodeBuilder) MemberVal(name string, exists ...*bool) *CodeBuilder {
 					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
 					Type: methodTypeOf(method.Type()),
 				})
-				assignTrue(exists)
+				assignMFlag(mflags, MFlagMethod)
 				return p
 			}
 		}
@@ -1087,7 +1092,7 @@ func (p *CodeBuilder) MemberVal(name string, exists ...*bool) *CodeBuilder {
 					Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
 					Type: t,
 				})
-				assignTrue(exists)
+				assignMFlag(mflags, MFlagVar)
 				return p
 			}
 		}
@@ -1097,21 +1102,21 @@ func (p *CodeBuilder) MemberVal(name string, exists ...*bool) *CodeBuilder {
 				Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
 				Type: t,
 			})
-			assignTrue(exists)
+			assignMFlag(mflags, MFlagVar)
 			return p
 		}
 	default:
 		log.Panicln("TODO: MemberVal - unexpected type:", o)
 	}
-	if exists == nil {
+	if mflags == nil {
 		panic("TODO: member not found - " + name)
 	}
 	return p
 }
 
-func assignTrue(exists []*bool) {
-	if exists != nil {
-		*exists[0] = true
+func assignMFlag(ret []*int, mflag int) {
+	if ret != nil {
+		*ret[0] = mflag
 	}
 }
 
