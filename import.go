@@ -91,7 +91,24 @@ func LoadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) 
 		return n
 	}
 	for _, loadPkg := range loadPkgs {
-		if pkg, ok := importPkgs[loadPkg.PkgPath]; ok && pkg.ID == "" {
+		LoadGoPkg(at, importPkgs, loadPkg)
+	}
+	return 0
+}
+
+func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Package) {
+	for _, impPkg := range loadPkg.Imports {
+		if _, ok := imports[impPkg.PkgPath]; ok {
+			continue
+		}
+		LoadGoPkg(at, imports, impPkg)
+	}
+	if debugImport {
+		log.Println("==> Importing", loadPkg.PkgPath)
+	}
+	pkg, ok := imports[loadPkg.PkgPath]
+	if ok {
+		if pkg.ID == "" {
 			pkg.ID = loadPkg.ID
 			pkg.Errors = loadPkg.Errors
 			pkg.Types = loadPkg.Types
@@ -99,8 +116,17 @@ func LoadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) 
 			pkg.Module = loadPkg.Module
 			pkg.IllTyped = loadPkg.IllTyped
 		}
+	} else {
+		imports[loadPkg.PkgPath] = &PkgRef{
+			pkg:      at,
+			ID:       loadPkg.ID,
+			Errors:   loadPkg.Errors,
+			Types:    loadPkg.Types,
+			Fset:     loadPkg.Fset,
+			Module:   loadPkg.Module,
+			IllTyped: loadPkg.IllTyped,
+		}
 	}
-	return 0
 }
 
 type loadPkgsCached struct {
@@ -137,30 +163,12 @@ retry:
 			return n
 		}
 		for _, loadPkg := range loadPkgs {
-			loadGoPkg(at, p.imports, loadPkg)
+			LoadGoPkg(at, p.imports, loadPkg)
 		}
 		pkgPaths, unimportedPaths = unimportedPaths, nil
 		goto retry
 	}
 	return 0
-}
-
-func loadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Package) {
-	for _, impPkg := range loadPkg.Imports {
-		if _, ok := imports[impPkg.PkgPath]; ok {
-			continue
-		}
-		loadGoPkg(at, imports, impPkg)
-	}
-	imports[loadPkg.PkgPath] = &PkgRef{
-		pkg:      at,
-		ID:       loadPkg.ID,
-		Errors:   loadPkg.Errors,
-		Types:    loadPkg.Types,
-		Fset:     loadPkg.Fset,
-		Module:   loadPkg.Module,
-		IllTyped: loadPkg.IllTyped,
-	}
 }
 
 // NewLoadPkgsCached returns a cached
@@ -202,28 +210,41 @@ func (p *Package) Import(pkgPath string) *PkgRef {
 	if !ok {
 		pkgImport = &PkgRef{pkg: p}
 		p.importPkgs[pkgPath] = pkgImport
-		p.pkgPaths = append(p.pkgPaths, pkgPath)
+	}
+	if !ok || pkgPathNotFound(p.allPkgPaths, pkgPath) {
+		p.allPkgPaths = append(p.allPkgPaths, pkgPath)
+		p.delayPkgPaths = append(p.delayPkgPaths, pkgPath)
 	}
 	return pkgImport
 }
 
+func pkgPathNotFound(allPkgPaths []string, pkgPath string) bool {
+	for _, path := range allPkgPaths {
+		if path == pkgPath {
+			return false
+		}
+	}
+	return true
+}
+
 func (p *Package) endImport() {
-	if len(p.pkgPaths) == 0 {
+	if len(p.delayPkgPaths) == 0 {
 		return
 	}
-	if n := p.loadPkgs(p, p.importPkgs, p.pkgPaths...); n > 0 {
+	if n := p.loadPkgs(p, p.importPkgs, p.delayPkgPaths...); n > 0 {
 		log.Panicf("total %d errors\n", n) // TODO: error message
 	}
+	p.delayPkgPaths = p.delayPkgPaths[:0]
 }
 
 func (p *Package) getDecls() (decls []ast.Decl) {
-	n := len(p.pkgPaths)
+	n := len(p.allPkgPaths)
 	if n == 0 {
 		return p.decls
 	}
 	specs := make([]ast.Spec, 0, n)
 	names := p.newAutoNames()
-	for _, pkgPath := range p.pkgPaths {
+	for _, pkgPath := range p.allPkgPaths {
 		pkg := p.importPkgs[pkgPath]
 		if pkg.nameRefs == nil { // unused
 			continue

@@ -24,12 +24,20 @@ import (
 	"github.com/goplus/gox/internal"
 )
 
-var (
-	debug bool
+const (
+	DbgFlagInstruction = 1 << iota
+	DbgFlagImport
+	DbgFlagAll = DbgFlagInstruction | DbgFlagImport
 )
 
-func SetDebug(d bool) {
-	debug = d
+var (
+	debug       bool
+	debugImport bool
+)
+
+func SetDebug(dbgFlags int) {
+	debug = (dbgFlags & DbgFlagInstruction) != 0
+	debugImport = (dbgFlags & DbgFlagImport) != 0
 }
 
 // ----------------------------------------------------------------------------

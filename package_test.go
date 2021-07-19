@@ -32,7 +32,7 @@ var (
 )
 
 func init() {
-	gox.SetDebug(true)
+	gox.SetDebug(gox.DbgFlagAll)
 	gblFset = token.NewFileSet()
 	gblLoadPkgs = gox.NewLoadPkgsCached(nil)
 }

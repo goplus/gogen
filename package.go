@@ -100,17 +100,18 @@ type Config struct {
 // Package type
 type Package struct {
 	PkgRef
-	decls      []ast.Decl
-	cb         CodeBuilder
-	importPkgs map[string]*PkgRef
-	pkgPaths   []string
-	conf       *Config
-	prefix     string
-	builtin    *types.Package
-	loadPkgs   LoadPkgsFunc
-	typExt     TypeExtend
-	autoPrefix string
-	autoIdx    int
+	decls         []ast.Decl
+	cb            CodeBuilder
+	importPkgs    map[string]*PkgRef
+	allPkgPaths   []string // all import pkgPaths
+	delayPkgPaths []string // all delay-load pkgPaths
+	conf          *Config
+	prefix        string
+	builtin       *types.Package
+	loadPkgs      LoadPkgsFunc
+	typExt        TypeExtend
+	autoPrefix    string
+	autoIdx       int
 }
 
 // NewPackage creates a new package.
