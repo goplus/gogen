@@ -280,7 +280,7 @@ func (p *refType) Underlying() types.Type {
 }
 
 func (p *refType) String() string {
-	panic("ref type")
+	return fmt.Sprintf("refType{typ: %v}", p.typ)
 }
 
 // unboundType: unbound type
@@ -305,7 +305,7 @@ func (p *unboundType) Underlying() types.Type {
 }
 
 func (p *unboundType) String() string {
-	return fmt.Sprintf("*unboundType{typ: %v}", p.tBound)
+	return fmt.Sprintf("unboundType{typ: %v}", p.tBound)
 }
 
 func realType(typ types.Type) types.Type {
@@ -332,7 +332,7 @@ func (p *unboundMapElemType) Underlying() types.Type {
 }
 
 func (p *unboundMapElemType) String() string {
-	return fmt.Sprintf("*unboundMapElemType{key: %v}", p.key)
+	return fmt.Sprintf("unboundMapElemType{key: %v}", p.key)
 }
 
 // ----------------------------------------------------------------------------
@@ -347,7 +347,7 @@ func (p *overloadFuncType) Underlying() types.Type {
 }
 
 func (p *overloadFuncType) String() string {
-	return fmt.Sprintf("*overloadFuncType{funcs: %v}", p.funcs)
+	return fmt.Sprintf("overloadFuncType{funcs: %v}", p.funcs)
 }
 
 type instructionType struct {
@@ -359,7 +359,7 @@ func (p *instructionType) Underlying() types.Type {
 }
 
 func (p *instructionType) String() string {
-	return fmt.Sprintf("*instructionType{instr: %v}", reflect.TypeOf(p.instr))
+	return fmt.Sprintf("instructionType{instr: %v}", reflect.TypeOf(p.instr))
 }
 
 func isType(t types.Type) bool {
@@ -391,7 +391,7 @@ func (p *TypeType) Underlying() types.Type {
 }
 
 func (p *TypeType) String() string {
-	return fmt.Sprintf("*TypeType{typ: %v}", p.typ)
+	return fmt.Sprintf("TypeType{typ: %v}", p.typ)
 }
 
 // ----------------------------------------------------------------------------

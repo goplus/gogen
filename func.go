@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -61,7 +62,17 @@ type Func struct {
 // BodyStart func
 func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 	if debugInstr {
-		log.Println("NewFunc", p.Name(), p.Type())
+		var recv string
+		tag := "NewFunc "
+		name := p.Name()
+		sig := p.Type().(*types.Signature)
+		if v := sig.Recv(); v != nil {
+			recv = fmt.Sprintf(" (%v)", v.Type())
+		}
+		if name == "" {
+			tag = "NewClosure"
+		}
+		log.Printf("%v%v%v %v\n", tag, name, recv, sig)
 	}
 	return pkg.cb.startFuncBody(p, &p.old)
 }

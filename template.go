@@ -42,7 +42,7 @@ func (p *TemplateParamType) Underlying() types.Type {
 }
 
 func (p *TemplateParamType) String() string {
-	panic("TemplateParamType")
+	return fmt.Sprintf("TemplateParamType{name: %v}", p.name)
 }
 
 func (p *TemplateParamType) idx() int {
@@ -76,7 +76,7 @@ func (p *unboundFuncParam) Underlying() types.Type {
 }
 
 func (p *unboundFuncParam) String() string {
-	return fmt.Sprintf("*unboundFuncParam{typ: %v}", p.tBound)
+	return fmt.Sprintf("unboundFuncParam{typ: %v}", p.tBound)
 }
 
 type unboundProxyParam struct {
@@ -88,7 +88,7 @@ func (p *unboundProxyParam) Underlying() types.Type {
 }
 
 func (p *unboundProxyParam) String() string {
-	return fmt.Sprintf("*unboundProxyParam{typ: %v}", p.real)
+	return fmt.Sprintf("unboundProxyParam{typ: %v}", p.real)
 }
 
 func boundType(pkg *Package, arg, param types.Type) error {
