@@ -466,12 +466,13 @@ func TestAssignUserInterface(t *testing.T) {
 	bar := pkg.NewType("bar").InitType(pkg, typStruc)
 	pbar := types.NewPointer(bar)
 	recv := pkg.NewParam("p", pbar)
-	vfoo := types.NewTuple(pkg.NewParam("v", foo))
+	vfoo := types.NewTuple(pkg.NewParam("v", types.NewSlice(foo)))
 	pkg.NewFunc(recv, "Bar", nil, nil, false).BodyStart(pkg).End()
-	pkg.NewFunc(nil, "f", vfoo, nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "f", vfoo, nil, true).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(pbar, "v").
-		Val(ctxRef(pkg, "f")).Val(ctxRef(pkg, "v")).Call(1).EndStmt().
+		Val(ctxRef(pkg, "f")).
+		Val(ctxRef(pkg, "v")).Val(ctxRef(pkg, "v")).Call(2).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -483,11 +484,11 @@ type bar struct {
 
 func (p *bar) Bar() {
 }
-func f(v foo) {
+func f(v ...foo) {
 }
 func main() {
 	var v *bar
-	f(v)
+	f(v, v)
 }
 `)
 }
