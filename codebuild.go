@@ -1498,6 +1498,61 @@ func (p *CodeBuilder) Else() *CodeBuilder {
 	panic("use if..else please")
 }
 
+// TypeSwitch func
+func (p *CodeBuilder) TypeSwitch(name string) *CodeBuilder {
+	if debugInstr {
+		log.Println("TypeSwitch")
+	}
+	stmt := &typeSwitchStmt{name: name}
+	p.startBlockStmt(stmt, "type switch statement", &stmt.old)
+	return p
+}
+
+// TypeAssert func
+func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool) *CodeBuilder {
+	arg := p.stk.Get(-1)
+	xType, ok := arg.Type.(*types.Interface)
+	if !ok {
+		panic("TODO: can't type assert on non interface expr")
+	}
+	if !types.AssertableTo(xType, typ) {
+		log.Panicf("TODO: can't assert type %v to %v\n", xType, typ)
+	}
+	pkg := p.pkg
+	ret := &ast.TypeAssertExpr{X: arg.Val, Type: toType(pkg, typ)}
+	if twoValue {
+		tyRet := types.NewTuple(pkg.NewParam("", typ), pkg.NewParam("", types.Typ[types.Bool]))
+		p.stk.Ret(1, internal.Elem{Type: tyRet, Val: ret})
+	} else {
+		p.stk.Ret(1, internal.Elem{Type: typ, Val: ret})
+	}
+	return p
+}
+
+// TypeAssertThen func
+func (p *CodeBuilder) TypeAssertThen() *CodeBuilder {
+	if debugInstr {
+		log.Println("TypeAssertThen")
+	}
+	if flow, ok := p.current.codeBlock.(*typeSwitchStmt); ok {
+		flow.TypeAssertThen(p)
+		return p
+	}
+	panic("use typeSwitch..typeAssertThen please")
+}
+
+// TypeCase func
+func (p *CodeBuilder) TypeCase(n int) *CodeBuilder { // n=0 means default case
+	if debugInstr {
+		log.Println("TypeCase", n)
+	}
+	if flow, ok := p.current.codeBlock.(*typeSwitchStmt); ok {
+		flow.TypeCase(p, n)
+		return p
+	}
+	panic("use switch x.(type) .. case please")
+}
+
 // Switch func
 func (p *CodeBuilder) Switch() *CodeBuilder {
 	if debugInstr {
@@ -1598,6 +1653,7 @@ func (p *CodeBuilder) Post() *CodeBuilder {
 	panic("please use Post() in for statement")
 }
 
+// ForRange func
 func (p *CodeBuilder) ForRange(names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("ForRange", names)

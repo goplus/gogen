@@ -493,6 +493,87 @@ func main() {
 `)
 }
 
+func TestTypeAssert(t *testing.T) {
+	pkg := newMainPackage()
+	params := types.NewTuple(pkg.NewParam("v", gox.TyEmptyInterface))
+	pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
+		DefineVarStart("x").Val(ctxRef(pkg, "v")).TypeAssert(types.Typ[types.Int], false).EndInit(1).
+		DefineVarStart("y", "ok").Val(ctxRef(pkg, "v")).TypeAssert(types.Typ[types.String], true).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func foo(v interface {
+}) {
+	x := v.(int)
+	y, ok := v.(string)
+}
+`)
+}
+
+func TestTypeSwitch(t *testing.T) {
+	pkg := newMainPackage()
+	p := pkg.NewParam("p", types.NewPointer(gox.TyEmptyInterface))
+	v := pkg.NewParam("v", gox.TyEmptyInterface)
+	pkg.NewFunc(nil, "bar", types.NewTuple(p), nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+		/**/ TypeSwitch("t").Val(v).TypeAssertThen().
+		/****/ Typ(types.Typ[types.Int]).Typ(types.Typ[types.String]).TypeCase(2).
+		/******/ Val(ctxRef(pkg, "bar")).Val(ctxRef(pkg, "t")).UnaryOp(token.AND).Call(1).EndStmt().
+		/****/ End().
+		/**/ Typ(types.Typ[types.Bool]).TypeCase(1).
+		/******/ NewVarStart(types.Typ[types.Bool], "x").Val(ctxRef(pkg, "t")).EndInit(1).
+		/****/ End().
+		/****/ TypeCase(0).
+		/******/ Val(ctxRef(pkg, "bar")).Val(ctxRef(pkg, "t")).UnaryOp(token.AND).Call(1).EndStmt().
+		/****/ End().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+func bar(p *interface {
+}) {
+}
+func foo(v interface {
+}) {
+	switch t := v.(type) {
+	case int, string:
+		bar(&t)
+	case bool:
+		var x bool = t
+	default:
+		bar(&t)
+	}
+}
+`)
+}
+
+func TestTypeSwitch2(t *testing.T) {
+	pkg := newMainPackage()
+	p := pkg.NewParam("p", types.NewPointer(gox.TyEmptyInterface))
+	v := pkg.NewParam("v", gox.TyEmptyInterface)
+	pkg.NewFunc(nil, "bar", types.NewTuple(p), nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+		/**/ TypeSwitch("").Val(ctxRef(pkg, "bar")).Val(nil).Call(1).EndStmt().Val(v).TypeAssertThen().
+		/****/ Typ(types.Typ[types.Int]).TypeCase(1).
+		/******/ Val(ctxRef(pkg, "bar")).Val(ctxRef(pkg, "v")).UnaryOp(token.AND).Call(1).EndStmt().
+		/****/ End().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+func bar(p *interface {
+}) {
+}
+func foo(v interface {
+}) {
+	switch bar(nil); v.(type) {
+	case int:
+		bar(&v)
+	}
+}
+`)
+}
+
 func TestStructLit(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{

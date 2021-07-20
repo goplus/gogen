@@ -122,7 +122,7 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int) {
 		}
 		cb.stk.PopN(n)
 	}
-	stmt := &caseStmt{at: p, list: list}
+	stmt := &caseStmt{list: list}
 	cb.startBlockStmt(stmt, "case statement", &stmt.old)
 }
 
@@ -132,7 +132,6 @@ func (p *switchStmt) End(cb *CodeBuilder) {
 }
 
 type caseStmt struct {
-	at   *switchStmt
 	list []ast.Expr
 	old  codeBlockCtx
 }
@@ -142,6 +141,97 @@ func (p *caseStmt) Fallthrough(cb *CodeBuilder) {
 }
 
 func (p *caseStmt) End(cb *CodeBuilder) {
+	body := cb.endBlockStmt(p.old)
+	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
+}
+
+// ----------------------------------------------------------------------------
+//
+// typeSwitch(name) init; expr typeAssertThen
+// type1, type2, ... typeN typeCase(N)
+//    ...
+//    end
+// type1, type2, ... typeM typeCase(M)
+//    ...
+//    end
+// end
+
+type typeSwitchStmt struct {
+	init  ast.Stmt
+	name  string
+	x     ast.Expr
+	xType *types.Interface
+	old   codeBlockCtx
+}
+
+func (p *typeSwitchStmt) TypeAssertThen(cb *CodeBuilder) {
+	switch stmts := cb.clearBlockStmt(); len(stmts) {
+	case 0:
+		// nothing to do
+	case 1:
+		p.init = stmts[0]
+	default:
+		panic("TODO: type switch statement has too many init statements")
+	}
+	x := cb.stk.Pop()
+	xType, ok := x.Type.(*types.Interface)
+	if !ok {
+		panic("TODO: can't type assert on non interface expr")
+	}
+	p.x, p.xType = x.Val, xType
+}
+
+func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
+	var list []ast.Expr
+	var typ types.Type
+	if n > 0 {
+		list = make([]ast.Expr, n)
+		args := cb.stk.GetArgs(n)
+		for i, arg := range args {
+			tt := arg.Type.(*TypeType)
+			typ = tt.typ
+			if !types.AssertableTo(p.xType, typ) {
+				log.Panicf("TODO: can't assert type %v to %v\n", p.xType, typ)
+			}
+			list[i] = arg.Val
+		}
+		cb.stk.PopN(n)
+	}
+
+	stmt := &typeCaseStmt{list: list}
+	cb.startBlockStmt(stmt, "type case statement", &stmt.old)
+
+	if p.name != "" {
+		if n != 1 { // default, or case with multi expr
+			typ = p.xType
+		}
+		name := types.NewParam(token.NoPos, cb.pkg.Types, p.name, typ)
+		cb.current.scope.Insert(name)
+	}
+}
+
+func (p *typeSwitchStmt) End(cb *CodeBuilder) {
+	body := &ast.BlockStmt{List: cb.endBlockStmt(p.old)}
+	var assign ast.Stmt
+	x := &ast.TypeAssertExpr{X: p.x}
+	if p.name != "" {
+		assign = &ast.AssignStmt{
+			Tok: token.DEFINE,
+			Lhs: []ast.Expr{ident(p.name)},
+			Rhs: []ast.Expr{x},
+		}
+	} else {
+		assign = &ast.ExprStmt{X: x}
+	}
+	cb.emitStmt(&ast.TypeSwitchStmt{Init: p.init, Assign: assign, Body: body})
+}
+
+type typeCaseStmt struct {
+	list []ast.Expr
+	old  codeBlockCtx
+}
+
+func (p *typeCaseStmt) End(cb *CodeBuilder) {
 	body := cb.endBlockStmt(p.old)
 	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
 }
