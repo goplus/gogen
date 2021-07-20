@@ -1204,6 +1204,20 @@ func indirect(typ types.Type) types.Type {
 	return typ
 }
 
+// AssignOp func
+func (p *CodeBuilder) AssignOp(tok token.Token) *CodeBuilder {
+	args := p.stk.GetArgs(2)
+	stmt := &ast.AssignStmt{
+		Tok: tok,
+		Lhs: []ast.Expr{args[0].Val},
+		Rhs: []ast.Expr{args[1].Val},
+	}
+	// TODO: type check
+	p.emitStmt(stmt)
+	p.stk.PopN(2)
+	return p
+}
+
 // Assign func
 func (p *CodeBuilder) Assign(lhs int, rhs ...int) *CodeBuilder {
 	return p.doAssign(lhs, rhs, true)

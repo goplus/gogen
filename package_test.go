@@ -1716,6 +1716,21 @@ func main() {
 `)
 }
 
+func TestAssignOp(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.String], "a", "b").
+		VarRef(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).AssignOp(token.ADD_ASSIGN).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a, b string
+	a += b
+}
+`)
+}
+
 func TestAssign(t *testing.T) {
 	var a, b, c, d, e, f, g *goxVar
 	pkg := newMainPackage()
