@@ -432,6 +432,66 @@ func (p *foo) Print() {
 `)
 }
 
+func TestAssignInterface(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.NewType("foo").InitType(pkg, types.Typ[types.Int])
+	recv := pkg.NewParam("a", foo)
+	ret := pkg.NewParam("ret", types.Typ[types.String])
+	pkg.NewFunc(recv, "Error", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		Return(0).
+		End()
+	pkg.NewVarStart(gox.TyError, "err").
+		Typ(foo).ZeroLit(foo).Call(1).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+type foo int
+
+func (a foo) Error() (ret string) {
+	return
+}
+
+var err error = foo(0)
+`)
+}
+
+func TestAssignUserInterface(t *testing.T) {
+	pkg := newMainPackage()
+	methods := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+	}
+	tyInterf := types.NewInterfaceType(methods, nil).Complete()
+	typStruc := types.NewStruct(nil, nil)
+	foo := pkg.NewType("foo").InitType(pkg, tyInterf)
+	bar := pkg.NewType("bar").InitType(pkg, typStruc)
+	pbar := types.NewPointer(bar)
+	recv := pkg.NewParam("p", pbar)
+	vfoo := types.NewTuple(pkg.NewParam("v", foo))
+	pkg.NewFunc(recv, "Bar", nil, nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "f", vfoo, nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(pbar, "v").
+		Val(ctxRef(pkg, "f")).Val(ctxRef(pkg, "v")).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+type foo interface {
+	Bar()
+}
+type bar struct {
+}
+
+func (p *bar) Bar() {
+}
+func f(v foo) {
+}
+func main() {
+	var v *bar
+	f(v)
+}
+`)
+}
+
 func TestStructLit(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{
@@ -918,7 +978,7 @@ func TestInterfaceMethods(t *testing.T) {
 	methods := []*types.Func{
 		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
 	}
-	tyInterf := types.NewInterfaceType(methods, nil)
+	tyInterf := types.NewInterfaceType(methods, nil).Complete()
 	bar := pkg.NewType("bar").InitType(pkg, tyInterf)
 	b := pkg.NewParam("b", bar)
 	v := pkg.NewParam("v", types.NewSlice(tyInterf))
@@ -965,7 +1025,7 @@ func TestFuncCallEllipsis(t *testing.T) {
 	fmt := pkg.Import("fmt")
 	bar := types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false))
 	methods := []*types.Func{bar}
-	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(methods, nil)))
+	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(methods, nil).Complete()))
 	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).
 		Val(fmt.Ref("Println")).Val(v).Call(1, true).EndStmt().
 		End()

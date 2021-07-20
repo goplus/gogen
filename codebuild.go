@@ -511,9 +511,11 @@ func (p *CodeBuilder) ZeroLit(typ types.Type) *CodeBuilder {
 }
 
 func (p *CodeBuilder) doZeroLit(typ types.Type, allowDebug bool) *CodeBuilder {
+	typ0 := typ
 	if allowDebug && debug {
 		log.Println("ZeroLit")
 	}
+retry:
 	switch t := typ.(type) {
 	case *types.Basic:
 		switch kind := t.Kind(); kind {
@@ -536,6 +538,9 @@ func (p *CodeBuilder) doZeroLit(typ types.Type, allowDebug bool) *CodeBuilder {
 		return p.Val(nil)
 	case *types.Chan:
 		return p.Val(nil)
+	case *types.Named:
+		typ = t.Underlying()
+		goto retry
 	}
 	ret := &ast.CompositeLit{}
 	switch t := typ.(type) {
@@ -544,12 +549,13 @@ func (p *CodeBuilder) doZeroLit(typ types.Type, allowDebug bool) *CodeBuilder {
 			t.ptypes = append(t.ptypes, &ret.Type)
 		} else {
 			typ = t.tBound
+			typ0 = typ
 			ret.Type = toType(p.pkg, typ)
 		}
 	default:
 		ret.Type = toType(p.pkg, typ)
 	}
-	p.stk.Push(internal.Elem{Type: typ, Val: ret})
+	p.stk.Push(internal.Elem{Type: typ0, Val: ret})
 	return p
 }
 
