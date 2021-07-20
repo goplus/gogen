@@ -385,7 +385,7 @@ func (p lenInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Elem
 			panic("TODO: call len() to a pointer")
 		}
 	default:
-		if !lenable.Match(t) {
+		if !lenable.Match(pkg, t) {
 			log.Panicln("TODO: can't call len() to", t)
 		}
 	}
@@ -413,7 +413,7 @@ func (p capInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Elem
 			panic("TODO: call cap() to a pointer")
 		}
 	default:
-		if !capable.Match(t) {
+		if !capable.Match(pkg, t) {
 			log.Panicln("TODO: can't call cap() to", t)
 		}
 	}
@@ -528,7 +528,7 @@ func (p makeInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Ele
 		panic("TODO: make: first arg isn't a type")
 	}
 	typ := ttyp.Type()
-	if !makable.Match(typ) {
+	if !makable.Match(pkg, typ) {
 		log.Panicln("TODO: can't make this type -", typ)
 	}
 	argsExpr := make([]ast.Expr, n)
@@ -552,7 +552,7 @@ type basicContract struct {
 	desc  string
 }
 
-func (p *basicContract) Match(typ types.Type) bool {
+func (p *basicContract) Match(pkg *Package, typ types.Type) bool {
 retry:
 	switch t := typ.(type) {
 	case *types.Basic:
@@ -560,7 +560,7 @@ retry:
 			return true
 		}
 	case *types.Named:
-		typ = t.Underlying()
+		typ = pkg.getUnderlying(t)
 		goto retry
 	}
 	return false
@@ -603,13 +603,13 @@ type comparableT struct {
 	// NOTE: slice/map/func is very special, can only be compared to nil
 }
 
-func (p comparableT) Match(typ types.Type) bool {
+func (p comparableT) Match(pkg *Package, typ types.Type) bool {
 retry:
 	switch t := typ.(type) {
 	case *types.Basic:
 		return t.Kind() != types.UntypedNil // excluding nil
 	case *types.Named:
-		typ = t.Underlying()
+		typ = pkg.getUnderlying(t)
 		goto retry
 	case *types.Slice: // slice/map/func is very special
 		return false
@@ -640,7 +640,7 @@ func (p comparableT) String() string {
 type anyT struct {
 }
 
-func (p anyT) Match(typ types.Type) bool {
+func (p anyT) Match(pkg *Package, typ types.Type) bool {
 	return true
 }
 
@@ -654,7 +654,7 @@ type capableT struct {
 	// type slice, chan, array, array_pointer
 }
 
-func (p capableT) Match(typ types.Type) bool {
+func (p capableT) Match(pkg *Package, typ types.Type) bool {
 retry:
 	switch t := typ.(type) {
 	case *types.Slice:
@@ -667,7 +667,7 @@ retry:
 		_, ok := t.Elem().(*types.Array) // array_pointer
 		return ok
 	case *types.Named:
-		typ = t.Underlying()
+		typ = pkg.getUnderlying(t)
 		goto retry
 	}
 	return false
@@ -684,7 +684,7 @@ type lenableT struct {
 	// type map, string
 }
 
-func (p lenableT) Match(typ types.Type) bool {
+func (p lenableT) Match(pkg *Package, typ types.Type) bool {
 retry:
 	switch t := typ.(type) {
 	case *types.Basic:
@@ -693,10 +693,10 @@ retry:
 	case *types.Map:
 		return true
 	case *types.Named:
-		typ = t.Underlying()
+		typ = pkg.getUnderlying(t)
 		goto retry
 	}
-	return capable.Match(typ)
+	return capable.Match(pkg, typ)
 }
 
 func (p lenableT) String() string {
@@ -709,7 +709,7 @@ type makableT struct {
 	// type slice, chan, map
 }
 
-func (p makableT) Match(typ types.Type) bool {
+func (p makableT) Match(pkg *Package, typ types.Type) bool {
 retry:
 	switch t := typ.(type) {
 	case *types.Slice:
@@ -719,7 +719,7 @@ retry:
 	case *types.Chan:
 		return true
 	case *types.Named:
-		typ = t.Underlying()
+		typ = pkg.getUnderlying(t)
 		goto retry
 	}
 	return false

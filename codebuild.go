@@ -560,13 +560,14 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 	}
 	var t *types.Map
 	var typExpr ast.Expr
+	var pkg = p.pkg
 	if typ != nil {
 		switch tt := typ.(type) {
 		case *types.Named:
-			typExpr = toNamedType(p.pkg, tt)
-			t = tt.Underlying().(*types.Map)
+			typExpr = toNamedType(pkg, tt)
+			t = pkg.getUnderlying(tt).(*types.Map)
 		case *types.Map:
-			typExpr = toMapType(p.pkg, tt)
+			typExpr = toMapType(pkg, tt)
 			t = tt
 		default:
 			log.Panicln("TODO: MapLit: typ isn't a map type -", reflect.TypeOf(typ))
@@ -576,7 +577,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 		if t == nil {
 			t = types.NewMap(types.Typ[types.String], TyEmptyInterface)
 			typ = t
-			typExpr = toMapType(p.pkg, t)
+			typExpr = toMapType(pkg, t)
 		}
 		ret := &ast.CompositeLit{Type: typExpr}
 		p.stk.Push(internal.Elem{Type: typ, Val: ret})
@@ -595,7 +596,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 		val = boundElementType(args, 1, arity, 2)
 		t = types.NewMap(types.Default(key), types.Default(val))
 		typ = t
-		typExpr = toMapType(p.pkg, t)
+		typExpr = toMapType(pkg, t)
 	}
 	elts := make([]ast.Expr, arity>>1)
 	for i := 0; i < arity; i += 2 {
@@ -654,13 +655,14 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 	}
 	var t *types.Slice
 	var typExpr ast.Expr
+	var pkg = p.pkg
 	if typ != nil {
 		switch tt := typ.(type) {
 		case *types.Named:
-			typExpr = toNamedType(p.pkg, tt)
-			t = tt.Underlying().(*types.Slice)
+			typExpr = toNamedType(pkg, tt)
+			t = pkg.getUnderlying(tt).(*types.Slice)
 		case *types.Slice:
-			typExpr = toSliceType(p.pkg, tt)
+			typExpr = toSliceType(pkg, tt)
 			t = tt
 		default:
 			log.Panicln("TODO: SliceLit: typ isn't a slice type -", reflect.TypeOf(typ))
@@ -685,7 +687,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			if t == nil {
 				t = types.NewSlice(TyEmptyInterface)
 				typ = t
-				typExpr = toSliceType(p.pkg, t)
+				typExpr = toSliceType(pkg, t)
 			}
 			p.stk.Push(internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr}})
 			return p
@@ -699,7 +701,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			val = boundElementType(args, 0, arity, 1)
 			t = types.NewSlice(types.Default(val))
 			typ = t
-			typExpr = toSliceType(p.pkg, t)
+			typExpr = toSliceType(pkg, t)
 		}
 		elts = make([]ast.Expr, arity)
 		for i, arg := range args {
@@ -724,12 +726,13 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 	}
 	var t *types.Array
 	var typExpr ast.Expr
+	var pkg = p.pkg
 	switch tt := typ.(type) {
 	case *types.Named:
-		typExpr = toNamedType(p.pkg, tt)
-		t = tt.Underlying().(*types.Array)
+		typExpr = toNamedType(pkg, tt)
+		t = pkg.getUnderlying(tt).(*types.Array)
 	case *types.Array:
-		typExpr = toArrayType(p.pkg, tt)
+		typExpr = toArrayType(pkg, tt)
 		t = tt
 	default:
 		log.Panicln("TODO: ArrayLit: typ isn't a array type -", reflect.TypeOf(typ))
@@ -739,7 +742,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			panic("TODO: ArrayLit - invalid arity")
 		}
 		args := p.stk.GetArgs(arity)
-		max := toBoundArrayLen(p.pkg, args, arity)
+		max := toBoundArrayLen(pkg, args, arity)
 		val := t.Elem()
 		if n := t.Len(); n < 0 {
 			t = types.NewArray(val, int64(max))
@@ -782,12 +785,13 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 	}
 	var t *types.Struct
 	var typExpr ast.Expr
+	var pkg = p.pkg
 	switch tt := typ.(type) {
 	case *types.Named:
-		typExpr = toNamedType(p.pkg, tt)
-		t = tt.Underlying().(*types.Struct)
+		typExpr = toNamedType(pkg, tt)
+		t = pkg.getUnderlying(tt).(*types.Struct)
 	case *types.Struct:
-		typExpr = toStructType(p.pkg, tt)
+		typExpr = toStructType(pkg, tt)
 		t = tt
 	default:
 		log.Panicln("TODO: StructLit: typ isn't a struct type -", reflect.TypeOf(typ))
@@ -1048,7 +1052,7 @@ func (p *CodeBuilder) MemberRef(name string) *CodeBuilder {
 	arg := p.stk.Get(-1)
 	switch o := indirect(arg.Type).(type) {
 	case *types.Named:
-		if struc, ok := o.Underlying().(*types.Struct); ok {
+		if struc, ok := p.pkg.getUnderlying(o).(*types.Struct); ok {
 			p.fieldRef(arg.Val, struc, name)
 		} else {
 			panic("TODO: member not found - " + name)
@@ -1100,7 +1104,7 @@ func (p *CodeBuilder) MemberVal(name string, mflags ...*int) *CodeBuilder {
 			if p.method(t, arg.Val, name, mflags) {
 				return p
 			}
-			if struc, ok := t.Underlying().(*types.Struct); ok {
+			if struc, ok := p.pkg.getUnderlying(t).(*types.Struct); ok {
 				if p.field(struc, arg.Val, name, mflags) {
 					return p
 				}
@@ -1114,7 +1118,7 @@ func (p *CodeBuilder) MemberVal(name string, mflags ...*int) *CodeBuilder {
 		if p.method(o, arg.Val, name, mflags) {
 			return p
 		}
-		switch t := o.Underlying().(type) {
+		switch t := p.pkg.getUnderlying(o).(type) {
 		case *types.Struct:
 			if p.field(t, arg.Val, name, mflags) {
 				return p
@@ -1151,7 +1155,6 @@ type methodList interface {
 func (p *CodeBuilder) method(o methodList, argVal ast.Expr, name string, mflags []*int) bool {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
-		log.Println("method:", name, method.Type()) // TODO: remove
 		if method.Name() == name {
 			p.stk.Ret(1, internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},

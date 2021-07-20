@@ -23,7 +23,7 @@ import (
 // ----------------------------------------------------------------------------
 
 type Contract interface {
-	Match(t types.Type) bool
+	Match(pkg *Package, t types.Type) bool
 	String() string
 }
 
@@ -94,7 +94,7 @@ func (p *unboundProxyParam) String() string {
 func boundType(pkg *Package, arg, param types.Type) error {
 	switch p := param.(type) {
 	case *unboundFuncParam: // template function param
-		if p.typ.contract.Match(arg) {
+		if p.typ.contract.Match(pkg, arg) {
 			if p.tBound == nil {
 				p.boundTo(arg)
 			} else if !AssignableTo(arg, p.tBound) {
@@ -187,9 +187,9 @@ func AssignableTo(V, T types.Type) bool {
 	return false
 }
 
-func ComparableTo(V, T types.Type) bool {
+func ComparableTo(pkg *Package, V, T types.Type) bool {
 	V, T = types.Default(V), types.Default(V)
-	if V != T && V.Underlying() != T.Underlying() {
+	if V != T && getUnderlying(pkg, V) != getUnderlying(pkg, T) {
 		return false
 	}
 	return types.Comparable(V)

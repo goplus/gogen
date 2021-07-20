@@ -8,6 +8,7 @@ import (
 )
 
 type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
+type LoadUnderlyingFunc = func(at *Package, typ *types.Named) types.Type
 
 // TypeExtend is to extend Go builtin types.
 type TypeExtend interface {
@@ -84,6 +85,9 @@ type Config struct {
 	// LoadPkgs is called to load all import packages.
 	LoadPkgs LoadPkgsFunc
 
+	// LoadUnderlying is called to load a delay load type.
+	LoadUnderlying LoadUnderlyingFunc
+
 	// TypeExtend is to extend Go builtin types.
 	TypeExtend TypeExtend
 
@@ -100,18 +104,19 @@ type Config struct {
 // Package type
 type Package struct {
 	PkgRef
-	decls         []ast.Decl
-	cb            CodeBuilder
-	importPkgs    map[string]*PkgRef
-	allPkgPaths   []string // all import pkgPaths
-	delayPkgPaths []string // all delay-load pkgPaths
-	conf          *Config
-	prefix        string
-	builtin       *types.Package
-	loadPkgs      LoadPkgsFunc
-	typExt        TypeExtend
-	autoPrefix    string
-	autoIdx       int
+	decls          []ast.Decl
+	cb             CodeBuilder
+	importPkgs     map[string]*PkgRef
+	allPkgPaths    []string // all import pkgPaths
+	delayPkgPaths  []string // all delay-load pkgPaths
+	conf           *Config
+	prefix         string
+	builtin        *types.Package
+	loadPkgs       LoadPkgsFunc
+	loadUnderlying LoadUnderlyingFunc
+	typExt         TypeExtend
+	autoPrefix     string
+	autoIdx        int
 }
 
 // NewPackage creates a new package.
@@ -135,17 +140,22 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if loadPkgs == nil {
 		loadPkgs = LoadGoPkgs
 	}
+	loadUnderlying := conf.LoadUnderlying
+	if loadUnderlying == nil {
+		loadUnderlying = noLoadUnderlying
+	}
 	typExt := conf.TypeExtend
 	if typExt == nil {
 		typExt = &goTypes{}
 	}
 	pkg := &Package{
-		importPkgs: make(map[string]*PkgRef),
-		conf:       conf,
-		prefix:     prefix,
-		loadPkgs:   loadPkgs,
-		typExt:     typExt,
-		autoPrefix: "_auto" + prefix,
+		importPkgs:     make(map[string]*PkgRef),
+		conf:           conf,
+		prefix:         prefix,
+		loadPkgs:       loadPkgs,
+		loadUnderlying: loadUnderlying,
+		typExt:         typExt,
+		autoPrefix:     "_auto" + prefix,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg)
