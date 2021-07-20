@@ -981,9 +981,9 @@ func (p *CodeBuilder) Typ(typ types.Type) *CodeBuilder {
 func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 	if debugInstr {
 		if o, ok := v.(types.Object); ok {
-			log.Println("Val", o.Name())
+			log.Println("Val", o.Name(), o.Type())
 		} else {
-			log.Println("Val", v)
+			log.Println("Val", v, reflect.TypeOf(v))
 		}
 	}
 	fn := p.current.fn
