@@ -1023,9 +1023,7 @@ func main() {
 func TestFuncCallEllipsis(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
-	bar := types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false))
-	methods := []*types.Func{bar}
-	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(methods, nil).Complete()))
+	v := pkg.NewParam("v", types.NewSlice(types.NewInterfaceType(nil, nil).Complete()))
 	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, true).BodyStart(pkg).
 		Val(fmt.Ref("Println")).Val(v).Call(1, true).EndStmt().
 		End()
@@ -1035,7 +1033,6 @@ func TestFuncCallEllipsis(t *testing.T) {
 import fmt "fmt"
 
 func foo(v ...interface {
-	Bar()
 }) {
 	fmt.Println(v...)
 }
