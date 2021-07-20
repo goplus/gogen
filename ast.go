@@ -598,6 +598,9 @@ func matchAssignType(pkg *Package, varRef types.Type, val types.Type) {
 }
 
 func matchType(pkg *Package, arg, param types.Type) error {
+	if debugMatch {
+		log.Printf("==> MatchType %v, %v\n", arg, param)
+	}
 	switch t := param.(type) {
 	case *unboundType: // variable to bound type
 		if t2, ok := arg.(*unboundType); ok {

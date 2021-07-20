@@ -14,10 +14,12 @@
 package gox
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
 	"log"
+	"reflect"
 
 	"github.com/goplus/gox/internal"
 )
@@ -52,7 +54,7 @@ func (p *TypeDecl) Type() *types.Named {
 
 // InitType initializes a uncompleted type.
 func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
-	if debug {
+	if debugInstr {
 		log.Println("InitType", p.typ.Obj().Name(), typ)
 	}
 	p.typ.SetUnderlying(typ)
@@ -62,7 +64,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 
 // AliasType gives a specified type with a new name
 func (p *Package) AliasType(name string, typ types.Type) *types.Named {
-	if debug {
+	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
 	decl := p.newType(name, typ, 1)
@@ -71,7 +73,7 @@ func (p *Package) AliasType(name string, typ types.Type) *types.Named {
 
 // NewType creates a new type (which need to call InitType later).
 func (p *Package) NewType(name string) *TypeDecl {
-	if debug {
+	if debugInstr {
 		log.Println("NewType", name)
 	}
 	return p.newType(name, nil, 0)
@@ -303,7 +305,7 @@ func (p *unboundType) Underlying() types.Type {
 }
 
 func (p *unboundType) String() string {
-	panic("unbound type")
+	return fmt.Sprintf("*unboundType{typ: %v}", p.tBound)
 }
 
 func realType(typ types.Type) types.Type {
@@ -330,7 +332,7 @@ func (p *unboundMapElemType) Underlying() types.Type {
 }
 
 func (p *unboundMapElemType) String() string {
-	panic("unbound map elem type")
+	return fmt.Sprintf("*unboundMapElemType{key: %v}", p.key)
 }
 
 // ----------------------------------------------------------------------------
@@ -345,7 +347,7 @@ func (p *overloadFuncType) Underlying() types.Type {
 }
 
 func (p *overloadFuncType) String() string {
-	panic("overload function type")
+	return fmt.Sprintf("*overloadFuncType{funcs: %v}", p.funcs)
 }
 
 type instructionType struct {
@@ -357,7 +359,7 @@ func (p *instructionType) Underlying() types.Type {
 }
 
 func (p *instructionType) String() string {
-	panic("instruction type")
+	return fmt.Sprintf("*instructionType{instr: %v}", reflect.TypeOf(p.instr))
 }
 
 func isType(t types.Type) bool {
@@ -389,7 +391,7 @@ func (p *TypeType) Underlying() types.Type {
 }
 
 func (p *TypeType) String() string {
-	panic("type of type")
+	return fmt.Sprintf("*TypeType{typ: %v}", p.typ)
 }
 
 // ----------------------------------------------------------------------------

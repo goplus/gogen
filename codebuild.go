@@ -27,17 +27,20 @@ import (
 const (
 	DbgFlagInstruction = 1 << iota
 	DbgFlagImport
-	DbgFlagAll = DbgFlagInstruction | DbgFlagImport
+	DbgFlagMatch
+	DbgFlagAll = DbgFlagInstruction | DbgFlagImport | DbgFlagMatch
 )
 
 var (
-	debug       bool
+	debugInstr  bool
+	debugMatch  bool
 	debugImport bool
 )
 
 func SetDebug(dbgFlags int) {
-	debug = (dbgFlags & DbgFlagInstruction) != 0
+	debugInstr = (dbgFlags & DbgFlagInstruction) != 0
 	debugImport = (dbgFlags & DbgFlagImport) != 0
+	debugMatch = (dbgFlags & DbgFlagMatch) != 0
 }
 
 // ----------------------------------------------------------------------------
@@ -200,7 +203,7 @@ func (p *CodeBuilder) endInitExpr(old codeBlock) {
 
 // ReturnErr func
 func (p *CodeBuilder) ReturnErr(outer bool) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("ReturnErr", outer)
 	}
 	fn := p.current.fn
@@ -242,7 +245,7 @@ func (p *CodeBuilder) returnResults(n int) {
 
 // Return func
 func (p *CodeBuilder) Return(n int) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Return", n)
 	}
 	fn := p.current.fn
@@ -274,7 +277,7 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	if ellipsis != nil && ellipsis[0] {
 		flags = InstrFlagEllipsis
 	}
-	if debug {
+	if debugInstr {
 		log.Println("Call", n-1, int(flags))
 	}
 	ret := toFuncCall(p.pkg, fn, args, flags)
@@ -342,7 +345,7 @@ func makeInlineCall(arity int) closureType {
 
 // CallInlineClosureStart func
 func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, ellipsis bool) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("CallInlineClosureStart", arity, ellipsis)
 	}
 	pkg := p.pkg
@@ -385,7 +388,7 @@ func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
 
 // NewClosureWith func
 func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
-	if debug {
+	if debugInstr {
 		t := sig.Params()
 		for i, n := 0, t.Len(); i < n; i++ {
 			v := t.At(i)
@@ -409,7 +412,7 @@ func (p *CodeBuilder) AliasType(name string, typ types.Type) *types.Named {
 
 // NewConstStart func
 func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("NewConstStart", names)
 	}
 	return p.pkg.newValueDecl(token.CONST, typ, names...).InitStart(p.pkg)
@@ -417,7 +420,7 @@ func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilde
 
 // NewVar func
 func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("NewVar", names)
 	}
 	p.pkg.newValueDecl(token.VAR, typ, names...)
@@ -426,7 +429,7 @@ func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
 
 // NewVarStart func
 func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("NewVarStart", names)
 	}
 	return p.pkg.newValueDecl(token.VAR, typ, names...).InitStart(p.pkg)
@@ -434,7 +437,7 @@ func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder 
 
 // DefineVarStart func
 func (p *CodeBuilder) DefineVarStart(names ...string) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("DefineVarStart", names)
 	}
 	return p.pkg.newValueDecl(token.DEFINE, nil, names...).InitStart(p.pkg)
@@ -447,7 +450,7 @@ func (p *CodeBuilder) NewAutoVar(name string, pv **types.Var) *CodeBuilder {
 	stmt := &ast.DeclStmt{
 		Decl: decl,
 	}
-	if debug {
+	if debugInstr {
 		log.Println("NewAutoVar", name)
 	}
 	p.emitStmt(stmt)
@@ -466,7 +469,7 @@ func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 
 func (p *CodeBuilder) doVarRef(ref interface{}, allowDebug bool) *CodeBuilder {
 	if ref == nil {
-		if allowDebug && debug {
+		if allowDebug && debugInstr {
 			log.Println("VarRef _")
 		}
 		p.stk.Push(internal.Elem{
@@ -475,7 +478,7 @@ func (p *CodeBuilder) doVarRef(ref interface{}, allowDebug bool) *CodeBuilder {
 	} else {
 		switch v := ref.(type) {
 		case *types.Var:
-			if allowDebug && debug {
+			if allowDebug && debugInstr {
 				log.Println("VarRef", v.Name())
 			}
 			fn := p.current.fn
@@ -498,7 +501,7 @@ func (p *CodeBuilder) doVarRef(ref interface{}, allowDebug bool) *CodeBuilder {
 
 // None func
 func (p *CodeBuilder) None() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("None")
 	}
 	p.stk.Push(internal.Elem{})
@@ -512,7 +515,7 @@ func (p *CodeBuilder) ZeroLit(typ types.Type) *CodeBuilder {
 
 func (p *CodeBuilder) doZeroLit(typ types.Type, allowDebug bool) *CodeBuilder {
 	typ0 := typ
-	if allowDebug && debug {
+	if allowDebug && debugInstr {
 		log.Println("ZeroLit")
 	}
 retry:
@@ -561,7 +564,7 @@ retry:
 
 // MapLit func
 func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("MapLit", typ, arity)
 	}
 	var t *types.Map
@@ -656,7 +659,7 @@ func toLitElemExpr(args []internal.Elem, i int) ast.Expr {
 func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeBuilder {
 	var elts []ast.Expr
 	var keyValMode = (keyVal != nil && keyVal[0])
-	if debug {
+	if debugInstr {
 		log.Println("SliceLit", typ, arity, keyValMode)
 	}
 	var t *types.Slice
@@ -727,7 +730,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeBuilder {
 	var elts []ast.Expr
 	var keyValMode = (keyVal != nil && keyVal[0])
-	if debug {
+	if debugInstr {
 		log.Println("ArrayLit", typ, arity, keyValMode)
 	}
 	var t *types.Array
@@ -786,7 +789,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 
 // StructLit func
 func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("StructLit", keyVal)
 	}
 	var t *types.Struct
@@ -842,7 +845,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 
 // Slice func
 func (p *CodeBuilder) Slice(slice3 bool) *CodeBuilder { // a[i:j:k]
-	if debug {
+	if debugInstr {
 		log.Println("Slice", slice3)
 	}
 	n := 3
@@ -889,7 +892,7 @@ func (p *CodeBuilder) Slice(slice3 bool) *CodeBuilder { // a[i:j:k]
 
 // Index func
 func (p *CodeBuilder) Index(nidx int, twoValue bool) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Index", nidx, twoValue)
 	}
 	if nidx != 1 {
@@ -918,7 +921,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool) *CodeBuilder {
 
 // IndexRef func
 func (p *CodeBuilder) IndexRef(nidx int) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("IndexRef", nidx)
 	}
 	if nidx != 1 {
@@ -964,7 +967,7 @@ var (
 
 // Typ func
 func (p *CodeBuilder) Typ(typ types.Type) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Typ", typ)
 	}
 	p.stk.Push(internal.Elem{
@@ -976,7 +979,7 @@ func (p *CodeBuilder) Typ(typ types.Type) *CodeBuilder {
 
 // Val func
 func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		if o, ok := v.(types.Object); ok {
 			log.Println("Val", o.Name())
 		} else {
@@ -1002,7 +1005,7 @@ func (p *CodeBuilder) pushVal(v interface{}) *CodeBuilder {
 
 // Star func
 func (p *CodeBuilder) Star() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Star")
 	}
 	arg := p.stk.Get(-1)
@@ -1022,7 +1025,7 @@ func (p *CodeBuilder) Star() *CodeBuilder {
 
 // Elem func
 func (p *CodeBuilder) Elem() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Elem")
 	}
 	arg := p.stk.Get(-1)
@@ -1036,7 +1039,7 @@ func (p *CodeBuilder) Elem() *CodeBuilder {
 
 // ElemRef func
 func (p *CodeBuilder) ElemRef() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("ElemRef")
 	}
 	arg := p.stk.Get(-1)
@@ -1052,7 +1055,7 @@ func (p *CodeBuilder) ElemRef() *CodeBuilder {
 
 // MemberRef func
 func (p *CodeBuilder) MemberRef(name string) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("MemberRef", name)
 	}
 	arg := p.stk.Get(-1)
@@ -1099,7 +1102,7 @@ const (
 
 // MemberVal func
 func (p *CodeBuilder) MemberVal(name string, mflags ...*int) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("MemberVal", name)
 	}
 	arg := p.stk.Get(-1)
@@ -1212,7 +1215,7 @@ func indirect(typ types.Type) types.Type {
 
 // AssignOp func
 func (p *CodeBuilder) AssignOp(tok token.Token) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("AssignOp", tok)
 	}
 	args := p.stk.GetArgs(2)
@@ -1239,7 +1242,7 @@ func (p *CodeBuilder) doAssign(lhs int, v []int, allowDebug bool) *CodeBuilder {
 	} else {
 		rhs = lhs
 	}
-	if allowDebug && debug {
+	if allowDebug && debugInstr {
 		log.Println("Assign", lhs, rhs)
 	}
 	args := p.stk.GetArgs(lhs + rhs)
@@ -1313,7 +1316,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 		p.stk.PopN(1)
 		return p.CompareNil(op)
 	}
-	if debug {
+	if debugInstr {
 		log.Println("BinaryOp", op, name)
 	}
 	ret := callOpFunc(p.pkg, name, args, 0)
@@ -1350,7 +1353,7 @@ func (p *CodeBuilder) CompareNil(op token.Token) *CodeBuilder {
 	if op != token.EQL && op != token.NEQ {
 		panic("TODO: compare nil can only be == or !=")
 	}
-	if debug {
+	if debugInstr {
 		log.Println("CompareNil", op)
 	}
 	arg := p.stk.Get(-1)
@@ -1370,7 +1373,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 		flags = InstrFlagTwoValue
 	}
 	name := p.pkg.prefix + unaryOps[op]
-	if debug {
+	if debugInstr {
 		log.Println("UnaryOp", op, flags, name)
 	}
 	ret := callOpFunc(p.pkg, name, p.stk.GetArgs(1), flags)
@@ -1389,7 +1392,7 @@ var (
 
 // IncDec func
 func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("IncDec", op)
 	}
 	pkg := p.pkg
@@ -1420,7 +1423,7 @@ var (
 
 // Send func
 func (p *CodeBuilder) Send() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Send")
 	}
 	val := p.stk.Pop()
@@ -1432,7 +1435,7 @@ func (p *CodeBuilder) Send() *CodeBuilder {
 
 // Defer func
 func (p *CodeBuilder) Defer() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Defer")
 	}
 	arg := p.stk.Pop()
@@ -1446,7 +1449,7 @@ func (p *CodeBuilder) Defer() *CodeBuilder {
 
 // Go func
 func (p *CodeBuilder) Go() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Go")
 	}
 	arg := p.stk.Pop()
@@ -1460,7 +1463,7 @@ func (p *CodeBuilder) Go() *CodeBuilder {
 
 // If func
 func (p *CodeBuilder) If() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("If")
 	}
 	stmt := &ifStmt{}
@@ -1470,7 +1473,7 @@ func (p *CodeBuilder) If() *CodeBuilder {
 
 // Then func
 func (p *CodeBuilder) Then() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Then")
 	}
 	if p.stk.Len() == p.current.base {
@@ -1485,7 +1488,7 @@ func (p *CodeBuilder) Then() *CodeBuilder {
 
 // Else func
 func (p *CodeBuilder) Else() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Else")
 	}
 	if flow, ok := p.current.codeBlock.(*ifStmt); ok {
@@ -1497,7 +1500,7 @@ func (p *CodeBuilder) Else() *CodeBuilder {
 
 // Switch func
 func (p *CodeBuilder) Switch() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Switch")
 	}
 	stmt := &switchStmt{}
@@ -1507,7 +1510,7 @@ func (p *CodeBuilder) Switch() *CodeBuilder {
 
 // Case func
 func (p *CodeBuilder) Case(n int) *CodeBuilder { // n=0 means default case
-	if debug {
+	if debugInstr {
 		log.Println("Case", n)
 	}
 	if flow, ok := p.current.codeBlock.(*switchStmt); ok {
@@ -1519,7 +1522,7 @@ func (p *CodeBuilder) Case(n int) *CodeBuilder { // n=0 means default case
 
 // Label func
 func (p *CodeBuilder) Label(name string) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Label", name)
 	}
 	p.current.useLabel(name, true)
@@ -1529,7 +1532,7 @@ func (p *CodeBuilder) Label(name string) *CodeBuilder {
 
 // Goto func
 func (p *CodeBuilder) Goto(name string) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Goto", name)
 	}
 	p.current.useLabel(name, false)
@@ -1539,7 +1542,7 @@ func (p *CodeBuilder) Goto(name string) *CodeBuilder {
 
 // Break func
 func (p *CodeBuilder) Break(name string) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Break", name)
 	}
 	if name != "" {
@@ -1551,7 +1554,7 @@ func (p *CodeBuilder) Break(name string) *CodeBuilder {
 
 // Continue func
 func (p *CodeBuilder) Continue(name string) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Continue", name)
 	}
 	if name != "" {
@@ -1563,7 +1566,7 @@ func (p *CodeBuilder) Continue(name string) *CodeBuilder {
 
 // Fallthrough func
 func (p *CodeBuilder) Fallthrough() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Fallthrough")
 	}
 	if flow, ok := p.current.codeBlock.(*caseStmt); ok {
@@ -1575,7 +1578,7 @@ func (p *CodeBuilder) Fallthrough() *CodeBuilder {
 
 // For func
 func (p *CodeBuilder) For() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("For")
 	}
 	stmt := &forStmt{}
@@ -1585,7 +1588,7 @@ func (p *CodeBuilder) For() *CodeBuilder {
 
 // Post func
 func (p *CodeBuilder) Post() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("Post")
 	}
 	if flow, ok := p.current.codeBlock.(*forStmt); ok {
@@ -1596,7 +1599,7 @@ func (p *CodeBuilder) Post() *CodeBuilder {
 }
 
 func (p *CodeBuilder) ForRange(names ...string) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("ForRange", names)
 	}
 	stmt := &forRangeStmt{names: names}
@@ -1606,7 +1609,7 @@ func (p *CodeBuilder) ForRange(names ...string) *CodeBuilder {
 
 // RangeAssignThen func
 func (p *CodeBuilder) RangeAssignThen() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("RangeAssignThen")
 	}
 	if flow, ok := p.current.codeBlock.(*forRangeStmt); ok {
@@ -1631,7 +1634,7 @@ func (p *CodeBuilder) EndStmt() *CodeBuilder {
 
 // End func
 func (p *CodeBuilder) End() *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("End")
 		if p.stk.Len() > p.current.base {
 			panic("forget to call EndStmt()?")
@@ -1643,7 +1646,7 @@ func (p *CodeBuilder) End() *CodeBuilder {
 
 // EndInit func
 func (p *CodeBuilder) EndInit(n int) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("EndInit", n)
 	}
 	p.varDecl = p.varDecl.EndInit(p, n)

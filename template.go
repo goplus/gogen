@@ -76,7 +76,7 @@ func (p *unboundFuncParam) Underlying() types.Type {
 }
 
 func (p *unboundFuncParam) String() string {
-	panic("unboundFuncParam")
+	return fmt.Sprintf("*unboundFuncParam{typ: %v}", p.tBound)
 }
 
 type unboundProxyParam struct {
@@ -88,7 +88,7 @@ func (p *unboundProxyParam) Underlying() types.Type {
 }
 
 func (p *unboundProxyParam) String() string {
-	panic("unboundProxyParam")
+	return fmt.Sprintf("*unboundProxyParam{typ: %v}", p.real)
 }
 
 func boundType(pkg *Package, arg, param types.Type) error {

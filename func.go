@@ -60,7 +60,7 @@ type Func struct {
 
 // BodyStart func
 func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
-	if debug {
+	if debugInstr {
 		log.Println("NewFunc", p.Name())
 	}
 	return pkg.cb.startFuncBody(p, &p.old)
