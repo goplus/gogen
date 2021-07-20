@@ -1206,6 +1206,9 @@ func indirect(typ types.Type) types.Type {
 
 // AssignOp func
 func (p *CodeBuilder) AssignOp(tok token.Token) *CodeBuilder {
+	if debug {
+		log.Println("AssignOp", tok)
+	}
 	args := p.stk.GetArgs(2)
 	stmt := &ast.AssignStmt{
 		Tok: tok,
