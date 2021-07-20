@@ -147,6 +147,44 @@ func (p *caseStmt) End(cb *CodeBuilder) {
 
 // ----------------------------------------------------------------------------
 //
+// select
+// commStmt1 commCase()
+//    ...
+//    end
+// commStmt2 commCase()
+//    ...
+//    end
+// end
+type selectStmt struct {
+	old codeBlockCtx
+}
+
+func (p *selectStmt) CommCase(cb *CodeBuilder, n int) {
+	var comm ast.Stmt
+	if n == 1 {
+		comm = cb.popStmt()
+	}
+	stmt := &commCase{comm: comm}
+	cb.startBlockStmt(stmt, "comm case statement", &stmt.old)
+}
+
+func (p *selectStmt) End(cb *CodeBuilder) {
+	body := &ast.BlockStmt{List: cb.endBlockStmt(p.old)}
+	cb.emitStmt(&ast.SelectStmt{Body: body})
+}
+
+type commCase struct {
+	comm ast.Stmt
+	old  codeBlockCtx
+}
+
+func (p *commCase) End(cb *CodeBuilder) {
+	body := cb.endBlockStmt(p.old)
+	cb.emitStmt(&ast.CommClause{Comm: p.comm, Body: body})
+}
+
+// ----------------------------------------------------------------------------
+//
 // typeSwitch(name) init; expr typeAssertThen
 // type1, type2, ... typeN typeCase(N)
 //    ...
@@ -155,7 +193,7 @@ func (p *caseStmt) End(cb *CodeBuilder) {
 //    ...
 //    end
 // end
-
+//
 type typeSwitchStmt struct {
 	init  ast.Stmt
 	name  string

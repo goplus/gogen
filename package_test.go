@@ -574,6 +574,39 @@ func foo(v interface {
 `)
 }
 
+func TestSelect(t *testing.T) {
+	pkg := newMainPackage()
+	tyXchg := types.NewChan(types.SendRecv, types.Typ[types.Int])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyXchg, "xchg").
+		/**/ Select().
+		/****/ DefineVarStart("x").Val(ctxRef(pkg, "xchg")).UnaryOp(token.ARROW).EndInit(1).CommCase(1).
+		/******/ NewVarStart(types.Typ[types.Int], "t").Val(ctxRef(pkg, "x")).EndInit(1).
+		/****/ End().
+		/****/ Val(ctxRef(pkg, "xchg")).Val(1).Send().CommCase(1).
+		/******/ DefineVarStart("x").Val(1).EndInit(1).
+		/****/ End().
+		/****/ CommCase(0).
+		/******/ DefineVarStart("x").Val("Hi").EndInit(1).
+		/****/ End().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var xchg chan int
+	select {
+	case x := <-xchg:
+		var t int = x
+	case xchg <- 1:
+		x := 1
+	default:
+		x := "Hi"
+	}
+}
+`)
+}
+
 func TestStructLit(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{

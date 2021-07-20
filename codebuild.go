@@ -164,6 +164,14 @@ func (p *CodeBuilder) clearBlockStmt() []ast.Stmt {
 	return stmts
 }
 
+func (p *CodeBuilder) popStmt() ast.Stmt {
+	stmts := p.current.stmts
+	n := len(stmts) - 1
+	stmt := stmts[n]
+	p.current.stmts = stmts[:n]
+	return stmt
+}
+
 func (p *CodeBuilder) startStmtAt(stmt ast.Stmt) int {
 	idx := len(p.current.stmts)
 	p.emitStmt(stmt)
@@ -1551,6 +1559,31 @@ func (p *CodeBuilder) TypeCase(n int) *CodeBuilder { // n=0 means default case
 		return p
 	}
 	panic("use switch x.(type) .. case please")
+}
+
+// Select
+func (p *CodeBuilder) Select() *CodeBuilder {
+	if debugInstr {
+		log.Println("Select")
+	}
+	stmt := &selectStmt{}
+	p.startBlockStmt(stmt, "select statement", &stmt.old)
+	return p
+}
+
+// CommCase
+func (p *CodeBuilder) CommCase(n int) *CodeBuilder {
+	if debugInstr {
+		log.Println("CommCase", n)
+	}
+	if n > 1 {
+		panic("TODO: multi commStmt in select..case?")
+	}
+	if flow, ok := p.current.codeBlock.(*selectStmt); ok {
+		flow.CommCase(p, n)
+		return p
+	}
+	panic("use select..case please")
 }
 
 // Switch func
