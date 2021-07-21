@@ -146,6 +146,10 @@ func (p *CodeBuilder) panicSourceError(msg string) {
 	panic(&SourceError{Msg: msg, FileLine: p.fileline, Scope: p.Scope(), Func: p.Func()})
 }
 
+func (p *CodeBuilder) panicSourceErrorf(format string, args ...interface{}) {
+	p.panicSourceError(fmt.Sprintf(format, args...))
+}
+
 // Scope returns current scope.
 func (p *CodeBuilder) Scope() *types.Scope {
 	return p.current.scope

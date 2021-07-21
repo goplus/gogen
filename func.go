@@ -112,13 +112,18 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, name, sig)
 	if recv := sig.Recv(); recv != nil { // add method to this type
 		var t *types.Named
-		switch typ := recv.Type().(type) {
+		var ok bool
+		var typ = recv.Type()
+		switch tt := typ.(type) {
 		case *types.Named:
-			t = typ
+			t, ok = tt, true
 		case *types.Pointer:
-			t = typ.Elem().(*types.Named)
-		default:
-			panic("TODO: invalid recv type")
+			typ = tt.Elem()
+			t, ok = typ.(*types.Named)
+		}
+		if !ok {
+			tstr := typ.String()
+			p.cb.panicSourceErrorf("invalid receiver type %s (%s is not a defined type)", tstr, tstr)
 		}
 		t.AddMethod(fn)
 	} else if name != "init" { // init is not a normal func
