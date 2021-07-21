@@ -101,6 +101,7 @@ type CodeBuilder struct {
 	pkg      *Package
 	varDecl  *ValueDecl
 	closureParamInsts
+	commentOnce bool
 }
 
 func (p *CodeBuilder) init(pkg *Package) {
@@ -198,9 +199,11 @@ func (p *CodeBuilder) commitStmt(idx int) {
 }
 
 func (p *CodeBuilder) emitStmt(stmt ast.Stmt) {
-	if comments := p.comments; comments != nil {
-		p.comments = nil
-		stmt = &printer.CommentedStmt{Comments: comments, Stmt: stmt}
+	if p.comments != nil {
+		stmt = &printer.CommentedStmt{Comments: p.comments, Stmt: stmt}
+		if p.commentOnce {
+			p.comments = nil
+		}
 	}
 	if p.current.label != nil {
 		p.current.label.Stmt = stmt
@@ -224,13 +227,13 @@ func (p *CodeBuilder) Comments() *ast.CommentGroup {
 }
 
 // SetComments sets current comments.
-func (p *CodeBuilder) SetComments(comments *ast.CommentGroup) *CodeBuilder {
+func (p *CodeBuilder) SetComments(comments *ast.CommentGroup, once bool) *CodeBuilder {
 	if debugComments && comments != nil {
 		for i, c := range comments.List {
 			log.Println("SetComments", i, c.Text)
 		}
 	}
-	p.comments = comments
+	p.comments, p.commentOnce = comments, once
 	return p
 }
 

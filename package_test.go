@@ -224,13 +224,13 @@ func TestIncDec(t *testing.T) {
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		SetComments(comment("\n// define variable a")).
+		SetComments(comment("\n// define variable a"), false).
 		NewVar(tyInt, "a").
-		SetComments(comment("\n// inc a")).
+		SetComments(comment("\n// inc a"), true).
 		VarRef(ctxRef(pkg, "a")).IncDec(token.INC).EndStmt().
 		End()
 	if pkg.CB().Comments() != nil {
-		t.Fatal("please clear Comments")
+		t.Fatal("comments is not nil")
 	}
 	domTest(t, pkg, `package main
 
