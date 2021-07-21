@@ -225,7 +225,7 @@ func (p *CodeBuilder) Comments() *ast.CommentGroup {
 
 // SetComments sets current comments.
 func (p *CodeBuilder) SetComments(comments *ast.CommentGroup) *CodeBuilder {
-	if debugComments {
+	if debugComments && comments != nil {
 		for i, c := range comments.List {
 			log.Println("SetComments", i, c.Text)
 		}

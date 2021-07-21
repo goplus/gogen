@@ -149,6 +149,9 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		typExt = &goTypes{}
 	}
 	pkg := &Package{
+		PkgRef: PkgRef{
+			Fset: conf.Fset,
+		},
 		importPkgs:     make(map[string]*PkgRef),
 		conf:           conf,
 		prefix:         prefix,
