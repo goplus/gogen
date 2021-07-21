@@ -125,7 +125,7 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 		p.Types.Scope().Insert(fn)
 	} else {
 		if sig.Params() != nil || sig.Results() != nil {
-			panic("TODO: func init must have no arguments and no return values")
+			p.cb.panicSourceError("func init must have no arguments and no return values")
 		}
 	}
 

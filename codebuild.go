@@ -110,6 +110,20 @@ func (p *FileLine) Comments() *ast.CommentGroup {
 	return p.comments
 }
 
+type SourceError struct {
+	Msg      string
+	FileLine *FileLine
+	Scope    *types.Scope
+	Func     *Func
+}
+
+func (p *SourceError) Error() string {
+	if fl := p.FileLine; fl != nil {
+		return fmt.Sprintf("%s:%d %s", fl.File, fl.Line, p.Msg)
+	}
+	return p.Msg
+}
+
 // CodeBuilder type
 type CodeBuilder struct {
 	stk      internal.Stack
@@ -128,11 +142,21 @@ func (p *CodeBuilder) init(pkg *Package) {
 	p.closureParamInsts.init()
 }
 
+func (p *CodeBuilder) panicSourceError(msg string) {
+	panic(&SourceError{Msg: msg, FileLine: p.fileline, Scope: p.Scope(), Func: p.Func()})
+}
+
 // Scope returns current scope.
 func (p *CodeBuilder) Scope() *types.Scope {
 	return p.current.scope
 }
 
+// Func returns current func (nil means in global scope).
+func (p *CodeBuilder) Func() *Func {
+	return p.current.fn
+}
+
+// Pkg returns the package instance.
 func (p *CodeBuilder) Pkg() *Package {
 	return p.pkg
 }
