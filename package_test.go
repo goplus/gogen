@@ -229,6 +229,9 @@ func TestIncDec(t *testing.T) {
 		SetComments(comment("\n// inc a")).
 		VarRef(ctxRef(pkg, "a")).IncDec(token.INC).EndStmt().
 		End()
+	if pkg.CB().Comments() != nil {
+		t.Fatal("please clear Comments")
+	}
 	domTest(t, pkg, `package main
 
 func main() {

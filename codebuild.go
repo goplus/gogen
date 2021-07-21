@@ -218,7 +218,12 @@ func (p *CodeBuilder) endInitExpr(old codeBlock) {
 	p.current.codeBlock = old
 }
 
-// SetComments func
+// Comments returns current comments.
+func (p *CodeBuilder) Comments() *ast.CommentGroup {
+	return p.comments
+}
+
+// SetComments sets current comments.
 func (p *CodeBuilder) SetComments(comments *ast.CommentGroup) *CodeBuilder {
 	if debugComments {
 		for i, c := range comments.List {
