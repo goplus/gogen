@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"fmt"
 	"go/ast"
 	"go/constant"
 	"go/token"
@@ -93,15 +94,31 @@ func (p *funcBodyCtx) useLabel(name string, define bool) {
 	}
 }
 
+type FileLine struct {
+	File     string
+	Line     int
+	comments *ast.CommentGroup
+}
+
+func (p *FileLine) Comments() *ast.CommentGroup {
+	if p.comments == nil {
+		line := fmt.Sprintf("\n//line %s:%d", p.File, p.Line)
+		p.comments = &ast.CommentGroup{
+			List: []*ast.Comment{{Text: line}},
+		}
+	}
+	return p.comments
+}
+
 // CodeBuilder type
 type CodeBuilder struct {
 	stk      internal.Stack
 	current  funcBodyCtx
-	comments *ast.CommentGroup
+	fileline *FileLine
 	pkg      *Package
 	varDecl  *ValueDecl
 	closureParamInsts
-	commentOnce bool
+	filelineOnce bool
 }
 
 func (p *CodeBuilder) init(pkg *Package) {
@@ -199,10 +216,11 @@ func (p *CodeBuilder) commitStmt(idx int) {
 }
 
 func (p *CodeBuilder) emitStmt(stmt ast.Stmt) {
-	if p.comments != nil {
-		stmt = &printer.CommentedStmt{Comments: p.comments, Stmt: stmt}
-		if p.commentOnce {
-			p.comments = nil
+	if p.fileline != nil {
+		comments := p.fileline.Comments()
+		stmt = &printer.CommentedStmt{Comments: comments, Stmt: stmt}
+		if p.filelineOnce {
+			p.fileline = nil
 		}
 	}
 	if p.current.label != nil {
@@ -221,19 +239,17 @@ func (p *CodeBuilder) endInitExpr(old codeBlock) {
 	p.current.codeBlock = old
 }
 
-// Comments returns current comments.
-func (p *CodeBuilder) Comments() *ast.CommentGroup {
-	return p.comments
+// FileLine returns the beginning file line of current statement.
+func (p *CodeBuilder) FileLine() *FileLine {
+	return p.fileline
 }
 
-// SetComments sets current comments.
-func (p *CodeBuilder) SetComments(comments *ast.CommentGroup, once bool) *CodeBuilder {
-	if debugComments && comments != nil {
-		for i, c := range comments.List {
-			log.Println("SetComments", i, c.Text)
-		}
+// SetFileLine sets the beginning file line of current statement.
+func (p *CodeBuilder) SetFileLine(fileline *FileLine, once bool) *CodeBuilder {
+	if debugComments && fileline != nil {
+		log.Println("SetFileLine", fileline.File, fileline.Line)
 	}
-	p.comments, p.commentOnce = comments, once
+	p.fileline, p.filelineOnce = fileline, once
 	return p
 }
 

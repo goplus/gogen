@@ -154,10 +154,8 @@ func (p *foo) Bar() {}
 
 // ----------------------------------------------------------------------------
 
-func comment(text string) *ast.CommentGroup {
-	return &ast.CommentGroup{List: []*ast.Comment{
-		{Text: text},
-	}}
+func fileline(file string, line int) *gox.FileLine {
+	return &gox.FileLine{File: file, Line: line}
 }
 
 func TestBasic(t *testing.T) {
@@ -224,20 +222,20 @@ func TestIncDec(t *testing.T) {
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		SetComments(comment("\n// define variable a"), false).
+		SetFileLine(fileline("./foo.gop", 1), false).
 		NewVar(tyInt, "a").
-		SetComments(comment("\n// inc a"), true).
+		SetFileLine(fileline("./foo.gop", 2), true).
 		VarRef(ctxRef(pkg, "a")).IncDec(token.INC).EndStmt().
 		End()
-	if pkg.CB().Comments() != nil {
-		t.Fatal("comments is not nil")
+	if pkg.CB().FileLine() != nil {
+		t.Fatal("fileLine is not nil")
 	}
 	domTest(t, pkg, `package main
 
 func main() {
-// define variable a
+//line ./foo.gop:1
 	var a uint
-// inc a
+//line ./foo.gop:2
 	a++
 }
 `)
@@ -964,6 +962,19 @@ func TestFuncVariadic(t *testing.T) {
 func foo(v ...byte) {
 }
 func main() {
+}
+`)
+}
+
+func TestInitFunc(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "init", nil, nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "init", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func init() {
+}
+func init() {
 }
 `)
 }

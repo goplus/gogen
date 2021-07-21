@@ -121,8 +121,12 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 			panic("TODO: invalid recv type")
 		}
 		t.AddMethod(fn)
-	} else {
+	} else if name != "init" { // init is not a normal func
 		p.Types.Scope().Insert(fn)
+	} else {
+		if sig.Params() != nil || sig.Results() != nil {
+			panic("TODO: func init must have no arguments and no return values")
+		}
 	}
 
 	decl := &ast.FuncDecl{}
