@@ -1447,6 +1447,27 @@ func main() {
 `)
 }
 
+func TestForRangeChan(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.NewChan(types.SendRecv, types.Typ[types.Int]), "a").
+		/**/ ForRange("_", "i").Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	var a chan int
+	for i := range a {
+		fmt.Println(i)
+	}
+}
+`)
+}
+
 func TestForRangeKV(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

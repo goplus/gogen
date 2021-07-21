@@ -353,6 +353,12 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
 		x := cb.stk.Pop()
 		pkg, scope := cb.pkg, cb.current.scope
 		typs := getKeyValTypes(x.Type)
+		if typs[1] == nil { // chan
+			if names[0] == "_" && len(names) > 1 {
+				names[0], val = names[1], nil
+				names = names[:1]
+			}
+		}
 		for i, name := range names {
 			if name == "_" {
 				continue
