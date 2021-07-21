@@ -1410,9 +1410,19 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		p.print(blank)
 		p.block(s.Body, 1)
 
+	case *CommentedStmt:
+		p.setComment(s.Comments)
+		p.stmt(s.Stmt, nextIsRBrace)
+
 	default:
 		panic("unreachable")
 	}
+}
+
+// CommentedStmt represents a statement with comments.
+type CommentedStmt struct {
+	Comments *ast.CommentGroup
+	ast.Stmt
 }
 
 // ----------------------------------------------------------------------------
