@@ -38,8 +38,7 @@ func sourceErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
 	pkg := newMainPackage()
 	source(pkg)
 	var b bytes.Buffer
-	err := gox.WriteTo(&b, pkg)
-	t.Fatal("gox.WriteTo no error? -", err)
+	gox.WriteTo(&b, pkg)
 }
 
 func TestFileLine(t *testing.T) {
@@ -65,6 +64,10 @@ func TestErrRecv(t *testing.T) {
 	})
 	sourceErrorTest(t, "invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam("p", types.NewPointer(tySlice))
+		pkg.NewFunc(recv, "foo", nil, nil, false).BodyStart(pkg).End()
+	})
+	sourceErrorTest(t, "invalid receiver type error (error is an interface type)", func(pkg *gox.Package) {
+		recv := pkg.NewParam("p", gox.TyError)
 		pkg.NewFunc(recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
 }
