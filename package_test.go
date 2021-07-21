@@ -154,6 +154,12 @@ func (p *foo) Bar() {}
 
 // ----------------------------------------------------------------------------
 
+func comment(text string) *ast.CommentGroup {
+	return &ast.CommentGroup{List: []*ast.Comment{
+		{Text: text},
+	}}
+}
+
 func TestBasic(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
@@ -172,7 +178,7 @@ func TestMake(t *testing.T) {
 	tySlice := types.NewSlice(types.Typ[types.Int])
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tySlice, "a").Val(pkg.Builtin().Ref("make")).
-		Typ(tySlice).Val(0).Val(2).Call(3).EndInit(1).
+		/**/ Typ(tySlice).Val(0).Val(2).Call(3).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -218,13 +224,17 @@ func TestIncDec(t *testing.T) {
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		SetComments(comment("\n// define variable a")).
 		NewVar(tyInt, "a").
+		SetComments(comment("\n// inc a")).
 		VarRef(ctxRef(pkg, "a")).IncDec(token.INC).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
 func main() {
+// define variable a
 	var a uint
+// inc a
 	a++
 }
 `)

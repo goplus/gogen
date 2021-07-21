@@ -22,25 +22,29 @@ import (
 	"reflect"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/internal/go/printer"
 )
 
 const (
 	DbgFlagInstruction = 1 << iota
 	DbgFlagImport
 	DbgFlagMatch
-	DbgFlagAll = DbgFlagInstruction | DbgFlagImport | DbgFlagMatch
+	DbgFlagComments
+	DbgFlagAll = DbgFlagInstruction | DbgFlagImport | DbgFlagMatch | DbgFlagComments
 )
 
 var (
-	debugInstr  bool
-	debugMatch  bool
-	debugImport bool
+	debugInstr    bool
+	debugMatch    bool
+	debugImport   bool
+	debugComments bool
 )
 
 func SetDebug(dbgFlags int) {
 	debugInstr = (dbgFlags & DbgFlagInstruction) != 0
 	debugImport = (dbgFlags & DbgFlagImport) != 0
 	debugMatch = (dbgFlags & DbgFlagMatch) != 0
+	debugComments = (dbgFlags & DbgFlagComments) != 0
 }
 
 // ----------------------------------------------------------------------------
@@ -91,10 +95,11 @@ func (p *funcBodyCtx) useLabel(name string, define bool) {
 
 // CodeBuilder type
 type CodeBuilder struct {
-	stk     internal.Stack
-	current funcBodyCtx
-	pkg     *Package
-	varDecl *ValueDecl
+	stk      internal.Stack
+	current  funcBodyCtx
+	comments *ast.CommentGroup
+	pkg      *Package
+	varDecl  *ValueDecl
 	closureParamInsts
 }
 
@@ -193,6 +198,10 @@ func (p *CodeBuilder) commitStmt(idx int) {
 }
 
 func (p *CodeBuilder) emitStmt(stmt ast.Stmt) {
+	if comments := p.comments; comments != nil {
+		p.comments = nil
+		stmt = &printer.CommentedStmt{Comments: comments, Stmt: stmt}
+	}
 	if p.current.label != nil {
 		p.current.label.Stmt = stmt
 		stmt, p.current.label = p.current.label, nil
@@ -207,6 +216,17 @@ func (p *CodeBuilder) startInitExpr(current codeBlock) (old codeBlock) {
 
 func (p *CodeBuilder) endInitExpr(old codeBlock) {
 	p.current.codeBlock = old
+}
+
+// SetComments func
+func (p *CodeBuilder) SetComments(comments *ast.CommentGroup) *CodeBuilder {
+	if debugComments {
+		for i, c := range comments.List {
+			log.Println("SetComments", i, c.Text)
+		}
+	}
+	p.comments = comments
+	return p
 }
 
 // ReturnErr func

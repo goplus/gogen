@@ -15,10 +15,11 @@ package gox
 
 import (
 	"go/ast"
-	"go/format"
 	"go/token"
 	"io"
 	"os"
+
+	"github.com/goplus/gox/internal/go/format"
 )
 
 // ----------------------------------------------------------------------------
