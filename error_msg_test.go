@@ -134,3 +134,17 @@ func TestErrMapLit(t *testing.T) {
 				End()
 		})
 }
+
+func TestErrSliceLit(t *testing.T) {
+	sourceErrorTest(t, "cannot use 1+2 (type untyped int) as type string in slice literal",
+		func(pkg *gox.Package) {
+			tySlice := types.NewSlice(types.Typ[types.String])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1, source("1")).
+				Val(2, source("2")).
+				BinaryOp(token.ADD, source("1+2")).
+				SliceLit(tySlice, 1).
+				EndStmt().
+				End()
+		})
+}

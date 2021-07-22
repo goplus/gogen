@@ -820,12 +820,12 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			typExpr = toSliceType(pkg, tt)
 			t = tt
 		default:
-			log.Panicln("TODO: SliceLit: typ isn't a slice type -", reflect.TypeOf(typ))
+			log.Panicln("SliceLit: typ isn't a slice type -", reflect.TypeOf(typ))
 		}
 	}
 	if keyValMode { // in keyVal mode
 		if (arity & 1) != 0 {
-			panic("TODO: SliceLit - invalid arity")
+			log.Panicln("SliceLit: invalid arity, can't be odd in keyVal mode -", arity)
 		}
 		args := p.stk.GetArgs(arity)
 		val := t.Elem()
@@ -863,7 +863,9 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			elts[i] = arg.Val
 			if check {
 				if !AssignableTo(arg.Type, val) {
-					log.Panicf("TODO: SliceLit - can't assign %v to %v\n", arg.Type, val)
+					p.panicSourceErrorf(
+						"cannot use %s (type %v) as type %v in slice literal",
+						p.readSource(arg.Src), arg.Type, val)
 				}
 			}
 		}
