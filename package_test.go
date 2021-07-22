@@ -37,32 +37,42 @@ func init() {
 	gblLoadPkgs = gox.NewLoadPkgsCached(nil)
 }
 
-type txtNode string
+type txtNode gox.CodeError
 
-func (p txtNode) Pos() token.Pos {
+func (p *txtNode) Pos() token.Pos {
 	return 1
 }
 
-func (p txtNode) End() token.Pos {
+func (p *txtNode) End() token.Pos {
 	return 2
 }
 
-func source(text string) ast.Node {
-	return txtNode(text)
+// text, line, column
+func source(text string, args ...interface{}) ast.Node {
+	if len(args) < 2 {
+		return &txtNode{Msg: text}
+	}
+	fileline := &gox.FileLine{File: "./foo.gop", Line: args[0].(int)}
+	return &txtNode{Msg: text, FileLine: fileline, Column: args[1].(int)}
 }
 
-func readSource(node ast.Node) string {
+func loadExpr(node ast.Node) (string, *token.Position) {
 	if node == nil {
-		return ""
+		return "", nil
 	}
-	return string(node.(txtNode))
+	expr := node.(*txtNode)
+	if expr.FileLine == nil {
+		return expr.Msg, nil
+	}
+	return expr.Msg, &token.Position{
+		Filename: expr.FileLine.File, Line: expr.FileLine.Line, Column: expr.Column}
 }
 
 func newMainPackage(noCache ...bool) *gox.Package {
 	conf := &gox.Config{
-		Fset:       gblFset,
-		LoadPkgs:   gblLoadPkgs,
-		ReadSource: readSource,
+		Fset:     gblFset,
+		LoadPkgs: gblLoadPkgs,
+		LoadExpr: loadExpr,
 	}
 	if noCache != nil {
 		conf = nil

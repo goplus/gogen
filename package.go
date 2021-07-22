@@ -85,8 +85,8 @@ type Config struct {
 	// HandleErr is called to handle errors.
 	HandleErr func(err error)
 
-	// ReadSource is called to read source code.
-	ReadSource func(node ast.Node) string
+	// LoadExpr is called to load an expr code and return its position.
+	LoadExpr func(expr ast.Node) (string, *token.Position)
 
 	// LoadPkgs is called to load all import packages.
 	LoadPkgs LoadPkgsFunc

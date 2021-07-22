@@ -148,14 +148,70 @@ func TestErrMapLit(t *testing.T) {
 }
 
 func TestErrArrayLit(t *testing.T) {
+	sourceErrorTest(t, "./foo.gop:1:5 cannot use 32 (type untyped int) as type string in array literal",
+		func(pkg *gox.Package) {
+			tyArray := types.NewArray(types.Typ[types.String], 10)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1, source("1")).
+				Val(32, source("32", 1, 5)).
+				ArrayLit(tyArray, 2, true).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t, "./foo.gop:1:5 cannot use 1+2 (type untyped int) as type string in array literal",
+		func(pkg *gox.Package) {
+			tyArray := types.NewArray(types.Typ[types.String], 10)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1, source("1")).
+				Val(2, source("2")).
+				BinaryOp(token.ADD, source("1+2", 1, 5)).
+				ArrayLit(tyArray, 1).
+				EndStmt().
+				End()
+		})
 	sourceErrorTest(t,
-		`cannot use "Hi" + "!" as index which must be non-negative integer constant`,
+		`./foo.gop:2:10 array index 1 out of bounds [0:1]`,
+		func(pkg *gox.Package) {
+			tyArray := types.NewArray(types.Typ[types.String], 1)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val("Hi", source(`"Hi"`, 1, 5)).
+				Val("!", source(`"!"`, 2, 10)).
+				ArrayLit(tyArray, 2, false).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t,
+		`./foo.gop:1:5 array index 12 (value 12) out of bounds [0:10]`,
+		func(pkg *gox.Package) {
+			tyArray := types.NewArray(types.Typ[types.String], 10)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(12, source(`12`, 1, 5)).
+				Val("!", source(`"!"`)).
+				ArrayLit(tyArray, 2, true).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t,
+		`./foo.gop:2:10 array index 10 out of bounds [0:10]`,
+		func(pkg *gox.Package) {
+			tyArray := types.NewArray(types.Typ[types.String], 10)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(9, source(`9`, 1, 5)).
+				Val("!", source(`"!"`)).
+				None().
+				Val("!!", source(`"!!"`, 2, 10)).
+				ArrayLit(tyArray, 4, true).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t,
+		`./foo.gop:1:5 cannot use "Hi" + "!" as index which must be non-negative integer constant`,
 		func(pkg *gox.Package) {
 			tyArray := types.NewArray(types.Typ[types.String], 100)
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val("Hi", source(`"Hi"`)).
 				Val("!", source(`"!"`)).
-				BinaryOp(token.ADD, source(`"Hi" + "!"`)).
+				BinaryOp(token.ADD, source(`"Hi" + "!"`, 1, 5)).
 				Val("Hi", source(`"Hi"`)).
 				ArrayLit(tyArray, 2, true).
 				EndStmt().
@@ -165,33 +221,33 @@ func TestErrArrayLit(t *testing.T) {
 
 func TestErrSliceLit(t *testing.T) {
 	sourceErrorTest(t,
-		`cannot use "10" as index which must be non-negative integer constant`,
+		`./foo.gop:1:5 cannot use "10" as index which must be non-negative integer constant`,
 		func(pkg *gox.Package) {
 			tySlice := types.NewSlice(types.Typ[types.String])
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val("10", source(`"10"`)).
+				Val("10", source(`"10"`, 1, 5)).
 				Val("Hi", source(`"Hi"`)).
 				SliceLit(tySlice, 2, true).
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t, "cannot use 32 (type untyped int) as type string in slice literal",
+	sourceErrorTest(t, "./foo.gop:1:5 cannot use 32 (type untyped int) as type string in slice literal",
 		func(pkg *gox.Package) {
 			tySlice := types.NewSlice(types.Typ[types.String])
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(10, source("10")).
-				Val(32, source("32")).
+				Val(32, source("32", 1, 5)).
 				SliceLit(tySlice, 2, true).
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t, "cannot use 1+2 (type untyped int) as type string in slice literal",
+	sourceErrorTest(t, "./foo.gop:1:5 cannot use 1+2 (type untyped int) as type string in slice literal",
 		func(pkg *gox.Package) {
 			tySlice := types.NewSlice(types.Typ[types.String])
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(1, source("1")).
 				Val(2, source("2")).
-				BinaryOp(token.ADD, source("1+2")).
+				BinaryOp(token.ADD, source("1+2", 1, 5)).
 				SliceLit(tySlice, 1).
 				EndStmt().
 				End()
