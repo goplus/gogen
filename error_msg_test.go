@@ -94,3 +94,15 @@ func TestErrLabel(t *testing.T) {
 			End()
 	})
 }
+
+func TestErrNewVar(t *testing.T) {
+	sourceErrorTest(t, "foo redeclared in this block\n\tprevious declaration at ./foo.gop:1",
+		func(pkg *gox.Package) {
+			var x *types.Var
+			pkg.Fset.AddFile("./foo.gop", 1, 100).AddLine(10)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewAutoVar(1, "foo", &x).
+				NewAutoVar(11, "foo", &x).
+				End()
+		})
+}

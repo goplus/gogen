@@ -509,7 +509,7 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 		for i, n := 0, t.Len(); i < n; i++ {
 			v := t.At(i)
 			if _, ok := v.Type().(*unboundType); ok {
-				panic("TODO: can't use auto type in func parameters")
+				panic("can't use unbound type in func parameters")
 			}
 		}
 	}
@@ -560,7 +560,7 @@ func (p *CodeBuilder) DefineVarStart(names ...string) *CodeBuilder {
 }
 
 // NewAutoVar func
-func (p *CodeBuilder) NewAutoVar(name string, pv **types.Var) *CodeBuilder {
+func (p *CodeBuilder) NewAutoVar(pos token.Pos, name string, pv **types.Var) *CodeBuilder {
 	spec := &ast.ValueSpec{Names: []*ast.Ident{ident(name)}}
 	decl := &ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{spec}}
 	stmt := &ast.DeclStmt{
@@ -571,11 +571,21 @@ func (p *CodeBuilder) NewAutoVar(name string, pv **types.Var) *CodeBuilder {
 	}
 	p.emitStmt(stmt)
 	typ := &unboundType{ptypes: []*ast.Expr{&spec.Type}}
-	*pv = types.NewVar(token.NoPos, p.pkg.Types, name, typ)
-	if p.current.scope.Insert(*pv) != nil {
-		log.Panicln("TODO: variable already defined -", name)
+	*pv = types.NewVar(pos, p.pkg.Types, name, typ)
+	if old := p.current.scope.Insert(*pv); old != nil {
+		file, line := getFileLine(p.pkg.Fset, old.Pos())
+		p.panicSourceErrorf(
+			"%s redeclared in this block\n\tprevious declaration at %s:%d", name, file, line)
 	}
 	return p
+}
+
+func getFileLine(fset *token.FileSet, pos token.Pos) (file string, line int) {
+	if pos != token.NoPos && fset != nil {
+		p := fset.Position(pos)
+		return p.Filename, p.Line
+	}
+	return "", -1
 }
 
 // VarRef func: p.VarRef(nil) means underscore (_)
