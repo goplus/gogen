@@ -144,7 +144,15 @@ func (p *ValueDecl) End(cb *CodeBuilder) {
 	panic("don't call End(), please use EndInit() instead")
 }
 
-func (p *ValueDecl) EndInit(cb *CodeBuilder, arity int) *ValueDecl {
+func (p *ValueDecl) resetInit(cb *CodeBuilder) *ValueDecl {
+	cb.endInitExpr(p.old)
+	if p.at >= 0 {
+		cb.commitStmt(p.at) // to support inline call, we must emitStmt at ResetInit stage
+	}
+	return p.oldv
+}
+
+func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	n := len(p.names)
 	rets := cb.stk.GetArgs(arity)
 	if arity == 1 && n != 1 {

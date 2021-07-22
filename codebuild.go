@@ -1851,6 +1851,9 @@ func (p *CodeBuilder) RangeAssignThen() *CodeBuilder {
 
 // ResetStmt resets the statement state of CodeBuilder.
 func (p *CodeBuilder) ResetStmt() {
+	if debugInstr {
+		log.Println("ResetStmt")
+	}
 	p.stk.SetLen(p.current.base)
 }
 
@@ -1879,12 +1882,20 @@ func (p *CodeBuilder) End() *CodeBuilder {
 	return p
 }
 
+// ResetInit resets the variable init state of CodeBuilder.
+func (p *CodeBuilder) ResetInit() {
+	if debugInstr {
+		log.Println("ResetInit")
+	}
+	p.varDecl = p.varDecl.resetInit(p)
+}
+
 // EndInit func
 func (p *CodeBuilder) EndInit(n int) *CodeBuilder {
 	if debugInstr {
 		log.Println("EndInit", n)
 	}
-	p.varDecl = p.varDecl.EndInit(p, n)
+	p.varDecl = p.varDecl.endInit(p, n)
 	return p
 }
 
