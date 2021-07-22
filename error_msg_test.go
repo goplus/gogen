@@ -23,9 +23,11 @@ import (
 )
 
 func sourceErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
+	pkg := newMainPackage()
 	defer func() {
 		if e := recover(); e != nil {
 			if err, ok := e.(*gox.SourceError); ok {
+				pkg.CB().ResetStmt()
 				if ret := err.Error(); ret != msg {
 					t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
 				}
@@ -36,7 +38,6 @@ func sourceErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
 			t.Fatal("no error?")
 		}
 	}()
-	pkg := newMainPackage()
 	source(pkg)
 	var b bytes.Buffer
 	gox.WriteTo(&b, pkg)

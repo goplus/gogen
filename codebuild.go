@@ -1849,6 +1849,11 @@ func (p *CodeBuilder) RangeAssignThen() *CodeBuilder {
 	panic("please use RangeAssignThen() in for range statement")
 }
 
+// ResetStmt resets the statement state of CodeBuilder.
+func (p *CodeBuilder) ResetStmt() {
+	p.stk.SetLen(p.current.base)
+}
+
 // EndStmt func
 func (p *CodeBuilder) EndStmt() *CodeBuilder {
 	n := p.stk.Len() - p.current.base
