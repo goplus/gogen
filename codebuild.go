@@ -48,6 +48,21 @@ func SetDebug(dbgFlags int) {
 	debugComments = (dbgFlags & DbgFlagComments) != 0
 }
 
+func getFileLine(fset *token.FileSet, pos token.Pos) (file string, line int) {
+	if pos != token.NoPos && fset != nil {
+		p := fset.Position(pos)
+		return p.Filename, p.Line
+	}
+	return "", -1
+}
+
+func getSrc(node []ast.Node) ast.Node {
+	if node != nil {
+		return node[0]
+	}
+	return nil
+}
+
 // ----------------------------------------------------------------------------
 
 type codeBlock interface {
@@ -149,22 +164,27 @@ func (p *SourceError) Error() string {
 
 // CodeBuilder type
 type CodeBuilder struct {
-	stk       internal.Stack
-	current   funcBodyCtx
-	fileline  *FileLine
-	pkg       *Package
-	varDecl   *ValueDecl
-	handleErr func(err error)
+	stk        internal.Stack
+	current    funcBodyCtx
+	fileline   *FileLine
+	pkg        *Package
+	varDecl    *ValueDecl
+	handleErr  func(err error)
+	readSource func(node ast.Node) string
 	closureParamInsts
 	filelineOnce bool
 }
 
-func (p *CodeBuilder) init(pkg *Package, handleErr func(err error)) {
-	if handleErr == nil {
-		handleErr = defaultHandleErr
+func (p *CodeBuilder) init(pkg *Package, conf *Config) {
+	p.handleErr = conf.HandleErr
+	if p.handleErr == nil {
+		p.handleErr = defaultHandleErr
+	}
+	p.readSource = conf.ReadSource
+	if p.readSource == nil {
+		p.readSource = defaultReadSource
 	}
 	p.pkg = pkg
-	p.handleErr = handleErr
 	p.current.scope = pkg.Types.Scope()
 	p.stk.Init()
 	p.closureParamInsts.init()
@@ -172,6 +192,10 @@ func (p *CodeBuilder) init(pkg *Package, handleErr func(err error)) {
 
 func defaultHandleErr(err error) {
 	panic(err)
+}
+
+func defaultReadSource(node ast.Node) string {
+	return ""
 }
 
 func (p *CodeBuilder) newSourceError(msg string) *SourceError {
@@ -442,7 +466,7 @@ func (p *Func) inlineClosureEnd(cb *CodeBuilder) {
 	results := sig.Results()
 	for i, n := 0, results.Len(); i < n; i++ { // return results & clean env
 		key := closureParamInst{p, results.At(i)}
-		cb.pushVal(cb.paramInsts[key])
+		cb.pushVal(cb.paramInsts[key], nil)
 		delete(cb.paramInsts, key)
 	}
 	for i, n := 0, getParamLen(sig); i < n; i++ { // clean env
@@ -580,14 +604,6 @@ func (p *CodeBuilder) NewAutoVar(pos token.Pos, name string, pv **types.Var) *Co
 	return p
 }
 
-func getFileLine(fset *token.FileSet, pos token.Pos) (file string, line int) {
-	if pos != token.NoPos && fset != nil {
-		p := fset.Position(pos)
-		return p.Filename, p.Line
-	}
-	return "", -1
-}
-
 // VarRef func: p.VarRef(nil) means underscore (_)
 func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
 	return p.doVarRef(ref, true)
@@ -705,7 +721,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 			typExpr = toMapType(pkg, tt)
 			t = tt
 		default:
-			log.Panicln("TODO: MapLit: typ isn't a map type -", reflect.TypeOf(typ))
+			log.Panicln("MapLit: typ isn't a map type -", reflect.TypeOf(typ))
 		}
 	}
 	if arity == 0 {
@@ -719,7 +735,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 		return p
 	}
 	if (arity & 1) != 0 {
-		panic("TODO: MapLit - invalid arity")
+		log.Panicln("MapLit: invalid arity, can't be odd -", arity)
 	}
 	var key, val types.Type
 	var args = p.stk.GetArgs(arity)
@@ -738,9 +754,13 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 		elts[i>>1] = &ast.KeyValueExpr{Key: args[i].Val, Value: args[i+1].Val}
 		if check {
 			if !AssignableTo(args[i].Type, key) {
-				log.Panicf("TODO: MapLit - can't assign %v to %v\n", args[i].Type, key)
+				p.panicSourceErrorf(
+					"cannot use %s (type %v) as type %v in map key",
+					p.readSource(args[i].Src), args[i].Type, key)
 			} else if !AssignableTo(args[i+1].Type, val) {
-				log.Panicf("TODO: MapLit - can't assign %v to %v\n", args[i+1].Type, val)
+				p.panicSourceErrorf(
+					"cannot use %s (type %v) as type %v in map value",
+					p.readSource(args[i+1].Src), args[i+1].Type, val)
 			}
 		}
 	}
@@ -1104,7 +1124,7 @@ func (p *CodeBuilder) Typ(typ types.Type) *CodeBuilder {
 }
 
 // Val func
-func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
+func (p *CodeBuilder) Val(v interface{}, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		if o, ok := v.(types.Object); ok {
 			log.Println("Val", o.Name(), o.Type())
@@ -1121,11 +1141,11 @@ func (p *CodeBuilder) Val(v interface{}) *CodeBuilder {
 			}
 		}
 	}
-	return p.pushVal(v)
+	return p.pushVal(v, getSrc(src))
 }
 
-func (p *CodeBuilder) pushVal(v interface{}) *CodeBuilder {
-	p.stk.Push(toExpr(p.pkg, v))
+func (p *CodeBuilder) pushVal(v interface{}, src ast.Node) *CodeBuilder {
+	p.stk.Push(toExpr(p.pkg, v, src))
 	return p
 }
 
@@ -1427,11 +1447,11 @@ func callOpFunc(pkg *Package, name string, args []internal.Elem, flags InstrFlag
 	if op == nil {
 		panic("TODO: operator not matched")
 	}
-	return toFuncCall(pkg, toObject(pkg, op), args, flags)
+	return toFuncCall(pkg, toObject(pkg, op, nil), args, flags)
 }
 
 // BinaryOp func
-func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
+func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	name := p.pkg.prefix + binaryOps[op]
 	args := p.stk.GetArgs(2)
 	if args[1].Type == types.Typ[types.UntypedNil] { // arg1 is nil
@@ -1446,6 +1466,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token) *CodeBuilder {
 		log.Println("BinaryOp", op, name)
 	}
 	ret := callOpFunc(p.pkg, name, args, 0)
+	ret.Src = getSrc(src)
 	p.stk.Ret(2, ret)
 	return p
 }

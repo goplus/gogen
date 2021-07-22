@@ -15,6 +15,7 @@ package gox_test
 
 import (
 	"bytes"
+	"go/token"
 	"go/types"
 	"testing"
 
@@ -103,6 +104,33 @@ func TestErrNewVar(t *testing.T) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewAutoVar(1, "foo", &x).
 				NewAutoVar(11, "foo", &x).
+				End()
+		})
+}
+
+func TestErrMapLit(t *testing.T) {
+	sourceErrorTest(t, "cannot use 1+2 (type untyped int) as type string in map key",
+		func(pkg *gox.Package) {
+			tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1, source("1")).
+				Val(2, source("2")).
+				BinaryOp(token.ADD, source("1+2")).
+				Val(3).
+				MapLit(tyMap, 2).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t, `cannot use "Hi" + "!" (type untyped string) as type int in map value`,
+		func(pkg *gox.Package) {
+			tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val("1").
+				Val("Hi", source(`"Hi"`)).
+				Val("!", source(`"!"`)).
+				BinaryOp(token.ADD, source(`"Hi" + "!"`)).
+				MapLit(tyMap, 2).
+				EndStmt().
 				End()
 		})
 }

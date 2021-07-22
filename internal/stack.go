@@ -27,6 +27,7 @@ type Elem struct {
 	Val  ast.Expr
 	Type types.Type
 	CVal constant.Value
+	Src  ast.Node
 }
 
 // A Stack represents a FILO container.

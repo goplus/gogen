@@ -225,11 +225,12 @@ func toInterface(pkg *Package, t *types.Interface) ast.Expr {
 // -----------------------------------------------------------------------------
 // expression
 
-func toExpr(pkg *Package, val interface{}) internal.Elem {
+func toExpr(pkg *Package, val interface{}, src ast.Node) internal.Elem {
 	if val == nil {
 		return internal.Elem{
 			Val:  identNil,
 			Type: types.Typ[types.UntypedNil],
+			Src:  src,
 		}
 	}
 	switch v := val.(type) {
@@ -238,20 +239,23 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 			Val:  v,
 			Type: types.Typ[toBasicKind(v.Kind)],
 			CVal: constant.MakeFromLiteral(v.Value, v.Kind, 0),
+			Src:  src,
 		}
 	case *types.Builtin:
 		if o := pkg.builtin.Scope().Lookup(v.Name()); o != nil {
-			return toObject(pkg, o)
+			return toObject(pkg, o, src)
 		}
 		log.Panicln("TODO: unsupported builtin -", v.Name())
 	case *types.TypeName:
 		if typ := v.Type(); isType(typ) {
-			return internal.Elem{Val: toType(pkg, typ), Type: NewTypeType(typ)}
+			return internal.Elem{
+				Val: toType(pkg, typ), Type: NewTypeType(typ), Src: src,
+			}
 		} else {
-			return toObject(pkg, v)
+			return toObject(pkg, v, src)
 		}
 	case types.Object:
-		return toObject(pkg, v)
+		return toObject(pkg, v, src)
 	case *Element:
 		return *v
 	case int:
@@ -259,33 +263,38 @@ func toExpr(pkg *Package, val interface{}) internal.Elem {
 			Val:  &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(v)},
 			Type: types.Typ[types.UntypedInt],
 			CVal: constant.MakeInt64(int64(v)),
+			Src:  src,
 		}
 	case string:
 		return internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(v)},
 			Type: types.Typ[types.UntypedString],
 			CVal: constant.MakeString(v),
+			Src:  src,
 		}
 	case bool:
 		return internal.Elem{
 			Val:  boolean(v),
 			Type: types.Typ[types.UntypedBool],
 			CVal: constant.MakeBool(v),
+			Src:  src,
 		}
 	case rune:
 		return internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.CHAR, Value: strconv.QuoteRune(v)},
 			Type: types.Typ[types.UntypedRune],
 			CVal: constant.MakeInt64(int64(v)),
+			Src:  src,
 		}
 	case float64:
 		return internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.FLOAT, Value: strconv.FormatFloat(v, 'g', -1, 64)},
 			Type: types.Typ[types.UntypedFloat],
 			CVal: constant.MakeFloat64(v),
+			Src:  src,
 		}
 	}
-	panic("TODO: toExpr")
+	panic("unexpected: unsupport value type")
 }
 
 func toBasicKind(tok token.Token) types.BasicKind {
@@ -302,10 +311,9 @@ var (
 	}
 )
 
-func toObject(pkg *Package, v types.Object) internal.Elem {
+func toObject(pkg *Package, v types.Object, src ast.Node) internal.Elem {
 	return internal.Elem{
-		Val:  toObjectExpr(pkg, v),
-		Type: realType(v.Type()),
+		Val: toObjectExpr(pkg, v), Type: realType(v.Type()), Src: src,
 	}
 }
 
@@ -449,7 +457,7 @@ func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 		}
 	case *overloadFuncType:
 		for _, o := range t.funcs {
-			if ret, err = matchFuncCall(pkg, toObject(pkg, o), args, flags); err == nil {
+			if ret, err = matchFuncCall(pkg, toObject(pkg, o, nil), args, flags); err == nil {
 				return
 			}
 		}

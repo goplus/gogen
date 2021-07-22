@@ -85,6 +85,9 @@ type Config struct {
 	// HandleErr is called to handle errors.
 	HandleErr func(err error)
 
+	// ReadSource is called to read source code.
+	ReadSource func(node ast.Node) string
+
 	// LoadPkgs is called to load all import packages.
 	LoadPkgs LoadPkgsFunc
 
@@ -164,7 +167,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		autoPrefix:     "_auto" + prefix,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
-	pkg.cb.init(pkg, conf.HandleErr)
+	pkg.cb.init(pkg, conf)
 	pkg.builtin = newBuiltin(pkg, prefix, contracts)
 	return pkg
 }

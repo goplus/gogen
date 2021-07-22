@@ -37,10 +37,32 @@ func init() {
 	gblLoadPkgs = gox.NewLoadPkgsCached(nil)
 }
 
+type txtNode string
+
+func (p txtNode) Pos() token.Pos {
+	return 1
+}
+
+func (p txtNode) End() token.Pos {
+	return 2
+}
+
+func source(text string) ast.Node {
+	return txtNode(text)
+}
+
+func readSource(node ast.Node) string {
+	if node == nil {
+		return ""
+	}
+	return string(node.(txtNode))
+}
+
 func newMainPackage(noCache ...bool) *gox.Package {
 	conf := &gox.Config{
-		Fset:     gblFset,
-		LoadPkgs: gblLoadPkgs,
+		Fset:       gblFset,
+		LoadPkgs:   gblLoadPkgs,
+		ReadSource: readSource,
 	}
 	if noCache != nil {
 		conf = nil
@@ -1434,6 +1456,7 @@ func TestLabeledFor(t *testing.T) {
 		/**/ For().DefineVarStart("i").Val(0).EndInit(1). // for i := 0; i < 10; i=i+1 {
 		/******/ Val(ctxRef(pkg, "i")).Val(10).BinaryOp(token.LSS).Then().
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		/******/ Break("label").
 		/******/ Post().
 		/******/ VarRef(ctxRef(pkg, "i")).Val(ctxRef(pkg, "i")).Val(1).BinaryOp(token.ADD).Assign(1).EndStmt().
 		/**/ End().
@@ -1446,6 +1469,7 @@ func main() {
 label:
 	for i := 0; i < 10; i = i + 1 {
 		fmt.Println(i)
+		break label
 	}
 }
 `)
