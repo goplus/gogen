@@ -26,7 +26,7 @@ func sourceErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
 	pkg := newMainPackage()
 	defer func() {
 		if e := recover(); e != nil {
-			if err, ok := e.(*gox.SourceError); ok {
+			if err, ok := e.(*gox.CodeError); ok {
 				pkg.CB().ResetStmt()
 				if ret := err.Error(); ret != msg {
 					t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
@@ -109,7 +109,7 @@ func TestErrNewVar(t *testing.T) {
 		})
 }
 
-func TestErrDefineVar(t *testing.T) {
+func _TestErrDefineVar(t *testing.T) {
 	sourceErrorTest(t, "foo redeclared in this block\n\tprevious declaration at ./foo.gop:1",
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

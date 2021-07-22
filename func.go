@@ -122,17 +122,17 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 			t, ok = typ.(*types.Named)
 		}
 		if !ok {
-			p.cb.panicSourceErrorf("invalid receiver type %v (%v is not a defined type)", typ, typ)
+			p.cb.panicStmtErrorf("invalid receiver type %v (%v is not a defined type)", typ, typ)
 		}
 		if _, ok := t.Obj().Type().Underlying().(*types.Interface); ok {
-			p.cb.panicSourceErrorf("invalid receiver type %v (%v is an interface type)", typ, typ)
+			p.cb.panicStmtErrorf("invalid receiver type %v (%v is an interface type)", typ, typ)
 		}
 		t.AddMethod(fn)
 	} else if name != "init" { // init is not a normal func
 		p.Types.Scope().Insert(fn)
 	} else {
 		if sig.Params() != nil || sig.Results() != nil {
-			p.cb.panicSourceError("func init must have no arguments and no return values")
+			p.cb.panicStmtError("func init must have no arguments and no return values")
 		}
 	}
 

@@ -84,8 +84,8 @@ type funcBodyCtx struct {
 }
 
 type label struct {
-	at   *SourceError
-	refs []*SourceError
+	at   *CodeError
+	refs []*CodeError
 }
 
 func (p *funcBodyCtx) checkLabels(cb *CodeBuilder) {
@@ -116,7 +116,7 @@ func (p *funcBodyCtx) getLabel(name string) *label {
 
 func (p *funcBodyCtx) useLabel(cb *CodeBuilder, name string) {
 	l := p.getLabel(name)
-	l.refs = append(l.refs, cb.newSourceError(""))
+	l.refs = append(l.refs, cb.newStmtError(""))
 }
 
 func (p *funcBodyCtx) defineLabel(cb *CodeBuilder, name string) {
@@ -127,9 +127,9 @@ func (p *funcBodyCtx) defineLabel(cb *CodeBuilder, name string) {
 		if fl := l.at.FileLine; fl != nil {
 			file, line = fl.File, fl.Line
 		}
-		cb.panicSourceErrorf("label %s already defined at %s:%d", name, file, line)
+		cb.panicStmtErrorf("label %s already defined at %s:%d", name, file, line)
 	}
-	l.at = cb.newSourceError("")
+	l.at = cb.newStmtError("")
 }
 
 type FileLine struct {
@@ -148,16 +148,20 @@ func (p *FileLine) Comments() *ast.CommentGroup {
 	return p.comments
 }
 
-type SourceError struct {
+type CodeError struct {
 	Msg      string
 	FileLine *FileLine
 	Scope    *types.Scope
 	Func     *Func
+	LineOff  int
 }
 
-func (p *SourceError) Error() string {
+func (p *CodeError) Error() string {
 	if fl := p.FileLine; fl != nil {
-		return fmt.Sprintf("%s:%d %s", fl.File, fl.Line, p.Msg)
+		if p.LineOff == 0 {
+			return fmt.Sprintf("%s:%d %s", fl.File, fl.Line, p.Msg)
+		}
+		return fmt.Sprintf("%s:%d:%d %s", fl.File, fl.Line, p.LineOff, p.Msg)
 	}
 	return p.Msg
 }
@@ -198,16 +202,16 @@ func defaultReadSource(node ast.Node) string {
 	return ""
 }
 
-func (p *CodeBuilder) newSourceError(msg string) *SourceError {
-	return &SourceError{Msg: msg, FileLine: p.fileline, Scope: p.Scope(), Func: p.Func()}
+func (p *CodeBuilder) newStmtError(msg string) *CodeError {
+	return &CodeError{Msg: msg, FileLine: p.fileline, Scope: p.Scope(), Func: p.Func()}
 }
 
-func (p *CodeBuilder) panicSourceError(msg string) {
-	panic(p.newSourceError(msg))
+func (p *CodeBuilder) panicStmtError(msg string) {
+	panic(p.newStmtError(msg))
 }
 
-func (p *CodeBuilder) panicSourceErrorf(format string, args ...interface{}) {
-	panic(p.newSourceError(fmt.Sprintf(format, args...)))
+func (p *CodeBuilder) panicStmtErrorf(format string, args ...interface{}) {
+	panic(p.newStmtError(fmt.Sprintf(format, args...)))
 }
 
 // Scope returns current scope.
@@ -598,7 +602,7 @@ func (p *CodeBuilder) NewAutoVar(pos token.Pos, name string, pv **types.Var) *Co
 	*pv = types.NewVar(pos, p.pkg.Types, name, typ)
 	if old := p.current.scope.Insert(*pv); old != nil {
 		file, line := getFileLine(p.pkg.Fset, old.Pos())
-		p.panicSourceErrorf(
+		p.panicStmtErrorf(
 			"%s redeclared in this block\n\tprevious declaration at %s:%d", name, file, line)
 	}
 	return p
@@ -754,11 +758,11 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 		elts[i>>1] = &ast.KeyValueExpr{Key: args[i].Val, Value: args[i+1].Val}
 		if check {
 			if !AssignableTo(args[i].Type, key) {
-				p.panicSourceErrorf(
+				p.panicStmtErrorf(
 					"cannot use %s (type %v) as type %v in map key",
 					p.readSource(args[i].Src), args[i].Type, key)
 			} else if !AssignableTo(args[i+1].Type, val) {
-				p.panicSourceErrorf(
+				p.panicStmtErrorf(
 					"cannot use %s (type %v) as type %v in map value",
 					p.readSource(args[i+1].Src), args[i+1].Type, val)
 			}
@@ -790,7 +794,7 @@ func (p *CodeBuilder) toIntVal(v internal.Elem, msg string) int {
 			return int(v)
 		}
 	}
-	p.panicSourceErrorf("cannot use %s as %s", p.readSource(v.Src), msg)
+	p.panicStmtErrorf("cannot use %s as %s", p.readSource(v.Src), msg)
 	return 0
 }
 
@@ -835,7 +839,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		elts = make([]ast.Expr, n)
 		for i := 0; i < arity; i += 2 {
 			if !AssignableTo(args[i+1].Type, val) {
-				p.panicSourceErrorf(
+				p.panicStmtErrorf(
 					"cannot use %s (type %v) as type %v in slice literal",
 					p.readSource(args[i+1].Src), args[i+1].Type, val)
 			}
@@ -867,7 +871,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			elts[i] = arg.Val
 			if check {
 				if !AssignableTo(arg.Type, val) {
-					p.panicSourceErrorf(
+					p.panicStmtErrorf(
 						"cannot use %s (type %v) as type %v in slice literal",
 						p.readSource(arg.Src), arg.Type, val)
 				}
@@ -896,11 +900,11 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		typExpr = toArrayType(pkg, tt)
 		t = tt
 	default:
-		log.Panicln("TODO: ArrayLit: typ isn't a array type -", reflect.TypeOf(typ))
+		log.Panicln("ArrayLit: typ isn't a array type -", reflect.TypeOf(typ))
 	}
 	if keyValMode { // in keyVal mode
 		if (arity & 1) != 0 {
-			panic("TODO: ArrayLit - invalid arity")
+			log.Panicln("ArrayLit: invalid arity, can't be odd in keyVal mode -", arity)
 		}
 		args := p.stk.GetArgs(arity)
 		max := p.toBoundArrayLen(args, arity)

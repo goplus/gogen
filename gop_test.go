@@ -29,29 +29,27 @@ var (
 )
 
 func toIndex(c byte) int {
-	if c >= 'a' && c <= 'z' {
-		return int(c - ('a' - 10))
-	}
 	if c >= '0' && c <= '9' {
 		return int(c - '0')
+	}
+	if c >= 'a' && c <= 'z' {
+		return int(c - ('a' - 10))
 	}
 	panic("TODO: invalid character out of [0-9,a-z]")
 }
 
 func initGopBuiltin(pkg gox.PkgImporter, builtin *types.Package) {
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
-	big.Ref("Gop_bigint") // to ensure the package is loaded
+	big.EnsureImported()
 	scope := big.Types.Scope()
 	overloads := make(map[string][]types.Object)
-	for i, n := 0, scope.Len(); i < n; i++ {
-		names := scope.Names()
-		for _, name := range names {
-			o := scope.Lookup(name)
-			builtin.Scope().Insert(o)
-			if n := len(name); n > 3 && name[n-3:n-1] == "__" { // overload function
-				key := name[:n-3]
-				overloads[key] = append(overloads[key], o)
-			}
+	names := scope.Names()
+	for _, name := range names {
+		o := scope.Lookup(name)
+		builtin.Scope().Insert(o)
+		if n := len(name); n > 3 && name[n-3:n-1] == "__" { // overload function
+			key := name[:n-3]
+			overloads[key] = append(overloads[key], o)
 		}
 	}
 	for key, items := range overloads {
@@ -60,7 +58,10 @@ func initGopBuiltin(pkg gox.PkgImporter, builtin *types.Package) {
 		for _, item := range items {
 			idx := toIndex(item.Name()[off])
 			if idx >= len(items) {
-				panic("TODO: overload function must be from 0 to N")
+				panic("overload function must be from 0 to N")
+			}
+			if fns[idx] != nil {
+				panic("overload function exists?")
 			}
 			fns[idx] = item
 		}
