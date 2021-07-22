@@ -109,6 +109,16 @@ func TestErrNewVar(t *testing.T) {
 		})
 }
 
+func TestErrDefineVar(t *testing.T) {
+	sourceErrorTest(t, "foo redeclared in this block\n\tprevious declaration at ./foo.gop:1",
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				DefineVarStart("foo").Val(1).EndInit(1).
+				DefineVarStart("foo").Val("Hi").EndInit(1).
+				End()
+		})
+}
+
 func TestErrMapLit(t *testing.T) {
 	sourceErrorTest(t, "cannot use 1+2 (type untyped int) as type string in map key",
 		func(pkg *gox.Package) {
@@ -137,7 +147,44 @@ func TestErrMapLit(t *testing.T) {
 		})
 }
 
+func TestErrArrayLit(t *testing.T) {
+	sourceErrorTest(t,
+		`cannot use "Hi" + "!" as index which must be non-negative integer constant`,
+		func(pkg *gox.Package) {
+			tyArray := types.NewArray(types.Typ[types.String], 100)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val("Hi", source(`"Hi"`)).
+				Val("!", source(`"!"`)).
+				BinaryOp(token.ADD, source(`"Hi" + "!"`)).
+				Val("Hi", source(`"Hi"`)).
+				ArrayLit(tyArray, 2, true).
+				EndStmt().
+				End()
+		})
+}
+
 func TestErrSliceLit(t *testing.T) {
+	sourceErrorTest(t,
+		`cannot use "10" as index which must be non-negative integer constant`,
+		func(pkg *gox.Package) {
+			tySlice := types.NewSlice(types.Typ[types.String])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val("10", source(`"10"`)).
+				Val("Hi", source(`"Hi"`)).
+				SliceLit(tySlice, 2, true).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t, "cannot use 32 (type untyped int) as type string in slice literal",
+		func(pkg *gox.Package) {
+			tySlice := types.NewSlice(types.Typ[types.String])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(10, source("10")).
+				Val(32, source("32")).
+				SliceLit(tySlice, 2, true).
+				EndStmt().
+				End()
+		})
 	sourceErrorTest(t, "cannot use 1+2 (type untyped int) as type string in slice literal",
 		func(pkg *gox.Package) {
 			tySlice := types.NewSlice(types.Typ[types.String])

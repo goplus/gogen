@@ -768,12 +768,12 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 	return p
 }
 
-func toBoundArrayLen(pkg *Package, elts []internal.Elem, arity int) int {
+func (p *CodeBuilder) toBoundArrayLen(elts []internal.Elem, arity int) int {
 	n := -1
 	max := -1
 	for i := 0; i < arity; i += 2 {
 		if elts[i].Val != nil {
-			n = toIntVal(elts[i].CVal)
+			n = p.toIntVal(elts[i], "index which must be non-negative integer constant")
 		} else {
 			n++
 		}
@@ -784,20 +784,22 @@ func toBoundArrayLen(pkg *Package, elts []internal.Elem, arity int) int {
 	return max + 1
 }
 
-func toIntVal(cval constant.Value) int {
-	if cval != nil {
+func (p *CodeBuilder) toIntVal(v internal.Elem, msg string) int {
+	if cval := v.CVal; cval != nil && cval.Kind() == constant.Int {
 		if v, ok := constant.Int64Val(cval); ok {
 			return int(v)
 		}
 	}
-	panic("TODO: not a constant integer or too large")
+	p.panicSourceErrorf("cannot use %s as %s", p.readSource(v.Src), msg)
+	return 0
 }
 
-func toLitElemExpr(args []internal.Elem, i int) ast.Expr {
+func (p *CodeBuilder) indexElemExpr(args []internal.Elem, i int) ast.Expr {
 	key := args[i].Val
-	if key == nil {
+	if key == nil { // none
 		return args[i+1].Val
 	}
+	p.toIntVal(args[i], "index which must be non-negative integer constant")
 	return &ast.KeyValueExpr{Key: key, Value: args[i+1].Val}
 }
 
@@ -833,9 +835,11 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		elts = make([]ast.Expr, n)
 		for i := 0; i < arity; i += 2 {
 			if !AssignableTo(args[i+1].Type, val) {
-				log.Panicf("TODO: SliceLit - can't assign %v to %v\n", args[i+1].Type, val)
+				p.panicSourceErrorf(
+					"cannot use %s (type %v) as type %v in slice literal",
+					p.readSource(args[i+1].Src), args[i+1].Type, val)
 			}
-			elts[i>>1] = toLitElemExpr(args, i)
+			elts[i>>1] = p.indexElemExpr(args, i)
 		}
 	} else {
 		if arity == 0 {
@@ -899,7 +903,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			panic("TODO: ArrayLit - invalid arity")
 		}
 		args := p.stk.GetArgs(arity)
-		max := toBoundArrayLen(pkg, args, arity)
+		max := p.toBoundArrayLen(args, arity)
 		val := t.Elem()
 		if n := t.Len(); n < 0 {
 			t = types.NewArray(val, int64(max))
@@ -912,7 +916,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			if !AssignableTo(args[i+1].Type, val) {
 				log.Panicf("TODO: ArrayLit - can't assign %v to %v\n", args[i+1].Type, val)
 			}
-			elts[i>>1] = toLitElemExpr(args, i)
+			elts[i>>1] = p.indexElemExpr(args, i)
 		}
 	} else {
 		val := t.Elem()
@@ -962,7 +966,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 		}
 		elts = make([]ast.Expr, arity>>1)
 		for i := 0; i < arity; i += 2 {
-			idx := toIntVal(args[i].CVal)
+			idx := p.toIntVal(args[i], "TODO: ???")
 			if idx >= n {
 				panic("TODO: invalid struct field index")
 			}
