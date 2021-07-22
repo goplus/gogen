@@ -82,6 +82,9 @@ type Config struct {
 	// unwanted function bodies can significantly accelerate type checking.
 	ParseFile func(fset *token.FileSet, filename string, src []byte) (*ast.File, error)
 
+	// HandleErr is called to handle errors.
+	HandleErr func(err error)
+
 	// LoadPkgs is called to load all import packages.
 	LoadPkgs LoadPkgsFunc
 
@@ -161,7 +164,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		autoPrefix:     "_auto" + prefix,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
-	pkg.cb.init(pkg)
+	pkg.cb.init(pkg, conf.HandleErr)
 	pkg.builtin = newBuiltin(pkg, prefix, contracts)
 	return pkg
 }

@@ -25,8 +25,8 @@ func sourceErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
 	defer func() {
 		if e := recover(); e != nil {
 			if err, ok := e.(*gox.SourceError); ok {
-				if err.Error() != msg {
-					t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", err.Msg, msg)
+				if ret := err.Error(); ret != msg {
+					t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
 				}
 			} else {
 				t.Fatal("Unexpected error:", e)
@@ -69,5 +69,28 @@ func TestErrRecv(t *testing.T) {
 	sourceErrorTest(t, "invalid receiver type error (error is an interface type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam("p", gox.TyError)
 		pkg.NewFunc(recv, "foo", nil, nil, false).BodyStart(pkg).End()
+	})
+}
+
+func TestErrLabel(t *testing.T) {
+	sourceErrorTest(t, "./foo.gop:2 label foo already defined at ./foo.gop:1", func(pkg *gox.Package) {
+		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false).
+			Label("foo").
+			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 2}, false).
+			Label("foo").
+			End()
+	})
+	sourceErrorTest(t, "./foo.gop:1 label foo is not defined", func(pkg *gox.Package) {
+		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false).
+			Goto("foo").
+			End()
+	})
+	sourceErrorTest(t, "./foo.gop:1 label foo defined and not used", func(pkg *gox.Package) {
+		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false).
+			Label("foo").
+			End()
 	})
 }

@@ -65,33 +65,56 @@ type codeBlockCtx struct {
 type funcBodyCtx struct {
 	codeBlockCtx
 	fn     *Func
-	labels map[string]bool
+	labels map[string]*label
 }
 
-func (p *funcBodyCtx) checkLabels() {
-	for name, define := range p.labels {
-		if !define {
-			log.Panicf("TODO: label name %v is not defined\n", name)
+type label struct {
+	at   *SourceError
+	refs []*SourceError
+}
+
+func (p *funcBodyCtx) checkLabels(cb *CodeBuilder) {
+	for name, l := range p.labels {
+		if l.at == nil {
+			for _, err := range l.refs {
+				err.Msg = fmt.Sprintf("label %s is not defined", name)
+				cb.handleErr(err)
+			}
+		} else if l.refs == nil {
+			l.at.Msg = fmt.Sprintf("label %s defined and not used", name)
+			cb.handleErr(l.at)
 		}
 	}
 }
 
-func (p *funcBodyCtx) getLabels() map[string]bool {
+func (p *funcBodyCtx) getLabel(name string) *label {
 	if p.labels == nil {
-		p.labels = make(map[string]bool)
+		p.labels = make(map[string]*label)
 	}
-	return p.labels
+	l, ok := p.labels[name]
+	if !ok {
+		l = new(label)
+		p.labels[name] = l
+	}
+	return l
 }
 
-func (p *funcBodyCtx) useLabel(name string, define bool) {
-	labels := p.getLabels()
-	exists := labels[name]
-	if exists && define {
-		log.Panicf("TODO: label name %v exists\n", name)
+func (p *funcBodyCtx) useLabel(cb *CodeBuilder, name string) {
+	l := p.getLabel(name)
+	l.refs = append(l.refs, cb.newSourceError(""))
+}
+
+func (p *funcBodyCtx) defineLabel(cb *CodeBuilder, name string) {
+	l := p.getLabel(name)
+	if l.at != nil {
+		var file string
+		var line = -1
+		if fl := l.at.FileLine; fl != nil {
+			file, line = fl.File, fl.Line
+		}
+		cb.panicSourceErrorf("label %s already defined at %s:%d", name, file, line)
 	}
-	if !exists {
-		labels[name] = define
-	}
+	l.at = cb.newSourceError("")
 }
 
 type FileLine struct {
@@ -126,28 +149,41 @@ func (p *SourceError) Error() string {
 
 // CodeBuilder type
 type CodeBuilder struct {
-	stk      internal.Stack
-	current  funcBodyCtx
-	fileline *FileLine
-	pkg      *Package
-	varDecl  *ValueDecl
+	stk       internal.Stack
+	current   funcBodyCtx
+	fileline  *FileLine
+	pkg       *Package
+	varDecl   *ValueDecl
+	handleErr func(err error)
 	closureParamInsts
 	filelineOnce bool
 }
 
-func (p *CodeBuilder) init(pkg *Package) {
+func (p *CodeBuilder) init(pkg *Package, handleErr func(err error)) {
+	if handleErr == nil {
+		handleErr = defaultHandleErr
+	}
 	p.pkg = pkg
+	p.handleErr = handleErr
 	p.current.scope = pkg.Types.Scope()
 	p.stk.Init()
 	p.closureParamInsts.init()
 }
 
+func defaultHandleErr(err error) {
+	panic(err)
+}
+
+func (p *CodeBuilder) newSourceError(msg string) *SourceError {
+	return &SourceError{Msg: msg, FileLine: p.fileline, Scope: p.Scope(), Func: p.Func()}
+}
+
 func (p *CodeBuilder) panicSourceError(msg string) {
-	panic(&SourceError{Msg: msg, FileLine: p.fileline, Scope: p.Scope(), Func: p.Func()})
+	panic(p.newSourceError(msg))
 }
 
 func (p *CodeBuilder) panicSourceErrorf(format string, args ...interface{}) {
-	p.panicSourceError(fmt.Sprintf(format, args...))
+	panic(p.newSourceError(fmt.Sprintf(format, args...)))
 }
 
 // Scope returns current scope.
@@ -188,7 +224,7 @@ func insertParams(scope *types.Scope, params *types.Tuple) {
 }
 
 func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
-	p.current.checkLabels()
+	p.current.checkLabels(p)
 	p.current.fn = old.fn
 	return p.endBlockStmt(old.codeBlockCtx)
 }
@@ -1685,7 +1721,7 @@ func (p *CodeBuilder) Label(name string) *CodeBuilder {
 	if debugInstr {
 		log.Println("Label", name)
 	}
-	p.current.useLabel(name, true)
+	p.current.defineLabel(p, name)
 	p.current.label = &ast.LabeledStmt{Label: ident(name)}
 	return p
 }
@@ -1695,7 +1731,7 @@ func (p *CodeBuilder) Goto(name string) *CodeBuilder {
 	if debugInstr {
 		log.Println("Goto", name)
 	}
-	p.current.useLabel(name, false)
+	p.current.useLabel(p, name)
 	p.emitStmt(&ast.BranchStmt{Tok: token.GOTO, Label: ident(name)})
 	return p
 }
@@ -1706,7 +1742,7 @@ func (p *CodeBuilder) Break(name string) *CodeBuilder {
 		log.Println("Break", name)
 	}
 	if name != "" {
-		p.current.useLabel(name, false)
+		p.current.useLabel(p, name)
 	}
 	p.emitStmt(&ast.BranchStmt{Tok: token.BREAK, Label: ident(name)})
 	return p
@@ -1718,7 +1754,7 @@ func (p *CodeBuilder) Continue(name string) *CodeBuilder {
 		log.Println("Continue", name)
 	}
 	if name != "" {
-		p.current.useLabel(name, false)
+		p.current.useLabel(p, name)
 	}
 	p.emitStmt(&ast.BranchStmt{Tok: token.CONTINUE, Label: ident(name)})
 	return p
