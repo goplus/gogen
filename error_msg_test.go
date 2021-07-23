@@ -312,3 +312,44 @@ func TestErrSliceLit(t *testing.T) {
 				End()
 		})
 }
+
+func TestErrSlice(t *testing.T) {
+	sourceErrorTest(t,
+		`./foo.gop:1:5 cannot slice true (type untyped bool)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(types.Universe.Lookup("true"), source("true", 1, 5)).
+				Val(1).
+				Val(3).
+				Val(5).
+				Slice(true, source("true[1:3:5]", 1, 5)).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t,
+		`./foo.gop:1:1 cannot slice x (type *byte)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.NewPointer(gox.TyByte), "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 1)).
+				Val(1).
+				Val(3).
+				Val(5).
+				Slice(true, source("x[1:3:5]", 1, 5)).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t,
+		`./foo.gop:1:5 invalid operation x[1:3:5] (3-index slice of string)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.String], "x").
+				Val(ctxRef(pkg, "x")).
+				Val(1).
+				Val(3).
+				Val(5).
+				Slice(true, source("x[1:3:5]", 1, 5)).
+				EndStmt().
+				End()
+		})
+}

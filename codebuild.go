@@ -1042,7 +1042,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 }
 
 // Slice func
-func (p *CodeBuilder) Slice(slice3 bool) *CodeBuilder { // a[i:j:k]
+func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:j:k]
 	if debugInstr {
 		log.Println("Slice", slice3)
 	}
@@ -1059,10 +1059,12 @@ func (p *CodeBuilder) Slice(slice3 bool) *CodeBuilder { // a[i:j:k]
 	case *types.Basic:
 		if t.Kind() == types.String || t.Kind() == types.UntypedString {
 			if slice3 {
-				log.Panicln("TODO: invalid operation `???` (3-index slice of string)")
+				code, pos := p.loadExpr(getSrc(src))
+				p.panicExprErrorf(pos, "invalid operation %s (3-index slice of string)", code)
 			}
 		} else {
-			log.Panicln("TODO: invalid operation: slice of", typ)
+			code, pos := p.loadExpr(x.Src)
+			p.panicExprErrorf(pos, "cannot slice %s (type %v)", code, typ)
 		}
 	case *types.Array:
 		typ = types.NewSlice(t.Elem())
@@ -1070,7 +1072,8 @@ func (p *CodeBuilder) Slice(slice3 bool) *CodeBuilder { // a[i:j:k]
 		if tt, ok := t.Elem().(*types.Array); ok {
 			typ = types.NewSlice(tt.Elem())
 		} else {
-			log.Panicln("TODO: invalid operation: slice of non-array pointer -", typ)
+			code, pos := p.loadExpr(x.Src)
+			p.panicExprErrorf(pos, "cannot slice %s (type %v)", code, typ)
 		}
 	}
 	var exprMax ast.Expr
