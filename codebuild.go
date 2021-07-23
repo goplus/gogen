@@ -1238,31 +1238,33 @@ func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 }
 
 // Elem func
-func (p *CodeBuilder) Elem() *CodeBuilder {
+func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Elem")
 	}
 	arg := p.stk.Get(-1)
 	t, ok := arg.Type.(*types.Pointer)
 	if !ok {
-		log.Panicln("TODO: not a pointer")
+		code, pos := p.loadExpr(arg.Src)
+		p.panicExprErrorf(pos, "invalid indirect of %s (type %v)", code, arg.Type)
 	}
-	p.stk.Ret(1, internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Type: t.Elem()})
+	p.stk.Ret(1, internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Type: t.Elem(), Src: getSrc(src)})
 	return p
 }
 
 // ElemRef func
-func (p *CodeBuilder) ElemRef() *CodeBuilder {
+func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("ElemRef")
 	}
 	arg := p.stk.Get(-1)
 	t, ok := arg.Type.(*types.Pointer)
 	if !ok {
-		log.Panicln("TODO: not a pointer")
+		code, pos := p.loadExpr(arg.Src)
+		p.panicExprErrorf(pos, "invalid indirect of %s (type %v)", code, arg.Type)
 	}
 	p.stk.Ret(1, internal.Elem{
-		Val: &ast.StarExpr{X: arg.Val}, Type: &refType{typ: t.Elem()},
+		Val: &ast.StarExpr{X: arg.Val}, Type: &refType{typ: t.Elem()}, Src: getSrc(src),
 	})
 	return p
 }
