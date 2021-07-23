@@ -1092,19 +1092,20 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 }
 
 // Index func
-func (p *CodeBuilder) Index(nidx int, twoValue bool) *CodeBuilder {
+func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Index", nidx, twoValue)
 	}
 	if nidx != 1 {
-		panic("TODO: IndexGet doesn't support a[i, j...] yet")
+		panic("Index doesn't support a[i, j...] yet")
 	}
 	args := p.stk.GetArgs(2)
-	typs, allowTwoValue := getIdxValTypes(args[0].Type)
+	typs, allowTwoValue := p.getIdxValTypes(args[0].Type, false, getSrc(src))
 	var tyRet types.Type
 	if twoValue { // elem, ok = a[key]
 		if !allowTwoValue {
-			panic("TODO: doesn't return twoValue")
+			_, pos := p.loadExpr(getSrc(src))
+			p.panicExprError(pos, "assignment mismatch: 2 variables but 1 values")
 		}
 		pkg := p.pkg
 		tyRet = types.NewTuple(pkg.NewParam("", typs[1]), pkg.NewParam("", types.Typ[types.Bool]))
@@ -1137,7 +1138,7 @@ func (p *CodeBuilder) IndexRef(nidx int) *CodeBuilder {
 		tyMapElem := &unboundMapElemType{key: args[1].Type, typ: t}
 		elemRef.Type = &refType{typ: tyMapElem}
 	} else {
-		typs, _ := getIdxValTypes(typ)
+		typs, _ := p.getIdxValTypes(typ, true, nil) // TODO: nil???
 		elemRef.Type = &refType{typ: typs[1]}
 		// TODO: check index type
 	}
@@ -1145,7 +1146,7 @@ func (p *CodeBuilder) IndexRef(nidx int) *CodeBuilder {
 	return p
 }
 
-func getIdxValTypes(typ types.Type) ([]types.Type, bool) {
+func (p *CodeBuilder) getIdxValTypes(typ types.Type, ref bool, idxSrc ast.Node) ([]types.Type, bool) {
 	switch t := typ.(type) {
 	case *types.Slice:
 		return []types.Type{tyInt, t.Elem()}, false
@@ -1157,8 +1158,16 @@ func getIdxValTypes(typ types.Type) ([]types.Type, bool) {
 		if e, ok := t.Elem().(*types.Array); ok {
 			return []types.Type{tyInt, e.Elem()}, false
 		}
+	case *types.Basic:
+		if t.Kind() == types.String {
+			if ref {
+				panic("TODO: can't change string")
+			}
+			return []types.Type{tyInt, TyByte}, false
+		}
 	}
-	log.Panicln("TODO: can't index of type", typ)
+	src, pos := p.loadExpr(idxSrc)
+	p.panicExprErrorf(pos, "invalid operation: %s (type %v does not support indexing)", src, typ)
 	return nil, false
 }
 

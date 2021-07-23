@@ -353,3 +353,27 @@ func TestErrSlice(t *testing.T) {
 				End()
 		})
 }
+
+func TestErrIndex(t *testing.T) {
+	sourceErrorTest(t,
+		`./foo.gop:1:5 invalid operation: true[1] (type untyped bool does not support indexing)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(types.Universe.Lookup("true"), source("true", 1, 5)).
+				Val(1).
+				Index(1, true, source("true[1]", 1, 5)).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t,
+		`./foo.gop:1:5 assignment mismatch: 2 variables but 1 values`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.String], "x").
+				Val(ctxRef(pkg, "x")).
+				Val(1).
+				Index(1, true, source("x[1]", 1, 5)).
+				EndStmt().
+				End()
+		})
+}
