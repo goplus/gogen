@@ -457,7 +457,7 @@ func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 		}
 	case *overloadFuncType:
 		for _, o := range t.funcs {
-			if ret, err = matchFuncCall(pkg, toObject(pkg, o, nil), args, flags); err == nil {
+			if ret, err = matchFuncCall(pkg, toObject(pkg, o, fn.Src), args, flags); err == nil {
 				return
 			}
 		}

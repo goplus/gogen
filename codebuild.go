@@ -1050,6 +1050,7 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	if slice3 {
 		n++
 	}
+	srcExpr := getSrc(src)
 	args := p.stk.GetArgs(n)
 	x := args[0]
 	typ := x.Type
@@ -1059,7 +1060,7 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	case *types.Basic:
 		if t.Kind() == types.String || t.Kind() == types.UntypedString {
 			if slice3 {
-				code, pos := p.loadExpr(getSrc(src))
+				code, pos := p.loadExpr(srcExpr)
 				p.panicExprErrorf(pos, "invalid operation %s (3-index slice of string)", code)
 			}
 		} else {
@@ -1085,7 +1086,7 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 		Val: &ast.SliceExpr{
 			X: x.Val, Low: args[1].Val, High: args[2].Val, Max: exprMax, Slice3: slice3,
 		},
-		Type: typ,
+		Type: typ, Src: srcExpr,
 	}
 	p.stk.Ret(n, elem)
 	return p
@@ -1100,11 +1101,12 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 		panic("Index doesn't support a[i, j...] yet")
 	}
 	args := p.stk.GetArgs(2)
-	typs, allowTwoValue := p.getIdxValTypes(args[0].Type, false, getSrc(src))
+	srcExpr := getSrc(src)
+	typs, allowTwoValue := p.getIdxValTypes(args[0].Type, false, srcExpr)
 	var tyRet types.Type
 	if twoValue { // elem, ok = a[key]
 		if !allowTwoValue {
-			_, pos := p.loadExpr(getSrc(src))
+			_, pos := p.loadExpr(srcExpr)
 			p.panicExprError(pos, "assignment mismatch: 2 variables but 1 values")
 		}
 		pkg := p.pkg
@@ -1113,8 +1115,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 		tyRet = typs[1]
 	}
 	elem := internal.Elem{
-		Val:  &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
-		Type: tyRet,
+		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val}, Type: tyRet, Src: srcExpr,
 	}
 	// TODO: check index type
 	p.stk.Ret(2, elem)
@@ -1127,18 +1128,19 @@ func (p *CodeBuilder) IndexRef(nidx int, src ...ast.Node) *CodeBuilder {
 		log.Println("IndexRef", nidx)
 	}
 	if nidx != 1 {
-		panic("TODO: IndexRef doesn't support a[i, j...] = val yet")
+		panic("IndexRef doesn't support a[i, j...] = val yet")
 	}
 	args := p.stk.GetArgs(2)
 	typ := args[0].Type
 	elemRef := internal.Elem{
 		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
+		Src: getSrc(src),
 	}
 	if t, ok := typ.(*unboundType); ok {
 		tyMapElem := &unboundMapElemType{key: args[1].Type, typ: t}
 		elemRef.Type = &refType{typ: tyMapElem}
 	} else {
-		typs, _ := p.getIdxValTypes(typ, true, getSrc(src))
+		typs, _ := p.getIdxValTypes(typ, true, elemRef.Src)
 		elemRef.Type = &refType{typ: typs[1]}
 		// TODO: check index type
 	}
@@ -1215,12 +1217,12 @@ func (p *CodeBuilder) pushVal(v interface{}, src ast.Node) *CodeBuilder {
 }
 
 // Star func
-func (p *CodeBuilder) Star() *CodeBuilder {
+func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Star")
 	}
 	arg := p.stk.Get(-1)
-	ret := internal.Elem{Val: &ast.StarExpr{X: arg.Val}}
+	ret := internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Src: getSrc(src)}
 	switch t := arg.Type.(type) {
 	case *TypeType:
 		t.typ = types.NewPointer(t.typ)
@@ -1228,7 +1230,8 @@ func (p *CodeBuilder) Star() *CodeBuilder {
 	case *types.Pointer:
 		ret.Type = t.Elem()
 	default:
-		log.Panicln("TODO: can't use *X to a non pointer value -", t)
+		code, pos := p.loadExpr(arg.Src)
+		p.panicExprErrorf(pos, "invalid indirect of %s (type %v)", code, t)
 	}
 	p.stk.Ret(1, ret)
 	return p

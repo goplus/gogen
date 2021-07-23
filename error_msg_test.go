@@ -391,3 +391,16 @@ func TestErrIndexRef(t *testing.T) {
 				End()
 		})
 }
+
+func TestErrStar(t *testing.T) {
+	sourceErrorTest(t,
+		`./foo.gop:1:5 invalid indirect of x (type string)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.String], "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				Star(source("*x", 1, 4)).
+				EndStmt().
+				End()
+		})
+}
