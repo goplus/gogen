@@ -377,3 +377,17 @@ func TestErrIndex(t *testing.T) {
 				End()
 		})
 }
+
+func TestErrIndexRef(t *testing.T) {
+	sourceErrorTest(t,
+		`./foo.gop:1:5 cannot assign to x[1] (strings are immutable)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.String], "x").
+				Val(ctxRef(pkg, "x")).
+				Val(1).
+				IndexRef(1, source("x[1]", 1, 5)).
+				EndStmt().
+				End()
+		})
+}

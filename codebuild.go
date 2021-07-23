@@ -1122,7 +1122,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 }
 
 // IndexRef func
-func (p *CodeBuilder) IndexRef(nidx int) *CodeBuilder {
+func (p *CodeBuilder) IndexRef(nidx int, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("IndexRef", nidx)
 	}
@@ -1138,7 +1138,7 @@ func (p *CodeBuilder) IndexRef(nidx int) *CodeBuilder {
 		tyMapElem := &unboundMapElemType{key: args[1].Type, typ: t}
 		elemRef.Type = &refType{typ: tyMapElem}
 	} else {
-		typs, _ := p.getIdxValTypes(typ, true, nil) // TODO: nil???
+		typs, _ := p.getIdxValTypes(typ, true, getSrc(src))
 		elemRef.Type = &refType{typ: typs[1]}
 		// TODO: check index type
 	}
@@ -1161,7 +1161,8 @@ func (p *CodeBuilder) getIdxValTypes(typ types.Type, ref bool, idxSrc ast.Node) 
 	case *types.Basic:
 		if t.Kind() == types.String {
 			if ref {
-				panic("TODO: can't change string")
+				src, pos := p.loadExpr(idxSrc)
+				p.panicExprErrorf(pos, "cannot assign to %s (strings are immutable)", src)
 			}
 			return []types.Type{tyInt, TyByte}, false
 		}
