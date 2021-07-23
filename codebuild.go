@@ -1311,65 +1311,75 @@ func structFieldType(o *types.Struct, name string) types.Type {
 	return nil
 }
 
+type MemberKind int
+
 const (
-	MFlagMethod = 1 << iota
-	MFlagVar
+	MemberInvalid MemberKind = iota
+	MemberMethod
+	MemberField
 )
 
 // MemberVal func
-func (p *CodeBuilder) MemberVal(name string, mflags ...*int) *CodeBuilder {
-	if debugInstr {
-		log.Println("MemberVal", name)
+func (p *CodeBuilder) MemberVal(name string) *CodeBuilder {
+	_, err := p.Member(name)
+	if err != nil {
+		panic(err)
 	}
+	return p
+}
+
+// Member func
+func (p *CodeBuilder) Member(name string, src ...ast.Node) (kind MemberKind, err error) {
+	if debugInstr {
+		log.Println("Member", name)
+	}
+	srcExpr := getSrc(src)
 	arg := p.stk.Get(-1)
 	switch o := arg.Type.(type) {
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
 		case *types.Named:
-			if p.method(t, arg.Val, name, mflags) {
-				return p
+			if p.method(t, name, arg.Val, srcExpr) {
+				return MemberMethod, nil
 			}
 			if struc, ok := p.pkg.getUnderlying(t).(*types.Struct); ok {
-				if p.field(struc, arg.Val, name, mflags) {
-					return p
+				if p.field(struc, name, arg.Val, srcExpr) {
+					return MemberField, nil
 				}
 			}
 		case *types.Struct:
-			if p.field(t, arg.Val, name, mflags) {
-				return p
+			if p.field(t, name, arg.Val, srcExpr) {
+				return MemberField, nil
 			}
 		}
 	case *types.Named:
-		if p.method(o, arg.Val, name, mflags) {
-			return p
+		if p.method(o, name, arg.Val, srcExpr) {
+			return MemberMethod, nil
 		}
 		switch t := p.pkg.getUnderlying(o).(type) {
 		case *types.Struct:
-			if p.field(t, arg.Val, name, mflags) {
-				return p
+			if p.field(t, name, arg.Val, srcExpr) {
+				return MemberField, nil
 			}
 		case *types.Interface:
 			t.Complete()
-			if p.method(t, arg.Val, name, mflags) {
-				return p
+			if p.method(t, name, arg.Val, srcExpr) {
+				return MemberMethod, nil
 			}
 		}
 	case *types.Struct:
-		if p.field(o, arg.Val, name, mflags) {
-			return p
+		if p.field(o, name, arg.Val, srcExpr) {
+			return MemberField, nil
 		}
 	case *types.Interface:
 		o.Complete()
-		if p.method(o, arg.Val, name, mflags) {
-			return p
+		if p.method(o, name, arg.Val, srcExpr) {
+			return MemberMethod, nil
 		}
-	default:
-		log.Panicln("TODO: MemberVal - unexpected type:", o)
 	}
-	if mflags == nil {
-		panic("TODO: member not found - " + name)
-	}
-	return p
+	code, pos := p.loadExpr(srcExpr)
+	return MemberInvalid, p.newExprError(
+		fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name), pos)
 }
 
 type methodList interface {
@@ -1377,40 +1387,34 @@ type methodList interface {
 	Method(i int) *types.Func
 }
 
-func (p *CodeBuilder) method(o methodList, argVal ast.Expr, name string, mflags []*int) bool {
+func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, src ast.Node) bool {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		if method.Name() == name {
 			p.stk.Ret(1, internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
 				Type: methodTypeOf(method.Type()),
+				Src:  src,
 			})
-			assignMFlag(mflags, MFlagMethod)
 			return true
 		}
 	}
 	return false
 }
 
-func (p *CodeBuilder) field(o *types.Struct, argVal ast.Expr, name string, mflags []*int) bool {
+func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src ast.Node) bool {
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		if fld.Name() == name {
 			p.stk.Ret(1, internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
 				Type: fld.Type(),
+				Src:  src,
 			})
-			assignMFlag(mflags, MFlagVar)
 			return true
 		}
 	}
 	return false
-}
-
-func assignMFlag(ret []*int, mflag int) {
-	if ret != nil {
-		*ret[0] = mflag
-	}
 }
 
 func methodTypeOf(typ types.Type) types.Type {
@@ -1964,6 +1968,12 @@ func (p *CodeBuilder) EndInit(n int) *CodeBuilder {
 		log.Println("EndInit", n)
 	}
 	p.varDecl = p.varDecl.endInit(p, n)
+	return p
+}
+
+// Debug func
+func (p *CodeBuilder) Debug(dbg func(cb *CodeBuilder)) *CodeBuilder {
+	dbg(p)
 	return p
 }
 

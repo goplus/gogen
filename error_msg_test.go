@@ -22,7 +22,7 @@ import (
 	"github.com/goplus/gox"
 )
 
-func sourceErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
+func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
 	pkg := newMainPackage()
 	defer func() {
 		if e := recover(); e != nil {
@@ -44,7 +44,7 @@ func sourceErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
 }
 
 func TestFileLine(t *testing.T) {
-	sourceErrorTest(t, "./foo.gop:1 func init must have no arguments and no return values", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:1 func init must have no arguments and no return values", func(pkg *gox.Package) {
 		v := pkg.NewParam("v", gox.TyByte)
 		pkg.CB().SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false)
 		pkg.NewFunc(nil, "init", types.NewTuple(v), nil, false).BodyStart(pkg).End()
@@ -52,7 +52,7 @@ func TestFileLine(t *testing.T) {
 }
 
 func TestErrInitFunc(t *testing.T) {
-	sourceErrorTest(t, "func init must have no arguments and no return values", func(pkg *gox.Package) {
+	codeErrorTest(t, "func init must have no arguments and no return values", func(pkg *gox.Package) {
 		v := pkg.NewParam("v", gox.TyByte)
 		pkg.NewFunc(nil, "init", types.NewTuple(v), nil, false).BodyStart(pkg).End()
 	})
@@ -60,22 +60,22 @@ func TestErrInitFunc(t *testing.T) {
 
 func TestErrRecv(t *testing.T) {
 	tySlice := types.NewSlice(gox.TyByte)
-	sourceErrorTest(t, "invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
+	codeErrorTest(t, "invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam("p", tySlice)
 		pkg.NewFunc(recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
-	sourceErrorTest(t, "invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
+	codeErrorTest(t, "invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam("p", types.NewPointer(tySlice))
 		pkg.NewFunc(recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
-	sourceErrorTest(t, "invalid receiver type error (error is an interface type)", func(pkg *gox.Package) {
+	codeErrorTest(t, "invalid receiver type error (error is an interface type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam("p", gox.TyError)
 		pkg.NewFunc(recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
 }
 
 func TestErrLabel(t *testing.T) {
-	sourceErrorTest(t, "./foo.gop:2 label foo already defined at ./foo.gop:1", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:2 label foo already defined at ./foo.gop:1", func(pkg *gox.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false).
 			Label("foo").
@@ -83,13 +83,13 @@ func TestErrLabel(t *testing.T) {
 			Label("foo").
 			End()
 	})
-	sourceErrorTest(t, "./foo.gop:1 label foo is not defined", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:1 label foo is not defined", func(pkg *gox.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false).
 			Goto("foo").
 			End()
 	})
-	sourceErrorTest(t, "./foo.gop:1 label foo defined and not used", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:1 label foo defined and not used", func(pkg *gox.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false).
 			Label("foo").
@@ -98,7 +98,7 @@ func TestErrLabel(t *testing.T) {
 }
 
 func TestErrNewVar(t *testing.T) {
-	sourceErrorTest(t, "foo redeclared in this block\n\tprevious declaration at ./foo.gop:1",
+	codeErrorTest(t, "foo redeclared in this block\n\tprevious declaration at ./foo.gop:1",
 		func(pkg *gox.Package) {
 			var x *types.Var
 			pkg.Fset.AddFile("./foo.gop", 1, 100).AddLine(10)
@@ -110,7 +110,7 @@ func TestErrNewVar(t *testing.T) {
 }
 
 func _TestErrDefineVar(t *testing.T) {
-	sourceErrorTest(t, "foo redeclared in this block\n\tprevious declaration at ./foo.gop:1",
+	codeErrorTest(t, "foo redeclared in this block\n\tprevious declaration at ./foo.gop:1",
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				DefineVarStart("foo").Val(1).EndInit(1).
@@ -120,7 +120,7 @@ func _TestErrDefineVar(t *testing.T) {
 }
 
 func TestErrStructLit(t *testing.T) {
-	sourceErrorTest(t, `./foo.gop:1:7 too many values in struct{x int; y string}{...}`,
+	codeErrorTest(t, `./foo.gop:1:7 too many values in struct{x int; y string}{...}`,
 		func(pkg *gox.Package) {
 			fields := []*types.Var{
 				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
@@ -135,7 +135,7 @@ func TestErrStructLit(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t, `./foo.gop:1:1 too few values in struct{x int; y string}{...}`,
+	codeErrorTest(t, `./foo.gop:1:1 too few values in struct{x int; y string}{...}`,
 		func(pkg *gox.Package) {
 			fields := []*types.Var{
 				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
@@ -148,7 +148,7 @@ func TestErrStructLit(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t, `./foo.gop:1:5 cannot use 1 (type untyped int) as type string in value of field y`,
+	codeErrorTest(t, `./foo.gop:1:5 cannot use 1 (type untyped int) as type string in value of field y`,
 		func(pkg *gox.Package) {
 			fields := []*types.Var{
 				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
@@ -162,7 +162,7 @@ func TestErrStructLit(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t, `./foo.gop:1:1 cannot use "1" (type untyped string) as type int in value of field x`,
+	codeErrorTest(t, `./foo.gop:1:1 cannot use "1" (type untyped string) as type int in value of field x`,
 		func(pkg *gox.Package) {
 			fields := []*types.Var{
 				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
@@ -179,7 +179,7 @@ func TestErrStructLit(t *testing.T) {
 }
 
 func TestErrMapLit(t *testing.T) {
-	sourceErrorTest(t, "cannot use 1+2 (type untyped int) as type string in map key",
+	codeErrorTest(t, "cannot use 1+2 (type untyped int) as type string in map key",
 		func(pkg *gox.Package) {
 			tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
 			cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -192,7 +192,7 @@ func TestErrMapLit(t *testing.T) {
 				MapLit(tyMap, 2).
 				End()
 		})
-	sourceErrorTest(t, `cannot use "Hi" + "!" (type untyped string) as type int in map value`,
+	codeErrorTest(t, `cannot use "Hi" + "!" (type untyped string) as type int in map value`,
 		func(pkg *gox.Package) {
 			tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -207,7 +207,7 @@ func TestErrMapLit(t *testing.T) {
 }
 
 func TestErrArrayLit(t *testing.T) {
-	sourceErrorTest(t, "./foo.gop:1:5 cannot use 32 (type untyped int) as type string in array literal",
+	codeErrorTest(t, "./foo.gop:1:5 cannot use 32 (type untyped int) as type string in array literal",
 		func(pkg *gox.Package) {
 			tyArray := types.NewArray(types.Typ[types.String], 10)
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -217,7 +217,7 @@ func TestErrArrayLit(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t, "./foo.gop:1:5 cannot use 1+2 (type untyped int) as type string in array literal",
+	codeErrorTest(t, "./foo.gop:1:5 cannot use 1+2 (type untyped int) as type string in array literal",
 		func(pkg *gox.Package) {
 			tyArray := types.NewArray(types.Typ[types.String], 10)
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -228,7 +228,7 @@ func TestErrArrayLit(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:2:10 array index 1 out of bounds [0:1]`,
 		func(pkg *gox.Package) {
 			tyArray := types.NewArray(types.Typ[types.String], 1)
@@ -239,7 +239,7 @@ func TestErrArrayLit(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 array index 12 (value 12) out of bounds [0:10]`,
 		func(pkg *gox.Package) {
 			tyArray := types.NewArray(types.Typ[types.String], 10)
@@ -250,7 +250,7 @@ func TestErrArrayLit(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:2:10 array index 10 out of bounds [0:10]`,
 		func(pkg *gox.Package) {
 			tyArray := types.NewArray(types.Typ[types.String], 10)
@@ -263,7 +263,7 @@ func TestErrArrayLit(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 cannot use "Hi" + "!" as index which must be non-negative integer constant`,
 		func(pkg *gox.Package) {
 			tyArray := types.NewArray(types.Typ[types.String], 100)
@@ -279,7 +279,7 @@ func TestErrArrayLit(t *testing.T) {
 }
 
 func TestErrSliceLit(t *testing.T) {
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 cannot use "10" as index which must be non-negative integer constant`,
 		func(pkg *gox.Package) {
 			tySlice := types.NewSlice(types.Typ[types.String])
@@ -290,7 +290,7 @@ func TestErrSliceLit(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t, "./foo.gop:1:5 cannot use 32 (type untyped int) as type string in slice literal",
+	codeErrorTest(t, "./foo.gop:1:5 cannot use 32 (type untyped int) as type string in slice literal",
 		func(pkg *gox.Package) {
 			tySlice := types.NewSlice(types.Typ[types.String])
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -300,7 +300,7 @@ func TestErrSliceLit(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t, "./foo.gop:1:5 cannot use 1+2 (type untyped int) as type string in slice literal",
+	codeErrorTest(t, "./foo.gop:1:5 cannot use 1+2 (type untyped int) as type string in slice literal",
 		func(pkg *gox.Package) {
 			tySlice := types.NewSlice(types.Typ[types.String])
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -314,7 +314,7 @@ func TestErrSliceLit(t *testing.T) {
 }
 
 func TestErrSlice(t *testing.T) {
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 cannot slice true (type untyped bool)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -326,7 +326,7 @@ func TestErrSlice(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:1 cannot slice x (type *byte)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -339,7 +339,7 @@ func TestErrSlice(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 invalid operation x[1:3:5] (3-index slice of string)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -355,7 +355,7 @@ func TestErrSlice(t *testing.T) {
 }
 
 func TestErrIndex(t *testing.T) {
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 invalid operation: true[1] (type untyped bool does not support indexing)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -365,7 +365,7 @@ func TestErrIndex(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 assignment mismatch: 2 variables but 1 values`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -379,7 +379,7 @@ func TestErrIndex(t *testing.T) {
 }
 
 func TestErrIndexRef(t *testing.T) {
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 cannot assign to x[1] (strings are immutable)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -393,7 +393,7 @@ func TestErrIndexRef(t *testing.T) {
 }
 
 func TestErrStar(t *testing.T) {
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 invalid indirect of x (type string)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -403,7 +403,7 @@ func TestErrStar(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 invalid indirect of x (type string)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -413,13 +413,41 @@ func TestErrStar(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	sourceErrorTest(t,
+	codeErrorTest(t,
 		`./foo.gop:1:5 invalid indirect of x (type string)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.String], "x").
 				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
 				Star(source("*x", 1, 4)).
+				EndStmt().
+				End()
+		})
+}
+
+func TestErrMember(t *testing.T) {
+	codeErrorTest(t,
+		` undefined (type string has no field or method y)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.String], "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				MemberVal("y").
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:1:5 x.y undefined (type string has no field or method y)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.String], "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				Debug(func(cb *gox.CodeBuilder) {
+					_, err := cb.Member("y", source("x.y", 1, 5))
+					if err != nil {
+						panic(err)
+					}
+				}).
 				EndStmt().
 				End()
 		})
