@@ -128,12 +128,12 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 			p.cb.panicStmtErrorf("invalid receiver type %v (%v is an interface type)", typ, typ)
 		}
 		t.AddMethod(fn)
-	} else if name != "init" { // init is not a normal func
-		p.Types.Scope().Insert(fn)
-	} else {
+	} else if name == "init" { // init is not a normal func
 		if sig.Params() != nil || sig.Results() != nil {
 			p.cb.panicStmtError("func init must have no arguments and no return values")
 		}
+	} else {
+		p.Types.Scope().Insert(fn)
 	}
 
 	decl := &ast.FuncDecl{}
