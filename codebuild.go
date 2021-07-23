@@ -224,6 +224,10 @@ func (p *CodeBuilder) panicStmtErrorf(format string, args ...interface{}) {
 	panic(p.newCodeError(fmt.Sprintf(format, args...), 0))
 }
 
+func (p *CodeBuilder) panicExprError(pos *token.Position, msg string) {
+	panic(p.newExprError(msg, pos))
+}
+
 func (p *CodeBuilder) panicExprErrorf(pos *token.Position, format string, args ...interface{}) {
 	panic(p.newExprError(fmt.Sprintf(format, args...), pos))
 }
@@ -973,7 +977,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 // StructLit func
 func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBuilder {
 	if debugInstr {
-		log.Println("StructLit", keyVal)
+		log.Println("StructLit", typ, arity, keyVal)
 	}
 	var t *types.Struct
 	var typExpr ast.Expr
@@ -986,31 +990,39 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 		typExpr = toStructType(pkg, tt)
 		t = tt
 	default:
-		log.Panicln("TODO: StructLit: typ isn't a struct type -", reflect.TypeOf(typ))
+		log.Panicln("StructLit: typ isn't a struct type -", reflect.TypeOf(typ))
 	}
 	var elts []ast.Expr
 	var n = t.NumFields()
 	var args = p.stk.GetArgs(arity)
 	if keyVal {
 		if (arity & 1) != 0 {
-			panic("TODO: StructLit - invalid arity")
+			log.Panicln("StructLit: invalid arity, can't be odd in keyVal mode -", arity)
 		}
 		elts = make([]ast.Expr, arity>>1)
 		for i := 0; i < arity; i += 2 {
-			idx := p.toIntVal(args[i], "TODO: ???")
+			idx := p.toIntVal(args[i], "field which must be non-negative integer constant")
 			if idx >= n {
-				panic("TODO: invalid struct field index")
+				panic("invalid struct field index")
 			}
-			eltTy := t.Field(idx).Type()
+			elt := t.Field(idx)
+			eltTy, eltName := elt.Type(), elt.Name()
 			if !AssignableTo(args[i+1].Type, eltTy) {
-				log.Panicf("TODO: StructLit - can't assign %v to %v\n", args[i+1].Type, eltTy)
+				src, pos := p.loadExpr(args[i+1].Src)
+				p.panicExprErrorf(
+					pos, "cannot use %s (type %v) as type %v in value of field %s",
+					src, args[i+1].Type, eltTy, eltName)
 			}
-			eltName := ident(t.Field(idx).Name())
-			elts[i>>1] = &ast.KeyValueExpr{Key: eltName, Value: args[i+1].Val}
+			elts[i>>1] = &ast.KeyValueExpr{Key: ident(eltName), Value: args[i+1].Val}
 		}
 	} else if arity != n {
 		if arity != 0 {
-			log.Panicln("TODO: too few values in struct")
+			fewOrMany := "few"
+			if arity > n {
+				fewOrMany = "many"
+			}
+			_, pos := p.loadExpr(args[arity-1].Src)
+			p.panicExprErrorf(pos, "too %s values in %v{...}", fewOrMany, typ)
 		}
 	} else {
 		elts = make([]ast.Expr, arity)
@@ -1018,7 +1030,10 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 			elts[i] = arg.Val
 			eltTy := t.Field(i).Type()
 			if !AssignableTo(arg.Type, eltTy) {
-				log.Panicf("TODO: StructLit - can't assign %v to %v\n", arg.Type, eltTy)
+				src, pos := p.loadExpr(arg.Src)
+				p.panicExprErrorf(
+					pos, "cannot use %s (type %v) as type %v in value of field %s",
+					src, arg.Type, eltTy, t.Field(i).Name())
 			}
 		}
 	}

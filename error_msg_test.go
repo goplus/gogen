@@ -119,6 +119,65 @@ func _TestErrDefineVar(t *testing.T) {
 		})
 }
 
+func TestErrStructLit(t *testing.T) {
+	sourceErrorTest(t, `./foo.gop:1:7 too many values in struct{x int; y string}{...}`,
+		func(pkg *gox.Package) {
+			fields := []*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+				types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+			}
+			tyStruc := types.NewStruct(fields, nil)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1, source(`1`, 1, 1)).
+				Val("1", source(`"1"`, 1, 5)).
+				Val(1, source(`1`, 1, 7)).
+				StructLit(tyStruc, 3, false).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t, `./foo.gop:1:1 too few values in struct{x int; y string}{...}`,
+		func(pkg *gox.Package) {
+			fields := []*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+				types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+			}
+			tyStruc := types.NewStruct(fields, nil)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1, source(`1`, 1, 1)).
+				StructLit(tyStruc, 1, false).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t, `./foo.gop:1:5 cannot use 1 (type untyped int) as type string in value of field y`,
+		func(pkg *gox.Package) {
+			fields := []*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+				types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+			}
+			tyStruc := types.NewStruct(fields, nil)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).
+				Val(1, source(`1`, 1, 5)).
+				StructLit(tyStruc, 2, true).
+				EndStmt().
+				End()
+		})
+	sourceErrorTest(t, `./foo.gop:1:1 cannot use "1" (type untyped string) as type int in value of field x`,
+		func(pkg *gox.Package) {
+			fields := []*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+				types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+			}
+			tyStruc := types.NewStruct(fields, nil)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val("1", source(`"1"`, 1, 1)).
+				Val(1, source(`1`, 1, 5)).
+				StructLit(tyStruc, 2, false).
+				EndStmt().
+				End()
+		})
+}
+
 func TestErrMapLit(t *testing.T) {
 	sourceErrorTest(t, "cannot use 1+2 (type untyped int) as type string in map key",
 		func(pkg *gox.Package) {
