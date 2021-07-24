@@ -48,14 +48,6 @@ func SetDebug(dbgFlags int) {
 	debugComments = (dbgFlags & DbgFlagComments) != 0
 }
 
-func getFileLine(fset *token.FileSet, pos token.Pos) (file string, line int) {
-	if pos != token.NoPos && fset != nil {
-		p := fset.Position(pos)
-		return p.Filename, p.Line
-	}
-	return "", -1
-}
-
 func getSrc(node []ast.Node) ast.Node {
 	if node != nil {
 		return node[0]
@@ -84,20 +76,18 @@ type funcBodyCtx struct {
 }
 
 type label struct {
-	at   *CodeError
-	refs []*CodeError
+	at   *token.Position
+	refs []*token.Position
 }
 
 func (p *funcBodyCtx) checkLabels(cb *CodeBuilder) {
 	for name, l := range p.labels {
 		if l.at == nil {
-			for _, err := range l.refs {
-				err.Msg = fmt.Sprintf("label %s is not defined", name)
-				cb.handleErr(err)
+			for _, ref := range l.refs {
+				cb.handleErr(cb.newCodeError(fmt.Sprintf("label %s is not defined", name), ref))
 			}
 		} else if l.refs == nil {
-			l.at.Msg = fmt.Sprintf("label %s defined and not used", name)
-			cb.handleErr(l.at)
+			cb.handleErr(cb.newCodeError(fmt.Sprintf("label %s defined and not used", name), l.at))
 		}
 	}
 }
@@ -114,22 +104,17 @@ func (p *funcBodyCtx) getLabel(name string) *label {
 	return l
 }
 
-func (p *funcBodyCtx) useLabel(cb *CodeBuilder, name string) {
+func (p *funcBodyCtx) useLabel(cb *CodeBuilder, name string, pos token.Position) {
 	l := p.getLabel(name)
-	l.refs = append(l.refs, cb.newCodeError("", 0))
+	l.refs = append(l.refs, &pos)
 }
 
-func (p *funcBodyCtx) defineLabel(cb *CodeBuilder, name string) {
+func (p *funcBodyCtx) defineLabel(cb *CodeBuilder, name string, pos token.Position) {
 	l := p.getLabel(name)
 	if l.at != nil {
-		var file string
-		var line = -1
-		if fl := l.at.FileLine; fl != nil {
-			file, line = fl.File, fl.Line
-		}
-		cb.panicStmtErrorf("label %s already defined at %s:%d", name, file, line)
+		cb.panicCodeErrorf(&pos, "label %s already defined at %v", name, *l.at)
 	}
-	l.at = cb.newCodeError("", 0)
+	l.at = &pos
 }
 
 type FileLine struct {
@@ -149,19 +134,15 @@ func (p *FileLine) Comments() *ast.CommentGroup {
 }
 
 type CodeError struct {
-	Msg      string
-	FileLine *FileLine
-	Scope    *types.Scope
-	Func     *Func
-	Column   int
+	Msg   string
+	Pos   *token.Position
+	Scope *types.Scope
+	Func  *Func
 }
 
 func (p *CodeError) Error() string {
-	if fl := p.FileLine; fl != nil {
-		if p.Column == 0 {
-			return fmt.Sprintf("%s:%d %s", fl.File, fl.Line, p.Msg)
-		}
-		return fmt.Sprintf("%s:%d:%d %s", fl.File, fl.Line, p.Column, p.Msg)
+	if p.Pos != nil {
+		return fmt.Sprintf("%v %s", *p.Pos, p.Msg)
 	}
 	return p.Msg
 }
@@ -170,13 +151,13 @@ func (p *CodeError) Error() string {
 type CodeBuilder struct {
 	stk       internal.Stack
 	current   funcBodyCtx
-	fileline  *FileLine
+	comments  *ast.CommentGroup
 	pkg       *Package
 	varDecl   *ValueDecl
 	handleErr func(err error)
-	loadExpr  func(expr ast.Node) (string, *token.Position)
+	interp    NodeInterpreter
 	closureParamInsts
-	filelineOnce bool
+	commentOnce bool
 }
 
 func (p *CodeBuilder) init(pkg *Package, conf *Config) {
@@ -184,9 +165,9 @@ func (p *CodeBuilder) init(pkg *Package, conf *Config) {
 	if p.handleErr == nil {
 		p.handleErr = defaultHandleErr
 	}
-	p.loadExpr = conf.LoadExpr
-	if p.loadExpr == nil {
-		p.loadExpr = defaultLoadExpr
+	p.interp = conf.NodeInterpreter
+	if p.interp == nil {
+		p.interp = nodeInterp{}
 	}
 	p.pkg = pkg
 	p.current.scope = pkg.Types.Scope()
@@ -198,38 +179,55 @@ func defaultHandleErr(err error) {
 	panic(err)
 }
 
-func defaultLoadExpr(node ast.Node) (string, *token.Position) {
-	return "", nil
+type nodeInterp struct{}
+
+func (p nodeInterp) Position(pos token.Pos) (ret token.Position) {
+	return
 }
 
-func (p *CodeBuilder) newCodeError(msg string, column int) *CodeError {
-	return &CodeError{Msg: msg, FileLine: p.fileline, Column: column, Scope: p.Scope(), Func: p.Func()}
+func (p nodeInterp) LoadExpr(expr ast.Node) (src string, pos token.Position) {
+	return
 }
 
-func (p *CodeBuilder) newExprError(msg string, pos *token.Position) *CodeError {
-	if pos == nil {
-		return p.newCodeError(msg, 0)
+func (p *CodeBuilder) position(pos token.Pos) (ret token.Position) {
+	return p.interp.Position(pos)
+}
+
+func (p *CodeBuilder) nodePosition(expr ast.Node) (ret token.Position) {
+	if expr == nil {
+		return
 	}
-	return &CodeError{
-		Msg: msg, Column: pos.Column, Scope: p.Scope(), Func: p.Func(),
-		FileLine: &FileLine{File: pos.Filename, Line: pos.Line},
+	_, ret = p.interp.LoadExpr(expr)
+	return
+}
+
+func (p *CodeBuilder) loadExpr(expr ast.Node) (src string, pos token.Position) {
+	if expr == nil {
+		return
 	}
+	return p.interp.LoadExpr(expr)
 }
 
-func (p *CodeBuilder) panicStmtError(msg string) {
-	panic(p.newCodeError(msg, 0))
+func (p *CodeBuilder) newCodeError(msg string, pos *token.Position) *CodeError {
+	return &CodeError{Msg: msg, Pos: pos, Scope: p.Scope(), Func: p.Func()}
 }
 
-func (p *CodeBuilder) panicStmtErrorf(format string, args ...interface{}) {
-	panic(p.newCodeError(fmt.Sprintf(format, args...), 0))
+func (p *CodeBuilder) panicCodeError(pos *token.Position, msg string) {
+	panic(p.newCodeError(msg, pos))
 }
 
-func (p *CodeBuilder) panicExprError(pos *token.Position, msg string) {
-	panic(p.newExprError(msg, pos))
+func (p *CodeBuilder) panicCodePosError(pos token.Pos, msg string) {
+	tpos := p.position(pos)
+	panic(p.newCodeError(msg, &tpos))
 }
 
-func (p *CodeBuilder) panicExprErrorf(pos *token.Position, format string, args ...interface{}) {
-	panic(p.newExprError(fmt.Sprintf(format, args...), pos))
+func (p *CodeBuilder) panicCodeErrorf(pos *token.Position, format string, args ...interface{}) {
+	panic(p.newCodeError(fmt.Sprintf(format, args...), pos))
+}
+
+func (p *CodeBuilder) panicCodePosErrorf(pos token.Pos, format string, args ...interface{}) {
+	tpos := p.position(pos)
+	panic(p.newCodeError(fmt.Sprintf(format, args...), &tpos))
 }
 
 // Scope returns current scope.
@@ -326,11 +324,10 @@ func (p *CodeBuilder) commitStmt(idx int) {
 }
 
 func (p *CodeBuilder) emitStmt(stmt ast.Stmt) {
-	if p.fileline != nil {
-		comments := p.fileline.Comments()
-		stmt = &printer.CommentedStmt{Comments: comments, Stmt: stmt}
-		if p.filelineOnce {
-			p.fileline = nil
+	if p.comments != nil {
+		stmt = &printer.CommentedStmt{Comments: p.comments, Stmt: stmt}
+		if p.commentOnce {
+			p.comments = nil
 		}
 	}
 	if p.current.label != nil {
@@ -349,17 +346,17 @@ func (p *CodeBuilder) endInitExpr(old codeBlock) {
 	p.current.codeBlock = old
 }
 
-// FileLine returns the beginning file line of current statement.
-func (p *CodeBuilder) FileLine() *FileLine {
-	return p.fileline
+// Comments returns the comments of next statement.
+func (p *CodeBuilder) Comments() *ast.CommentGroup {
+	return p.comments
 }
 
-// SetFileLine sets the beginning file line of current statement.
-func (p *CodeBuilder) SetFileLine(fileline *FileLine, once bool) *CodeBuilder {
-	if debugComments && fileline != nil {
-		log.Println("SetFileLine", fileline.File, fileline.Line)
+// SetComments sets comments to next statement.
+func (p *CodeBuilder) SetComments(comments *ast.CommentGroup, once bool) *CodeBuilder {
+	if debugComments && comments != nil {
+		log.Println("SetComments", comments.Text())
 	}
-	p.fileline, p.filelineOnce = fileline, once
+	p.comments, p.commentOnce = comments, once
 	return p
 }
 
@@ -619,9 +616,9 @@ func (p *CodeBuilder) NewAutoVar(pos token.Pos, name string, pv **types.Var) *Co
 	typ := &unboundType{ptypes: []*ast.Expr{&spec.Type}}
 	*pv = types.NewVar(pos, p.pkg.Types, name, typ)
 	if old := p.current.scope.Insert(*pv); old != nil {
-		file, line := getFileLine(p.pkg.Fset, old.Pos())
-		p.panicStmtErrorf(
-			"%s redeclared in this block\n\tprevious declaration at %s:%d", name, file, line)
+		oldPos := p.position(old.Pos())
+		p.panicCodePosErrorf(
+			pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
 	}
 	return p
 }
@@ -777,12 +774,12 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 		if check {
 			if !AssignableTo(args[i].Type, key) {
 				src, pos := p.loadExpr(args[i].Src)
-				p.panicExprErrorf(
-					pos, "cannot use %s (type %v) as type %v in map key", src, args[i].Type, key)
+				p.panicCodeErrorf(
+					&pos, "cannot use %s (type %v) as type %v in map key", src, args[i].Type, key)
 			} else if !AssignableTo(args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
-				p.panicExprErrorf(
-					pos, "cannot use %s (type %v) as type %v in map value", src, args[i+1].Type, val)
+				p.panicCodeErrorf(
+					&pos, "cannot use %s (type %v) as type %v in map value", src, args[i+1].Type, val)
 			}
 		}
 	}
@@ -802,10 +799,10 @@ func (p *CodeBuilder) toBoundArrayLen(elts []internal.Elem, arity, limit int) in
 		if limit >= 0 && n >= limit { // error message
 			if elts[i].Src == nil {
 				_, pos := p.loadExpr(elts[i+1].Src)
-				p.panicExprErrorf(pos, "array index %d out of bounds [0:%d]", n, limit)
+				p.panicCodeErrorf(&pos, "array index %d out of bounds [0:%d]", n, limit)
 			}
 			src, pos := p.loadExpr(elts[i].Src)
-			p.panicExprErrorf(pos, "array index %s (value %d) out of bounds [0:%d]", src, n, limit)
+			p.panicCodeErrorf(&pos, "array index %s (value %d) out of bounds [0:%d]", src, n, limit)
 		}
 		if max < n {
 			max = n
@@ -821,7 +818,7 @@ func (p *CodeBuilder) toIntVal(v internal.Elem, msg string) int {
 		}
 	}
 	code, pos := p.loadExpr(v.Src)
-	p.panicExprErrorf(pos, "cannot use %s as %s", code, msg)
+	p.panicCodeErrorf(&pos, "cannot use %s as %s", code, msg)
 	return 0
 }
 
@@ -867,8 +864,8 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		for i := 0; i < arity; i += 2 {
 			if !AssignableTo(args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
-				p.panicExprErrorf(
-					pos, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
+				p.panicCodeErrorf(
+					&pos, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
 			}
 			elts[i>>1] = p.indexElemExpr(args, i)
 		}
@@ -899,8 +896,8 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			if check {
 				if !AssignableTo(arg.Type, val) {
 					src, pos := p.loadExpr(arg.Src)
-					p.panicExprErrorf(
-						pos, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)
+					p.panicCodeErrorf(
+						&pos, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)
 				}
 			}
 		}
@@ -945,8 +942,8 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		for i := 0; i < arity; i += 2 {
 			if !AssignableTo(args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
-				p.panicExprErrorf(
-					pos, "cannot use %s (type %v) as type %v in array literal", src, args[i+1].Type, val)
+				p.panicCodeErrorf(
+					&pos, "cannot use %s (type %v) as type %v in array literal", src, args[i+1].Type, val)
 			}
 			elts[i>>1] = p.indexElemExpr(args, i)
 		}
@@ -958,15 +955,15 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			typ = t
 		} else if int(n) < arity {
 			_, pos := p.loadExpr(args[n].Src)
-			p.panicExprErrorf(pos, "array index %d out of bounds [0:%d]", n, n)
+			p.panicCodeErrorf(&pos, "array index %d out of bounds [0:%d]", n, n)
 		}
 		elts = make([]ast.Expr, arity)
 		for i, arg := range args {
 			elts[i] = arg.Val
 			if !AssignableTo(arg.Type, val) {
 				src, pos := p.loadExpr(arg.Src)
-				p.panicExprErrorf(
-					pos, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
+				p.panicCodeErrorf(
+					&pos, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
 			}
 		}
 	}
@@ -1009,8 +1006,8 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 			eltTy, eltName := elt.Type(), elt.Name()
 			if !AssignableTo(args[i+1].Type, eltTy) {
 				src, pos := p.loadExpr(args[i+1].Src)
-				p.panicExprErrorf(
-					pos, "cannot use %s (type %v) as type %v in value of field %s",
+				p.panicCodeErrorf(
+					&pos, "cannot use %s (type %v) as type %v in value of field %s",
 					src, args[i+1].Type, eltTy, eltName)
 			}
 			elts[i>>1] = &ast.KeyValueExpr{Key: ident(eltName), Value: args[i+1].Val}
@@ -1022,7 +1019,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 				fewOrMany = "many"
 			}
 			_, pos := p.loadExpr(args[arity-1].Src)
-			p.panicExprErrorf(pos, "too %s values in %v{...}", fewOrMany, typ)
+			p.panicCodeErrorf(&pos, "too %s values in %v{...}", fewOrMany, typ)
 		}
 	} else {
 		elts = make([]ast.Expr, arity)
@@ -1031,8 +1028,8 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 			eltTy := t.Field(i).Type()
 			if !AssignableTo(arg.Type, eltTy) {
 				src, pos := p.loadExpr(arg.Src)
-				p.panicExprErrorf(
-					pos, "cannot use %s (type %v) as type %v in value of field %s",
+				p.panicCodeErrorf(
+					&pos, "cannot use %s (type %v) as type %v in value of field %s",
 					src, arg.Type, eltTy, t.Field(i).Name())
 			}
 		}
@@ -1061,11 +1058,11 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 		if t.Kind() == types.String || t.Kind() == types.UntypedString {
 			if slice3 {
 				code, pos := p.loadExpr(srcExpr)
-				p.panicExprErrorf(pos, "invalid operation %s (3-index slice of string)", code)
+				p.panicCodeErrorf(&pos, "invalid operation %s (3-index slice of string)", code)
 			}
 		} else {
 			code, pos := p.loadExpr(x.Src)
-			p.panicExprErrorf(pos, "cannot slice %s (type %v)", code, typ)
+			p.panicCodeErrorf(&pos, "cannot slice %s (type %v)", code, typ)
 		}
 	case *types.Array:
 		typ = types.NewSlice(t.Elem())
@@ -1074,7 +1071,7 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 			typ = types.NewSlice(tt.Elem())
 		} else {
 			code, pos := p.loadExpr(x.Src)
-			p.panicExprErrorf(pos, "cannot slice %s (type %v)", code, typ)
+			p.panicCodeErrorf(&pos, "cannot slice %s (type %v)", code, typ)
 		}
 	}
 	var exprMax ast.Expr
@@ -1107,7 +1104,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 	if twoValue { // elem, ok = a[key]
 		if !allowTwoValue {
 			_, pos := p.loadExpr(srcExpr)
-			p.panicExprError(pos, "assignment mismatch: 2 variables but 1 values")
+			p.panicCodeError(&pos, "assignment mismatch: 2 variables but 1 values")
 		}
 		pkg := p.pkg
 		tyRet = types.NewTuple(pkg.NewParam("", typs[1]), pkg.NewParam("", types.Typ[types.Bool]))
@@ -1164,13 +1161,13 @@ func (p *CodeBuilder) getIdxValTypes(typ types.Type, ref bool, idxSrc ast.Node) 
 		if t.Kind() == types.String {
 			if ref {
 				src, pos := p.loadExpr(idxSrc)
-				p.panicExprErrorf(pos, "cannot assign to %s (strings are immutable)", src)
+				p.panicCodeErrorf(&pos, "cannot assign to %s (strings are immutable)", src)
 			}
 			return []types.Type{tyInt, TyByte}, false
 		}
 	}
 	src, pos := p.loadExpr(idxSrc)
-	p.panicExprErrorf(pos, "invalid operation: %s (type %v does not support indexing)", src, typ)
+	p.panicCodeErrorf(&pos, "invalid operation: %s (type %v does not support indexing)", src, typ)
 	return nil, false
 }
 
@@ -1231,7 +1228,7 @@ func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 		ret.Type = t.Elem()
 	default:
 		code, pos := p.loadExpr(arg.Src)
-		p.panicExprErrorf(pos, "invalid indirect of %s (type %v)", code, t)
+		p.panicCodeErrorf(&pos, "invalid indirect of %s (type %v)", code, t)
 	}
 	p.stk.Ret(1, ret)
 	return p
@@ -1246,7 +1243,7 @@ func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
 	t, ok := arg.Type.(*types.Pointer)
 	if !ok {
 		code, pos := p.loadExpr(arg.Src)
-		p.panicExprErrorf(pos, "invalid indirect of %s (type %v)", code, arg.Type)
+		p.panicCodeErrorf(&pos, "invalid indirect of %s (type %v)", code, arg.Type)
 	}
 	p.stk.Ret(1, internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Type: t.Elem(), Src: getSrc(src)})
 	return p
@@ -1261,7 +1258,7 @@ func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 	t, ok := arg.Type.(*types.Pointer)
 	if !ok {
 		code, pos := p.loadExpr(arg.Src)
-		p.panicExprErrorf(pos, "invalid indirect of %s (type %v)", code, arg.Type)
+		p.panicCodeErrorf(&pos, "invalid indirect of %s (type %v)", code, arg.Type)
 	}
 	p.stk.Ret(1, internal.Elem{
 		Val: &ast.StarExpr{X: arg.Val}, Type: &refType{typ: t.Elem()}, Src: getSrc(src),
@@ -1378,8 +1375,8 @@ func (p *CodeBuilder) Member(name string, src ...ast.Node) (kind MemberKind, err
 		}
 	}
 	code, pos := p.loadExpr(srcExpr)
-	return MemberInvalid, p.newExprError(
-		fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name), pos)
+	return MemberInvalid, p.newCodeError(
+		fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name), &pos)
 }
 
 type methodList interface {
@@ -1822,44 +1819,44 @@ func (p *CodeBuilder) Case(n int) *CodeBuilder { // n=0 means default case
 }
 
 // Label func
-func (p *CodeBuilder) Label(name string) *CodeBuilder {
+func (p *CodeBuilder) Label(name string, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Label", name)
 	}
-	p.current.defineLabel(p, name)
+	p.current.defineLabel(p, name, p.nodePosition(getSrc(src)))
 	p.current.label = &ast.LabeledStmt{Label: ident(name)}
 	return p
 }
 
 // Goto func
-func (p *CodeBuilder) Goto(name string) *CodeBuilder {
+func (p *CodeBuilder) Goto(name string, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Goto", name)
 	}
-	p.current.useLabel(p, name)
+	p.current.useLabel(p, name, p.nodePosition(getSrc(src)))
 	p.emitStmt(&ast.BranchStmt{Tok: token.GOTO, Label: ident(name)})
 	return p
 }
 
 // Break func
-func (p *CodeBuilder) Break(name string) *CodeBuilder {
+func (p *CodeBuilder) Break(name string, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Break", name)
 	}
 	if name != "" {
-		p.current.useLabel(p, name)
+		p.current.useLabel(p, name, p.nodePosition(getSrc(src)))
 	}
 	p.emitStmt(&ast.BranchStmt{Tok: token.BREAK, Label: ident(name)})
 	return p
 }
 
 // Continue func
-func (p *CodeBuilder) Continue(name string) *CodeBuilder {
+func (p *CodeBuilder) Continue(name string, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Continue", name)
 	}
 	if name != "" {
-		p.current.useLabel(p, name)
+		p.current.useLabel(p, name, p.nodePosition(getSrc(src)))
 	}
 	p.emitStmt(&ast.BranchStmt{Tok: token.CONTINUE, Label: ident(name)})
 	return p

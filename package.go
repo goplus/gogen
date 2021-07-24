@@ -31,6 +31,14 @@ type PkgImporter interface {
 	Import(pkgPath string) *PkgRef
 }
 
+type NodeInterpreter interface {
+	// Position gets position of a Pos.
+	Position(p token.Pos) token.Position
+
+	// LoadExpr is called to load an expr code and return its position.
+	LoadExpr(expr ast.Node) (string, token.Position)
+}
+
 // Config type
 type Config struct {
 	// Context specifies the context for the load operation.
@@ -85,8 +93,8 @@ type Config struct {
 	// HandleErr is called to handle errors.
 	HandleErr func(err error)
 
-	// LoadExpr is called to load an expr code and return its position.
-	LoadExpr func(expr ast.Node) (string, *token.Position)
+	// NodeInterpreter is to interpret an ast.Node.
+	NodeInterpreter NodeInterpreter
 
 	// LoadPkgs is called to load all import packages.
 	LoadPkgs LoadPkgsFunc
@@ -99,9 +107,6 @@ type Config struct {
 
 	// Prefix is name prefix.
 	Prefix string
-
-	// Contracts are the builtin contracts.
-	Contracts *BuiltinContracts
 
 	// NewBuiltin is to create the builin package.
 	NewBuiltin func(pkg PkgImporter, prefix string, contracts *BuiltinContracts) *types.Package
@@ -134,10 +139,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if prefix == "" {
 		prefix = defaultNamePrefix
 	}
-	contracts := conf.Contracts
-	if contracts == nil {
-		contracts = defaultContracts
-	}
 	newBuiltin := conf.NewBuiltin
 	if newBuiltin == nil {
 		newBuiltin = newBuiltinDefault
@@ -168,7 +169,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg, conf)
-	pkg.builtin = newBuiltin(pkg, prefix, contracts)
+	pkg.builtin = newBuiltin(pkg, prefix, defaultContracts)
 	return pkg
 }
 

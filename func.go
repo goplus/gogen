@@ -100,16 +100,16 @@ func (p *Func) End(cb *CodeBuilder) {
 // NewFunc func
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
 	sig := types.NewSignature(recv, params, results, variadic)
-	return p.NewFuncWith(name, sig)
+	return p.NewFuncWith(token.NoPos, name, sig)
 }
 
 // NewFuncWith func
-func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
+func (p *Package) NewFuncWith(pos token.Pos, name string, sig *types.Signature) *Func {
 	if name == "" {
-		panic("TODO: no func name")
+		panic("no func name")
 	}
-
-	fn := types.NewFunc(token.NoPos, p.Types, name, sig)
+	cb := p.cb
+	fn := types.NewFunc(pos, p.Types, name, sig)
 	if recv := sig.Recv(); recv != nil { // add method to this type
 		var t *types.Named
 		var ok bool
@@ -122,15 +122,18 @@ func (p *Package) NewFuncWith(name string, sig *types.Signature) *Func {
 			t, ok = typ.(*types.Named)
 		}
 		if !ok {
-			p.cb.panicStmtErrorf("invalid receiver type %v (%v is not a defined type)", typ, typ)
+			cb.panicCodePosErrorf(pos, "invalid receiver type %v (%v is not a defined type)", typ, typ)
 		}
-		if _, ok := t.Obj().Type().Underlying().(*types.Interface); ok {
-			p.cb.panicStmtErrorf("invalid receiver type %v (%v is an interface type)", typ, typ)
+		switch t.Obj().Type().Underlying().(type) {
+		case *types.Interface:
+			cb.panicCodePosErrorf(pos, "invalid receiver type %v (%v is an interface type)", typ, typ)
+		case *types.Pointer:
+			cb.panicCodePosErrorf(pos, "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		t.AddMethod(fn)
 	} else if name == "init" { // init is not a normal func
 		if sig.Params() != nil || sig.Results() != nil {
-			p.cb.panicStmtError("func init must have no arguments and no return values")
+			cb.panicCodePosError(pos, "func init must have no arguments and no return values")
 		}
 	} else {
 		p.Types.Scope().Insert(fn)

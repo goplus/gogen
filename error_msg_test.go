@@ -15,6 +15,7 @@ package gox_test
 
 import (
 	"bytes"
+	"go/ast"
 	"go/token"
 	"go/types"
 	"testing"
@@ -22,7 +23,55 @@ import (
 	"github.com/goplus/gox"
 )
 
+type txtNode struct {
+	Msg string
+	pos *token.Position
+}
+
+func (p *txtNode) Pos() token.Pos {
+	return 1
+}
+
+func (p *txtNode) End() token.Pos {
+	return 2
+}
+
+var (
+	pos2Positions = map[token.Pos]token.Position{}
+)
+
+// text, line, column
+func source(text string, args ...interface{}) ast.Node {
+	if len(args) < 2 {
+		return &txtNode{Msg: text}
+	}
+	pos := &token.Position{Filename: "./foo.gop", Line: args[0].(int), Column: args[1].(int)}
+	return &txtNode{Msg: text, pos: pos}
+}
+
+func position(line, column int) token.Pos {
+	pos := token.Pos(len(pos2Positions) + 1)
+	pos2Positions[pos] = token.Position{Filename: "./foo.gop", Line: line, Column: column}
+	return pos
+}
+
+type nodeInterp struct{}
+
+func (p nodeInterp) Position(pos token.Pos) (ret token.Position) {
+	return pos2Positions[pos]
+}
+
+func (p nodeInterp) LoadExpr(node ast.Node) (src string, pos token.Position) {
+	t := node.(*txtNode)
+	if t.pos != nil {
+		pos = *t.pos
+	}
+	src = t.Msg
+	return
+}
+
 func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
+	pos2Positions = map[token.Pos]token.Position{}
 	pkg := newMainPackage()
 	defer func() {
 		if e := recover(); e != nil {
@@ -43,68 +92,63 @@ func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
 	gox.WriteTo(&b, pkg)
 }
 
-func TestFileLine(t *testing.T) {
-	codeErrorTest(t, "./foo.gop:1 func init must have no arguments and no return values", func(pkg *gox.Package) {
-		v := pkg.NewParam("v", gox.TyByte)
-		pkg.CB().SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false)
-		pkg.NewFunc(nil, "init", types.NewTuple(v), nil, false).BodyStart(pkg).End()
-	})
+func newFunc(
+	pkg *gox.Package, line, column int,
+	recv *gox.Param, name string, params, results *types.Tuple, variadic bool) *gox.Func {
+	pos := position(line, column)
+	return pkg.NewFuncWith(pos, name, types.NewSignature(recv, params, results, variadic))
 }
 
 func TestErrInitFunc(t *testing.T) {
-	codeErrorTest(t, "func init must have no arguments and no return values", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:1:5 func init must have no arguments and no return values", func(pkg *gox.Package) {
 		v := pkg.NewParam("v", gox.TyByte)
-		pkg.NewFunc(nil, "init", types.NewTuple(v), nil, false).BodyStart(pkg).End()
+		newFunc(pkg, 1, 5, nil, "init", types.NewTuple(v), nil, false).BodyStart(pkg).End()
 	})
 }
 
 func TestErrRecv(t *testing.T) {
 	tySlice := types.NewSlice(gox.TyByte)
-	codeErrorTest(t, "invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:1:5 invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam("p", tySlice)
-		pkg.NewFunc(recv, "foo", nil, nil, false).BodyStart(pkg).End()
+		newFunc(pkg, 1, 5, recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
-	codeErrorTest(t, "invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:2:6 invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam("p", types.NewPointer(tySlice))
-		pkg.NewFunc(recv, "foo", nil, nil, false).BodyStart(pkg).End()
+		newFunc(pkg, 2, 6, recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
-	codeErrorTest(t, "invalid receiver type error (error is an interface type)", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:3:7 invalid receiver type error (error is an interface type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam("p", gox.TyError)
-		pkg.NewFunc(recv, "foo", nil, nil, false).BodyStart(pkg).End()
+		newFunc(pkg, 3, 7, recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
 }
 
 func TestErrLabel(t *testing.T) {
-	codeErrorTest(t, "./foo.gop:2 label foo already defined at ./foo.gop:1", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:2:1 label foo already defined at ./foo.gop:1:1", func(pkg *gox.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false).
-			Label("foo").
-			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 2}, false).
-			Label("foo").
+			Label("foo", source("foo:", 1, 1)).
+			Label("foo", source("foo:", 2, 1)).
 			End()
 	})
-	codeErrorTest(t, "./foo.gop:1 label foo is not defined", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:1:1 label foo is not defined", func(pkg *gox.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false).
-			Goto("foo").
+			Goto("foo", source("goto foo", 1, 1)).
 			End()
 	})
-	codeErrorTest(t, "./foo.gop:1 label foo defined and not used", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:1:1 label foo defined and not used", func(pkg *gox.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-			SetFileLine(&gox.FileLine{File: "./foo.gop", Line: 1}, false).
-			Label("foo").
+			Label("foo", source("foo:", 1, 1)).
 			End()
 	})
 }
 
 func TestErrNewVar(t *testing.T) {
-	codeErrorTest(t, "foo redeclared in this block\n\tprevious declaration at ./foo.gop:1",
+	codeErrorTest(t, "./foo.gop:2:6 foo redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
 		func(pkg *gox.Package) {
 			var x *types.Var
 			pkg.Fset.AddFile("./foo.gop", 1, 100).AddLine(10)
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				NewAutoVar(1, "foo", &x).
-				NewAutoVar(11, "foo", &x).
+				NewAutoVar(position(1, 5), "foo", &x).
+				NewAutoVar(position(2, 6), "foo", &x).
 				End()
 		})
 }
@@ -179,7 +223,7 @@ func TestErrStructLit(t *testing.T) {
 }
 
 func TestErrMapLit(t *testing.T) {
-	codeErrorTest(t, "cannot use 1+2 (type untyped int) as type string in map key",
+	codeErrorTest(t, "./foo.gop:2:6 cannot use 1+2 (type untyped int) as type string in map key",
 		func(pkg *gox.Package) {
 			tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
 			cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -187,19 +231,19 @@ func TestErrMapLit(t *testing.T) {
 			cb.ResetInit()
 			cb.Val(1, source("1")).
 				Val(2, source("2")).
-				BinaryOp(token.ADD, source("1+2")).
+				BinaryOp(token.ADD, source("1+2", 2, 6)).
 				Val(3).
 				MapLit(tyMap, 2).
 				End()
 		})
-	codeErrorTest(t, `cannot use "Hi" + "!" (type untyped string) as type int in map value`,
+	codeErrorTest(t, `./foo.gop:1:5 cannot use "Hi" + "!" (type untyped string) as type int in map value`,
 		func(pkg *gox.Package) {
 			tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val("1").
 				Val("Hi", source(`"Hi"`)).
 				Val("!", source(`"!"`)).
-				BinaryOp(token.ADD, source(`"Hi" + "!"`)).
+				BinaryOp(token.ADD, source(`"Hi" + "!"`, 1, 5)).
 				MapLit(tyMap, 2).
 				EndStmt().
 				End()
@@ -427,7 +471,7 @@ func TestErrStar(t *testing.T) {
 
 func TestErrMember(t *testing.T) {
 	codeErrorTest(t,
-		` undefined (type string has no field or method y)`,
+		`-  undefined (type string has no field or method y)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.String], "x").

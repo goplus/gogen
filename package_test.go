@@ -37,42 +37,11 @@ func init() {
 	gblLoadPkgs = gox.NewLoadPkgsCached(nil)
 }
 
-type txtNode gox.CodeError
-
-func (p *txtNode) Pos() token.Pos {
-	return 1
-}
-
-func (p *txtNode) End() token.Pos {
-	return 2
-}
-
-// text, line, column
-func source(text string, args ...interface{}) ast.Node {
-	if len(args) < 2 {
-		return &txtNode{Msg: text}
-	}
-	fileline := &gox.FileLine{File: "./foo.gop", Line: args[0].(int)}
-	return &txtNode{Msg: text, FileLine: fileline, Column: args[1].(int)}
-}
-
-func loadExpr(node ast.Node) (string, *token.Position) {
-	if node == nil {
-		return "", nil
-	}
-	expr := node.(*txtNode)
-	if expr.FileLine == nil {
-		return expr.Msg, nil
-	}
-	return expr.Msg, &token.Position{
-		Filename: expr.FileLine.File, Line: expr.FileLine.Line, Column: expr.Column}
-}
-
 func newMainPackage(noCache ...bool) *gox.Package {
 	conf := &gox.Config{
-		Fset:     gblFset,
-		LoadPkgs: gblLoadPkgs,
-		LoadExpr: loadExpr,
+		Fset:            gblFset,
+		LoadPkgs:        gblLoadPkgs,
+		NodeInterpreter: nodeInterp{},
 	}
 	if noCache != nil {
 		conf = nil
@@ -186,8 +155,8 @@ func (p *foo) Bar() {}
 
 // ----------------------------------------------------------------------------
 
-func fileline(file string, line int) *gox.FileLine {
-	return &gox.FileLine{File: file, Line: line}
+func comment(txt string) *ast.CommentGroup {
+	return &ast.CommentGroup{List: []*ast.Comment{{Text: txt}}}
 }
 
 func TestBasic(t *testing.T) {
@@ -254,20 +223,20 @@ func TestIncDec(t *testing.T) {
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		SetFileLine(fileline("./foo.gop", 1), false).
+		SetComments(comment("\n// new var a"), false).
 		NewVar(tyInt, "a").
-		SetFileLine(fileline("./foo.gop", 2), true).
+		SetComments(comment("\n// inc a"), true).
 		VarRef(ctxRef(pkg, "a")).IncDec(token.INC).EndStmt().
 		End()
-	if pkg.CB().FileLine() != nil {
-		t.Fatal("fileLine is not nil")
+	if pkg.CB().Comments() != nil {
+		t.Fatal("comment is not nil")
 	}
 	domTest(t, pkg, `package main
 
 func main() {
-//line ./foo.gop:1
+// new var a
 	var a uint
-//line ./foo.gop:2
+// inc a
 	a++
 }
 `)
@@ -1815,9 +1784,9 @@ func TestStructMember(t *testing.T) {
 	pkg.NewVarStart(nil, "b").
 		Val(ctxRef(pkg, "a")).
 		Debug(func(cb *gox.CodeBuilder) {
-			kind, err := cb.Member("unknown")
+			kind, err := cb.Member("unknown", source("a.unknown", 1, 5))
 			if kind != gox.MemberInvalid ||
-				err.Error() != " undefined (type struct{x int; y string} has no field or method unknown)" {
+				err.Error() != "./foo.gop:1:5 a.unknown undefined (type struct{x int; y string} has no field or method unknown)" {
 				t.Fatal("Member unknown:", kind, err)
 			}
 		}).
