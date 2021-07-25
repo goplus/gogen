@@ -124,6 +124,11 @@ func TestErrRecv(t *testing.T) {
 		recv := pkg.NewParam("p", gox.TyError)
 		newFunc(pkg, 3, 7, recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
+	codeErrorTest(t, "./foo.gop:3:7 invalid receiver type recv (recv is a pointer type)", func(pkg *gox.Package) {
+		t := pkg.NewType("recv").InitType(pkg, types.NewPointer(gox.TyByte))
+		recv := pkg.NewParam("p", t)
+		newFunc(pkg, 3, 7, recv, "foo", nil, nil, false).BodyStart(pkg).End()
+	})
 }
 
 func TestErrLabel(t *testing.T) {
