@@ -93,10 +93,13 @@ func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
 }
 
 func newFunc(
-	pkg *gox.Package, line, column int,
+	pkg *gox.Package, line, column int, rline, rcolumn int,
 	recv *gox.Param, name string, params, results *types.Tuple, variadic bool) *gox.Func {
 	pos := position(line, column)
-	fn, err := pkg.NewFuncWith(pos, name, types.NewSignature(recv, params, results, variadic))
+	fn, err := pkg.NewFuncWith(
+		pos, name, types.NewSignature(recv, params, results, variadic), func() token.Pos {
+			return position(rline, rcolumn)
+		})
 	if err != nil {
 		panic(err)
 	}
@@ -106,28 +109,28 @@ func newFunc(
 func TestErrInitFunc(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:1:5 func init must have no arguments and no return values", func(pkg *gox.Package) {
 		v := pkg.NewParam(token.NoPos, "v", gox.TyByte)
-		newFunc(pkg, 1, 5, nil, "init", types.NewTuple(v), nil, false).BodyStart(pkg).End()
+		newFunc(pkg, 1, 5, 1, 7, nil, "init", types.NewTuple(v), nil, false).BodyStart(pkg).End()
 	})
 }
 
 func TestErrRecv(t *testing.T) {
 	tySlice := types.NewSlice(gox.TyByte)
-	codeErrorTest(t, "./foo.gop:1:7 invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:1:9 invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam(position(1, 7), "p", tySlice)
-		newFunc(pkg, 1, 5, recv, "foo", nil, nil, false).BodyStart(pkg).End()
+		newFunc(pkg, 1, 5, 1, 9, recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
-	codeErrorTest(t, "./foo.gop:2:7 invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:2:9 invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam(position(2, 7), "p", types.NewPointer(tySlice))
-		newFunc(pkg, 2, 6, recv, "foo", nil, nil, false).BodyStart(pkg).End()
+		newFunc(pkg, 2, 6, 2, 9, recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
-	codeErrorTest(t, "./foo.gop:3:9 invalid receiver type error (error is an interface type)", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:3:10 invalid receiver type error (error is an interface type)", func(pkg *gox.Package) {
 		recv := pkg.NewParam(position(3, 9), "p", gox.TyError)
-		newFunc(pkg, 3, 7, recv, "foo", nil, nil, false).BodyStart(pkg).End()
+		newFunc(pkg, 3, 7, 3, 10, recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
-	codeErrorTest(t, "./foo.gop:3:9 invalid receiver type recv (recv is a pointer type)", func(pkg *gox.Package) {
+	codeErrorTest(t, "./foo.gop:3:10 invalid receiver type recv (recv is a pointer type)", func(pkg *gox.Package) {
 		t := pkg.NewType("recv").InitType(pkg, types.NewPointer(gox.TyByte))
 		recv := pkg.NewParam(position(3, 9), "p", t)
-		newFunc(pkg, 3, 7, recv, "foo", nil, nil, false).BodyStart(pkg).End()
+		newFunc(pkg, 3, 7, 3, 10, recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
 }
 

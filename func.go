@@ -100,15 +100,23 @@ func (p *Func) End(cb *CodeBuilder) {
 // NewFunc func
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
 	sig := types.NewSignature(recv, params, results, variadic)
-	fn, err := p.NewFuncWith(token.NoPos, name, sig)
+	fn, err := p.NewFuncWith(token.NoPos, name, sig, nil)
 	if err != nil {
 		panic(err)
 	}
 	return fn
 }
 
+func getRecv(recvTypePos func() token.Pos) token.Pos {
+	if recvTypePos != nil {
+		return recvTypePos()
+	}
+	return token.NoPos
+}
+
 // NewFuncWith func
-func (p *Package) NewFuncWith(pos token.Pos, name string, sig *types.Signature) (*Func, error) {
+func (p *Package) NewFuncWith(
+	pos token.Pos, name string, sig *types.Signature, recvTypePos func() token.Pos) (*Func, error) {
 	if name == "" {
 		panic("no func name")
 	}
@@ -127,15 +135,15 @@ func (p *Package) NewFuncWith(pos token.Pos, name string, sig *types.Signature) 
 		}
 		if !ok {
 			return nil, cb.newCodePosErrorf(
-				recv.Pos(), "invalid receiver type %v (%v is not a defined type)", typ, typ)
+				getRecv(recvTypePos), "invalid receiver type %v (%v is not a defined type)", typ, typ)
 		}
 		switch t.Obj().Type().Underlying().(type) {
 		case *types.Interface:
 			return nil, cb.newCodePosErrorf(
-				recv.Pos(), "invalid receiver type %v (%v is an interface type)", typ, typ)
+				getRecv(recvTypePos), "invalid receiver type %v (%v is an interface type)", typ, typ)
 		case *types.Pointer:
 			return nil, cb.newCodePosErrorf(
-				recv.Pos(), "invalid receiver type %v (%v is a pointer type)", typ, typ)
+				getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		t.AddMethod(fn)
 	} else if name == "init" { // init is not a normal func
