@@ -100,11 +100,15 @@ func (p *Func) End(cb *CodeBuilder) {
 // NewFunc func
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
 	sig := types.NewSignature(recv, params, results, variadic)
-	return p.NewFuncWith(token.NoPos, name, sig)
+	fn, err := p.NewFuncWith(token.NoPos, name, sig)
+	if err != nil {
+		panic(err)
+	}
+	return fn
 }
 
 // NewFuncWith func
-func (p *Package) NewFuncWith(pos token.Pos, name string, sig *types.Signature) *Func {
+func (p *Package) NewFuncWith(pos token.Pos, name string, sig *types.Signature) (*Func, error) {
 	if name == "" {
 		panic("no func name")
 	}
@@ -122,18 +126,22 @@ func (p *Package) NewFuncWith(pos token.Pos, name string, sig *types.Signature) 
 			t, ok = typ.(*types.Named)
 		}
 		if !ok {
-			cb.panicCodePosErrorf(pos, "invalid receiver type %v (%v is not a defined type)", typ, typ)
+			return nil, cb.newCodePosErrorf(
+				pos, "invalid receiver type %v (%v is not a defined type)", typ, typ)
 		}
 		switch t.Obj().Type().Underlying().(type) {
 		case *types.Interface:
-			cb.panicCodePosErrorf(pos, "invalid receiver type %v (%v is an interface type)", typ, typ)
+			return nil, cb.newCodePosErrorf(
+				pos, "invalid receiver type %v (%v is an interface type)", typ, typ)
 		case *types.Pointer:
-			cb.panicCodePosErrorf(pos, "invalid receiver type %v (%v is a pointer type)", typ, typ)
+			return nil, cb.newCodePosErrorf(
+				pos, "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		t.AddMethod(fn)
 	} else if name == "init" { // init is not a normal func
 		if sig.Params() != nil || sig.Results() != nil {
-			cb.panicCodePosError(pos, "func init must have no arguments and no return values")
+			return nil, cb.newCodePosError(
+				pos, "func init must have no arguments and no return values")
 		}
 	} else {
 		p.Types.Scope().Insert(fn)
@@ -141,7 +149,7 @@ func (p *Package) NewFuncWith(pos token.Pos, name string, sig *types.Signature) 
 
 	decl := &ast.FuncDecl{}
 	p.decls = append(p.decls, decl)
-	return &Func{Func: fn, decl: decl}
+	return &Func{Func: fn, decl: decl}, nil
 }
 
 type closureType = token.Pos

@@ -96,7 +96,11 @@ func newFunc(
 	pkg *gox.Package, line, column int,
 	recv *gox.Param, name string, params, results *types.Tuple, variadic bool) *gox.Func {
 	pos := position(line, column)
-	return pkg.NewFuncWith(pos, name, types.NewSignature(recv, params, results, variadic))
+	fn, err := pkg.NewFuncWith(pos, name, types.NewSignature(recv, params, results, variadic))
+	if err != nil {
+		panic(err)
+	}
+	return fn
 }
 
 func TestErrInitFunc(t *testing.T) {

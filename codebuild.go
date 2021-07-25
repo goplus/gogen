@@ -84,10 +84,10 @@ func (p *funcBodyCtx) checkLabels(cb *CodeBuilder) {
 	for name, l := range p.labels {
 		if l.at == nil {
 			for _, ref := range l.refs {
-				cb.handleErr(cb.newCodeError(fmt.Sprintf("label %s is not defined", name), ref))
+				cb.handleErr(cb.newCodeError(ref, fmt.Sprintf("label %s is not defined", name)))
 			}
 		} else if l.refs == nil {
-			cb.handleErr(cb.newCodeError(fmt.Sprintf("label %s defined and not used", name), l.at))
+			cb.handleErr(cb.newCodeError(l.at, fmt.Sprintf("label %s defined and not used", name)))
 		}
 	}
 }
@@ -208,26 +208,33 @@ func (p *CodeBuilder) loadExpr(expr ast.Node) (src string, pos token.Position) {
 	return p.interp.LoadExpr(expr)
 }
 
-func (p *CodeBuilder) newCodeError(msg string, pos *token.Position) *CodeError {
+func (p *CodeBuilder) newCodeError(pos *token.Position, msg string) *CodeError {
 	return &CodeError{Msg: msg, Pos: pos, Scope: p.Scope(), Func: p.Func()}
 }
 
+func (p *CodeBuilder) newCodePosError(pos token.Pos, msg string) *CodeError {
+	tpos := p.position(pos)
+	return &CodeError{Msg: msg, Pos: &tpos, Scope: p.Scope(), Func: p.Func()}
+}
+
+func (p *CodeBuilder) newCodePosErrorf(pos token.Pos, format string, args ...interface{}) *CodeError {
+	return p.newCodePosError(pos, fmt.Sprintf(format, args...))
+}
+
 func (p *CodeBuilder) panicCodeError(pos *token.Position, msg string) {
-	panic(p.newCodeError(msg, pos))
+	panic(p.newCodeError(pos, msg))
 }
 
 func (p *CodeBuilder) panicCodePosError(pos token.Pos, msg string) {
-	tpos := p.position(pos)
-	panic(p.newCodeError(msg, &tpos))
+	panic(p.newCodePosError(pos, msg))
 }
 
 func (p *CodeBuilder) panicCodeErrorf(pos *token.Position, format string, args ...interface{}) {
-	panic(p.newCodeError(fmt.Sprintf(format, args...), pos))
+	panic(p.newCodeError(pos, fmt.Sprintf(format, args...)))
 }
 
 func (p *CodeBuilder) panicCodePosErrorf(pos token.Pos, format string, args ...interface{}) {
-	tpos := p.position(pos)
-	panic(p.newCodeError(fmt.Sprintf(format, args...), &tpos))
+	panic(p.newCodePosError(pos, fmt.Sprintf(format, args...)))
 }
 
 // Scope returns current scope.
@@ -1376,7 +1383,7 @@ func (p *CodeBuilder) Member(name string, src ...ast.Node) (kind MemberKind, err
 	}
 	code, pos := p.loadExpr(srcExpr)
 	return MemberInvalid, p.newCodeError(
-		fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name), &pos)
+		&pos, fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name))
 }
 
 type methodList interface {
