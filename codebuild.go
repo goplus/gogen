@@ -1114,7 +1114,9 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 			p.panicCodeError(&pos, "assignment mismatch: 2 variables but 1 values")
 		}
 		pkg := p.pkg
-		tyRet = types.NewTuple(pkg.NewParam("", typs[1]), pkg.NewParam("", types.Typ[types.Bool]))
+		tyRet = types.NewTuple(
+			pkg.NewParam(token.NoPos, "", typs[1]),
+			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
 	} else { // elem = a[key]
 		tyRet = typs[1]
 	}
@@ -1746,7 +1748,9 @@ func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool) *CodeBuilder {
 	pkg := p.pkg
 	ret := &ast.TypeAssertExpr{X: arg.Val, Type: toType(pkg, typ)}
 	if twoValue {
-		tyRet := types.NewTuple(pkg.NewParam("", typ), pkg.NewParam("", types.Typ[types.Bool]))
+		tyRet := types.NewTuple(
+			pkg.NewParam(token.NoPos, "", typ),
+			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
 		p.stk.Ret(1, internal.Elem{Type: tyRet, Val: ret})
 	} else {
 		p.stk.Ret(1, internal.Elem{Type: typ, Val: ret})

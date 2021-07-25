@@ -465,7 +465,9 @@ func (p recvInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Ele
 		if t.Dir() != types.SendOnly {
 			typ := t.Elem()
 			if flags != 0 { // twoValue mode
-				typ = types.NewTuple(pkg.NewParam("", typ), pkg.NewParam("", types.Typ[types.Bool]))
+				typ = types.NewTuple(
+					pkg.NewParam(token.NoPos, "", typ),
+					pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
 			}
 			ret = Element{Val: &ast.UnaryExpr{Op: token.ARROW, X: args[0].Val}, Type: typ}
 			return

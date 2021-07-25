@@ -34,8 +34,8 @@ func (p *Package) NewAutoParam(name string) *Param {
 }
 
 // NewParam returns a new variable representing a function parameter.
-func (p *Package) NewParam(name string, typ types.Type) *Param {
-	return types.NewParam(token.NoPos, p.Types, name, typ)
+func (p *Package) NewParam(pos token.Pos, name string, typ types.Type) *Param {
+	return types.NewParam(pos, p.Types, name, typ)
 }
 
 // ----------------------------------------------------------------------------
@@ -127,15 +127,15 @@ func (p *Package) NewFuncWith(pos token.Pos, name string, sig *types.Signature) 
 		}
 		if !ok {
 			return nil, cb.newCodePosErrorf(
-				pos, "invalid receiver type %v (%v is not a defined type)", typ, typ)
+				recv.Pos(), "invalid receiver type %v (%v is not a defined type)", typ, typ)
 		}
 		switch t.Obj().Type().Underlying().(type) {
 		case *types.Interface:
 			return nil, cb.newCodePosErrorf(
-				pos, "invalid receiver type %v (%v is an interface type)", typ, typ)
+				recv.Pos(), "invalid receiver type %v (%v is an interface type)", typ, typ)
 		case *types.Pointer:
 			return nil, cb.newCodePosErrorf(
-				pos, "invalid receiver type %v (%v is a pointer type)", typ, typ)
+				recv.Pos(), "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		t.AddMethod(fn)
 	} else if name == "init" { // init is not a normal func
