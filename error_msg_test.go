@@ -531,4 +531,35 @@ func TestErrMemberRef(t *testing.T) {
 				EndStmt().
 				End()
 		})
+	codeErrorTest(t,
+		`./foo.gop:1:7 x.z undefined (type struct{x int; y string} has no field or method z)`,
+		func(pkg *gox.Package) {
+			fields := []*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+				types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+			}
+			t := types.NewStruct(fields, nil)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(t, "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				MemberRef("z", source("x.z", 1, 7)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:1:7 x.z undefined (type aaa has no field or method z)`,
+		func(pkg *gox.Package) {
+			fields := []*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+				types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+			}
+			tyStruc := types.NewStruct(fields, nil)
+			t := pkg.NewType("aaa").InitType(pkg, tyStruc)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(t, "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				MemberRef("z", source("x.z", 1, 7)).
+				EndStmt().
+				End()
+		})
 }

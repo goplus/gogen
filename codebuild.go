@@ -1284,12 +1284,14 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 	switch o := indirect(arg.Type).(type) {
 	case *types.Named:
 		if struc, ok := p.pkg.getUnderlying(o).(*types.Struct); ok {
-			p.fieldRef(arg.Val, struc, name)
-			return p
+			if p.fieldRef(arg.Val, struc, name) {
+				return p
+			}
 		}
 	case *types.Struct:
-		p.fieldRef(arg.Val, o, name)
-		return p
+		if p.fieldRef(arg.Val, o, name) {
+			return p
+		}
 	}
 	code, pos := p.loadExpr(getSrc(src))
 	p.panicCodeErrorf(
@@ -1297,15 +1299,15 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-func (p *CodeBuilder) fieldRef(x ast.Expr, struc *types.Struct, name string) {
+func (p *CodeBuilder) fieldRef(x ast.Expr, struc *types.Struct, name string) bool {
 	if t := structFieldType(struc, name); t != nil {
 		p.stk.Ret(1, internal.Elem{
 			Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
 			Type: &refType{typ: t},
 		})
-	} else {
-		panic("TODO: member not found - " + name)
+		return true
 	}
+	return false
 }
 
 func structFieldType(o *types.Struct, name string) types.Type {
