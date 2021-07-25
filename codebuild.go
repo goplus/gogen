@@ -1276,7 +1276,7 @@ func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 }
 
 // MemberRef func
-func (p *CodeBuilder) MemberRef(name string) *CodeBuilder {
+func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("MemberRef", name)
 	}
@@ -1285,14 +1285,15 @@ func (p *CodeBuilder) MemberRef(name string) *CodeBuilder {
 	case *types.Named:
 		if struc, ok := p.pkg.getUnderlying(o).(*types.Struct); ok {
 			p.fieldRef(arg.Val, struc, name)
-		} else {
-			panic("TODO: member not found - " + name)
+			return p
 		}
 	case *types.Struct:
 		p.fieldRef(arg.Val, o, name)
-	default:
-		log.Panicln("TODO: MemberRef - unexpected type:", o)
+		return p
 	}
+	code, pos := p.loadExpr(getSrc(src))
+	p.panicCodeErrorf(
+		&pos, fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name))
 	return p
 }
 

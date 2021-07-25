@@ -508,3 +508,27 @@ func TestErrMember(t *testing.T) {
 				End()
 		})
 }
+
+func TestErrMemberRef(t *testing.T) {
+	codeErrorTest(t,
+		`./foo.gop:1:7 x.y undefined (type string has no field or method y)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.String], "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				MemberRef("y", source("x.y", 1, 7)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:1:7 x.y undefined (type aaa has no field or method y)`,
+		func(pkg *gox.Package) {
+			t := pkg.NewType("aaa").InitType(pkg, gox.TyByte)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(t, "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				MemberRef("y", source("x.y", 1, 7)).
+				EndStmt().
+				End()
+		})
+}
