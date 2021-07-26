@@ -18,6 +18,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"strings"
 	"testing"
 
 	"github.com/goplus/gox"
@@ -59,6 +60,15 @@ type nodeInterp struct{}
 
 func (p nodeInterp) Position(pos token.Pos) (ret token.Position) {
 	return pos2Positions[pos]
+}
+
+func (p nodeInterp) Caller(node ast.Node) string {
+	t := node.(*txtNode)
+	idx := strings.Index(t.Msg, "(")
+	if idx > 0 {
+		return t.Msg[:idx]
+	}
+	return t.Msg
 }
 
 func (p nodeInterp) LoadExpr(node ast.Node) (src string, pos token.Position) {
@@ -120,6 +130,31 @@ func TestErrForRange(t *testing.T) {
 				Val(ctxRef(pkg, "b"), source("b", 1, 9)).
 				RangeAssignThen().
 				End().
+				End()
+		})
+}
+
+func TestErrAssign(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:1:3 assignment mismatch: 1 variables but bar returns 2 values",
+		func(pkg *gox.Package) {
+			retInt := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+			retErr := pkg.NewParam(position(1, 15), "", gox.TyError)
+			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).End()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "x").
+				VarRef(ctxRef(pkg, "x")).
+				Val(ctxRef(pkg, "bar")).
+				CallWith(0, false, source("bar()", 1, 5)).
+				AssignWith(1, 1, source("x = bar()", 1, 3)).
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:1:3 assignment mismatch: 1 variables but 2 values",
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "x").
+				VarRef(ctxRef(pkg, "x")).
+				Val(1).Val(2).
+				AssignWith(1, 2, source("x = 1, 2", 1, 3)).
 				End()
 		})
 }

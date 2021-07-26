@@ -37,6 +37,9 @@ type NodeInterpreter interface {
 
 	// LoadExpr is called to load an expr code and return its position.
 	LoadExpr(expr ast.Node) (string, token.Position)
+
+	// Caller is called to return the name of a function call.
+	Caller(expr ast.Node) string
 }
 
 // Config type

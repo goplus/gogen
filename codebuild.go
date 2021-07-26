@@ -169,6 +169,10 @@ func (p nodeInterp) Position(pos token.Pos) (ret token.Position) {
 	return
 }
 
+func (p nodeInterp) Caller(expr ast.Node) string {
+	return "the function call"
+}
+
 func (p nodeInterp) LoadExpr(expr ast.Node) (src string, pos token.Position) {
 	return
 }
@@ -183,6 +187,13 @@ func (p *CodeBuilder) nodePosition(expr ast.Node) (ret token.Position) {
 	}
 	_, ret = p.interp.LoadExpr(expr) // TODO: optimize
 	return
+}
+
+func (p *CodeBuilder) getCaller(expr ast.Node) string {
+	if expr == nil {
+		return ""
+	}
+	return p.interp.Caller(expr)
 }
 
 func (p *CodeBuilder) loadExpr(expr ast.Node) (src string, pos token.Position) {
@@ -409,7 +420,7 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 			elem := p.stk.Pop()
 			p.doVarRef(p.paramInsts[key], nil, false)
 			p.stk.Push(elem)
-			p.AssignWith(1, 1, false, fn.Name)
+			p.doAssignWith(1, 1, nil)
 		}
 		p.Goto(p.getEndingLabel(fn))
 	} else {
@@ -1452,46 +1463,57 @@ func (p *CodeBuilder) Assign(lhs int, rhs ...int) *CodeBuilder {
 	} else {
 		v = lhs
 	}
-	return p.AssignWith(lhs, v, true, "the function call")
+	if debugInstr {
+		log.Println("Assign", lhs, v)
+	}
+	return p.doAssignWith(lhs, v, nil)
 }
 
 // AssignWith func
-func (p *CodeBuilder) AssignWith(lhs, rhs int, allowDbg bool, caller interface{}, src ...ast.Node) *CodeBuilder {
-	if allowDbg && debugInstr {
+func (p *CodeBuilder) AssignWith(lhs, rhs int, src ...ast.Node) *CodeBuilder {
+	if debugInstr {
 		log.Println("Assign", lhs, rhs)
 	}
+	return p.doAssignWith(lhs, rhs, getSrc(src))
+}
+
+func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 	args := p.stk.GetArgs(lhs + rhs)
 	stmt := &ast.AssignStmt{
 		Tok: token.ASSIGN,
 		Lhs: make([]ast.Expr, lhs),
 		Rhs: make([]ast.Expr, rhs),
 	}
-	pkg := p.pkg
+	if rhs == 1 {
+		if rhsVals, ok := args[lhs].Type.(*types.Tuple); ok {
+			if lhs != rhsVals.Len() {
+				pos := p.nodePosition(src)
+				caller := p.getCaller(args[lhs].Src)
+				p.panicCodeErrorf(
+					&pos, "assignment mismatch: %d variables but %v returns %d values",
+					lhs, caller, rhsVals.Len())
+			}
+			for i := 0; i < lhs; i++ {
+				val := internal.Elem{Type: rhsVals.At(i).Type()}
+				checkAssignType(p.pkg, args[i].Type, val)
+				stmt.Lhs[i] = args[i].Val
+			}
+			stmt.Rhs[0] = args[lhs].Val
+			goto done
+		}
+	}
 	if lhs == rhs {
 		for i := 0; i < lhs; i++ {
-			checkAssignType(pkg, args[i].Type, args[lhs+i])
+			checkAssignType(p.pkg, args[i].Type, args[lhs+i])
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
 		}
-	} else if rhs == 1 {
-		rhsVals, ok := args[lhs].Type.(*types.Tuple)
-		if !ok || lhs != rhsVals.Len() {
-			pos := p.nodePosition(getSrc(src))
-			p.panicCodeErrorf(
-				&pos, "assignment mismatch: %d variables but %v returns %d values",
-				lhs, strval(caller), rhsVals.Len())
-		}
-		for i := 0; i < lhs; i++ {
-			val := internal.Elem{Type: rhsVals.At(i).Type()}
-			checkAssignType(pkg, args[i].Type, val)
-			stmt.Lhs[i] = args[i].Val
-		}
-		stmt.Rhs[0] = args[lhs].Val
 	} else {
-		pos := p.nodePosition(getSrc(src))
+		pos := p.nodePosition(src)
 		p.panicCodeErrorf(
 			&pos, "assignment mismatch: %d variables but %d values", lhs, rhs)
 	}
+done:
 	p.emitStmt(stmt)
 	p.stk.PopN(lhs + rhs)
 	return p
