@@ -155,7 +155,7 @@ func TestBigRatConstant(t *testing.T) {
 func TestBigIntVar(t *testing.T) {
 	pkg := newGopMainPackage()
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
-	pkg.NewVar(big.Ref("Gop_bigint").Type(), "a")
+	pkg.CB().NewVar(big.Ref("Gop_bigint").Type(), "a")
 	domTest(t, pkg, `package main
 
 import builtin "github.com/goplus/gox/internal/builtin"
@@ -167,8 +167,8 @@ var a builtin.Gop_bigint
 func TestBigInt(t *testing.T) {
 	pkg := newGopMainPackage()
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
-	pkg.NewVar(big.Ref("Gop_bigint").Type(), "a", "b")
-	pkg.NewVarStart(big.Ref("Gop_bigint").Type(), "c").
+	pkg.CB().NewVar(big.Ref("Gop_bigint").Type(), "a", "b")
+	pkg.CB().NewVarStart(big.Ref("Gop_bigint").Type(), "c").
 		Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.ADD).EndInit(1)
 	domTest(t, pkg, `package main
 
@@ -182,17 +182,17 @@ var c builtin.Gop_bigint = a.Gop_Add(b)
 func TestBigRat(t *testing.T) {
 	pkg := newGopMainPackage()
 	big := pkg.Builtin()
-	pkg.NewVar(big.Ref("Gop_bigrat").Type(), "a", "b")
-	pkg.NewVarStart(big.Ref("Gop_bigrat").Type(), "c").
+	pkg.CB().NewVar(big.Ref("Gop_bigrat").Type(), "a", "b")
+	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "c").
 		Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.QUO).EndInit(1)
-	pkg.NewVarStart(big.Ref("Gop_bigrat").Type(), "d").
+	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "d").
 		Val(ctxRef(pkg, "a")).UnaryOp(token.SUB).EndInit(1)
-	pkg.NewVarStart(big.Ref("Gop_bigrat").Type(), "e").
+	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "e").
 		Val(big.Ref("Gop_bigrat_Cast")).Call(0).EndInit(1)
-	pkg.NewVarStart(big.Ref("Gop_bigrat").Type(), "f").
+	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "f").
 		Val(big.Ref("Gop_bigrat_Cast")).Val(1).Val(2).Call(2).EndInit(1)
-	pkg.NewVarStart(big.Ref("Gop_bigint").Type(), "g")
-	pkg.NewVarStart(big.Ref("Gop_bigrat").Type(), "h").
+	pkg.CB().NewVarStart(big.Ref("Gop_bigint").Type(), "g")
+	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "h").
 		Val(big.Ref("Gop_bigrat_Cast")).Val(ctxRef(pkg, "g")).Call(1).EndInit(1)
 	domTest(t, pkg, `package main
 

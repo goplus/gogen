@@ -452,7 +452,7 @@ func TestAssignInterface(t *testing.T) {
 	pkg.NewFunc(recv, "Error", nil, types.NewTuple(ret), false).BodyStart(pkg).
 		Return(0).
 		End()
-	pkg.NewVarStart(gox.TyError, "err").
+	pkg.CB().NewVarStart(gox.TyError, "err").
 		Typ(foo).ZeroLit(foo).Call(1).
 		EndInit(1)
 	domTest(t, pkg, `package main
@@ -626,12 +626,12 @@ func TestStructLit(t *testing.T) {
 		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
 	}
 	typ := types.NewStruct(fields, nil)
-	pkg.NewVarStart(nil, "a").
+	pkg.CB().NewVarStart(nil, "a").
 		StructLit(typ, 0, false).EndInit(1)
-	pkg.NewVarStart(nil, "b").
+	pkg.CB().NewVarStart(nil, "b").
 		Val(123).Val("Hi").
 		StructLit(typ, 2, false).EndInit(1)
-	pkg.NewVarStart(nil, "c").
+	pkg.CB().NewVarStart(nil, "c").
 		Val(1).Val("abc").
 		StructLit(typ, 2, true).EndInit(1)
 	domTest(t, pkg, `package main
@@ -660,14 +660,14 @@ func TestNamedStructLit(t *testing.T) {
 	typU := types.NewStruct(fields, nil)
 	typ := pkg.NewType("foo").InitType(pkg, typU)
 	bar := pkg.AliasType("bar", typ)
-	pkg.NewVarStart(typ, "a").
+	pkg.CB().NewVarStart(typ, "a").
 		StructLit(typ, 0, false).EndInit(1)
-	pkg.NewVarStart(types.NewPointer(bar), "b").
+	pkg.CB().NewVarStart(types.NewPointer(bar), "b").
 		Val(123).Val("Hi").
 		StructLit(bar, 2, false).
 		UnaryOp(token.AND).
 		EndInit(1)
-	pkg.NewVarStart(bar, "c").
+	pkg.CB().NewVarStart(bar, "c").
 		Val(1).Val("abc").
 		StructLit(typ, 2, true).EndInit(1)
 	domTest(t, pkg, `package main
@@ -686,13 +686,13 @@ var c bar = foo{y: "abc"}
 
 func TestMapLit(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewVarStart(nil, "a").
+	pkg.CB().NewVarStart(nil, "a").
 		Val("a").Val(1).Val("b").Val(2).MapLit(nil, 4).EndInit(1)
-	pkg.NewVarStart(nil, "b").
+	pkg.CB().NewVarStart(nil, "b").
 		Val("a").Val(1).Val("b").Val(1.2).MapLit(nil, 4).EndInit(1)
-	pkg.NewVarStart(nil, "c").
+	pkg.CB().NewVarStart(nil, "c").
 		MapLit(nil, 0).EndInit(1)
-	pkg.NewVarStart(nil, "d").
+	pkg.CB().NewVarStart(nil, "d").
 		Val(1).Val(true).
 		MapLit(types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]), 2).EndInit(1)
 	domTest(t, pkg, `package main
@@ -709,10 +709,10 @@ func TestNamedMapLit(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.NewType("foo").InitType(pkg, types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]))
 	bar := pkg.AliasType("bar", foo)
-	pkg.NewVarStart(foo, "a").
+	pkg.CB().NewVarStart(foo, "a").
 		Val(1).Val(true).
 		MapLit(foo, 2).EndInit(1)
-	pkg.NewVarStart(bar, "b").
+	pkg.CB().NewVarStart(bar, "b").
 		Val(1).Val(true).
 		MapLit(bar, 2).EndInit(1)
 	domTest(t, pkg, `package main
@@ -727,13 +727,13 @@ var b bar = bar{1: true}
 
 func TestSliceLit(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewVarStart(nil, "a").
+	pkg.CB().NewVarStart(nil, "a").
 		Val("a").Val("b").SliceLit(nil, 2).EndInit(1)
-	pkg.NewVarStart(nil, "b").
+	pkg.CB().NewVarStart(nil, "b").
 		Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1)
-	pkg.NewVarStart(nil, "c").
+	pkg.CB().NewVarStart(nil, "c").
 		SliceLit(nil, 0).EndInit(1)
-	pkg.NewVarStart(nil, "d").
+	pkg.CB().NewVarStart(nil, "d").
 		Val(1).
 		SliceLit(types.NewSlice(types.Typ[types.Int]), 1).EndInit(1)
 	domTest(t, pkg, `package main
@@ -750,10 +750,10 @@ func TestNamedSliceLit(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.NewType("foo").InitType(pkg, types.NewSlice(types.Typ[types.Int]))
 	bar := pkg.AliasType("bar", foo)
-	pkg.NewVarStart(foo, "a").
+	pkg.CB().NewVarStart(foo, "a").
 		Val(1).
 		SliceLit(foo, 1).EndInit(1)
-	pkg.NewVarStart(bar, "b").
+	pkg.CB().NewVarStart(bar, "b").
 		Val(1).
 		SliceLit(bar, 1).EndInit(1)
 	domTest(t, pkg, `package main
@@ -768,10 +768,10 @@ var b bar = bar{1}
 
 func TestKeyValModeLit(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewVarStart(nil, "a").
+	pkg.CB().NewVarStart(nil, "a").
 		None().Val(1).Val(3).Val(3.4).None().Val(5).
 		ArrayLit(types.NewArray(types.Typ[types.Float64], -1), 6, true).EndInit(1)
-	pkg.NewVarStart(nil, "b").
+	pkg.CB().NewVarStart(nil, "b").
 		Val(2).Val(1.2).None().Val(3).Val(6).Val(4.5).
 		SliceLit(types.NewSlice(types.Typ[types.Float64]), 6, true).EndInit(1)
 	domTest(t, pkg, `package main
@@ -785,9 +785,9 @@ func TestNamedArrayLit(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.NewType("foo").InitType(pkg, types.NewArray(types.Typ[types.String], 2))
 	bar := pkg.AliasType("bar", foo)
-	pkg.NewVarStart(foo, "a").
+	pkg.CB().NewVarStart(foo, "a").
 		Val("a").Val("b").ArrayLit(foo, 2).EndInit(1)
-	pkg.NewVarStart(bar, "b").
+	pkg.CB().NewVarStart(bar, "b").
 		Val("a").Val("b").ArrayLit(bar, 2).EndInit(1)
 	domTest(t, pkg, `package main
 
@@ -801,11 +801,11 @@ var b bar = bar{"a", "b"}
 
 func TestArrayLit(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewVarStart(nil, "a").
+	pkg.CB().NewVarStart(nil, "a").
 		Val("a").Val("b").ArrayLit(types.NewArray(types.Typ[types.String], 2), 2).EndInit(1)
-	pkg.NewVarStart(nil, "b").
+	pkg.CB().NewVarStart(nil, "b").
 		Val(1).Val(1.2).Val(3).ArrayLit(types.NewArray(types.Typ[types.Float64], -1), 3).EndInit(1)
-	pkg.NewVarStart(nil, "c").
+	pkg.CB().NewVarStart(nil, "c").
 		ArrayLit(types.NewArray(gox.TyEmptyInterface, 10), 0).EndInit(1)
 	domTest(t, pkg, `package main
 
@@ -858,9 +858,9 @@ func TestConstLenCap(t *testing.T) {
 
 func TestConstDecl(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewConstStart(nil, "n").
+	pkg.CB().NewConstStart(nil, "n").
 		Val(1).Val(2).BinaryOp(token.ADD).EndInit(1)
-	pkg.NewConstStart(types.Typ[types.String], "x").
+	pkg.CB().NewConstStart(types.Typ[types.String], "x").
 		Val("1").Val("2").BinaryOp(token.ADD).EndInit(1)
 	pkg.CB().NewConstStart(types.Typ[types.String], "y").
 		Val("Hello").EndInit(1)
@@ -874,11 +874,11 @@ const y string = "Hello"
 
 func TestVarDecl(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewVarStart(nil, "n", "s").
+	pkg.CB().NewVarStart(nil, "n", "s").
 		Val(1).Val(2).BinaryOp(token.ADD).
 		Val("1").Val("2").BinaryOp(token.ADD).
 		EndInit(2)
-	pkg.NewVarStart(types.Typ[types.String], "x").
+	pkg.CB().NewVarStart(types.Typ[types.String], "x").
 		Val("Hello, ").Val("Go+").BinaryOp(token.ADD).
 		EndInit(1)
 	pkg.CB().NewVarStart(types.Typ[types.String], "y").
@@ -894,7 +894,7 @@ var y string = "Hello"
 
 func TestVarDeclNoBody(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewVar(types.Typ[types.String], "x")
+	pkg.CB().NewVar(types.Typ[types.String], "x")
 	domTest(t, pkg, `package main
 
 var x string
@@ -1778,10 +1778,10 @@ func TestStructMember(t *testing.T) {
 	}
 	typ := types.NewStruct(fields, nil)
 	foo := pkg.NewType("foo").InitType(pkg, typ)
-	pkg.NewVarStart(nil, "a").
+	pkg.CB().NewVarStart(nil, "a").
 		Val(123).Val("Hi").
 		StructLit(typ, 2, false).EndInit(1)
-	pkg.NewVarStart(nil, "b").
+	pkg.CB().NewVarStart(nil, "b").
 		Val(ctxRef(pkg, "a")).
 		Debug(func(cb *gox.CodeBuilder) {
 			kind, err := cb.Member("unknown", source("a.unknown", 1, 5))
@@ -1791,18 +1791,18 @@ func TestStructMember(t *testing.T) {
 			}
 		}).
 		MemberVal("y").EndInit(1)
-	pkg.NewVarStart(nil, "c").
+	pkg.CB().NewVarStart(nil, "c").
 		Val(123).Val("Hi").
 		StructLit(foo, 2, false).EndInit(1)
-	pkg.NewVarStart(nil, "d").
+	pkg.CB().NewVarStart(nil, "d").
 		Val(ctxRef(pkg, "c")).MemberVal("x").EndInit(1)
-	pkg.NewVarStart(nil, "e").
+	pkg.CB().NewVarStart(nil, "e").
 		Val(ctxRef(pkg, "a")).UnaryOp(token.AND).EndInit(1)
-	pkg.NewVarStart(nil, "f").
+	pkg.CB().NewVarStart(nil, "f").
 		Val(ctxRef(pkg, "e")).MemberVal("x").EndInit(1)
-	pkg.NewVarStart(nil, "g").
+	pkg.CB().NewVarStart(nil, "g").
 		Val(ctxRef(pkg, "c")).UnaryOp(token.AND).EndInit(1)
-	pkg.NewVarStart(nil, "h").
+	pkg.CB().NewVarStart(nil, "h").
 		Val(ctxRef(pkg, "g")).MemberVal("y").EndInit(1)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "c")).MemberRef("x").Val(1).Assign(1).

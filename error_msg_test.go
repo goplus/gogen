@@ -75,12 +75,13 @@ func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
 	pkg := newMainPackage()
 	defer func() {
 		if e := recover(); e != nil {
-			if err, ok := e.(*gox.CodeError); ok {
+			switch err := e.(type) {
+			case *gox.CodeError, *gox.MatchError:
 				pkg.CB().ResetStmt()
-				if ret := err.Error(); ret != msg {
+				if ret := err.(error).Error(); ret != msg {
 					t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
 				}
-			} else {
+			default:
 				t.Fatal("Unexpected error:", e)
 			}
 		} else {

@@ -396,9 +396,9 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
 		if n > 1 {
 			p.stmt.Tok = token.ASSIGN
 			typs := getKeyValTypes(x.Type)
-			matchAssignType(cb.pkg, key.Type, typs[0])
+			checkAssign(cb.pkg, key, typs[0], "range")
 			if val.Val != nil {
-				matchAssignType(cb.pkg, val.Type, typs[1])
+				checkAssign(cb.pkg, val, typs[1], "range")
 			}
 		}
 	}

@@ -131,6 +131,7 @@ type ValueDecl struct {
 	oldv  *ValueDecl
 	vals  *[]ast.Expr
 	tok   token.Token
+	pos   token.Pos
 	at    int
 }
 
@@ -178,8 +179,8 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	typ := p.typ
 	if typ != nil {
 		for _, ret := range rets {
-			if err := matchType(pkg, ret.Type, typ); err != nil {
-				log.Panicln(err)
+			if err := matchType(pkg, ret, typ, "assignment"); err != nil {
+				panic(err)
 			}
 		}
 	}
@@ -189,16 +190,20 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 		}
 		if p.tok == token.CONST {
 			tv := rets[i]
-			if scope.Insert(types.NewConst(token.NoPos, pkg.Types, name, tv.Type, tv.CVal)) != nil {
-				panic("TODO: constant already defined")
+			if old := scope.Insert(types.NewConst(p.pos, pkg.Types, name, tv.Type, tv.CVal)); old != nil {
+				oldpos := cb.position(old.Pos())
+				cb.panicCodePosErrorf(
+					p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
 			}
 		} else if typ == nil {
 			retType := types.Default(rets[i].Type)
-			if old := scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, retType)); old != nil {
+			if old := scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {
-					log.Panicln("TODO: variable already defined -", name)
+					oldpos := cb.position(old.Pos())
+					cb.panicCodePosErrorf(
+						p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
 				}
-				if err := matchType(pkg, retType, old.Type()); err != nil {
+				if err := matchType(pkg, rets[i], old.Type(), "assignment"); err != nil {
 					panic(err)
 				}
 			}
@@ -212,7 +217,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	return p.oldv
 }
 
-func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string) *ValueDecl {
+func (p *Package) newValueDecl(pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
 	n := len(names)
 	if tok == token.DEFINE { // a, b := expr
 		nameIdents := make([]ast.Expr, n)
@@ -221,7 +226,7 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 		}
 		stmt := &ast.AssignStmt{Tok: token.DEFINE, Lhs: nameIdents}
 		at := p.cb.startStmtAt(stmt)
-		return &ValueDecl{names: names, tok: tok, vals: &stmt.Rhs, at: at}
+		return &ValueDecl{names: names, tok: tok, pos: pos, vals: &stmt.Rhs, at: at}
 	}
 	// var a, b = expr
 	// const a, b = expr
@@ -233,7 +238,7 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 			continue
 		}
 		if typ != nil && tok == token.VAR {
-			scope.Insert(types.NewVar(token.NoPos, p.Types, name, typ))
+			scope.Insert(types.NewVar(pos, p.Types, name, typ))
 		}
 	}
 	spec := &ast.ValueSpec{Names: nameIdents}
@@ -251,19 +256,19 @@ func (p *Package) newValueDecl(tok token.Token, typ types.Type, names ...string)
 	} else {
 		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
 	}
-	return &ValueDecl{typ: typ, names: names, tok: tok, vals: &spec.Values, at: at}
+	return &ValueDecl{typ: typ, names: names, tok: tok, pos: pos, vals: &spec.Values, at: at}
 }
 
-func (p *Package) NewConstStart(typ types.Type, names ...string) *CodeBuilder {
-	return p.newValueDecl(token.CONST, typ, names...).InitStart(p)
+func (p *Package) NewConstStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
+	return p.newValueDecl(pos, token.CONST, typ, names...).InitStart(p)
 }
 
-func (p *Package) NewVar(typ types.Type, names ...string) *ValueDecl {
-	return p.newValueDecl(token.VAR, typ, names...)
+func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *ValueDecl {
+	return p.newValueDecl(pos, token.VAR, typ, names...)
 }
 
-func (p *Package) NewVarStart(typ types.Type, names ...string) *CodeBuilder {
-	return p.newValueDecl(token.VAR, typ, names...).InitStart(p)
+func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
+	return p.newValueDecl(pos, token.VAR, typ, names...).InitStart(p)
 }
 
 // ----------------------------------------------------------------------------

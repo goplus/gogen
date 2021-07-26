@@ -467,7 +467,11 @@ func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 	default:
 		log.Panicln("TODO: call to non function -", t)
 	}
-	if err = matchFuncType(pkg, args, (flags&InstrFlagEllipsis) != token.NoPos, sig); err != nil {
+	at := func() string {
+		src, _ := pkg.cb.loadExpr(fn.Src)
+		return "argument to " + src
+	}
+	if err = matchFuncType(pkg, args, (flags&InstrFlagEllipsis) != token.NoPos, sig, at); err != nil {
 		return
 	}
 	tyRet := toRetType(sig.Results(), it)
@@ -502,7 +506,8 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
-func matchFuncType(pkg *Package, args []internal.Elem, ellipsis bool, sig *types.Signature) error {
+func matchFuncType(
+	pkg *Package, args []internal.Elem, ellipsis bool, sig *types.Signature, at interface{}) error {
 	n := len(args)
 	if sig.Variadic() {
 		if !ellipsis {
@@ -514,10 +519,10 @@ func matchFuncType(pkg *Package, args []internal.Elem, ellipsis bool, sig *types
 			if !ok {
 				return errors.New("TODO: tyVariadic not a slice")
 			}
-			if err := matchFuncArgs(pkg, args[:n1], sig); err != nil {
+			if err := matchFuncArgs(pkg, args[:n1], sig, at); err != nil {
 				return err
 			}
-			return matchElemType(pkg, args[n1:], tyVariadic.Elem())
+			return matchElemType(pkg, args[n1:], tyVariadic.Elem(), at)
 		}
 	} else if ellipsis {
 		return errors.New("TODO: call with ... to non variadic function")
@@ -525,51 +530,75 @@ func matchFuncType(pkg *Package, args []internal.Elem, ellipsis bool, sig *types
 	if nreq := getParamLen(sig); nreq != n {
 		return fmt.Errorf("TODO: unmatched function parameters count, requires %v but got %v", nreq, n)
 	}
-	return matchFuncArgs(pkg, args, sig)
+	return matchFuncArgs(pkg, args, sig, at)
 }
 
-func matchFuncArgs(pkg *Package, args []internal.Elem, sig *types.Signature) error {
+func matchFuncArgs(
+	pkg *Package, args []internal.Elem, sig *types.Signature, at interface{}) error {
 	for i, arg := range args {
-		if err := matchType(pkg, arg.Type, getParam(sig, i).Type()); err != nil {
+		if err := matchType(pkg, arg, getParam(sig, i).Type(), at); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func matchFuncResults(pkg *Package, rets []internal.Elem, results *types.Tuple) error {
+func checkFuncResults(pkg *Package, rets []internal.Elem, results *types.Tuple, src ast.Node) {
 	n := len(rets)
 	need := results.Len()
 	switch n {
 	case 0:
 		if need > 0 && isUnnamedParams(results) {
-			return errors.New("TODO: return without value")
+			pos := pkg.cb.nodePosition(src)
+			pkg.cb.panicCodeErrorf(
+				&pos, "not enough arguments to return\n\thave ()\n\twant %v", results)
 		}
-		return nil
+		return
 	case 1:
 		if need > 1 {
 			if t, ok := rets[0].Type.(*types.Tuple); ok {
 				if n1 := t.Len(); n1 != need {
-					return fmt.Errorf("TODO: require %d results, but got %d", need, n1)
+					fewOrMany := "few"
+					if n1 > need {
+						fewOrMany = "many"
+					}
+					pos := pkg.cb.nodePosition(src)
+					pkg.cb.panicCodeErrorf(
+						&pos, "too %s arguments to return\n\thave %v\n\twant %v", fewOrMany, t, results)
 				}
 				for i := 0; i < need; i++ {
-					if err := matchType(pkg, t.At(i).Type(), results.At(i).Type()); err != nil {
-						return err
+					arg := internal.Elem{Type: t.At(i).Type(), Src: src}
+					if err := matchType(pkg, arg, results.At(i).Type(), "return argument"); err != nil {
+						panic(err)
 					}
 				}
-				return nil
+				return
 			}
 		}
 	}
 	if n == need {
 		for i := 0; i < need; i++ {
-			if err := matchType(pkg, rets[i].Type, results.At(i).Type()); err != nil {
-				return err
+			if err := matchType(pkg, rets[i], results.At(i).Type(), "return argument"); err != nil {
+				panic(err)
 			}
 		}
-		return nil
+		return
 	}
-	return fmt.Errorf("TODO: require %d results, but got %d", need, n)
+	fewOrMany := "few"
+	if n > need {
+		fewOrMany = "many"
+	}
+	pos := pkg.cb.nodePosition(src)
+	pkg.cb.panicCodeErrorf(
+		&pos, "too %s arguments to return\n\thave (%v)\n\twant %v", fewOrMany, getTypes(rets), results)
+}
+
+func getTypes(rets []internal.Elem) string {
+	typs := make([]string, len(rets))
+	for i, ret := range rets {
+		typs[i] = ret.Type.String()
+	}
+	return strings.Join(typs, ", ")
 }
 
 func isUnnamedParams(t *types.Tuple) bool {
@@ -584,18 +613,18 @@ func isUnnamedParams(t *types.Tuple) bool {
 	return false
 }
 
-func matchElemType(pkg *Package, vals []internal.Elem, elt types.Type) error {
+func matchElemType(pkg *Package, vals []internal.Elem, elt types.Type, at interface{}) error {
 	for _, val := range vals {
-		if err := matchType(pkg, val.Type, elt); err != nil {
+		if err := matchType(pkg, val, elt, at); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func matchAssignType(pkg *Package, varRef types.Type, val types.Type) {
+func checkAssignType(pkg *Package, varRef types.Type, val internal.Elem) {
 	if rt, ok := varRef.(*refType); ok {
-		if err := matchType(pkg, val, rt.typ); err != nil {
+		if err := matchType(pkg, val, rt.typ, "assignment"); err != nil {
 			panic(err)
 		}
 	} else if varRef == nil { // underscore
@@ -605,53 +634,101 @@ func matchAssignType(pkg *Package, varRef types.Type, val types.Type) {
 	}
 }
 
-func matchType(pkg *Package, arg, param types.Type) error {
+func checkAssign(pkg *Package, ref internal.Elem, val types.Type, at string) {
+	if rt, ok := ref.Type.(*refType); ok {
+		elem := internal.Elem{Type: val}
+		if err := matchType(pkg, elem, rt.typ, at); err != nil {
+			src, pos := pkg.cb.loadExpr(ref.Src)
+			pkg.cb.panicCodeErrorf(
+				&pos, "cannot assign type %v to %s (type %v) in %s", val, src, rt.typ, at)
+		}
+	} else if ref.Type == nil { // underscore
+		// do nothing
+	} else {
+		panic("TODO: unassignable")
+	}
+}
+
+type MatchError struct {
+	Src   ast.Node
+	Arg   types.Type
+	Param types.Type
+	At    interface{}
+	cb    *CodeBuilder
+	fstmt bool
+}
+
+func strval(at interface{}) string {
+	switch v := at.(type) {
+	case string:
+		return v
+	case func() string:
+		return v()
+	default:
+		panic("strval unexpected: unknown type")
+	}
+}
+
+func (p *MatchError) Error() string {
+	if p.fstmt {
+		pos := p.cb.nodePosition(p.Src)
+		return fmt.Sprintf(
+			"%v cannot use %v value as type %v in %s", pos, p.Arg, p.Param, strval(p.At))
+	}
+	src, pos := p.cb.loadExpr(p.Src)
+	return fmt.Sprintf(
+		"%v cannot use %s (type %v) as type %v in %s", pos, src, p.Arg, p.Param, strval(p.At))
+}
+
+// TODO: use matchType to all assignable check
+func matchType(pkg *Package, arg internal.Elem, param types.Type, at interface{}) error {
 	if debugMatch {
-		log.Printf("==> MatchType %v, %v\n", arg, param)
+		log.Printf("==> MatchType %v, %v\n", arg.Type, param)
 	}
 	switch t := param.(type) {
 	case *unboundType: // variable to bound type
-		if t2, ok := arg.(*unboundType); ok {
+		if t2, ok := arg.Type.(*unboundType); ok {
 			if t2.tBound == nil {
 				if t == t2 {
 					return nil
 				}
 				return fmt.Errorf("TODO: can't match two unboundTypes")
 			}
-			arg = t2.tBound
+			arg.Type = t2.tBound
 		}
 		if t.tBound == nil {
-			arg = types.Default(arg)
-			t.boundTo(pkg, arg)
+			arg.Type = types.Default(arg.Type)
+			t.boundTo(pkg, arg.Type)
 		}
 		param = t.tBound
 	case *unboundMapElemType:
-		if t2, ok := arg.(*unboundType); ok {
+		if t2, ok := arg.Type.(*unboundType); ok {
 			if t2.tBound == nil {
 				panic("TODO: don't pass unbound variables")
 			}
-			arg = t2.tBound
+			arg.Type = t2.tBound
 		}
-		arg = types.Default(arg)
-		mapTy := types.NewMap(types.Default(t.key), arg)
+		arg.Type = types.Default(arg.Type)
+		mapTy := types.NewMap(types.Default(t.key), arg.Type)
 		t.typ.boundTo(pkg, mapTy)
 		return nil
 	default:
 		if isUnboundParam(param) {
-			if t, ok := arg.(*unboundType); ok {
+			if t, ok := arg.Type.(*unboundType); ok {
 				if t.tBound == nil {
 					// panic("TODO: don't pass unbound variables as template function params.")
 					return nil
 				}
-				arg = t.tBound
+				arg.Type = t.tBound
 			}
-			return boundType(pkg, arg, param)
+			return boundType(pkg, arg.Type, param)
 		}
 	}
-	if AssignableTo(arg, param) {
+	if AssignableTo(arg.Type, param) {
 		return nil
 	}
-	return fmt.Errorf("TODO: can't pass %v to %v", arg, param)
+	return &MatchError{
+		Src: arg.Src, Arg: arg.Type, Param: param, At: at, cb: &pkg.cb, fstmt: arg.Val == nil}
 }
 
 // -----------------------------------------------------------------------------

@@ -117,22 +117,6 @@ func (p *funcBodyCtx) defineLabel(cb *CodeBuilder, name string, pos token.Positi
 	l.at = &pos
 }
 
-type FileLine struct {
-	File     string
-	Line     int
-	comments *ast.CommentGroup
-}
-
-func (p *FileLine) Comments() *ast.CommentGroup {
-	if p.comments == nil {
-		line := fmt.Sprintf("\n//line %s:%d", p.File, p.Line)
-		p.comments = &ast.CommentGroup{
-			List: []*ast.Comment{{Text: line}},
-		}
-	}
-	return p.comments
-}
-
 type CodeError struct {
 	Msg   string
 	Pos   *token.Position
@@ -197,7 +181,7 @@ func (p *CodeBuilder) nodePosition(expr ast.Node) (ret token.Position) {
 	if expr == nil {
 		return
 	}
-	_, ret = p.interp.LoadExpr(expr)
+	_, ret = p.interp.LoadExpr(expr) // TODO: optimize
 	return
 }
 
@@ -361,7 +345,9 @@ func (p *CodeBuilder) Comments() *ast.CommentGroup {
 // SetComments sets comments to next statement.
 func (p *CodeBuilder) SetComments(comments *ast.CommentGroup, once bool) *CodeBuilder {
 	if debugComments && comments != nil {
-		log.Println("SetComments", comments.Text())
+		for i, c := range comments.List {
+			log.Println("SetComments", i, c.Text)
+		}
 	}
 	p.comments, p.commentOnce = comments, once
 	return p
@@ -410,22 +396,20 @@ func (p *CodeBuilder) returnResults(n int) {
 }
 
 // Return func
-func (p *CodeBuilder) Return(n int) *CodeBuilder {
+func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Return", n)
 	}
 	fn := p.current.fn
 	results := fn.Type().(*types.Signature).Results()
-	if err := matchFuncResults(p.pkg, p.stk.GetArgs(n), results); err != nil {
-		panic(err)
-	}
+	checkFuncResults(p.pkg, p.stk.GetArgs(n), results, getSrc(src))
 	if fn.isInline() {
 		for i := n - 1; i >= 0; i-- {
 			key := closureParamInst{fn, results.At(i)}
 			elem := p.stk.Pop()
 			p.doVarRef(p.paramInsts[key], false)
 			p.stk.Push(elem)
-			p.doAssign(1, nil, false)
+			p.AssignWith(1, 1, false, fn.Name)
 		}
 		p.Goto(p.getEndingLabel(fn))
 	} else {
@@ -522,7 +506,7 @@ func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, el
 	}
 	p.startFuncBody(closure, &closure.old)
 	args := p.stk.GetArgs(arity)
-	if err := matchFuncType(pkg, args, ellipsis, sig); err != nil {
+	if err := matchFuncType(pkg, args, ellipsis, sig, "closure argument"); err != nil {
 		panic(err)
 	}
 	n1 := getParamLen(sig) - 1
@@ -581,7 +565,7 @@ func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilde
 	if debugInstr {
 		log.Println("NewConstStart", names)
 	}
-	return p.pkg.newValueDecl(token.CONST, typ, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(token.NoPos, token.CONST, typ, names...).InitStart(p.pkg)
 }
 
 // NewVar func
@@ -589,7 +573,7 @@ func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	p.pkg.newValueDecl(token.VAR, typ, names...)
+	p.pkg.newValueDecl(token.NoPos, token.VAR, typ, names...)
 	return p
 }
 
@@ -598,7 +582,7 @@ func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder 
 	if debugInstr {
 		log.Println("NewVarStart", names)
 	}
-	return p.pkg.newValueDecl(token.VAR, typ, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(token.NoPos, token.VAR, typ, names...).InitStart(p.pkg)
 }
 
 // DefineVarStart func
@@ -606,7 +590,7 @@ func (p *CodeBuilder) DefineVarStart(names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("DefineVarStart", names)
 	}
-	return p.pkg.newValueDecl(token.DEFINE, nil, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(token.NoPos, token.DEFINE, nil, names...).InitStart(p.pkg)
 }
 
 // NewAutoVar func
@@ -1427,12 +1411,8 @@ func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src a
 }
 
 func methodTypeOf(typ types.Type) types.Type {
-	switch sig := typ.(type) {
-	case *types.Signature:
-		return types.NewSignature(nil, sig.Params(), sig.Results(), sig.Variadic())
-	default:
-		panic("TODO: methodTypeOf")
-	}
+	sig := typ.(*types.Signature)
+	return types.NewSignature(nil, sig.Params(), sig.Results(), sig.Variadic())
 }
 
 func indirect(typ types.Type) types.Type {
@@ -1461,17 +1441,18 @@ func (p *CodeBuilder) AssignOp(tok token.Token) *CodeBuilder {
 
 // Assign func
 func (p *CodeBuilder) Assign(lhs int, rhs ...int) *CodeBuilder {
-	return p.doAssign(lhs, rhs, true)
+	var v int
+	if rhs != nil {
+		v = rhs[0]
+	} else {
+		v = lhs
+	}
+	return p.AssignWith(lhs, v, true, "the function call")
 }
 
-func (p *CodeBuilder) doAssign(lhs int, v []int, allowDebug bool) *CodeBuilder {
-	var rhs int
-	if v != nil {
-		rhs = v[0]
-	} else {
-		rhs = lhs
-	}
-	if allowDebug && debugInstr {
+// AssignWith func
+func (p *CodeBuilder) AssignWith(lhs, rhs int, allowDbg bool, caller interface{}, src ...ast.Node) *CodeBuilder {
+	if allowDbg && debugInstr {
 		log.Println("Assign", lhs, rhs)
 	}
 	args := p.stk.GetArgs(lhs + rhs)
@@ -1483,22 +1464,28 @@ func (p *CodeBuilder) doAssign(lhs int, v []int, allowDebug bool) *CodeBuilder {
 	pkg := p.pkg
 	if lhs == rhs {
 		for i := 0; i < lhs; i++ {
-			matchAssignType(pkg, args[i].Type, args[lhs+i].Type)
+			checkAssignType(pkg, args[i].Type, args[lhs+i])
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
 		}
 	} else if rhs == 1 {
 		rhsVals, ok := args[lhs].Type.(*types.Tuple)
 		if !ok || lhs != rhsVals.Len() {
-			panic("TODO: unmatch assignment")
+			pos := p.nodePosition(getSrc(src))
+			p.panicCodeErrorf(
+				&pos, "assignment mismatch: %d variables but %v returns %d values",
+				lhs, strval(caller), rhsVals.Len())
 		}
 		for i := 0; i < lhs; i++ {
-			matchAssignType(pkg, args[i].Type, rhsVals.At(i).Type())
+			val := internal.Elem{Type: rhsVals.At(i).Type()}
+			checkAssignType(pkg, args[i].Type, val)
 			stmt.Lhs[i] = args[i].Val
 		}
 		stmt.Rhs[0] = args[lhs].Val
 	} else {
-		panic("TODO: unmatch assignment")
+		pos := p.nodePosition(getSrc(src))
+		p.panicCodeErrorf(
+			&pos, "assignment mismatch: %d variables but %d values", lhs, rhs)
 	}
 	p.emitStmt(stmt)
 	p.stk.PopN(lhs + rhs)
