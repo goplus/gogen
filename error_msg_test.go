@@ -117,6 +117,31 @@ func newFunc(
 	return fn
 }
 
+func TestErrConst(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:2:7 a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
+		func(pkg *gox.Package) {
+			pkg.NewVarStart(position(1, 5), nil, "a").Val(1).EndInit(1)
+			pkg.NewConstStart(position(2, 7), nil, "a").Val(2).EndInit(1)
+		})
+}
+
+func TestErrNewVar(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:2:7 a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
+		func(pkg *gox.Package) {
+			pkg.NewVarStart(position(1, 5), nil, "a").Val(1).EndInit(1)
+			pkg.NewVarStart(position(2, 7), nil, "a").Val(2).EndInit(1)
+		})
+	codeErrorTest(t, "./foo.gop:2:6 foo redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
+		func(pkg *gox.Package) {
+			var x *types.Var
+			pkg.Fset.AddFile("./foo.gop", 1, 100).AddLine(10)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewAutoVar(position(1, 5), "foo", &x).
+				NewAutoVar(position(2, 6), "foo", &x).
+				End()
+		})
+}
+
 func TestErrForRange(t *testing.T) {
 	codeErrorTest(t, `./foo.gop:1:5 cannot assign type string to a (type int) in range`,
 		func(pkg *gox.Package) {
@@ -281,18 +306,6 @@ func TestErrLabel(t *testing.T) {
 			Label("foo", source("foo:", 1, 1)).
 			End()
 	})
-}
-
-func TestErrNewVar(t *testing.T) {
-	codeErrorTest(t, "./foo.gop:2:6 foo redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
-		func(pkg *gox.Package) {
-			var x *types.Var
-			pkg.Fset.AddFile("./foo.gop", 1, 100).AddLine(10)
-			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				NewAutoVar(position(1, 5), "foo", &x).
-				NewAutoVar(position(2, 6), "foo", &x).
-				End()
-		})
 }
 
 func _TestErrDefineVar(t *testing.T) {
