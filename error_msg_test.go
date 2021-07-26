@@ -107,6 +107,63 @@ func newFunc(
 	return fn
 }
 
+func TestErrReturn(t *testing.T) {
+	codeErrorTest(t, `./foo.gop:2:9 cannot use "Hi" (type untyped string) as type error in return argument`,
+		func(pkg *gox.Package) {
+			retInt := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+			retErr := pkg.NewParam(position(1, 15), "", gox.TyError)
+			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
+				Val(1, source("1", 2, 7)).
+				Val("Hi", source(`"Hi"`, 2, 9)).
+				Return(2, source(`return 1, "Hi"`, 2, 5)).
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:5 cannot use byte value as type error in return argument",
+		func(pkg *gox.Package) {
+			retInt := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+			retErr := pkg.NewParam(position(1, 15), "", gox.TyError)
+			retInt2 := pkg.NewParam(position(3, 10), "", types.Typ[types.Int])
+			retByte := pkg.NewParam(position(3, 15), "", gox.TyByte)
+			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt2, retByte), false).BodyStart(pkg).End()
+			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
+				Val(ctxRef(pkg, "bar")).
+				CallWith(0, false, source("bar()", 2, 9)).
+				Return(1, source("return", 2, 5)).
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:5 too few arguments to return\n\thave (byte)\n\twant (int, error)",
+		func(pkg *gox.Package) {
+			retInt := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+			retErr := pkg.NewParam(position(1, 15), "", gox.TyError)
+			ret := pkg.NewParam(position(3, 10), "", gox.TyByte)
+			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(ret), false).BodyStart(pkg).End()
+			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
+				Val(ctxRef(pkg, "bar")).
+				CallWith(0, false, source("bar()", 2, 9)).
+				Return(1, source("return", 2, 5)).
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:5 too many arguments to return\n\thave (int, error)\n\twant (byte)",
+		func(pkg *gox.Package) {
+			retInt := pkg.NewParam(position(3, 10), "", types.Typ[types.Int])
+			retErr := pkg.NewParam(position(3, 15), "", gox.TyError)
+			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).End()
+			ret := pkg.NewParam(position(1, 10), "", gox.TyByte)
+			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+				Val(ctxRef(pkg, "bar")).
+				CallWith(0, false, source("bar()", 2, 9)).
+				Return(1, source("return", 2, 5)).
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:5 not enough arguments to return\n\thave ()\n\twant (byte)",
+		func(pkg *gox.Package) {
+			ret := pkg.NewParam(position(1, 10), "", gox.TyByte)
+			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+				Return(0, source("return", 2, 5)).
+				End()
+		})
+}
+
 func TestErrInitFunc(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:1:5 func init must have no arguments and no return values", func(pkg *gox.Package) {
 		v := pkg.NewParam(token.NoPos, "v", gox.TyByte)

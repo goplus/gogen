@@ -555,25 +555,23 @@ func checkFuncResults(pkg *Package, rets []internal.Elem, results *types.Tuple, 
 		}
 		return
 	case 1:
-		if need > 1 {
-			if t, ok := rets[0].Type.(*types.Tuple); ok {
-				if n1 := t.Len(); n1 != need {
-					fewOrMany := "few"
-					if n1 > need {
-						fewOrMany = "many"
-					}
-					pos := pkg.cb.nodePosition(src)
-					pkg.cb.panicCodeErrorf(
-						&pos, "too %s arguments to return\n\thave %v\n\twant %v", fewOrMany, t, results)
+		if t, ok := rets[0].Type.(*types.Tuple); ok {
+			if n1 := t.Len(); n1 != need {
+				fewOrMany := "few"
+				if n1 > need {
+					fewOrMany = "many"
 				}
-				for i := 0; i < need; i++ {
-					arg := internal.Elem{Type: t.At(i).Type(), Src: src}
-					if err := matchType(pkg, arg, results.At(i).Type(), "return argument"); err != nil {
-						panic(err)
-					}
-				}
-				return
+				pos := pkg.cb.nodePosition(src)
+				pkg.cb.panicCodeErrorf(
+					&pos, "too %s arguments to return\n\thave %v\n\twant %v", fewOrMany, t, results)
 			}
+			for i := 0; i < need; i++ {
+				arg := internal.Elem{Type: t.At(i).Type(), Src: src}
+				if err := matchType(pkg, arg, results.At(i).Type(), "return argument"); err != nil {
+					panic(err)
+				}
+			}
+			return
 		}
 	}
 	if n == need {

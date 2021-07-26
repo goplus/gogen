@@ -420,17 +420,23 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 
 // Call func
 func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
+	return p.CallWith(n, ellipsis != nil && ellipsis[0])
+}
+
+// CallWith func
+func (p *CodeBuilder) CallWith(n int, ellipsis bool, src ...ast.Node) *CodeBuilder {
 	args := p.stk.GetArgs(n)
 	n++
 	fn := p.stk.Get(-n)
 	var flags InstrFlags
-	if ellipsis != nil && ellipsis[0] {
+	if ellipsis {
 		flags = InstrFlagEllipsis
 	}
 	if debugInstr {
 		log.Println("Call", n-1, int(flags))
 	}
 	ret := toFuncCall(p.pkg, fn, args, flags)
+	ret.Src = getSrc(src)
 	p.stk.Ret(n, ret)
 	return p
 }
