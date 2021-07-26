@@ -128,7 +128,27 @@ func TestErrReturn(t *testing.T) {
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
 				CallWith(0, false, source("bar()", 2, 9)).
-				Return(1, source("return", 2, 5)).
+				Return(1, source("return bar()", 2, 5)).
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:5 too many arguments to return\n\thave (untyped int, untyped int, untyped int)\n\twant (int, error)",
+		func(pkg *gox.Package) {
+			retInt := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+			retErr := pkg.NewParam(position(1, 15), "", gox.TyError)
+			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
+				Val(1, source("1", 2, 7)).
+				Val(2, source("2", 2, 9)).
+				Val(3, source("3", 2, 11)).
+				Return(3, source("return 1, 2, 3", 2, 5)).
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:5 too few arguments to return\n\thave (untyped int)\n\twant (int, error)",
+		func(pkg *gox.Package) {
+			retInt := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+			retErr := pkg.NewParam(position(1, 15), "", gox.TyError)
+			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
+				Val(1, source("1", 2, 7)).
+				Return(1, source("return 1", 2, 5)).
 				End()
 		})
 	codeErrorTest(t, "./foo.gop:2:5 too few arguments to return\n\thave (byte)\n\twant (int, error)",
@@ -140,7 +160,7 @@ func TestErrReturn(t *testing.T) {
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
 				CallWith(0, false, source("bar()", 2, 9)).
-				Return(1, source("return", 2, 5)).
+				Return(1, source("return bar()", 2, 5)).
 				End()
 		})
 	codeErrorTest(t, "./foo.gop:2:5 too many arguments to return\n\thave (int, error)\n\twant (byte)",
@@ -152,7 +172,7 @@ func TestErrReturn(t *testing.T) {
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
 				CallWith(0, false, source("bar()", 2, 9)).
-				Return(1, source("return", 2, 5)).
+				Return(1, source("return bar()", 2, 5)).
 				End()
 		})
 	codeErrorTest(t, "./foo.gop:2:5 not enough arguments to return\n\thave ()\n\twant (byte)",
