@@ -107,6 +107,23 @@ func newFunc(
 	return fn
 }
 
+func TestErrForRange(t *testing.T) {
+	codeErrorTest(t, `./foo.gop:1:5 cannot assign type string to a (type int) in range`,
+		func(pkg *gox.Package) {
+			tySlice := types.NewSlice(types.Typ[types.String])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				DefineVarStart("a").Val(1).EndInit(1).
+				NewVar(tySlice, "b").
+				ForRange().
+				VarRef(nil).
+				VarRef(ctxRef(pkg, "a"), source("a", 1, 5)).
+				Val(ctxRef(pkg, "b"), source("b", 1, 9)).
+				RangeAssignThen().
+				End().
+				End()
+		})
+}
+
 func TestErrReturn(t *testing.T) {
 	codeErrorTest(t, `./foo.gop:2:9 cannot use "Hi" (type untyped string) as type error in return argument`,
 		func(pkg *gox.Package) {

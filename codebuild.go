@@ -407,7 +407,7 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 		for i := n - 1; i >= 0; i-- {
 			key := closureParamInst{fn, results.At(i)}
 			elem := p.stk.Pop()
-			p.doVarRef(p.paramInsts[key], false)
+			p.doVarRef(p.paramInsts[key], nil, false)
 			p.stk.Push(elem)
 			p.AssignWith(1, 1, false, fn.Name)
 		}
@@ -621,11 +621,11 @@ func (p *CodeBuilder) NewAutoVar(pos token.Pos, name string, pv **types.Var) *Co
 }
 
 // VarRef func: p.VarRef(nil) means underscore (_)
-func (p *CodeBuilder) VarRef(ref interface{}) *CodeBuilder {
-	return p.doVarRef(ref, true)
+func (p *CodeBuilder) VarRef(ref interface{}, src ...ast.Node) *CodeBuilder {
+	return p.doVarRef(ref, getSrc(src), true)
 }
 
-func (p *CodeBuilder) doVarRef(ref interface{}, allowDebug bool) *CodeBuilder {
+func (p *CodeBuilder) doVarRef(ref interface{}, src ast.Node, allowDebug bool) *CodeBuilder {
 	if ref == nil {
 		if allowDebug && debugInstr {
 			log.Println("VarRef _")
@@ -647,8 +647,7 @@ func (p *CodeBuilder) doVarRef(ref interface{}, allowDebug bool) *CodeBuilder {
 				}
 			}
 			p.stk.Push(internal.Elem{
-				Val:  toObjectExpr(p.pkg, v),
-				Type: &refType{typ: v.Type()},
+				Val: toObjectExpr(p.pkg, v), Type: &refType{typ: v.Type()}, Src: src,
 			})
 		default:
 			log.Panicln("TODO: VarRef", reflect.TypeOf(ref))
