@@ -69,61 +69,70 @@ func InitBuiltinOps(builtin *types.Package, pre string, contracts *BuiltinContra
 		result  int
 	}{
 		{"Add", []typeTParam{{"T", contracts.Addable}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func gopo_Add[T addable](a, b T) T
+		// func Gop_Add[T addable](a, b T) T
 
 		{"Sub", []typeTParam{{"T", contracts.Number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func gopo_Sub[T number](a, b T) T
+		// func Gop_Sub[T number](a, b T) T
 
 		{"Mul", []typeTParam{{"T", contracts.Number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func gopo_Mul[T number](a, b T) T
+		// func Gop_Mul[T number](a, b T) T
 
 		{"Quo", []typeTParam{{"T", contracts.Number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func gopo_Quo[T number](a, b T) T
+		// func Gop_Quo[T number](a, b T) T
 
 		{"Rem", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func gopo_Rem[T integer](a, b T) T
+		// func Gop_Rem[T integer](a, b T) T
 
 		{"Or", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func gopo_Or[T integer](a, b T) T
+		// func Gop_Or[T integer](a, b T) T
 
 		{"Xor", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func gopo_Xor[T integer](a, b T) T
+		// func Gop_Xor[T integer](a, b T) T
 
 		{"And", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func gopo_And[T integer](a, b T) T
+		// func Gop_And[T integer](a, b T) T
 
 		{"AndNot", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func gopo_AndNot[T integer](a, b T) T
+		// func Gop_AndNot[T integer](a, b T) T
 
 		{"Lsh", []typeTParam{{"T", contracts.Integer}, {"N", contracts.NInteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
-		// func gopo_Lsh[T integer, N ninteger](a T, n N) T
+		// func Gop_Lsh[T integer, N ninteger](a T, n N) T
 
 		{"Rsh", []typeTParam{{"T", contracts.Integer}, {"N", contracts.NInteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
-		// func gopo_Rsh[T integer, N ninteger](a T, n N) T
+		// func Gop_Rsh[T integer, N ninteger](a T, n N) T
 
 		{"LT", []typeTParam{{"T", contracts.Orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func gopo_LT[T orderable](a, b T) bool
+		// func Gop_LT[T orderable](a, b T) bool
 
 		{"LE", []typeTParam{{"T", contracts.Orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func gopo_LE[T orderable](a, b T) bool
+		// func Gop_LE[T orderable](a, b T) bool
 
 		{"GT", []typeTParam{{"T", contracts.Orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func gopo_GT[T orderable](a, b T) bool
+		// func Gop_GT[T orderable](a, b T) bool
 
 		{"GE", []typeTParam{{"T", contracts.Orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func gopo_GE[T orderable](a, b T) bool
+		// func Gop_GE[T orderable](a, b T) bool
 
 		{"EQ", []typeTParam{{"T", contracts.Comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func gopo_EQ[T comparable](a, b T) bool
+		// func Gop_EQ[T comparable](a, b T) bool
 
 		{"NE", []typeTParam{{"T", contracts.Comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func gopo_NE[T comparable](a, b T) bool
+		// func Gop_NE[T comparable](a, b T) bool
+
+		{"LAnd", []typeTParam{{"T", contracts.Bool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		// func Gop_LAnd[T bool](a, b T) T
+
+		{"LOr", []typeTParam{{"T", contracts.Bool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		// func Gop_LOr[T bool](a, b T) T
 
 		{"Neg", []typeTParam{{"T", contracts.Number}}, []typeParam{{"a", 0}}, 0},
-		// func gopo_Neg[T number](a T) T
+		// func Gop_Neg[T number](a T) T
 
 		{"Not", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}}, 0},
-		// func gopo_Not[T integer](a T) T
+		// func Gop_Not[T integer](a T) T
+
+		{"LNot", []typeTParam{{"T", contracts.Bool}}, []typeParam{{"a", 0}}, 0},
+		// func Gop_LNot[T bool](a T) T
 	}
 	gbl := builtin.Scope()
 	for _, op := range ops {
@@ -587,6 +596,9 @@ const (
 	// string
 	kindsString = (1 << types.String) | (1 << types.UntypedString)
 
+	// bool
+	kindsBool = (1 << types.Bool) | (1 << types.UntypedBool)
+
 	// integer, float, complex
 	kindsNumber = kindsInteger | kindsFloat | kindsComplex
 
@@ -745,6 +757,7 @@ var (
 var (
 	defaultContracts = &BuiltinContracts{
 		NInteger:   ninteger,
+		Bool:       &basicContract{kindsBool, "bool"},
 		Integer:    &basicContract{kindsInteger, "integer"},
 		Float:      &basicContract{kindsFloat, "float"},
 		Complex:    &basicContract{kindsComplex, "complex"},

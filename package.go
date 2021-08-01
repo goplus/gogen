@@ -24,7 +24,7 @@ type TypeExtend interface {
 // ----------------------------------------------------------------------------
 
 type BuiltinContracts struct {
-	NInteger, Integer, Float, Complex, Number, Addable, Orderable, Comparable Contract
+	Bool, NInteger, Integer, Float, Complex, Number, Addable, Orderable, Comparable Contract
 }
 
 type PkgImporter interface {

@@ -50,35 +50,39 @@ type comparable interface { // == !=
     // slice/map/func is very special, can only be compared to nil
 }
 
-func [T addable] (a T) + (b T) T    // func gopo_Add[T addable](a, b T) T
-func [T number] (a T) - (b T) T     // func gopo_Sub[T number](a, b T) T
-func [T number] (a T) * (b T) T     // func gopo_Mul[T number](a, b T) T
-func [T number] (a T) / (b T) T     // func gopo_Quo[T number](a, b T) T
-func [T integer] (a T) % (b T) T    // func gopo_Rem[T integer](a, b T) T
+func [T addable] (a T) + (b T) T    // func Gop_Add[T addable](a, b T) T
+func [T number] (a T) - (b T) T     // func Gop_Sub[T number](a, b T) T
+func [T number] (a T) * (b T) T     // func Gop_Mul[T number](a, b T) T
+func [T number] (a T) / (b T) T     // func Gop_Quo[T number](a, b T) T
+func [T integer] (a T) % (b T) T    // func Gop_Rem[T integer](a, b T) T
 
-func [T integer] (a T) | (b T) T    // func gopo_Or[T integer](a, b T) T
-func [T integer] (a T) ^ (b T) T    // func gopo_Xor[T integer](a, b T) T
-func [T integer] (a T) & (b T) T    // func gopo_And[T integer](a, b T) T
-func [T integer] (a T) &^ (b T) T   // func gopo_AndNot[T integer](a, b T) T
+func [T integer] (a T) | (b T) T    // func Gop_Or[T integer](a, b T) T
+func [T integer] (a T) ^ (b T) T    // func Gop_Xor[T integer](a, b T) T
+func [T integer] (a T) & (b T) T    // func Gop_And[T integer](a, b T) T
+func [T integer] (a T) &^ (b T) T   // func Gop_AndNot[T integer](a, b T) T
 
-func [T integer, N ninteger] (a T) << (n N) T // func gopo_Lsh[T integer, N ninteger](a T, n N) T
-func [T integer, N ninteger] (a T) >> (n N) T // func gopo_Rsh[T integer, N ninteger](a T, n N) T
+func [T integer, N ninteger] (a T) << (n N) T // func Gop_Lsh[T integer, N ninteger](a T, n N) T
+func [T integer, N ninteger] (a T) >> (n N) T // func Gop_Rsh[T integer, N ninteger](a T, n N) T
 
-func [T orderable] (a T) < (b T) bool   // func gopo_LT[T orderable](a, b T) bool
-func [T orderable] (a T) <= (b T) bool  // func gopo_LE[T orderable](a, b T) bool
-func [T orderable] (a T) > (b T) bool   // func gopo_GT[T orderable](a, b T) bool
-func [T orderable] (a T) >= (b T) bool  // func gopo_GE[T orderable](a, b T) bool
+func [T orderable] (a T) < (b T) bool   // func Gop_LT[T orderable](a, b T) bool
+func [T orderable] (a T) <= (b T) bool  // func Gop_LE[T orderable](a, b T) bool
+func [T orderable] (a T) > (b T) bool   // func Gop_GT[T orderable](a, b T) bool
+func [T orderable] (a T) >= (b T) bool  // func Gop_GE[T orderable](a, b T) bool
 
-func [T comparable] (a T) == (b T) bool // func gopo_EQ[T comparable](a, b T) bool
-func [T comparable] (a T) != (b T) bool // func gopo_NE[T comparable](a, b T) bool
+func [T comparable] (a T) == (b T) bool // func Gop_EQ[T comparable](a, b T) bool
+func [T comparable] (a T) != (b T) bool // func Gop_NE[T comparable](a, b T) bool
 
-func [T number] -(a T) T    // func gopo_Neg[T number](a T) T
-func [T integer] ^(a T) T   // func gopo_Not[T integer](a T) T
+func [T bool] (a T) || (b T) T // func Gop_LOr[T bool](a, b T) T
+func [T bool] (a T) && (b T) T // func Gop_LAnd[T bool](a, b T) T
+
+func [T number] -(a T) T  // func Gop_Neg[T number](a T) T
+func [T integer] ^(a T) T // func Gop_Not[T integer](a T) T
+func [T bool] !(a T) T    // func Gop_LNot[T bool](a T) T
 
 // -----------------------------------------------------------------------------
 
-func [T integer] ++(a *T)   // func gopo_Inc[T integer](a *T)
-func [T integer] --(a *T)   // func gopo_Dec[T integer](a *T)
+func [T integer] ++(a *T)   // func Gop_Inc[T integer](a *T)
+func [T integer] --(a *T)   // func Gop_Dec[T integer](a *T)
 
 // -----------------------------------------------------------------------------
 

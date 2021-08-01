@@ -220,9 +220,11 @@ func (p *CodeBuilder) panicCodeError(pos *token.Position, msg string) {
 	panic(p.newCodeError(pos, msg))
 }
 
+/*
 func (p *CodeBuilder) panicCodePosError(pos token.Pos, msg string) {
 	panic(p.newCodePosError(pos, msg))
 }
+*/
 
 func (p *CodeBuilder) panicCodeErrorf(pos *token.Position, format string, args ...interface{}) {
 	panic(p.newCodeError(pos, fmt.Sprintf(format, args...)))
@@ -1583,6 +1585,9 @@ var (
 		token.SHL:     "Lsh",    // <<
 		token.SHR:     "Rsh",    // >>
 
+		token.LAND: "LAnd", // &&
+		token.LOR:  "LOr",  // ||
+
 		token.LSS: "LT",
 		token.LEQ: "LE",
 		token.GTR: "GT",
@@ -1629,6 +1634,7 @@ var (
 	unaryOps = [...]string{
 		token.SUB:   "Neg",
 		token.XOR:   "Not",
+		token.NOT:   "LNot",
 		token.ARROW: "Recv",
 		token.AND:   "Addr",
 	}

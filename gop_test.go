@@ -14,7 +14,6 @@
 package gox_test
 
 import (
-	"go/ast"
 	"go/constant"
 	"go/token"
 	"go/types"
@@ -87,6 +86,7 @@ func newGopMainPackage() *gox.Package {
 	return gox.NewPackage("", "main", conf)
 }
 
+/* TODO:
 type untypedRatType struct {
 	bigint bool
 }
@@ -131,7 +131,7 @@ func untypedRat(pkg *gox.Package, v int) *gox.Element {
 func ident(name string) *ast.Ident {
 	return &ast.Ident{Name: name}
 }
-
+*/
 // ----------------------------------------------------------------------------
 
 func TestBigRatConstant(t *testing.T) {
