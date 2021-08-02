@@ -1770,6 +1770,26 @@ func main() {
 `)
 }
 
+func TestEmbbedMember(t *testing.T) {
+	pkg := newMainPackage()
+	test := pkg.Import("testing")
+	typ := pkg.NewParam(token.NoPos, "t", types.NewPointer(test.Ref("T").Type()))
+	pkg.NewFunc(nil, "foo", types.NewTuple(typ), nil, false).BodyStart(pkg).
+		Val(ctxRef(pkg, "t")).
+		MemberVal("Fatal").
+		Call(0).
+		EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import testing "testing"
+
+func foo(t *testing.T) {
+	t.Fatal()
+}
+`)
+}
+
 func TestStructMember(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{

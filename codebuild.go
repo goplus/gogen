@@ -1346,51 +1346,58 @@ func (p *CodeBuilder) Member(name string, src ...ast.Node) (kind MemberKind, err
 	}
 	srcExpr := getSrc(src)
 	arg := p.stk.Get(-1)
-	switch o := arg.Type.(type) {
-	case *types.Pointer:
-		switch t := o.Elem().(type) {
-		case *types.Named:
-			if p.method(t, name, arg.Val, srcExpr) {
-				return MemberMethod, nil
-			}
-			if struc, ok := p.pkg.getUnderlying(t).(*types.Struct); ok {
-				if p.field(struc, name, arg.Val, srcExpr) {
-					return MemberField, nil
-				}
-			}
-		case *types.Struct:
-			if p.field(t, name, arg.Val, srcExpr) {
-				return MemberField, nil
-			}
-		}
-	case *types.Named:
-		if p.method(o, name, arg.Val, srcExpr) {
-			return MemberMethod, nil
-		}
-		switch t := p.pkg.getUnderlying(o).(type) {
-		case *types.Struct:
-			if p.field(t, name, arg.Val, srcExpr) {
-				return MemberField, nil
-			}
-		case *types.Interface:
-			t.Complete()
-			if p.method(t, name, arg.Val, srcExpr) {
-				return MemberMethod, nil
-			}
-		}
-	case *types.Struct:
-		if p.field(o, name, arg.Val, srcExpr) {
-			return MemberField, nil
-		}
-	case *types.Interface:
-		o.Complete()
-		if p.method(o, name, arg.Val, srcExpr) {
-			return MemberMethod, nil
-		}
+	if kind = p.findMember(arg.Type, name, arg.Val, srcExpr); kind != 0 {
+		return
 	}
 	code, pos := p.loadExpr(srcExpr)
 	return MemberInvalid, p.newCodeError(
 		&pos, fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name))
+}
+
+func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, srcExpr ast.Node) MemberKind {
+	switch o := typ.(type) {
+	case *types.Pointer:
+		switch t := o.Elem().(type) {
+		case *types.Named:
+			if p.method(t, name, argVal, srcExpr) {
+				return MemberMethod
+			}
+			if struc, ok := p.pkg.getUnderlying(t).(*types.Struct); ok {
+				if kind := p.field(struc, name, argVal, srcExpr); kind != 0 {
+					return kind
+				}
+			}
+		case *types.Struct:
+			if kind := p.field(t, name, argVal, srcExpr); kind != 0 {
+				return kind
+			}
+		}
+	case *types.Named:
+		if p.method(o, name, argVal, srcExpr) {
+			return MemberMethod
+		}
+		switch t := p.pkg.getUnderlying(o).(type) {
+		case *types.Struct:
+			if kind := p.field(t, name, argVal, srcExpr); kind != 0 {
+				return kind
+			}
+		case *types.Interface:
+			t.Complete()
+			if p.method(t, name, argVal, srcExpr) {
+				return MemberMethod
+			}
+		}
+	case *types.Struct:
+		if kind := p.field(o, name, argVal, srcExpr); kind != 0 {
+			return kind
+		}
+	case *types.Interface:
+		o.Complete()
+		if p.method(o, name, argVal, srcExpr) {
+			return MemberMethod
+		}
+	}
+	return 0
 }
 
 type methodList interface {
@@ -1413,7 +1420,7 @@ func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, src ast
 	return false
 }
 
-func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src ast.Node) bool {
+func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src ast.Node) MemberKind {
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		if fld.Name() == name {
@@ -1422,10 +1429,14 @@ func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src a
 				Type: fld.Type(),
 				Src:  src,
 			})
-			return true
+			return MemberField
+		} else if fld.Embedded() {
+			if kind := p.findMember(fld.Type(), name, argVal, src); kind != 0 {
+				return kind
+			}
 		}
 	}
-	return false
+	return 0
 }
 
 func methodTypeOf(typ types.Type) types.Type {
