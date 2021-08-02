@@ -88,6 +88,9 @@ func TestAssignableTo(t *testing.T) {
 			t.Fatalf("Failed: AssignableTo %v => %v returns %v\n", a.v, a.t, ret)
 		}
 	}
+	if gox.Default(types.Typ[types.UntypedInt]) != types.Typ[types.Int] {
+		t.Fatal("gox.Default failed")
+	}
 }
 
 func TestGoTypesPkg(t *testing.T) {
@@ -307,8 +310,8 @@ func TestZeroLitAllTypes(t *testing.T) {
 	tyUP := types.Typ[types.UnsafePointer]
 	tyMap := types.NewMap(tyString, types.Typ[types.Int])
 	tySlice := types.NewSlice(types.Typ[types.Int])
-	tyArray := types.NewArray(types.Typ[types.Int], 10)
-	tyPointer := types.NewPointer(types.Typ[types.Int])
+	tyArray := gox.NewArray(types.Typ[types.Int], 10)
+	tyPointer := gox.NewPointer(types.Typ[types.Int])
 	tyChan := types.NewChan(types.SendRecv, types.Typ[types.Int])
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tyMap, "a").ZeroLit(tyMap).EndInit(1).
@@ -2194,7 +2197,7 @@ func TestCallInlineClosure(t *testing.T) {
 	fmt := pkg.Import("fmt")
 	ret := pkg.NewAutoParam("ret")
 	err := pkg.NewParam(token.NoPos, "", gox.TyError)
-	sig := types.NewSignature(nil, nil, types.NewTuple(ret), false)
+	sig := gox.NewSignature(nil, nil, types.NewTuple(ret), false)
 	pkg.NewFunc(nil, "foo", nil, types.NewTuple(err), false).BodyStart(pkg).
 		DefineVarStart("n").
 		CallInlineClosureStart(sig, 0, false).
