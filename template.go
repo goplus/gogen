@@ -189,7 +189,7 @@ func AssignableTo(V, T types.Type) bool {
 
 func ComparableTo(pkg *Package, V, T types.Type) bool {
 	V, T = types.Default(V), types.Default(T)
-	if V != T && getUnderlying(pkg, V) != getUnderlying(pkg, T) {
+	if V != T && V.Underlying() != T.Underlying() {
 		return false
 	}
 	return types.Comparable(V)

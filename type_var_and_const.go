@@ -101,24 +101,7 @@ func (p *Package) newType(name string, typ types.Type, alias token.Pos) *TypeDec
 }
 
 func (p *Package) getUnderlying(typ *types.Named) types.Type {
-	if t := typ.Underlying(); t != nil {
-		return t
-	}
-	return p.loadUnderlying(p, typ)
-}
-
-func noLoadUnderlying(pkg *Package, typ *types.Named) types.Type {
-	panic("TODO: typ.Underlying not found - " + typ.String())
-}
-
-func getUnderlying(pkg *Package, typ types.Type) types.Type {
-	if t := typ.Underlying(); t != nil {
-		return t
-	}
-	if t, ok := typ.(*types.Named); ok {
-		return pkg.loadUnderlying(pkg, t)
-	}
-	panic("TODO: typ.Underlying not found - " + typ.String())
+	return typ.Underlying()
 }
 
 // ----------------------------------------------------------------------------

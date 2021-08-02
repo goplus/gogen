@@ -87,9 +87,6 @@ type Config struct {
 	// LoadPkgs is called to load all import packages.
 	LoadPkgs LoadPkgsFunc
 
-	// LoadUnderlying is called to load a delay load type.
-	LoadUnderlying LoadUnderlyingFunc
-
 	// Prefix is name prefix.
 	Prefix string
 
@@ -100,18 +97,17 @@ type Config struct {
 // Package type
 type Package struct {
 	PkgRef
-	decls          []ast.Decl
-	cb             CodeBuilder
-	importPkgs     map[string]*PkgRef
-	allPkgPaths    []string // all import pkgPaths
-	delayPkgPaths  []string // all delay-load pkgPaths
-	conf           *Config
-	prefix         string
-	builtin        *types.Package
-	loadPkgs       LoadPkgsFunc
-	loadUnderlying LoadUnderlyingFunc
-	autoPrefix     string
-	autoIdx        int
+	decls         []ast.Decl
+	cb            CodeBuilder
+	importPkgs    map[string]*PkgRef
+	allPkgPaths   []string // all import pkgPaths
+	delayPkgPaths []string // all delay-load pkgPaths
+	conf          *Config
+	prefix        string
+	builtin       *types.Package
+	loadPkgs      LoadPkgsFunc
+	autoPrefix    string
+	autoIdx       int
 }
 
 // NewPackage creates a new package.
@@ -131,20 +127,15 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if loadPkgs == nil {
 		loadPkgs = LoadGoPkgs
 	}
-	loadUnderlying := conf.LoadUnderlying
-	if loadUnderlying == nil {
-		loadUnderlying = noLoadUnderlying
-	}
 	pkg := &Package{
 		PkgRef: PkgRef{
 			Fset: conf.Fset,
 		},
-		importPkgs:     make(map[string]*PkgRef),
-		conf:           conf,
-		prefix:         prefix,
-		loadPkgs:       loadPkgs,
-		loadUnderlying: loadUnderlying,
-		autoPrefix:     "_auto" + prefix,
+		importPkgs: make(map[string]*PkgRef),
+		conf:       conf,
+		prefix:     prefix,
+		loadPkgs:   loadPkgs,
+		autoPrefix: "_auto" + prefix,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg, conf)
