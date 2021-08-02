@@ -26,26 +26,11 @@ var (
 	defaultNamePrefix = "Go_"
 )
 
-func newBuiltinDefault(pkg PkgImporter, prefix string, contracts *BuiltinContracts) *types.Package {
+func newBuiltinDefault(pkg PkgImporter, prefix string) *types.Package {
 	builtin := types.NewPackage("", "")
-	InitBuiltinOps(builtin, prefix, contracts)
+	InitBuiltinOps(builtin, prefix)
 	InitBuiltinFuncs(builtin)
 	return builtin
-}
-
-type goTypes struct {
-}
-
-// Default returns the default "typed" type for an "untyped" type;
-// it returns the incoming type for all other types. The default type
-// for untyped nil is untyped nil.
-func (p *goTypes) Default(t types.Type) types.Type {
-	return Default(t)
-}
-
-// AssignableTo reports whether a value of type V is assignable to a variable of type T.
-func (p *goTypes) AssignableTo(V, T types.Type) bool {
-	return AssignableTo(V, T)
 }
 
 // ----------------------------------------------------------------------------
@@ -61,77 +46,77 @@ type typeParam struct {
 }
 
 // InitBuiltinOps initializes operators of the builtin package.
-func InitBuiltinOps(builtin *types.Package, pre string, contracts *BuiltinContracts) {
+func InitBuiltinOps(builtin *types.Package, pre string) {
 	ops := [...]struct {
 		name    string
 		tparams []typeTParam
 		params  []typeParam
 		result  int
 	}{
-		{"Add", []typeTParam{{"T", contracts.Addable}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"Add", []typeTParam{{"T", addable}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_Add[T addable](a, b T) T
 
-		{"Sub", []typeTParam{{"T", contracts.Number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"Sub", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_Sub[T number](a, b T) T
 
-		{"Mul", []typeTParam{{"T", contracts.Number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"Mul", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_Mul[T number](a, b T) T
 
-		{"Quo", []typeTParam{{"T", contracts.Number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"Quo", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_Quo[T number](a, b T) T
 
-		{"Rem", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"Rem", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_Rem[T integer](a, b T) T
 
-		{"Or", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"Or", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_Or[T integer](a, b T) T
 
-		{"Xor", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"Xor", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_Xor[T integer](a, b T) T
 
-		{"And", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"And", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_And[T integer](a, b T) T
 
-		{"AndNot", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"AndNot", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_AndNot[T integer](a, b T) T
 
-		{"Lsh", []typeTParam{{"T", contracts.Integer}, {"N", contracts.NInteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
+		{"Lsh", []typeTParam{{"T", integer}, {"N", ninteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
 		// func Gop_Lsh[T integer, N ninteger](a T, n N) T
 
-		{"Rsh", []typeTParam{{"T", contracts.Integer}, {"N", contracts.NInteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
+		{"Rsh", []typeTParam{{"T", integer}, {"N", ninteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
 		// func Gop_Rsh[T integer, N ninteger](a T, n N) T
 
-		{"LT", []typeTParam{{"T", contracts.Orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+		{"LT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
 		// func Gop_LT[T orderable](a, b T) bool
 
-		{"LE", []typeTParam{{"T", contracts.Orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+		{"LE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
 		// func Gop_LE[T orderable](a, b T) bool
 
-		{"GT", []typeTParam{{"T", contracts.Orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+		{"GT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
 		// func Gop_GT[T orderable](a, b T) bool
 
-		{"GE", []typeTParam{{"T", contracts.Orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+		{"GE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
 		// func Gop_GE[T orderable](a, b T) bool
 
-		{"EQ", []typeTParam{{"T", contracts.Comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+		{"EQ", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
 		// func Gop_EQ[T comparable](a, b T) bool
 
-		{"NE", []typeTParam{{"T", contracts.Comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+		{"NE", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
 		// func Gop_NE[T comparable](a, b T) bool
 
-		{"LAnd", []typeTParam{{"T", contracts.Bool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"LAnd", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_LAnd[T bool](a, b T) T
 
-		{"LOr", []typeTParam{{"T", contracts.Bool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		{"LOr", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_LOr[T bool](a, b T) T
 
-		{"Neg", []typeTParam{{"T", contracts.Number}}, []typeParam{{"a", 0}}, 0},
+		{"Neg", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
 		// func Gop_Neg[T number](a T) T
 
-		{"Not", []typeTParam{{"T", contracts.Integer}}, []typeParam{{"a", 0}}, 0},
+		{"Not", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}}, 0},
 		// func Gop_Not[T integer](a T) T
 
-		{"LNot", []typeTParam{{"T", contracts.Bool}}, []typeParam{{"a", 0}}, 0},
+		{"LNot", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}}, 0},
 		// func Gop_LNot[T bool](a T) T
 	}
 	gbl := builtin.Scope()
@@ -743,29 +728,18 @@ func (p makableT) String() string {
 	return "makable"
 }
 
-// ----------------------------------------------------------------------------
-
 var (
 	any        = anyT{}
 	capable    = capableT{}
 	lenable    = lenableT{}
 	makable    = makableT{}
-	comparable = comparableT{}
+	cbool      = &basicContract{kindsBool, "bool"}
+	integer    = &basicContract{kindsInteger, "integer"}
 	ninteger   = &basicContract{kindsInteger, "ninteger"}
-)
-
-var (
-	defaultContracts = &BuiltinContracts{
-		NInteger:   ninteger,
-		Bool:       &basicContract{kindsBool, "bool"},
-		Integer:    &basicContract{kindsInteger, "integer"},
-		Float:      &basicContract{kindsFloat, "float"},
-		Complex:    &basicContract{kindsComplex, "complex"},
-		Number:     &basicContract{kindsNumber, "number"},
-		Addable:    &basicContract{kindsAddable, "addable"},
-		Orderable:  &basicContract{kindsOrderable, "orderable"},
-		Comparable: comparable,
-	}
+	number     = &basicContract{kindsNumber, "number"}
+	addable    = &basicContract{kindsAddable, "addable"}
+	orderable  = &basicContract{kindsOrderable, "orderable"}
+	comparable = comparableT{}
 )
 
 // ----------------------------------------------------------------------------

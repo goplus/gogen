@@ -24,7 +24,7 @@ import (
 // xxxx__N: the Nth overload function
 //
 
-type Gop_ninteger uint
+type Gop_ninteger = uint
 
 func Gop_istmp(a interface{}) bool {
 	return false
@@ -60,9 +60,13 @@ func (a Gop_bigint) IsNil() bool {
 	return a.Int == nil
 }
 
-// Copy returns a copy instance of a
-func (a Gop_bigint) Copy() Gop_bigint {
-	return Gop_bigint{new(big.Int).Set(a.Int)}
+// Gop_Assign: func (a bigint) = (b bigint)
+func (a Gop_bigint) Gop_Assign(b Gop_bigint) {
+	if Gop_istmp(b) {
+		*a.Int = *b.Int
+	} else {
+		a.Int.Set(b.Int)
+	}
 }
 
 // Gop_Add: func (a bigint) + (b bigint) bigint
@@ -248,10 +252,10 @@ func (a Gop_bigrat) IsNil() bool {
 	return a.Rat == nil
 }
 
-// Gop_Assign: func (a bigint) = (b bigint)
+// Gop_Assign: func (a bigrat) = (b bigrat)
 func (a Gop_bigrat) Gop_Assign(b Gop_bigrat) {
 	if Gop_istmp(b) {
-		a.Rat = b.Rat
+		*a.Rat = *b.Rat
 	} else {
 		a.Rat.Set(b.Rat)
 	}

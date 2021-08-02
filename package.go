@@ -10,22 +10,7 @@ import (
 type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
 type LoadUnderlyingFunc = func(at *Package, typ *types.Named) types.Type
 
-// TypeExtend is to extend Go builtin types.
-type TypeExtend interface {
-	// Default returns the default "typed" type for an "untyped" type;
-	// it returns the incoming type for all other types. The default type
-	// for untyped nil is untyped nil.
-	Default(t types.Type) types.Type
-
-	// AssignableTo reports whether a value of type V is assignable to a variable of type T.
-	AssignableTo(V, T types.Type) bool
-}
-
 // ----------------------------------------------------------------------------
-
-type BuiltinContracts struct {
-	Bool, NInteger, Integer, Float, Complex, Number, Addable, Orderable, Comparable Contract
-}
 
 type PkgImporter interface {
 	Import(pkgPath string) *PkgRef
@@ -105,14 +90,11 @@ type Config struct {
 	// LoadUnderlying is called to load a delay load type.
 	LoadUnderlying LoadUnderlyingFunc
 
-	// TypeExtend is to extend Go builtin types.
-	TypeExtend TypeExtend
-
 	// Prefix is name prefix.
 	Prefix string
 
 	// NewBuiltin is to create the builin package.
-	NewBuiltin func(pkg PkgImporter, prefix string, contracts *BuiltinContracts) *types.Package
+	NewBuiltin func(pkg PkgImporter, prefix string) *types.Package
 }
 
 // Package type
@@ -128,7 +110,6 @@ type Package struct {
 	builtin        *types.Package
 	loadPkgs       LoadPkgsFunc
 	loadUnderlying LoadUnderlyingFunc
-	typExt         TypeExtend
 	autoPrefix     string
 	autoIdx        int
 }
@@ -154,10 +135,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if loadUnderlying == nil {
 		loadUnderlying = noLoadUnderlying
 	}
-	typExt := conf.TypeExtend
-	if typExt == nil {
-		typExt = &goTypes{}
-	}
 	pkg := &Package{
 		PkgRef: PkgRef{
 			Fset: conf.Fset,
@@ -167,12 +144,11 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		prefix:         prefix,
 		loadPkgs:       loadPkgs,
 		loadUnderlying: loadUnderlying,
-		typExt:         typExt,
 		autoPrefix:     "_auto" + prefix,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.cb.init(pkg, conf)
-	pkg.builtin = newBuiltin(pkg, prefix, defaultContracts)
+	pkg.builtin = newBuiltin(pkg, prefix)
 	return pkg
 }
 

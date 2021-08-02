@@ -68,10 +68,10 @@ func initGopBuiltin(pkg gox.PkgImporter, builtin *types.Package) {
 	}
 }
 
-func newGopBuiltinDefault(pkg gox.PkgImporter, prefix string, contracts *gox.BuiltinContracts) *types.Package {
+func newGopBuiltinDefault(pkg gox.PkgImporter, prefix string) *types.Package {
 	builtin := types.NewPackage("", "")
 	initGopBuiltin(pkg, builtin)
-	gox.InitBuiltinOps(builtin, prefix, contracts)
+	gox.InitBuiltinOps(builtin, prefix)
 	gox.InitBuiltinFuncs(builtin)
 	return builtin
 }
@@ -86,52 +86,6 @@ func newGopMainPackage() *gox.Package {
 	return gox.NewPackage("", "main", conf)
 }
 
-/* TODO:
-type untypedRatType struct {
-	bigint bool
-}
-
-func (p *untypedRatType) Underlying() types.Type {
-	panic("untypedRatType")
-}
-
-func (p *untypedRatType) String() string {
-	panic("untypedRatType")
-}
-
-type gopTypeExtend struct {
-	bigint types.Type
-	bigrat types.Type
-}
-
-func newGopTypeSys(pkg *gox.Package) *gopTypeExtend {
-	bigint := pkg.Builtin().Ref("Gop_bigint").Type()
-	bigrat := pkg.Builtin().Ref("Gop_bigrat").Type()
-	return &gopTypeExtend{bigint: bigint, bigrat: bigrat}
-}
-
-func (p *gopTypeExtend) Default(typ types.Type) types.Type {
-	if t, ok := typ.(*untypedRatType); ok {
-		if t.bigint {
-			return p.bigint
-		}
-		return p.bigrat
-	}
-	return types.Default(typ)
-}
-
-func untypedRat(pkg *gox.Package, v int) *gox.Element {
-	return &gox.Element{
-		Val:  nil, // TODO: generate expr AST
-		Type: &untypedRatType{true},
-		CVal: constant.Make(big.NewRat(int64(v), 1)),
-	}
-}
-
-func ident(name string) *ast.Ident {
-	return &ast.Ident{Name: name}
-}
-*/
 // ----------------------------------------------------------------------------
 
 func TestBigRatConstant(t *testing.T) {
