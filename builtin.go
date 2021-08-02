@@ -26,7 +26,7 @@ var (
 	defaultNamePrefix = "Go_"
 )
 
-func newBuiltinDefault(pkg PkgImporter, prefix string) *types.Package {
+func newBuiltinDefault(pkg PkgImporter, prefix string, conf *Config) *types.Package {
 	builtin := types.NewPackage("", "")
 	InitBuiltinOps(builtin, prefix)
 	InitBuiltinFuncs(builtin)

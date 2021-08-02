@@ -20,7 +20,9 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"math/big"
 	"reflect"
+	"strconv"
 
 	"github.com/goplus/gox/internal"
 	"github.com/goplus/gox/internal/go/printer"
@@ -138,13 +140,19 @@ type CodeBuilder struct {
 	comments  *ast.CommentGroup
 	pkg       *Package
 	varDecl   *ValueDecl
-	handleErr func(err error)
+	utBigInt  *types.Named
+	utBigRat  *types.Named
+	utBigFlt  *types.Named
+	pkgBig    *PkgRef
 	interp    NodeInterpreter
+	handleErr func(err error)
 	closureParamInsts
 	commentOnce bool
 }
 
-func (p *CodeBuilder) init(pkg *Package, conf *Config) {
+func (p *CodeBuilder) init(pkg *Package) {
+	conf := pkg.conf
+	p.pkg = pkg
 	p.handleErr = conf.HandleErr
 	if p.handleErr == nil {
 		p.handleErr = defaultHandleErr
@@ -153,10 +161,19 @@ func (p *CodeBuilder) init(pkg *Package, conf *Config) {
 	if p.interp == nil {
 		p.interp = nodeInterp{}
 	}
-	p.pkg = pkg
 	p.current.scope = pkg.Types.Scope()
+	p.utBigInt = conf.UntypedBigInt
+	p.utBigRat = conf.UntypedBigRat
+	p.utBigFlt = conf.UntypedBigFloat
 	p.stk.Init()
 	p.closureParamInsts.init()
+}
+
+func (p *CodeBuilder) big() *PkgRef {
+	if p.pkgBig == nil {
+		p.pkgBig = p.pkg.Import("math/big")
+	}
+	return p.pkgBig
 }
 
 func defaultHandleErr(err error) {
@@ -771,8 +788,8 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 	if check {
 		key, val = t.Key(), t.Elem()
 	} else {
-		key = boundElementType(args, 0, arity, 2)
-		val = boundElementType(args, 1, arity, 2)
+		key = boundElementType(p, args, 0, arity, 2)
+		val = boundElementType(p, args, 1, arity, 2)
 		t = types.NewMap(types.Default(key), types.Default(val))
 		typ = t
 		typExpr = toMapType(pkg, t)
@@ -781,11 +798,11 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 	for i := 0; i < arity; i += 2 {
 		elts[i>>1] = &ast.KeyValueExpr{Key: args[i].Val, Value: args[i+1].Val}
 		if check {
-			if !AssignableTo(args[i].Type, key) {
+			if !AssignableTo(p, args[i].Type, key) {
 				src, pos := p.loadExpr(args[i].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in map key", src, args[i].Type, key)
-			} else if !AssignableTo(args[i+1].Type, val) {
+			} else if !AssignableTo(p, args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in map value", src, args[i+1].Type, val)
@@ -871,7 +888,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		n := arity >> 1
 		elts = make([]ast.Expr, n)
 		for i := 0; i < arity; i += 2 {
-			if !AssignableTo(args[i+1].Type, val) {
+			if !AssignableTo(p, args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
@@ -894,7 +911,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		if check {
 			val = t.Elem()
 		} else {
-			val = boundElementType(args, 0, arity, 1)
+			val = boundElementType(p, args, 0, arity, 1)
 			t = types.NewSlice(types.Default(val))
 			typ = t
 			typExpr = toSliceType(pkg, t)
@@ -903,7 +920,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		for i, arg := range args {
 			elts[i] = arg.Val
 			if check {
-				if !AssignableTo(arg.Type, val) {
+				if !AssignableTo(p, arg.Type, val) {
 					src, pos := p.loadExpr(arg.Src)
 					p.panicCodeErrorf(
 						&pos, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)
@@ -949,7 +966,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		}
 		elts = make([]ast.Expr, arity>>1)
 		for i := 0; i < arity; i += 2 {
-			if !AssignableTo(args[i+1].Type, val) {
+			if !AssignableTo(p, args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in array literal", src, args[i+1].Type, val)
@@ -969,7 +986,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		elts = make([]ast.Expr, arity)
 		for i, arg := range args {
 			elts[i] = arg.Val
-			if !AssignableTo(arg.Type, val) {
+			if !AssignableTo(p, arg.Type, val) {
 				src, pos := p.loadExpr(arg.Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
@@ -1013,7 +1030,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 			}
 			elt := t.Field(idx)
 			eltTy, eltName := elt.Type(), elt.Name()
-			if !AssignableTo(args[i+1].Type, eltTy) {
+			if !AssignableTo(p, args[i+1].Type, eltTy) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in value of field %s",
@@ -1035,7 +1052,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 		for i, arg := range args {
 			elts[i] = arg.Val
 			eltTy := t.Field(i).Type()
-			if !AssignableTo(arg.Type, eltTy) {
+			if !AssignableTo(p, arg.Type, eltTy) {
 				src, pos := p.loadExpr(arg.Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in value of field %s",
@@ -1195,6 +1212,53 @@ func (p *CodeBuilder) Typ(typ types.Type) *CodeBuilder {
 		Val:  toType(p.pkg, typ),
 		Type: NewTypeType(typ),
 	})
+	return p
+}
+
+// UntypedBigInt func
+func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
+	big := p.big()
+	if v.IsInt64() {
+		val := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(v.Int64(), 10)}
+		p.Val(big.Ref("NewInt")).Val(val).Call(1)
+	} else {
+		/*
+			func() *typ {
+				v, _ := new(typ).SetString(strVal, 10)
+				return v
+			}()
+		*/
+		pkg := p.pkg
+		typ := big.Ref("Int").Type()
+		retTyp := types.NewPointer(typ)
+		ret := pkg.NewParam(token.NoPos, "", retTyp)
+		p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
+			DefineVarStart("v", "_").
+			Val(pkg.builtin.Scope().Lookup("new")).Typ(typ).Call(1).
+			MemberVal("SetString").Val(v.String()).Val(10).Call(2).EndInit(1).
+			Val(p.Scope().Lookup("v")).Return(1).
+			End().Call(0)
+	}
+	ret := &p.stk.GetArgs(1)[0]
+	ret.Type, ret.CVal, ret.Src = p.utBigInt, constant.Make(v), getSrc(src)
+	return p
+}
+
+// UntypedBigRat func
+func (p *CodeBuilder) UntypedBigRat(v *big.Rat, src ...ast.Node) *CodeBuilder {
+	big := p.big()
+	a, b := v.Num(), v.Denom()
+	if a.IsInt64() && b.IsInt64() {
+		va := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(a.Int64(), 10)}
+		vb := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(b.Int64(), 10)}
+		p.Val(big.Ref("NewRat")).Val(va).Val(vb).Call(2)
+	} else {
+		// new(big.Rat).SetFrac(a, b)
+		p.Val(p.pkg.builtin.Scope().Lookup("new")).Typ(big.Ref("Rat").Type()).Call(1).
+			MemberVal("SetFrac").UntypedBigInt(a).UntypedBigInt(b).Call(2)
+	}
+	ret := &p.stk.GetArgs(1)[0]
+	ret.Type, ret.CVal, ret.Src = p.utBigRat, constant.Make(v), getSrc(src)
 	return p
 }
 

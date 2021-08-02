@@ -84,11 +84,11 @@ func TestAssignableTo(t *testing.T) {
 		{types.Typ[types.UntypedRune], types.Typ[types.UntypedFloat], true},
 	}
 	for _, a := range assigns {
-		if ret := gox.AssignableTo(a.v, a.t); ret != a.ret {
+		if ret := gox.AssignableTo(nil, a.v, a.t); ret != a.ret {
 			t.Fatalf("Failed: AssignableTo %v => %v returns %v\n", a.v, a.t, ret)
 		}
 	}
-	if gox.Default(types.Typ[types.UntypedInt]) != types.Typ[types.Int] {
+	if gox.Default(nil, types.Typ[types.UntypedInt]) != types.Typ[types.Int] {
 		t.Fatal("gox.Default failed")
 	}
 }

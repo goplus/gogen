@@ -91,7 +91,10 @@ type Config struct {
 	Prefix string
 
 	// NewBuiltin is to create the builin package.
-	NewBuiltin func(pkg PkgImporter, prefix string) *types.Package
+	NewBuiltin func(pkg PkgImporter, prefix string, conf *Config) *types.Package
+
+	// untyped bigint, untyped bigrat, untyped bigfloat
+	UntypedBigInt, UntypedBigRat, UntypedBigFloat *types.Named
 }
 
 // Package type
@@ -138,8 +141,8 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		autoPrefix: "_auto" + prefix,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
-	pkg.cb.init(pkg, conf)
-	pkg.builtin = newBuiltin(pkg, prefix)
+	pkg.builtin = newBuiltin(pkg, prefix, conf)
+	pkg.cb.init(pkg)
 	return pkg
 }
 

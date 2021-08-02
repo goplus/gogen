@@ -25,6 +25,9 @@ import (
 //
 
 type Gop_ninteger = uint
+type Gop_untyped_bigint *big.Int
+type Gop_untyped_bigrat *big.Rat
+type Gop_untyped_bigfloat *big.Float
 
 func Gop_istmp(a interface{}) bool {
 	return false

@@ -37,9 +37,12 @@ func toIndex(c byte) int {
 	panic("TODO: invalid character out of [0-9,a-z]")
 }
 
-func initGopBuiltin(pkg gox.PkgImporter, builtin *types.Package) {
+func initGopBuiltin(pkg gox.PkgImporter, builtin *types.Package, conf *gox.Config) {
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	big.EnsureImported()
+	conf.UntypedBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
+	conf.UntypedBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
+	conf.UntypedBigFloat = big.Ref("Gop_untyped_bigfloat").Type().(*types.Named)
 	scope := big.Types.Scope()
 	overloads := make(map[string][]types.Object)
 	names := scope.Names()
@@ -68,9 +71,9 @@ func initGopBuiltin(pkg gox.PkgImporter, builtin *types.Package) {
 	}
 }
 
-func newGopBuiltinDefault(pkg gox.PkgImporter, prefix string) *types.Package {
+func newGopBuiltinDefault(pkg gox.PkgImporter, prefix string, conf *gox.Config) *types.Package {
 	builtin := types.NewPackage("", "")
-	initGopBuiltin(pkg, builtin)
+	initGopBuiltin(pkg, builtin, conf)
 	gox.InitBuiltinOps(builtin, prefix)
 	gox.InitBuiltinFuncs(builtin)
 	return builtin
@@ -136,7 +139,7 @@ var c builtin.Gop_bigint = a.Gop_Add(b)
 func TestBigRat(t *testing.T) {
 	pkg := newGopMainPackage()
 	big := pkg.Builtin()
-	pkg.CB().NewVar(big.Ref("Gop_bigrat").Type(), "a", "b")
+	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
 	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "c").
 		Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.QUO).EndInit(1)
 	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "d").
@@ -159,6 +162,34 @@ var e builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__0()
 var f builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__3(1, 2)
 var g builtin.Gop_bigint
 var h builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__1(g)
+`)
+}
+
+func TestUntypedBigRat(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.CB().NewVarStart(nil, "a").UntypedBigRat(big.NewRat(6, 63)).EndInit(1)
+	domTest(t, pkg, `package main
+
+import big "math/big"
+
+var a = big.NewRat(2, 21)
+`)
+}
+
+func TestUntypedBigRat2(t *testing.T) {
+	pkg := newGopMainPackage()
+	one := big.NewInt(1)
+	denom := new(big.Int).Lsh(one, 128)
+	v := new(big.Rat).SetFrac(one, denom)
+	pkg.CB().NewVarStart(nil, "a").UntypedBigRat(v).EndInit(1)
+	domTest(t, pkg, `package main
+
+import big "math/big"
+
+var a = new(big.Rat).SetFrac(big.NewInt(1), func() *big.Int {
+	v, _ := new(big.Int).SetString("340282366920938463463374607431768211456", 10)
+	return v
+}())
 `)
 }
 

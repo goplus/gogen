@@ -97,8 +97,8 @@ func boundType(pkg *Package, arg, param types.Type) error {
 		if p.typ.contract.Match(pkg, arg) {
 			if p.tBound == nil {
 				p.boundTo(arg)
-			} else if !AssignableTo(arg, p.tBound) {
-				if isUntyped(p.tBound) && AssignableTo(p.tBound, arg) {
+			} else if !AssignableTo(&pkg.cb, arg, p.tBound) {
+				if isUntyped(p.tBound) && AssignableTo(&pkg.cb, p.tBound, arg) {
 					p.tBound = arg
 					return nil
 				}
@@ -144,7 +144,7 @@ func boundType(pkg *Package, arg, param types.Type) error {
 	case *types.Signature:
 		panic("TODO: boundType function signature")
 	default:
-		if AssignableTo(arg, param) {
+		if AssignableTo(&pkg.cb, arg, param) {
 			return nil
 		}
 	}
@@ -155,12 +155,12 @@ func boundType(pkg *Package, arg, param types.Type) error {
 // it returns the incoming type for all other types. The default type
 // for untyped nil is untyped nil.
 //
-func Default(t types.Type) types.Type {
+func Default(cb *CodeBuilder, t types.Type) types.Type {
 	return types.Default(t)
 }
 
 // AssignableTo reports whether a value of type V is assignable to a variable of type T.
-func AssignableTo(V, T types.Type) bool {
+func AssignableTo(cb *CodeBuilder, V, T types.Type) bool {
 	V, T = realType(V), realType(T)
 	if types.AssignableTo(V, T) {
 		if t, ok := T.(*types.Basic); ok { // untyped type
@@ -187,7 +187,7 @@ func AssignableTo(V, T types.Type) bool {
 	return false
 }
 
-func ComparableTo(pkg *Package, V, T types.Type) bool {
+func ComparableTo(cb *CodeBuilder, V, T types.Type) bool {
 	V, T = types.Default(V), types.Default(T)
 	if V != T && V.Underlying() != T.Underlying() {
 		return false
