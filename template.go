@@ -167,37 +167,25 @@ func DefaultConv(pkg *Package, t types.Type, expr *ast.Expr) types.Type {
 	if !ok {
 		return types.Default(t)
 	}
-	typ, conv := defaultWithConv(pkg, named)
-	if conv && expr != nil {
-		o := typ.(*types.Named).Obj()
-		name := o.Name() + "_Init"
-		if ini := o.Pkg().Scope().Lookup(name); ini != nil {
-			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
-			args := []*internal.Elem{{Val: *expr, Type: t}}
-			ret, err := matchFuncCall(pkg, fn, args, instrFlagQuiet)
-			if err != nil {
-				log.Panicln("==> DefaultConv failed:", t, typ)
-			}
-			if debugMatch {
-				log.Println("==> DefaultConv", t, typ)
-			}
-			*expr = ret.Val
-		}
-	}
-	return typ
-}
-
-func defaultWithConv(pkg *Package, named *types.Named) (types.Type, bool) {
 	o := named.Obj()
 	if at := o.Pkg(); at != nil {
 		name := o.Name() + "_Default"
-		if typ := at.Scope().Lookup(name); typ != nil {
-			if tn, ok := typ.(*types.TypeName); ok && tn.IsAlias() {
-				return tn.Type(), true
+		if typName := at.Scope().Lookup(name); typName != nil {
+			if tn, ok := typName.(*types.TypeName); ok && tn.IsAlias() {
+				typ := tn.Type()
+				if expr != nil {
+					if ok = assignable(pkg, t, typ.(*types.Named), expr); !ok {
+						log.Panicln("==> DefaultConv failed:", t, typ)
+					}
+					if debugMatch {
+						log.Println("==> DefaultConv", t, typ)
+					}
+				}
+				return typ
 			}
 		}
 	}
-	return named, false
+	return t
 }
 
 // AssignableTo reports whether a value of type V is assignable to a variable of type T.
@@ -228,23 +216,28 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 		}
 		return true
 	}
-retry:
 	if t, ok := T.(*types.Named); ok {
-		o := t.Obj()
-		if o.IsAlias() {
-			T = o.Type()
-			goto retry
+		var expr ast.Expr
+		ok = assignable(pkg, V, t, &expr)
+		if debugMatch {
+			log.Println("==> AssignableTo", V, T, "return", ok)
 		}
-		if at := o.Pkg(); at != nil {
-			name := o.Name() + "_Init"
-			if ini := at.Scope().Lookup(name); ini != nil {
-				fn := &internal.Elem{Type: ini.Type()}
-				args := []*internal.Elem{{Type: V}}
-				_, err := matchFuncCall(pkg, fn, args, instrFlagQuiet)
-				if debugMatch {
-					log.Println("==> AssignableTo", V, T, "return", err == nil)
-				}
-				return err == nil
+		return ok
+	}
+	return false
+}
+
+func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool {
+	o := t.Obj()
+	if at := o.Pkg(); at != nil {
+		name := o.Name() + "_Init"
+		if ini := at.Scope().Lookup(name); ini != nil {
+			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
+			args := []*internal.Elem{{Val: *expr, Type: v}}
+			ret, err := matchFuncCall(pkg, fn, args, instrFlagQuiet)
+			if err == nil {
+				*expr = ret.Val
+				return true
 			}
 		}
 	}
