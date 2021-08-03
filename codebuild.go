@@ -660,7 +660,7 @@ func (p *CodeBuilder) doVarRef(ref interface{}, src ast.Node, allowDebug bool) *
 		if allowDebug && debugInstr {
 			log.Println("VarRef _")
 		}
-		p.stk.Push(internal.Elem{
+		p.stk.Push(&internal.Elem{
 			Val: underscore, // _
 		})
 	} else {
@@ -676,7 +676,7 @@ func (p *CodeBuilder) doVarRef(ref interface{}, src ast.Node, allowDebug bool) *
 					v = arg
 				}
 			}
-			p.stk.Push(internal.Elem{
+			p.stk.Push(&internal.Elem{
 				Val: toObjectExpr(p.pkg, v), Type: &refType{typ: v.Type()}, Src: src,
 			})
 		default:
@@ -686,12 +686,16 @@ func (p *CodeBuilder) doVarRef(ref interface{}, src ast.Node, allowDebug bool) *
 	return p
 }
 
+var (
+	elemNone = &internal.Elem{}
+)
+
 // None func
 func (p *CodeBuilder) None() *CodeBuilder {
 	if debugInstr {
 		log.Println("None")
 	}
-	p.stk.Push(internal.Elem{})
+	p.stk.Push(elemNone)
 	return p
 }
 
@@ -745,7 +749,7 @@ retry:
 	default:
 		ret.Type = toType(p.pkg, typ)
 	}
-	p.stk.Push(internal.Elem{Type: typ0, Val: ret})
+	p.stk.Push(&internal.Elem{Type: typ0, Val: ret})
 	return p
 }
 
@@ -776,7 +780,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 			typExpr = toMapType(pkg, t)
 		}
 		ret := &ast.CompositeLit{Type: typExpr}
-		p.stk.Push(internal.Elem{Type: typ, Val: ret})
+		p.stk.Push(&internal.Elem{Type: typ, Val: ret})
 		return p
 	}
 	if (arity & 1) != 0 {
@@ -809,11 +813,11 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 			}
 		}
 	}
-	p.stk.Ret(arity, internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, &internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 
-func (p *CodeBuilder) toBoundArrayLen(elts []internal.Elem, arity, limit int) int {
+func (p *CodeBuilder) toBoundArrayLen(elts []*internal.Elem, arity, limit int) int {
 	n := -1
 	max := -1
 	for i := 0; i < arity; i += 2 {
@@ -837,7 +841,7 @@ func (p *CodeBuilder) toBoundArrayLen(elts []internal.Elem, arity, limit int) in
 	return max + 1
 }
 
-func (p *CodeBuilder) toIntVal(v internal.Elem, msg string) int {
+func (p *CodeBuilder) toIntVal(v *internal.Elem, msg string) int {
 	if cval := v.CVal; cval != nil && cval.Kind() == constant.Int {
 		if v, ok := constant.Int64Val(cval); ok {
 			return int(v)
@@ -848,7 +852,7 @@ func (p *CodeBuilder) toIntVal(v internal.Elem, msg string) int {
 	return 0
 }
 
-func (p *CodeBuilder) indexElemExpr(args []internal.Elem, i int) ast.Expr {
+func (p *CodeBuilder) indexElemExpr(args []*internal.Elem, i int) ast.Expr {
 	key := args[i].Val
 	if key == nil { // none
 		return args[i+1].Val
@@ -902,7 +906,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 				typ = t
 				typExpr = toSliceType(pkg, t)
 			}
-			p.stk.Push(internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr}})
+			p.stk.Push(&internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr}})
 			return p
 		}
 		var val types.Type
@@ -928,7 +932,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			}
 		}
 	}
-	p.stk.Ret(arity, internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, &internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 
@@ -993,7 +997,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			}
 		}
 	}
-	p.stk.Ret(arity, internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, &internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 
@@ -1060,7 +1064,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 			}
 		}
 	}
-	p.stk.Ret(arity, internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, &internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
 	return p
 }
 
@@ -1105,7 +1109,7 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 		exprMax = args[3].Val
 	}
 	// TODO: check type
-	elem := internal.Elem{
+	elem := &internal.Elem{
 		Val: &ast.SliceExpr{
 			X: x.Val, Low: args[1].Val, High: args[2].Val, Max: exprMax, Slice3: slice3,
 		},
@@ -1139,7 +1143,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 	} else { // elem = a[key]
 		tyRet = typs[1]
 	}
-	elem := internal.Elem{
+	elem := &internal.Elem{
 		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val}, Type: tyRet, Src: srcExpr,
 	}
 	// TODO: check index type
@@ -1157,7 +1161,7 @@ func (p *CodeBuilder) IndexRef(nidx int, src ...ast.Node) *CodeBuilder {
 	}
 	args := p.stk.GetArgs(2)
 	typ := args[0].Type
-	elemRef := internal.Elem{
+	elemRef := &internal.Elem{
 		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
 		Src: getSrc(src),
 	}
@@ -1208,7 +1212,7 @@ func (p *CodeBuilder) Typ(typ types.Type) *CodeBuilder {
 	if debugInstr {
 		log.Println("Typ", typ)
 	}
-	p.stk.Push(internal.Elem{
+	p.stk.Push(&internal.Elem{
 		Val:  toType(p.pkg, typ),
 		Type: NewTypeType(typ),
 	})
@@ -1239,7 +1243,7 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 			Val(p.Scope().Lookup("v")).Return(1).
 			End().Call(0)
 	}
-	ret := &p.stk.GetArgs(1)[0]
+	ret := p.stk.Get(-1)
 	ret.Type, ret.CVal, ret.Src = p.utBigInt, constant.Make(v), getSrc(src)
 	return p
 }
@@ -1257,7 +1261,7 @@ func (p *CodeBuilder) UntypedBigRat(v *big.Rat, src ...ast.Node) *CodeBuilder {
 		p.Val(p.pkg.builtin.Scope().Lookup("new")).Typ(big.Ref("Rat").Type()).Call(1).
 			MemberVal("SetFrac").UntypedBigInt(a).UntypedBigInt(b).Call(2)
 	}
-	ret := &p.stk.GetArgs(1)[0]
+	ret := p.stk.Get(-1)
 	ret.Type, ret.CVal, ret.Src = p.utBigRat, constant.Make(v), getSrc(src)
 	return p
 }
@@ -1294,7 +1298,7 @@ func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 		log.Println("Star")
 	}
 	arg := p.stk.Get(-1)
-	ret := internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Src: getSrc(src)}
+	ret := &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Src: getSrc(src)}
 	switch t := arg.Type.(type) {
 	case *TypeType:
 		t.typ = types.NewPointer(t.typ)
@@ -1320,7 +1324,7 @@ func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
 		code, pos := p.loadExpr(arg.Src)
 		p.panicCodeErrorf(&pos, "invalid indirect of %s (type %v)", code, arg.Type)
 	}
-	p.stk.Ret(1, internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Type: t.Elem(), Src: getSrc(src)})
+	p.stk.Ret(1, &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Type: t.Elem(), Src: getSrc(src)})
 	return p
 }
 
@@ -1335,7 +1339,7 @@ func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 		code, pos := p.loadExpr(arg.Src)
 		p.panicCodeErrorf(&pos, "invalid indirect of %s (type %v)", code, arg.Type)
 	}
-	p.stk.Ret(1, internal.Elem{
+	p.stk.Ret(1, &internal.Elem{
 		Val: &ast.StarExpr{X: arg.Val}, Type: &refType{typ: t.Elem()}, Src: getSrc(src),
 	})
 	return p
@@ -1367,7 +1371,7 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 
 func (p *CodeBuilder) fieldRef(x ast.Expr, struc *types.Struct, name string) bool {
 	if t := structFieldType(struc, name); t != nil {
-		p.stk.Ret(1, internal.Elem{
+		p.stk.Ret(1, &internal.Elem{
 			Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
 			Type: &refType{typ: t},
 		})
@@ -1473,7 +1477,7 @@ func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, src ast
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		if method.Name() == name {
-			p.stk.Ret(1, internal.Elem{
+			p.stk.Ret(1, &internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
 				Type: methodTypeOf(method.Type()),
 				Src:  src,
@@ -1488,7 +1492,7 @@ func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src a
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		if fld.Name() == name {
-			p.stk.Ret(1, internal.Elem{
+			p.stk.Ret(1, &internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
 				Type: fld.Type(),
 				Src:  src,
@@ -1571,7 +1575,7 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 					lhs, caller, rhsVals.Len())
 			}
 			for i := 0; i < lhs; i++ {
-				val := internal.Elem{Type: rhsVals.At(i).Type()}
+				val := &internal.Elem{Type: rhsVals.At(i).Type()}
 				checkAssignType(p.pkg, args[i].Type, val)
 				stmt.Lhs[i] = args[i].Val
 			}
@@ -1606,11 +1610,11 @@ func lookupMethod(t *types.Named, name string) types.Object {
 	return nil
 }
 
-func callOpFunc(pkg *Package, name string, args []internal.Elem, flags InstrFlags) (ret internal.Elem) {
+func callOpFunc(pkg *Package, name string, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem) {
 	if t, ok := args[0].Type.(*types.Named); ok {
 		op := lookupMethod(t, name)
 		if op != nil {
-			fn := internal.Elem{
+			fn := &internal.Elem{
 				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
 				Type: realType(op.Type()),
 			}
@@ -1682,7 +1686,7 @@ func (p *CodeBuilder) CompareNil(op token.Token) *CodeBuilder {
 	}
 	arg := p.stk.Get(-1)
 	// TODO: type check
-	ret := internal.Elem{
+	ret := &internal.Elem{
 		Val:  &ast.BinaryExpr{X: arg.Val, Op: op, Y: identNil},
 		Type: types.Typ[types.Bool],
 	}
@@ -1849,9 +1853,9 @@ func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool) *CodeBuilder {
 		tyRet := types.NewTuple(
 			pkg.NewParam(token.NoPos, "", typ),
 			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
-		p.stk.Ret(1, internal.Elem{Type: tyRet, Val: ret})
+		p.stk.Ret(1, &internal.Elem{Type: tyRet, Val: ret})
 	} else {
-		p.stk.Ret(1, internal.Elem{Type: typ, Val: ret})
+		p.stk.Ret(1, &internal.Elem{Type: typ, Val: ret})
 	}
 	return p
 }

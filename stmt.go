@@ -88,7 +88,7 @@ func (p *ifStmt) End(cb *CodeBuilder) {
 //
 type switchStmt struct {
 	init ast.Stmt
-	tag  internal.Elem
+	tag  *internal.Elem
 	old  codeBlockCtx
 }
 
@@ -379,11 +379,11 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
 		args := cb.stk.GetArgs(n)
 		switch n {
 		case 1:
-			x = args[0]
+			x = *args[0]
 		case 2:
-			key, x = args[0], args[1]
+			key, x = *args[0], *args[1]
 		case 3:
-			key, val, x = args[0], args[1], args[2]
+			key, val, x = *args[0], *args[1], *args[2]
 		default:
 			panic("TODO: invalid syntax of for range =")
 		}
@@ -396,9 +396,9 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
 		if n > 1 {
 			p.stmt.Tok = token.ASSIGN
 			typs := getKeyValTypes(x.Type)
-			checkAssign(cb.pkg, key, typs[0], "range")
+			checkAssign(cb.pkg, &key, typs[0], "range")
 			if val.Val != nil {
-				checkAssign(cb.pkg, val, typs[1], "range")
+				checkAssign(cb.pkg, &val, typs[1], "range")
 			}
 		}
 	}

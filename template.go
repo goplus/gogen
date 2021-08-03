@@ -207,8 +207,8 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 		if at := o.Pkg(); at != nil {
 			name := o.Name() + "_Init"
 			if ini := at.Scope().Lookup(name); ini != nil {
-				fn := internal.Elem{Type: ini.Type()}
-				args := []internal.Elem{{Type: V}}
+				fn := &internal.Elem{Type: ini.Type()}
+				args := []*internal.Elem{{Type: V}}
 				_, err := matchFuncCall(pkg, fn, args, 0)
 				if debugMatch {
 					log.Println("==> MatchFuncCall return", err == nil)

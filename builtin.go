@@ -325,13 +325,13 @@ type appendStringInstr struct {
 }
 
 // func append(slice []byte, val ..string) []byte
-func (p appendStringInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+func (p appendStringInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
 	if len(args) == 2 && flags != 0 {
 		if t, ok := args[0].Type.(*types.Slice); ok {
 			if elem, ok := t.Elem().(*types.Basic); ok && elem.Kind() == types.Byte {
 				if v, ok := args[1].Type.(*types.Basic); ok {
 					if v.Kind() == types.String || v.Kind() == types.UntypedString {
-						return Element{
+						return &Element{
 							Val: &ast.CallExpr{
 								Fun:      ident("append"),
 								Args:     []ast.Expr{args[0].Val, args[1].Val},
@@ -344,7 +344,7 @@ func (p appendStringInstr) Call(pkg *Package, args []Element, flags InstrFlags) 
 			}
 		}
 	}
-	return Element{}, syscall.EINVAL
+	return nil, syscall.EINVAL
 }
 
 type lenInstr struct {
@@ -354,7 +354,7 @@ type capInstr struct {
 }
 
 // func [Type lenable] len(v Type) int
-func (p lenInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+func (p lenInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: len() should have one parameter")
 	}
@@ -383,7 +383,7 @@ func (p lenInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Elem
 			log.Panicln("TODO: can't call len() to", t)
 		}
 	}
-	ret = Element{
+	ret = &Element{
 		Val:  &ast.CallExpr{Fun: ident("len"), Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Int],
 		CVal: cval,
@@ -392,7 +392,7 @@ func (p lenInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Elem
 }
 
 // func [Type capable] cap(v Type) int
-func (p capInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+func (p capInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: cap() should have one parameter")
 	}
@@ -411,7 +411,7 @@ func (p capInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Elem
 			log.Panicln("TODO: can't call cap() to", t)
 		}
 	}
-	ret = Element{
+	ret = &Element{
 		Val:  &ast.CallExpr{Fun: ident("cap"), Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Int],
 		CVal: cval,
@@ -426,16 +426,16 @@ type decInstr struct {
 }
 
 // val++
-func (p incInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+func (p incInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
 	return callIncDec(pkg, args, token.INC)
 }
 
 // val--
-func (p decInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+func (p decInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
 	return callIncDec(pkg, args, token.DEC)
 }
 
-func callIncDec(pkg *Package, args []Element, tok token.Token) (ret Element, err error) {
+func callIncDec(pkg *Package, args []*Element, tok token.Token) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: please use val" + tok.String())
 	}
@@ -451,7 +451,7 @@ type recvInstr struct {
 }
 
 // <-ch
-func (p recvInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+func (p recvInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: please use <-ch")
 	}
@@ -463,7 +463,7 @@ func (p recvInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Ele
 					pkg.NewParam(token.NoPos, "", typ),
 					pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
 			}
-			ret = Element{Val: &ast.UnaryExpr{Op: token.ARROW, X: args[0].Val}, Type: typ}
+			ret = &Element{Val: &ast.UnaryExpr{Op: token.ARROW, X: args[0].Val}, Type: typ}
 			return
 		}
 		panic("TODO: <-ch is a send only chan")
@@ -475,13 +475,13 @@ type addrInstr struct {
 }
 
 // &variable
-func (p addrInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+func (p addrInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: please use &variable to get its address")
 	}
 	// TODO: type check
 	t := args[0].Type
-	ret = Element{Val: &ast.UnaryExpr{Op: token.AND, X: args[0].Val}, Type: types.NewPointer(t)}
+	ret = &Element{Val: &ast.UnaryExpr{Op: token.AND, X: args[0].Val}, Type: types.NewPointer(t)}
 	return
 }
 
@@ -489,7 +489,7 @@ type newInstr struct {
 }
 
 // func [] new(T any) *T
-func (p newInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+func (p newInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: use new(T) please")
 	}
@@ -498,7 +498,7 @@ func (p newInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Elem
 		panic("TODO: new arg isn't a type")
 	}
 	typ := ttyp.Type()
-	ret = Element{
+	ret = &Element{
 		Val: &ast.CallExpr{
 			Fun:  ident("new"),
 			Args: []ast.Expr{args[0].Val},
@@ -512,7 +512,7 @@ type makeInstr struct {
 }
 
 // func [N ninteger] make(Type makable, size ...N) Type
-func (p makeInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error) {
+func (p makeInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
 	n := len(args)
 	if n == 0 {
 		panic("TODO: make without args")
@@ -531,7 +531,7 @@ func (p makeInstr) Call(pkg *Package, args []Element, flags InstrFlags) (ret Ele
 	for i, arg := range args {
 		argsExpr[i] = arg.Val
 	}
-	ret = Element{
+	ret = &Element{
 		Val: &ast.CallExpr{
 			Fun:  ident("make"),
 			Args: argsExpr,

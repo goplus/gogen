@@ -32,41 +32,41 @@ type Elem struct {
 
 // A Stack represents a FILO container.
 type Stack struct {
-	data []Elem
+	data []*Elem
 }
 
 // NewStack creates a Stack instance.
 func NewStack() (p *Stack) {
-	return &Stack{data: make([]Elem, 0, defaultStkSize)}
+	return &Stack{data: make([]*Elem, 0, defaultStkSize)}
 }
 
 // Init initializes this Stack object.
 func (p *Stack) Init() {
-	p.data = make([]Elem, 0, defaultStkSize)
+	p.data = make([]*Elem, 0, defaultStkSize)
 }
 
 // Get returns the value at specified index.
-func (p *Stack) Get(idx int) Elem {
+func (p *Stack) Get(idx int) *Elem {
 	return p.data[len(p.data)+idx]
 }
 
 // Set returns the value at specified index.
-func (p *Stack) Set(idx int, v Elem) {
+func (p *Stack) Set(idx int, v *Elem) {
 	p.data[len(p.data)+idx] = v
 }
 
 // GetArgs returns all arguments of a function.
-func (p *Stack) GetArgs(arity int) []Elem {
+func (p *Stack) GetArgs(arity int) []*Elem {
 	return p.data[len(p.data)-arity:]
 }
 
 // Ret pops n values from this stack, and then pushes results.
-func (p *Stack) Ret(arity int, results ...Elem) {
+func (p *Stack) Ret(arity int, results ...*Elem) {
 	p.data = append(p.data[:len(p.data)-arity], results...)
 }
 
 // Push pushes a value into this stack.
-func (p *Stack) Push(v Elem) {
+func (p *Stack) Push(v *Elem) {
 	p.data = append(p.data, v)
 }
 
@@ -76,7 +76,7 @@ func (p *Stack) PopN(n int) {
 }
 
 // Pop pops a value from this stack.
-func (p *Stack) Pop() Elem {
+func (p *Stack) Pop() *Elem {
 	n := len(p.data)
 	v := p.data[n-1]
 	p.data = p.data[:n-1]

@@ -88,7 +88,7 @@ func (p *Func) End(cb *CodeBuilder) {
 	t := p.Type().(*types.Signature)
 	if fn := p.decl; fn == nil { // is closure
 		expr := &ast.FuncLit{Type: toFuncType(pkg, t), Body: body}
-		cb.stk.Push(internal.Elem{Val: expr, Type: t})
+		cb.stk.Push(&internal.Elem{Val: expr, Type: t})
 	} else {
 		fn.Name, fn.Type, fn.Body = ident(p.Name()), toFuncType(pkg, t), body
 		if recv := t.Recv(); recv != nil {
@@ -193,7 +193,7 @@ const (
 )
 
 type Instruction interface {
-	Call(pkg *Package, args []Element, flags InstrFlags) (ret Element, err error)
+	Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error)
 }
 
 func NewInstruction(pos token.Pos, pkg *types.Package, name string, instr Instruction) *types.TypeName {

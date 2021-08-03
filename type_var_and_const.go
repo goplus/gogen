@@ -145,9 +145,9 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			panic("TODO: unmatched var/const define")
 		}
 		*p.vals = []ast.Expr{rets[0].Val}
-		rets = make([]internal.Elem, n)
+		rets = make([]*internal.Elem, n)
 		for i := 0; i < n; i++ {
-			rets[i] = internal.Elem{Type: t.At(i).Type()}
+			rets[i] = &internal.Elem{Type: t.At(i).Type()}
 		}
 	} else if n != arity {
 		panic("TODO: unmatched var/const define")

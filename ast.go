@@ -225,9 +225,9 @@ func toInterface(pkg *Package, t *types.Interface) ast.Expr {
 // -----------------------------------------------------------------------------
 // expression
 
-func toExpr(pkg *Package, val interface{}, src ast.Node) internal.Elem {
+func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 	if val == nil {
-		return internal.Elem{
+		return &internal.Elem{
 			Val:  identNil,
 			Type: types.Typ[types.UntypedNil],
 			Src:  src,
@@ -235,7 +235,7 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) internal.Elem {
 	}
 	switch v := val.(type) {
 	case *ast.BasicLit:
-		return internal.Elem{
+		return &internal.Elem{
 			Val:  v,
 			Type: types.Typ[toBasicKind(v.Kind)],
 			CVal: constant.MakeFromLiteral(v.Value, v.Kind, 0),
@@ -248,7 +248,7 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) internal.Elem {
 		log.Panicln("TODO: unsupported builtin -", v.Name())
 	case *types.TypeName:
 		if typ := v.Type(); isType(typ) {
-			return internal.Elem{
+			return &internal.Elem{
 				Val: toType(pkg, typ), Type: NewTypeType(typ), Src: src,
 			}
 		} else {
@@ -257,37 +257,37 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) internal.Elem {
 	case types.Object:
 		return toObject(pkg, v, src)
 	case *Element:
-		return *v
+		return v
 	case int:
-		return internal.Elem{
+		return &internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(v)},
 			Type: types.Typ[types.UntypedInt],
 			CVal: constant.MakeInt64(int64(v)),
 			Src:  src,
 		}
 	case string:
-		return internal.Elem{
+		return &internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(v)},
 			Type: types.Typ[types.UntypedString],
 			CVal: constant.MakeString(v),
 			Src:  src,
 		}
 	case bool:
-		return internal.Elem{
+		return &internal.Elem{
 			Val:  boolean(v),
 			Type: types.Typ[types.UntypedBool],
 			CVal: constant.MakeBool(v),
 			Src:  src,
 		}
 	case rune:
-		return internal.Elem{
+		return &internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.CHAR, Value: strconv.QuoteRune(v)},
 			Type: types.Typ[types.UntypedRune],
 			CVal: constant.MakeInt64(int64(v)),
 			Src:  src,
 		}
 	case float64:
-		return internal.Elem{
+		return &internal.Elem{
 			Val:  &ast.BasicLit{Kind: token.FLOAT, Value: strconv.FormatFloat(v, 'g', -1, 64)},
 			Type: types.Typ[types.UntypedFloat],
 			CVal: constant.MakeFloat64(v),
@@ -311,8 +311,8 @@ var (
 	}
 )
 
-func toObject(pkg *Package, v types.Object, src ast.Node) internal.Elem {
-	return internal.Elem{
+func toObject(pkg *Package, v types.Object, src ast.Node) *internal.Elem {
+	return &internal.Elem{
 		Val: toObjectExpr(pkg, v), Type: realType(v.Type()), Src: src,
 	}
 }
@@ -384,7 +384,7 @@ var (
 	}
 )
 
-func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags InstrFlags) internal.Elem {
+func toFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) *internal.Elem {
 	ret, err := matchFuncCall(pkg, fn, args, flags)
 	if err != nil {
 		panic(err)
@@ -392,7 +392,7 @@ func toFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags Inst
 	return ret
 }
 
-func unaryOp(tok token.Token, args []internal.Elem) constant.Value {
+func unaryOp(tok token.Token, args []*internal.Elem) constant.Value {
 	if len(args) == 1 {
 		if a := args[0].CVal; a != nil {
 			return constant.UnaryOp(tok, a, 0) // TODO: prec should not be 0
@@ -401,7 +401,7 @@ func unaryOp(tok token.Token, args []internal.Elem) constant.Value {
 	return nil
 }
 
-func binaryOp(tok token.Token, args []internal.Elem) constant.Value {
+func binaryOp(tok token.Token, args []*internal.Elem) constant.Value {
 	if len(args) == 2 {
 		if a, b := args[0].CVal, args[1].CVal; a != nil && b != nil {
 			return constant.BinaryOp(a, tok, b)
@@ -435,7 +435,7 @@ func getParam1st(sig *types.Signature) int {
 	return 0
 }
 
-func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags InstrFlags) (ret internal.Elem, err error) {
+func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
 	if debugMatch {
 		log.Println("==> MatchFuncCall", fn.Type)
 	}
@@ -450,7 +450,7 @@ func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 		for i, v := range args { // TODO: type check
 			valArgs[i] = v.Val
 		}
-		ret = internal.Elem{
+		ret = &internal.Elem{
 			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 			Type: t.Type(),
 		}
@@ -485,10 +485,10 @@ func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
 		t.X, t.Y = args[0].Val, args[1].Val
-		return internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
+		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	case *ast.UnaryExpr:
 		t.X = args[0].Val
-		return internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
+		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	}
 	var valArgs []ast.Expr
 	var recv = getParam1st(sig)
@@ -498,7 +498,7 @@ func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags I
 			valArgs[i-recv] = args[i].Val
 		}
 	}
-	return internal.Elem{
+	return &internal.Elem{
 		Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 		Type: tyRet, CVal: cval,
 	}, nil
@@ -514,7 +514,7 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 }
 
 func matchFuncType(
-	pkg *Package, args []internal.Elem, ellipsis bool, sig *types.Signature, at interface{}) error {
+	pkg *Package, args []*internal.Elem, ellipsis bool, sig *types.Signature, at interface{}) error {
 	n := len(args)
 	if sig.Variadic() {
 		if !ellipsis {
@@ -541,7 +541,7 @@ func matchFuncType(
 }
 
 func matchFuncArgs(
-	pkg *Package, args []internal.Elem, sig *types.Signature, at interface{}) error {
+	pkg *Package, args []*internal.Elem, sig *types.Signature, at interface{}) error {
 	for i, arg := range args {
 		if err := matchType(pkg, arg, getParam(sig, i).Type(), at); err != nil {
 			return err
@@ -550,7 +550,7 @@ func matchFuncArgs(
 	return nil
 }
 
-func checkFuncResults(pkg *Package, rets []internal.Elem, results *types.Tuple, src ast.Node) {
+func checkFuncResults(pkg *Package, rets []*internal.Elem, results *types.Tuple, src ast.Node) {
 	n := len(rets)
 	need := results.Len()
 	switch n {
@@ -573,7 +573,7 @@ func checkFuncResults(pkg *Package, rets []internal.Elem, results *types.Tuple, 
 					&pos, "too %s arguments to return\n\thave %v\n\twant %v", fewOrMany, t, results)
 			}
 			for i := 0; i < need; i++ {
-				arg := internal.Elem{Type: t.At(i).Type(), Src: src}
+				arg := &internal.Elem{Type: t.At(i).Type(), Src: src}
 				if err := matchType(pkg, arg, results.At(i).Type(), "return argument"); err != nil {
 					panic(err)
 				}
@@ -598,7 +598,7 @@ func checkFuncResults(pkg *Package, rets []internal.Elem, results *types.Tuple, 
 		&pos, "too %s arguments to return\n\thave (%v)\n\twant %v", fewOrMany, getTypes(rets), results)
 }
 
-func getTypes(rets []internal.Elem) string {
+func getTypes(rets []*internal.Elem) string {
 	typs := make([]string, len(rets))
 	for i, ret := range rets {
 		typs[i] = ret.Type.String()
@@ -618,7 +618,7 @@ func isUnnamedParams(t *types.Tuple) bool {
 	return false
 }
 
-func matchElemType(pkg *Package, vals []internal.Elem, elt types.Type, at interface{}) error {
+func matchElemType(pkg *Package, vals []*internal.Elem, elt types.Type, at interface{}) error {
 	for _, val := range vals {
 		if err := matchType(pkg, val, elt, at); err != nil {
 			return err
@@ -627,7 +627,7 @@ func matchElemType(pkg *Package, vals []internal.Elem, elt types.Type, at interf
 	return nil
 }
 
-func checkAssignType(pkg *Package, varRef types.Type, val internal.Elem) {
+func checkAssignType(pkg *Package, varRef types.Type, val *internal.Elem) {
 	if rt, ok := varRef.(*refType); ok {
 		if err := matchType(pkg, val, rt.typ, "assignment"); err != nil {
 			panic(err)
@@ -639,9 +639,9 @@ func checkAssignType(pkg *Package, varRef types.Type, val internal.Elem) {
 	}
 }
 
-func checkAssign(pkg *Package, ref internal.Elem, val types.Type, at string) {
+func checkAssign(pkg *Package, ref *internal.Elem, val types.Type, at string) {
 	if rt, ok := ref.Type.(*refType); ok {
-		elem := internal.Elem{Type: val}
+		elem := &internal.Elem{Type: val}
 		if err := matchType(pkg, elem, rt.typ, at); err != nil {
 			src, pos := pkg.cb.loadExpr(ref.Src)
 			pkg.cb.panicCodeErrorf(
@@ -686,7 +686,7 @@ func (p *MatchError) Error() string {
 }
 
 // TODO: use matchType to all assignable check
-func matchType(pkg *Package, arg internal.Elem, param types.Type, at interface{}) error {
+func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) error {
 	if debugMatch {
 		log.Printf("==> MatchType %v, %v\n", arg.Type, param)
 	}
@@ -738,7 +738,7 @@ func matchType(pkg *Package, arg internal.Elem, param types.Type, at interface{}
 
 // -----------------------------------------------------------------------------
 
-func boundElementType(pkg *Package, elts []internal.Elem, base, max, step int) types.Type {
+func boundElementType(pkg *Package, elts []*internal.Elem, base, max, step int) types.Type {
 	var tBound types.Type
 	for i := base; i < max; i += step {
 		e := elts[i]
