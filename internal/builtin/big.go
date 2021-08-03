@@ -40,6 +40,10 @@ type Gop_untyped_bigint_Default = Gop_bigint
 type Gop_untyped_bigrat_Default = Gop_bigrat
 type Gop_untyped_bigfloat_Default = Gop_bigfloat
 
+func Gop_untyped_bigint_Init__0(x int) Gop_untyped_bigint {
+	panic("make compiler happy")
+}
+
 // -----------------------------------------------------------------------------
 // type bigint
 

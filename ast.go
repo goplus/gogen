@@ -163,8 +163,14 @@ func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
 }
 
 func isUntyped(pkg *Package, typ types.Type) bool {
-	if t, ok := typ.(*types.Basic); ok {
+	switch t := typ.(type) {
+	case *types.Basic:
 		return (t.Info() & types.IsUntyped) != 0
+	case *types.Named:
+		switch t {
+		case pkg.utBigInt, pkg.utBigRat, pkg.utBigFlt:
+			return true
+		}
 	}
 	return false
 }

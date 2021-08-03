@@ -159,12 +159,15 @@ func boundType(pkg *Package, arg, param types.Type) error {
 // for untyped nil is untyped nil.
 //
 func Default(pkg *Package, t types.Type) types.Type {
-	typ, _ := defaultWithConv(pkg, t)
-	return typ
+	return DefaultConv(pkg, t, nil)
 }
 
 func DefaultConv(pkg *Package, t types.Type, expr *ast.Expr) types.Type {
-	typ, conv := defaultWithConv(pkg, t)
+	named, ok := t.(*types.Named)
+	if !ok {
+		return types.Default(t)
+	}
+	typ, conv := defaultWithConv(pkg, named)
 	if conv && expr != nil {
 		o := typ.(*types.Named).Obj()
 		name := o.Name() + "_Init"
@@ -184,24 +187,25 @@ func DefaultConv(pkg *Package, t types.Type, expr *ast.Expr) types.Type {
 	return typ
 }
 
-func defaultWithConv(pkg *Package, t types.Type) (types.Type, bool) {
-	if named, ok := t.(*types.Named); ok {
-		o := named.Obj()
-		if at := o.Pkg(); at != nil {
-			name := o.Name() + "_Default"
-			if typ := at.Scope().Lookup(name); typ != nil {
-				if tn, ok := typ.(*types.TypeName); ok && tn.IsAlias() {
-					return tn.Type(), true
-				}
+func defaultWithConv(pkg *Package, named *types.Named) (types.Type, bool) {
+	o := named.Obj()
+	if at := o.Pkg(); at != nil {
+		name := o.Name() + "_Default"
+		if typ := at.Scope().Lookup(name); typ != nil {
+			if tn, ok := typ.(*types.TypeName); ok && tn.IsAlias() {
+				return tn.Type(), true
 			}
 		}
 	}
-	return types.Default(t), false
+	return named, false
 }
 
 // AssignableTo reports whether a value of type V is assignable to a variable of type T.
 func AssignableTo(pkg *Package, V, T types.Type) bool {
 	V, T = realType(V), realType(T)
+	if debugMatch {
+		log.Println("==> AssignableTo", V, T)
+	}
 	if types.AssignableTo(V, T) {
 		if t, ok := T.(*types.Basic); ok { // untyped type
 			vkind := V.(*types.Basic).Kind()
@@ -224,14 +228,22 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 		}
 		return true
 	}
+retry:
 	if t, ok := T.(*types.Named); ok {
 		o := t.Obj()
+		if o.IsAlias() {
+			T = o.Type()
+			goto retry
+		}
 		if at := o.Pkg(); at != nil {
 			name := o.Name() + "_Init"
 			if ini := at.Scope().Lookup(name); ini != nil {
 				fn := &internal.Elem{Type: ini.Type()}
 				args := []*internal.Elem{{Type: V}}
 				_, err := matchFuncCall(pkg, fn, args, instrFlagQuiet)
+				if debugMatch {
+					log.Println("==> AssignableTo", V, T, "return", err == nil)
+				}
 				return err == nil
 			}
 		}
