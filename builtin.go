@@ -728,6 +728,28 @@ func (p makableT) String() string {
 	return "makable"
 }
 
+// ----------------------------------------------------------------------------
+
+type addableT struct {
+	// type basicContract{kindsAddable}, untyped_bigint, untyped_bigrat, untyped_bigfloat
+}
+
+func (p addableT) Match(pkg *Package, typ types.Type) bool {
+	switch typ {
+	case pkg.cb.utBigInt, pkg.cb.utBigRat, pkg.cb.utBigFlt:
+		return true
+	default:
+		c := &basicContract{kinds: kindsAddable}
+		return c.Match(pkg, typ)
+	}
+}
+
+func (p addableT) String() string {
+	return "addable"
+}
+
+// ----------------------------------------------------------------------------
+
 var (
 	any        = anyT{}
 	capable    = capableT{}
@@ -737,8 +759,8 @@ var (
 	integer    = &basicContract{kindsInteger, "integer"}
 	ninteger   = &basicContract{kindsInteger, "ninteger"}
 	number     = &basicContract{kindsNumber, "number"}
-	addable    = &basicContract{kindsAddable, "addable"}
 	orderable  = &basicContract{kindsOrderable, "orderable"}
+	addable    = addableT{}
 	comparable = comparableT{}
 )
 

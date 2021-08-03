@@ -166,21 +166,19 @@ func Default(pkg *Package, t types.Type) types.Type {
 func DefaultConv(pkg *Package, t types.Type, expr *ast.Expr) types.Type {
 	typ, conv := defaultWithConv(pkg, t)
 	if conv && expr != nil {
-		if debugMatch {
-			log.Println("==> DefaultConv", t, typ)
-		}
 		o := typ.(*types.Named).Obj()
 		name := o.Name() + "_Init"
 		if ini := o.Pkg().Scope().Lookup(name); ini != nil {
 			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
 			args := []*internal.Elem{{Val: *expr, Type: t}}
-			ret, err := matchFuncCall(pkg, fn, args, 0)
+			ret, err := matchFuncCall(pkg, fn, args, instrFlagQuiet)
+			if err != nil {
+				log.Panicln("==> DefaultConv failed:", t, typ)
+			}
 			if debugMatch {
-				log.Println("==> MatchFuncCall return", err == nil)
+				log.Println("==> DefaultConv", t, typ)
 			}
-			if err == nil {
-				*expr = ret.Val
-			}
+			*expr = ret.Val
 		}
 	}
 	return typ
@@ -233,10 +231,7 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 			if ini := at.Scope().Lookup(name); ini != nil {
 				fn := &internal.Elem{Type: ini.Type()}
 				args := []*internal.Elem{{Type: V}}
-				_, err := matchFuncCall(pkg, fn, args, 0)
-				if debugMatch {
-					log.Println("==> MatchFuncCall return", err == nil)
-				}
+				_, err := matchFuncCall(pkg, fn, args, instrFlagQuiet)
 				return err == nil
 			}
 		}
@@ -483,7 +478,7 @@ func (p *TemplateSignature) Underlying() types.Type {
 }
 
 func (p *TemplateSignature) String() string {
-	panic("TemplateSignature")
+	return p.sig.String()
 }
 
 // TODO: check name

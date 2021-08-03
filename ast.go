@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
@@ -436,7 +437,7 @@ func getParam1st(sig *types.Signature) int {
 }
 
 func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
-	if debugMatch {
+	if debugMatch && (flags&instrFlagQuiet) == 0 {
 		log.Println("==> MatchFuncCall", fn.Type)
 	}
 	var it *instantiated
@@ -482,6 +483,11 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		return
 	}
 	tyRet := toRetType(sig.Results(), it)
+	if cval != nil { // untyped bigint/bigrat
+		if ret, ok := untypeBig(&pkg.cb, cval, tyRet); ok {
+			return ret, nil
+		}
+	}
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
 		t.X, t.Y = args[0].Val, args[1].Val
@@ -499,9 +505,41 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		}
 	}
 	return &internal.Elem{
-		Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 		Type: tyRet, CVal: cval,
+		Val: &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 	}, nil
+}
+
+func untypeBig(cb *CodeBuilder, cval constant.Value, tyRet types.Type) (*internal.Elem, bool) {
+	switch tyRet {
+	case cb.utBigInt:
+		var val *big.Int
+		switch v := constant.Val(cval).(type) {
+		case int64:
+			val = big.NewInt(v)
+		case *big.Int:
+			val = v
+		default:
+			panic("unexpected constant")
+		}
+		cb.UntypedBigInt(val)
+		return cb.stk.Pop(), true
+	case cb.utBigRat:
+		var val *big.Rat
+		switch v := constant.Val(cval).(type) {
+		case int64:
+			val = big.NewRat(v, 1)
+		case *big.Rat:
+			val = v
+		case *big.Int:
+			val = new(big.Rat).SetInt(v)
+		default:
+			panic("unexpected constant")
+		}
+		cb.UntypedBigRat(val)
+		return cb.stk.Pop(), true
+	}
+	return nil, false
 }
 
 func toRetType(t *types.Tuple, it *instantiated) types.Type {
