@@ -20,6 +20,7 @@ import (
 	"go/types"
 	"log"
 	"os"
+	"reflect"
 	"strconv"
 
 	"golang.org/x/tools/go/packages"
@@ -59,13 +60,26 @@ type PkgRef struct {
 	// module is the module information for the package if it exists.
 	Module *Module
 
+	pkg *Package // to import packages anywhere
+
 	// IllTyped indicates whether the package or any dependency contains errors.
 	// It is set only when Types is set.
 	IllTyped bool
 
-	pkg *Package // to import packages anywhere
-
+	isUsed   bool
 	nameRefs []*ast.Ident // for internal use
+}
+
+func (p *PkgRef) markUsed(v *ast.Ident) {
+	if p.isUsed {
+		return
+	}
+	for _, ref := range p.nameRefs {
+		if ref == v {
+			p.isUsed = true
+			return
+		}
+	}
 }
 
 // Ref returns the object in scope s with the given name if such an
@@ -246,7 +260,63 @@ func (p *Package) endImport() {
 	p.delayPkgPaths = pkgPaths[:0]
 }
 
+func (p *Package) markUsed() {
+	if p.removedExprs {
+		// travel all ast nodes to mark used
+		markUsed(p, reflect.ValueOf(p.decls))
+		return
+	}
+	// no removed exprs, mark used simplely
+	for _, pkg := range p.importPkgs {
+		if pkg.nameRefs != nil {
+			pkg.isUsed = true
+		}
+	}
+}
+
+func markUsed(pkg *Package, val reflect.Value) {
+retry:
+	switch val.Kind() {
+	case reflect.Slice:
+		for i, n := 0, val.Len(); i < n; i++ {
+			markUsed(pkg, val.Index(i))
+		}
+	case reflect.Ptr:
+		if val.IsNil() {
+			return
+		}
+		t := val.Type()
+		if t == tySelExprPtr {
+			x := val.Interface().(*ast.SelectorExpr).X
+			if sym, ok := x.(*ast.Ident); ok {
+				name := sym.Name
+				for _, at := range pkg.importPkgs {
+					if at.Types.Name() == name { // pkg.Object
+						at.markUsed(sym)
+					}
+				}
+			} else {
+				markUsed(pkg, reflect.ValueOf(x))
+			}
+		} else if t.Implements(tyAstNode) { // ast.Node
+			elem := val.Elem()
+			for i, n := 0, elem.NumField(); i < n; i++ {
+				markUsed(pkg, elem.Field(i))
+			}
+		}
+	case reflect.Interface:
+		val = val.Elem()
+		goto retry
+	}
+}
+
+var (
+	tyAstNode    = reflect.TypeOf((*ast.Node)(nil)).Elem()
+	tySelExprPtr = reflect.TypeOf((*ast.SelectorExpr)(nil))
+)
+
 func (p *Package) getDecls() (decls []ast.Decl) {
+	p.markUsed()
 	n := len(p.allPkgPaths)
 	if n == 0 {
 		return p.decls
@@ -255,7 +325,7 @@ func (p *Package) getDecls() (decls []ast.Decl) {
 	names := p.newAutoNames()
 	for _, pkgPath := range p.allPkgPaths {
 		pkg := p.importPkgs[pkgPath]
-		if pkg.nameRefs == nil { // unused
+		if !pkg.isUsed { // unused
 			continue
 		}
 		pkgName, renamed := names.RequireName(pkg.Types.Name())

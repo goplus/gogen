@@ -405,11 +405,56 @@ func unaryOp(tok token.Token, args []*internal.Elem) constant.Value {
 func binaryOp(tok token.Token, args []*internal.Elem) constant.Value {
 	if len(args) == 2 {
 		if a, b := args[0].CVal, args[1].CVal; a != nil && b != nil {
-			return constant.BinaryOp(a, tok, b)
+			return doBinaryOp(a, tok, b)
 		}
 	}
 	return nil
 }
+
+func doBinaryOp(a constant.Value, tok token.Token, b constant.Value) constant.Value {
+	switch binaryOpKinds[tok] {
+	case binaryOpNormal:
+		return constant.BinaryOp(a, tok, b)
+	case binaryOpCompare:
+		return constant.MakeBool(constant.Compare(a, tok, b))
+	default:
+		s, _ := constant.Int64Val(b)
+		return constant.Shift(a, tok, uint(s))
+	}
+}
+
+const (
+	binaryOpNormal = iota
+	binaryOpCompare
+	binaryOpShift
+)
+
+var (
+	binaryOpKinds = [...]int{
+		token.ADD: 0, // +
+		token.SUB: 0, // -
+		token.MUL: 0, // *
+		token.QUO: 0, // /
+		token.REM: 0, // %
+
+		token.AND:     0,             // &
+		token.OR:      0,             // |
+		token.XOR:     0,             // ^
+		token.AND_NOT: 0,             // &^
+		token.SHL:     binaryOpShift, // <<
+		token.SHR:     binaryOpShift, // >>
+
+		token.LAND: binaryOpCompare, // &&
+		token.LOR:  binaryOpCompare, // ||
+
+		token.LSS: binaryOpCompare,
+		token.LEQ: binaryOpCompare,
+		token.GTR: binaryOpCompare,
+		token.GEQ: binaryOpCompare,
+		token.EQL: binaryOpCompare,
+		token.NEQ: binaryOpCompare,
+	}
+)
 
 func getParamLen(sig *types.Signature) int {
 	n := sig.Params().Len()
@@ -485,6 +530,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	tyRet := toRetType(sig.Results(), it)
 	if cval != nil { // untyped bigint/bigrat
 		if ret, ok := untypeBig(&pkg.cb, cval, tyRet); ok {
+			pkg.removedExprs = true
 			return ret, nil
 		}
 	}
@@ -538,6 +584,10 @@ func untypeBig(cb *CodeBuilder, cval constant.Value, tyRet types.Type) (*interna
 		}
 		cb.UntypedBigRat(val)
 		return cb.stk.Pop(), true
+	case types.Typ[types.Bool]:
+		return &internal.Elem{
+			Val: boolean(constant.BoolVal(cval)), Type: tyRet, CVal: cval,
+		}, true
 	}
 	return nil, false
 }

@@ -785,6 +785,28 @@ func (p numberT) String() string {
 
 // ----------------------------------------------------------------------------
 
+type orderableT struct {
+	// type basicContract{kindsOrderable}, untyped_bigint, untyped_bigrat, untyped_bigfloat
+}
+
+func (p orderableT) Match(pkg *Package, typ types.Type) bool {
+	switch t := typ.(type) {
+	case *types.Named:
+		switch t {
+		case pkg.cb.utBigInt, pkg.cb.utBigRat, pkg.cb.utBigFlt:
+			return true
+		}
+	}
+	c := &basicContract{kinds: kindsOrderable}
+	return c.Match(pkg, typ)
+}
+
+func (p orderableT) String() string {
+	return "orderable"
+}
+
+// ----------------------------------------------------------------------------
+
 type integerT struct {
 	// type basicContract{kindsNumber}, untyped_bigint
 }
@@ -810,7 +832,7 @@ var (
 	makable    = makableT{}
 	cbool      = &basicContract{kindsBool, "bool"}
 	ninteger   = &basicContract{kindsInteger, "ninteger"}
-	orderable  = &basicContract{kindsOrderable, "orderable"}
+	orderable  = orderableT{}
 	integer    = integerT{}
 	number     = numberT{}
 	addable    = addableT{}

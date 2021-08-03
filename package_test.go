@@ -230,6 +230,7 @@ func TestIncDec(t *testing.T) {
 		NewVar(tyInt, "a").
 		SetComments(comment("\n// inc a"), true).
 		VarRef(ctxRef(pkg, "a")).IncDec(token.INC).EndStmt().
+		VarRef(ctxRef(pkg, "a")).IncDec(token.DEC).EndStmt().
 		End()
 	if pkg.CB().Comments() != nil {
 		t.Fatal("comment is not nil")
@@ -241,6 +242,7 @@ func main() {
 	var a uint
 // inc a
 	a++
+	a--
 }
 `)
 }

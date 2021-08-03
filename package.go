@@ -111,6 +111,7 @@ type Package struct {
 	loadPkgs      LoadPkgsFunc
 	autoPrefix    string
 	autoIdx       int
+	removedExprs  bool
 }
 
 // NewPackage creates a new package.
