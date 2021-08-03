@@ -794,7 +794,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 			arg.Type = t2.tBound
 		}
 		if t.tBound == nil {
-			arg.Type = Default(pkg, arg.Type)
+			arg.Type = DefaultConv(pkg, arg.Type, &arg.Val)
 			t.boundTo(pkg, arg.Type)
 		}
 		param = t.tBound
@@ -805,7 +805,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 			}
 			arg.Type = t2.tBound
 		}
-		arg.Type = Default(pkg, arg.Type)
+		arg.Type = DefaultConv(pkg, arg.Type, &arg.Val)
 		mapTy := types.NewMap(Default(pkg, t.key), arg.Type)
 		t.typ.boundTo(pkg, mapTy)
 		return nil
@@ -821,7 +821,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 			return boundType(pkg, arg.Type, param)
 		}
 	}
-	if AssignableTo(pkg, arg.Type, param) {
+	if AssignableConv(pkg, arg.Type, param, &arg.Val) {
 		return nil
 	}
 	return &MatchError{

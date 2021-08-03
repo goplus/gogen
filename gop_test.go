@@ -332,7 +332,6 @@ var a = builtin.Gop_bigrat_Init__1(big.NewRat(19, 6))
 `)
 }
 
-/*
 func TestUntypedBigRatAdd4(t *testing.T) {
 	pkg := newGopMainPackage()
 	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
@@ -353,7 +352,6 @@ var a builtin.Gop_bigrat
 var b = a.Gop_Add(builtin.Gop_bigrat_Init__1(big.NewRat(1, 6)))
 `)
 }
-*/
 
 func TestUntypedBigRatSub(t *testing.T) {
 	pkg := newGopMainPackage()

@@ -190,6 +190,10 @@ func DefaultConv(pkg *Package, t types.Type, expr *ast.Expr) types.Type {
 
 // AssignableTo reports whether a value of type V is assignable to a variable of type T.
 func AssignableTo(pkg *Package, V, T types.Type) bool {
+	return AssignableConv(pkg, V, T, nil)
+}
+
+func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
 	V, T = realType(V), realType(T)
 	if debugMatch {
 		log.Println("==> AssignableTo", V, T)
@@ -217,8 +221,7 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 		return true
 	}
 	if t, ok := T.(*types.Named); ok {
-		var expr ast.Expr
-		ok = assignable(pkg, V, t, &expr)
+		ok = assignable(pkg, V, t, expr)
 		if debugMatch {
 			log.Println("==> AssignableTo", V, T, "return", ok)
 		}
@@ -227,11 +230,18 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 	return false
 }
 
+var (
+	nilExpr ast.Expr
+)
+
 func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool {
 	o := t.Obj()
 	if at := o.Pkg(); at != nil {
 		name := o.Name() + "_Init"
 		if ini := at.Scope().Lookup(name); ini != nil {
+			if expr == nil {
+				expr = &nilExpr
+			}
 			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
 			args := []*internal.Elem{{Val: *expr, Type: v}}
 			ret, err := matchFuncCall(pkg, fn, args, instrFlagQuiet)
