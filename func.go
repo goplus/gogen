@@ -190,7 +190,6 @@ type InstrFlags = token.Pos
 const (
 	InstrFlagEllipsis InstrFlags = 1 << iota
 	InstrFlagTwoValue
-	instrFlagQuiet
 )
 
 type Instruction interface {

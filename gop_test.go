@@ -199,7 +199,7 @@ import (
 	big "math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__1(big.NewRat(2, 21))
+var a = builtin.Gop_bigrat_Init__2(big.NewRat(2, 21))
 `)
 }
 
@@ -217,7 +217,7 @@ import (
 	big "math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__1(big.NewRat(2, 21))
+var a = builtin.Gop_bigrat_Init__2(big.NewRat(2, 21))
 `)
 }
 
@@ -235,7 +235,7 @@ import (
 	big "math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__1(big.NewRat(21, 2))
+var a = builtin.Gop_bigrat_Init__2(big.NewRat(21, 2))
 `)
 }
 
@@ -292,7 +292,7 @@ import (
 	big "math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__1(big.NewRat(1, 2))
+var a = builtin.Gop_bigrat_Init__2(big.NewRat(1, 2))
 `)
 }
 
@@ -310,7 +310,7 @@ import (
 	big "math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__1(big.NewRat(19, 6))
+var a = builtin.Gop_bigrat_Init__2(big.NewRat(19, 6))
 `)
 }
 
@@ -328,7 +328,7 @@ import (
 	big "math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__1(big.NewRat(19, 6))
+var a = builtin.Gop_bigrat_Init__2(big.NewRat(19, 6))
 `)
 }
 
@@ -349,7 +349,25 @@ import (
 )
 
 var a builtin.Gop_bigrat
-var b = a.Gop_Add(builtin.Gop_bigrat_Init__1(big.NewRat(1, 6)))
+var b = a.Gop_Add(builtin.Gop_bigrat_Init__2(big.NewRat(1, 6)))
+`)
+}
+
+func TestUntypedBigRatAdd5(t *testing.T) {
+	pkg := newGopMainPackage()
+	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(token.NoPos, mbig.Ref("Gop_bigrat").Type(), "a")
+	pkg.CB().NewVarStart(nil, "b").
+		Val(ctxRef(pkg, "a")).
+		Val(100).
+		BinaryOp(token.ADD).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+var a builtin.Gop_bigrat
+var b = a.Gop_Add(builtin.Gop_bigrat_Init__0(100))
 `)
 }
 
@@ -367,7 +385,7 @@ import (
 	big "math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__1(big.NewRat(-1, 6))
+var a = builtin.Gop_bigrat_Init__2(big.NewRat(-1, 6))
 `)
 }
 
@@ -396,7 +414,7 @@ import (
 	big "math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__1(big.NewRat(2, 21))
+var a = builtin.Gop_bigrat_Init__2(big.NewRat(2, 21))
 var b builtin.Gop_bigrat = a
 `)
 }
@@ -417,7 +435,7 @@ import (
 )
 
 func main() {
-	a := builtin.Gop_bigrat_Init__1(new(big.Rat).SetFrac(big.NewInt(1), func() *big.Int {
+	a := builtin.Gop_bigrat_Init__2(new(big.Rat).SetFrac(big.NewInt(1), func() *big.Int {
 		v, _ := new(big.Int).SetString("340282366920938463463374607431768211456", 10)
 		return v
 	}()))

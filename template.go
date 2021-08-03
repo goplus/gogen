@@ -222,8 +222,8 @@ func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
 	}
 	if t, ok := T.(*types.Named); ok {
 		ok = assignable(pkg, V, t, expr)
-		if debugMatch {
-			log.Println("==> AssignableTo", V, T, "return", ok)
+		if debugMatch && expr != nil {
+			log.Println("==> AssignableConv", V, T)
 		}
 		return ok
 	}
@@ -244,7 +244,7 @@ func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool
 			}
 			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
 			args := []*internal.Elem{{Val: *expr, Type: v}}
-			ret, err := matchFuncCall(pkg, fn, args, instrFlagQuiet)
+			ret, err := matchFuncCall(pkg, fn, args, 0)
 			if err == nil {
 				*expr = ret.Val
 				return true

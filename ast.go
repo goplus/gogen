@@ -488,7 +488,7 @@ func getParam1st(sig *types.Signature) int {
 }
 
 func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
-	if debugMatch && (flags&instrFlagQuiet) == 0 {
+	if debugMatch {
 		log.Println("==> MatchFuncCall", fn.Type)
 	}
 	var it *instantiated
@@ -515,10 +515,12 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 			cval = binaryOp(t.tokFlag, args)
 		}
 	case *overloadFuncType:
+		backup := backupArgs(args)
 		for _, o := range t.funcs {
 			if ret, err = matchFuncCall(pkg, toObject(pkg, o, fn.Src), args, flags); err == nil {
 				return
 			}
+			restoreArgs(args, backup)
 		}
 		return
 	case *instructionType:
@@ -560,6 +562,20 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		Type: tyRet, CVal: cval,
 		Val: &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 	}, nil
+}
+
+func backupArgs(args []*internal.Elem) []ast.Expr {
+	backup := make([]ast.Expr, len(args))
+	for i, arg := range args {
+		backup[i] = arg.Val
+	}
+	return backup
+}
+
+func restoreArgs(args []*internal.Elem, backup []ast.Expr) {
+	for i, arg := range args {
+		arg.Val = backup[i]
+	}
 }
 
 func untypeBig(pkg *Package, cval constant.Value, tyRet types.Type) (*internal.Elem, bool) {
