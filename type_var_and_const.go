@@ -137,6 +137,8 @@ func (p *ValueDecl) resetInit(cb *CodeBuilder) *ValueDecl {
 }
 
 func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
+	var expr *ast.Expr
+	var values []ast.Expr
 	n := len(p.names)
 	rets := cb.stk.GetArgs(arity)
 	if arity == 1 && n != 1 {
@@ -152,7 +154,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	} else if n != arity {
 		panic("TODO: unmatched var/const define")
 	} else {
-		values := make([]ast.Expr, arity)
+		values = make([]ast.Expr, arity)
 		for i, ret := range rets {
 			values[i] = ret.Val
 		}
@@ -179,7 +181,10 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 					p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
 			}
 		} else if typ == nil {
-			retType := Default(pkg, rets[i].Type)
+			if values != nil {
+				expr = &values[i]
+			}
+			retType := DefaultConv(pkg, rets[i].Type, expr)
 			if old := scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {
 					oldpos := cb.position(old.Pos())

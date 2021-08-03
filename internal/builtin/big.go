@@ -36,9 +36,9 @@ type Gop_untyped_bigint *big.Int
 type Gop_untyped_bigrat *big.Rat
 type Gop_untyped_bigfloat *big.Float
 
-type Gop_untyped_bigint_Default Gop_bigint
-type Gop_untyped_bigrat_Default Gop_bigrat
-type Gop_untyped_bigfloat_Default Gop_bigfloat
+type Gop_untyped_bigint_Default = Gop_bigint
+type Gop_untyped_bigrat_Default = Gop_bigrat
+type Gop_untyped_bigfloat_Default = Gop_bigfloat
 
 // -----------------------------------------------------------------------------
 // type bigint

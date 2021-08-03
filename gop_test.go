@@ -170,8 +170,8 @@ var h builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__1(g)
 func TestUntypedBigRat(t *testing.T) {
 	pkg := newGopMainPackage()
 	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
-	pkg.CB().NewVarStart(mbig.Ref("Gop_bigrat").Type(), "a").UntypedBigRat(big.NewRat(6, 63)).EndInit(1)
-	// TODO: builtin.Gop_bigrat_Init__0
+	pkg.CB().NewVarStart(nil, "a").UntypedBigRat(big.NewRat(6, 63)).EndInit(1)
+	pkg.CB().NewVarStart(mbig.Ref("Gop_bigrat").Type(), "b").Val(ctxRef(pkg, "a")).EndInit(1)
 	domTest(t, pkg, `package main
 
 import (
@@ -179,7 +179,8 @@ import (
 	big "math/big"
 )
 
-var a builtin.Gop_bigrat = big.NewRat(2, 21)
+var a = builtin.Gop_bigrat_Init__1(big.NewRat(2, 21))
+var b builtin.Gop_bigrat = a
 `)
 }
 
@@ -188,15 +189,22 @@ func TestUntypedBigRat2(t *testing.T) {
 	one := big.NewInt(1)
 	denom := new(big.Int).Lsh(one, 128)
 	v := new(big.Rat).SetFrac(one, denom)
-	pkg.CB().NewVarStart(nil, "a").UntypedBigRat(v).EndInit(1)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart("a").UntypedBigRat(v).EndInit(1).
+		End()
 	domTest(t, pkg, `package main
 
-import big "math/big"
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
 
-var a = new(big.Rat).SetFrac(big.NewInt(1), func() *big.Int {
-	v, _ := new(big.Int).SetString("340282366920938463463374607431768211456", 10)
-	return v
-}())
+func main() {
+	a := builtin.Gop_bigrat_Init__1(new(big.Rat).SetFrac(big.NewInt(1), func() *big.Int {
+		v, _ := new(big.Int).SetString("340282366920938463463374607431768211456", 10)
+		return v
+	}()))
+}
 `)
 }
 

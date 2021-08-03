@@ -15,6 +15,7 @@ package gox
 
 import (
 	"fmt"
+	"go/ast"
 	"go/token"
 	"go/types"
 	"log"
@@ -162,13 +163,36 @@ func Default(pkg *Package, t types.Type) types.Type {
 	return typ
 }
 
+func DefaultConv(pkg *Package, t types.Type, expr *ast.Expr) types.Type {
+	typ, conv := defaultWithConv(pkg, t)
+	if conv && expr != nil {
+		if debugMatch {
+			log.Println("==> DefaultConv", t, typ)
+		}
+		o := typ.(*types.Named).Obj()
+		name := o.Name() + "_Init"
+		if ini := o.Pkg().Scope().Lookup(name); ini != nil {
+			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
+			args := []*internal.Elem{{Val: *expr, Type: t}}
+			ret, err := matchFuncCall(pkg, fn, args, 0)
+			if debugMatch {
+				log.Println("==> MatchFuncCall return", err == nil)
+			}
+			if err == nil {
+				*expr = ret.Val
+			}
+		}
+	}
+	return typ
+}
+
 func defaultWithConv(pkg *Package, t types.Type) (types.Type, bool) {
 	if named, ok := t.(*types.Named); ok {
 		o := named.Obj()
 		if at := o.Pkg(); at != nil {
 			name := o.Name() + "_Default"
 			if typ := at.Scope().Lookup(name); typ != nil {
-				if tn, ok := typ.(*types.TypeName); ok {
+				if tn, ok := typ.(*types.TypeName); ok && tn.IsAlias() {
 					return tn.Type(), true
 				}
 			}
