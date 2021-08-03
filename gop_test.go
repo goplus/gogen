@@ -221,6 +221,27 @@ var a = builtin.Gop_bigint_Init__1(big.NewInt(2))
 `)
 }
 
+func TestUntypedBigIntShift(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.CB().NewVarStart(nil, "a").
+		UntypedBigInt(big.NewInt(1)).
+		Val(128).
+		BinaryOp(token.SHL).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a = builtin.Gop_bigint_Init__1(func() *big.Int {
+	v, _ := new(big.Int).SetString("340282366920938463463374607431768211456", 10)
+	return v
+}())
+`)
+}
+
 func TestUntypedBigRatAdd(t *testing.T) {
 	pkg := newGopMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
