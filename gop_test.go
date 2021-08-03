@@ -76,7 +76,7 @@ func initGopBuiltin(pkg gox.PkgImporter, conf *gox.Config) {
 func newGopBuiltinDefault(pkg gox.PkgImporter, prefix string, conf *gox.Config) *types.Package {
 	builtin := types.NewPackage("", "")
 	initGopBuiltin(pkg, conf)
-	gox.InitBuiltinOps(builtin, prefix)
+	gox.InitBuiltinOps(builtin, prefix, conf)
 	gox.InitBuiltinFuncs(builtin)
 	return builtin
 }
@@ -185,6 +185,42 @@ var a = builtin.Gop_bigint_Init__1(big.NewInt(69))
 `)
 }
 
+func TestUntypedBigIntQuo(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.CB().NewVarStart(nil, "a").
+		UntypedBigInt(big.NewInt(6)).
+		UntypedBigInt(big.NewInt(63)).
+		BinaryOp(token.QUO).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a = builtin.Gop_bigrat_Init__1(big.NewRat(2, 21))
+`)
+}
+
+func TestUntypedBigIntRem(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.CB().NewVarStart(nil, "a").
+		UntypedBigInt(big.NewInt(100)).
+		UntypedBigInt(big.NewInt(7)).
+		BinaryOp(token.REM).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a = builtin.Gop_bigint_Init__1(big.NewInt(2))
+`)
+}
+
 func TestUntypedBigRatAdd(t *testing.T) {
 	pkg := newGopMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
@@ -200,6 +236,24 @@ import (
 )
 
 var a = builtin.Gop_bigrat_Init__1(big.NewRat(1, 2))
+`)
+}
+
+func TestUntypedBigRatSub(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.CB().NewVarStart(nil, "a").
+		UntypedBigRat(big.NewRat(1, 6)).
+		UntypedBigRat(big.NewRat(1, 3)).
+		BinaryOp(token.SUB).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a = builtin.Gop_bigrat_Init__1(big.NewRat(-1, 6))
 `)
 }
 

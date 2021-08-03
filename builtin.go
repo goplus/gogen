@@ -28,7 +28,7 @@ var (
 
 func newBuiltinDefault(pkg PkgImporter, prefix string, conf *Config) *types.Package {
 	builtin := types.NewPackage("", "")
-	InitBuiltinOps(builtin, prefix)
+	InitBuiltinOps(builtin, prefix, conf)
 	InitBuiltinFuncs(builtin)
 	return builtin
 }
@@ -46,7 +46,7 @@ type typeParam struct {
 }
 
 // InitBuiltinOps initializes operators of the builtin package.
-func InitBuiltinOps(builtin *types.Package, pre string) {
+func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 	ops := [...]struct {
 		name    string
 		tparams []typeTParam
@@ -63,6 +63,7 @@ func InitBuiltinOps(builtin *types.Package, pre string) {
 		// func Gop_Mul[T number](a, b T) T
 
 		{"Quo", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+		// func Gop_Quo(a, b untyped_bigint) untyped_bigrat
 		// func Gop_Quo[T number](a, b T) T
 
 		{"Rem", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
@@ -142,8 +143,18 @@ func InitBuiltinOps(builtin *types.Package, pre string) {
 		if n == 1 {
 			tokFlag |= tokUnaryFlag
 		}
+		name := pre + op.name
 		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
-		gbl.Insert(NewTemplateFunc(token.NoPos, builtin, pre+op.name, tsig))
+		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, name, tsig)
+		if op.name == "Quo" { // func Gop_Quo(a, b untyped_bigint) untyped_bigrat
+			a := types.NewParam(token.NoPos, builtin, "a", conf.UntypedBigInt)
+			b := types.NewParam(token.NoPos, builtin, "b", conf.UntypedBigInt)
+			ret := types.NewParam(token.NoPos, builtin, "", conf.UntypedBigRat)
+			sig := NewTemplateSignature(nil, nil, types.NewTuple(a, b), types.NewTuple(ret), false, tokFlag)
+			quo := NewTemplateFunc(token.NoPos, builtin, name, sig)
+			tfn = NewOverloadFunc(token.NoPos, builtin, name, quo, tfn)
+		}
+		gbl.Insert(tfn)
 	}
 
 	// Inc++, Dec--, Recv<-, Addr& are special cases
@@ -735,17 +746,59 @@ type addableT struct {
 }
 
 func (p addableT) Match(pkg *Package, typ types.Type) bool {
-	switch typ {
-	case pkg.cb.utBigInt, pkg.cb.utBigRat, pkg.cb.utBigFlt:
-		return true
-	default:
-		c := &basicContract{kinds: kindsAddable}
-		return c.Match(pkg, typ)
+	switch t := typ.(type) {
+	case *types.Named:
+		switch t {
+		case pkg.cb.utBigInt, pkg.cb.utBigRat, pkg.cb.utBigFlt:
+			return true
+		}
 	}
+	c := &basicContract{kinds: kindsAddable}
+	return c.Match(pkg, typ)
 }
 
 func (p addableT) String() string {
 	return "addable"
+}
+
+// ----------------------------------------------------------------------------
+
+type numberT struct {
+	// type basicContract{kindsNumber}, untyped_bigint, untyped_bigrat, untyped_bigfloat
+}
+
+func (p numberT) Match(pkg *Package, typ types.Type) bool {
+	switch t := typ.(type) {
+	case *types.Named:
+		switch t {
+		case pkg.cb.utBigInt, pkg.cb.utBigRat, pkg.cb.utBigFlt:
+			return true
+		}
+	}
+	c := &basicContract{kinds: kindsNumber}
+	return c.Match(pkg, typ)
+}
+
+func (p numberT) String() string {
+	return "number"
+}
+
+// ----------------------------------------------------------------------------
+
+type integerT struct {
+	// type basicContract{kindsNumber}, untyped_bigint
+}
+
+func (p integerT) Match(pkg *Package, typ types.Type) bool {
+	c := &basicContract{kinds: kindsNumber}
+	if c.Match(pkg, typ) {
+		return true
+	}
+	return typ == pkg.cb.utBigInt
+}
+
+func (p integerT) String() string {
+	return "integer"
 }
 
 // ----------------------------------------------------------------------------
@@ -756,10 +809,10 @@ var (
 	lenable    = lenableT{}
 	makable    = makableT{}
 	cbool      = &basicContract{kindsBool, "bool"}
-	integer    = &basicContract{kindsInteger, "integer"}
 	ninteger   = &basicContract{kindsInteger, "ninteger"}
-	number     = &basicContract{kindsNumber, "number"}
 	orderable  = &basicContract{kindsOrderable, "orderable"}
+	integer    = integerT{}
+	number     = numberT{}
 	addable    = addableT{}
 	comparable = comparableT{}
 )
