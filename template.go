@@ -18,6 +18,8 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+
+	"github.com/goplus/gox/internal"
 )
 
 // ----------------------------------------------------------------------------
@@ -97,8 +99,8 @@ func boundType(pkg *Package, arg, param types.Type) error {
 		if p.typ.contract.Match(pkg, arg) {
 			if p.tBound == nil {
 				p.boundTo(arg)
-			} else if !AssignableTo(&pkg.cb, arg, p.tBound) {
-				if isUntyped(p.tBound) && AssignableTo(&pkg.cb, p.tBound, arg) {
+			} else if !AssignableTo(pkg, arg, p.tBound) {
+				if isUntyped(p.tBound) && AssignableTo(pkg, p.tBound, arg) {
 					p.tBound = arg
 					return nil
 				}
@@ -144,7 +146,7 @@ func boundType(pkg *Package, arg, param types.Type) error {
 	case *types.Signature:
 		panic("TODO: boundType function signature")
 	default:
-		if AssignableTo(&pkg.cb, arg, param) {
+		if AssignableTo(pkg, arg, param) {
 			return nil
 		}
 	}
@@ -155,12 +157,23 @@ func boundType(pkg *Package, arg, param types.Type) error {
 // it returns the incoming type for all other types. The default type
 // for untyped nil is untyped nil.
 //
-func Default(cb *CodeBuilder, t types.Type) types.Type {
+func Default(pkg *Package, t types.Type) types.Type {
+	if named, ok := t.(*types.Named); ok {
+		o := named.Obj()
+		if at := o.Pkg(); at != nil {
+			name := o.Name() + "_Default"
+			if typ := at.Scope().Lookup(name); typ != nil {
+				if tn, ok := typ.(*types.TypeName); ok {
+					return tn.Type()
+				}
+			}
+		}
+	}
 	return types.Default(t)
 }
 
 // AssignableTo reports whether a value of type V is assignable to a variable of type T.
-func AssignableTo(cb *CodeBuilder, V, T types.Type) bool {
+func AssignableTo(pkg *Package, V, T types.Type) bool {
 	V, T = realType(V), realType(T)
 	if types.AssignableTo(V, T) {
 		if t, ok := T.(*types.Basic); ok { // untyped type
@@ -184,10 +197,22 @@ func AssignableTo(cb *CodeBuilder, V, T types.Type) bool {
 		}
 		return true
 	}
+	if t, ok := T.(*types.Named); ok {
+		o := t.Obj()
+		if at := o.Pkg(); at != nil {
+			name := o.Name() + "_Init"
+			if ini := at.Scope().Lookup(name); ini != nil {
+				fn := internal.Elem{Type: ini.Type()}
+				args := []internal.Elem{{Type: V}}
+				_, err := matchFuncCall(pkg, fn, args, 0)
+				return err == nil
+			}
+		}
+	}
 	return false
 }
 
-func ComparableTo(cb *CodeBuilder, V, T types.Type) bool {
+func ComparableTo(pkg *Package, V, T types.Type) bool {
 	V, T = types.Default(V), types.Default(T)
 	if V != T && V.Underlying() != T.Underlying() {
 		return false

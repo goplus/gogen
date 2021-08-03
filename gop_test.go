@@ -37,21 +37,14 @@ func toIndex(c byte) int {
 	panic("TODO: invalid character out of [0-9,a-z]")
 }
 
-func initGopBuiltin(pkg gox.PkgImporter, builtin *types.Package, conf *gox.Config) {
-	big := pkg.Import("github.com/goplus/gox/internal/builtin")
-	big.EnsureImported()
-	conf.UntypedBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
-	conf.UntypedBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
-	conf.UntypedBigFloat = big.Ref("Gop_untyped_bigfloat").Type().(*types.Named)
-	scope := big.Types.Scope()
+func initGopPkg(pkg *types.Package) {
+	scope := pkg.Scope()
 	overloads := make(map[string][]types.Object)
 	names := scope.Names()
 	for _, name := range names {
-		o := scope.Lookup(name)
-		builtin.Scope().Insert(o)
 		if n := len(name); n > 3 && name[n-3:n-1] == "__" { // overload function
 			key := name[:n-3]
-			overloads[key] = append(overloads[key], o)
+			overloads[key] = append(overloads[key], scope.Lookup(name))
 		}
 	}
 	for key, items := range overloads {
@@ -67,13 +60,22 @@ func initGopBuiltin(pkg gox.PkgImporter, builtin *types.Package, conf *gox.Confi
 			}
 			fns[idx] = item
 		}
-		builtin.Scope().Insert(gox.NewOverloadFunc(token.NoPos, builtin, key, fns...))
+		scope.Insert(gox.NewOverloadFunc(token.NoPos, pkg, key, fns...))
 	}
+}
+
+func initGopBuiltin(pkg gox.PkgImporter, conf *gox.Config) {
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	big.EnsureImported()
+	conf.UntypedBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
+	conf.UntypedBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
+	conf.UntypedBigFloat = big.Ref("Gop_untyped_bigfloat").Type().(*types.Named)
+	initGopPkg(big.Types)
 }
 
 func newGopBuiltinDefault(pkg gox.PkgImporter, prefix string, conf *gox.Config) *types.Package {
 	builtin := types.NewPackage("", "")
-	initGopBuiltin(pkg, builtin, conf)
+	initGopBuiltin(pkg, conf)
 	gox.InitBuiltinOps(builtin, prefix)
 	gox.InitBuiltinFuncs(builtin)
 	return builtin
@@ -138,7 +140,7 @@ var c builtin.Gop_bigint = a.Gop_Add(b)
 
 func TestBigRat(t *testing.T) {
 	pkg := newGopMainPackage()
-	big := pkg.Builtin()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
 	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "c").
 		Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.QUO).EndInit(1)
@@ -167,12 +169,16 @@ var h builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__1(g)
 
 func TestUntypedBigRat(t *testing.T) {
 	pkg := newGopMainPackage()
-	pkg.CB().NewVarStart(nil, "a").UntypedBigRat(big.NewRat(6, 63)).EndInit(1)
+	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.CB().NewVarStart(mbig.Ref("Gop_bigrat").Type(), "a").UntypedBigRat(big.NewRat(6, 63)).EndInit(1)
 	domTest(t, pkg, `package main
 
-import big "math/big"
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
 
-var a = big.NewRat(2, 21)
+var a builtin.Gop_bigrat = big.NewRat(2, 21)
 `)
 }
 

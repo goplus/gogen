@@ -179,7 +179,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 					p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
 			}
 		} else if typ == nil {
-			retType := types.Default(rets[i].Type)
+			retType := Default(pkg, rets[i].Type)
 			if old := scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {
 					oldpos := cb.position(old.Pos())

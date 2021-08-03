@@ -699,7 +699,7 @@ func matchType(pkg *Package, arg internal.Elem, param types.Type, at interface{}
 			arg.Type = t2.tBound
 		}
 		if t.tBound == nil {
-			arg.Type = types.Default(arg.Type)
+			arg.Type = Default(pkg, arg.Type)
 			t.boundTo(pkg, arg.Type)
 		}
 		param = t.tBound
@@ -710,8 +710,8 @@ func matchType(pkg *Package, arg internal.Elem, param types.Type, at interface{}
 			}
 			arg.Type = t2.tBound
 		}
-		arg.Type = types.Default(arg.Type)
-		mapTy := types.NewMap(types.Default(t.key), arg.Type)
+		arg.Type = Default(pkg, arg.Type)
+		mapTy := types.NewMap(Default(pkg, t.key), arg.Type)
 		t.typ.boundTo(pkg, mapTy)
 		return nil
 	default:
@@ -726,7 +726,7 @@ func matchType(pkg *Package, arg internal.Elem, param types.Type, at interface{}
 			return boundType(pkg, arg.Type, param)
 		}
 	}
-	if AssignableTo(&pkg.cb, arg.Type, param) {
+	if AssignableTo(pkg, arg.Type, param) {
 		return nil
 	}
 	return &MatchError{
@@ -735,15 +735,15 @@ func matchType(pkg *Package, arg internal.Elem, param types.Type, at interface{}
 
 // -----------------------------------------------------------------------------
 
-func boundElementType(cb *CodeBuilder, elts []internal.Elem, base, max, step int) types.Type {
+func boundElementType(pkg *Package, elts []internal.Elem, base, max, step int) types.Type {
 	var tBound types.Type
 	for i := base; i < max; i += step {
 		e := elts[i]
 		if tBound == e.Type {
 			// nothing to do
-		} else if tBound == nil || AssignableTo(cb, tBound, e.Type) {
+		} else if tBound == nil || AssignableTo(pkg, tBound, e.Type) {
 			tBound = e.Type
-		} else if !AssignableTo(cb, e.Type, tBound) {
+		} else if !AssignableTo(pkg, e.Type, tBound) {
 			return TyEmptyInterface
 		}
 	}

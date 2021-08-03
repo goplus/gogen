@@ -788,9 +788,9 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 	if check {
 		key, val = t.Key(), t.Elem()
 	} else {
-		key = boundElementType(p, args, 0, arity, 2)
-		val = boundElementType(p, args, 1, arity, 2)
-		t = types.NewMap(types.Default(key), types.Default(val))
+		key = boundElementType(pkg, args, 0, arity, 2)
+		val = boundElementType(pkg, args, 1, arity, 2)
+		t = types.NewMap(Default(pkg, key), Default(pkg, val))
 		typ = t
 		typExpr = toMapType(pkg, t)
 	}
@@ -798,11 +798,11 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 	for i := 0; i < arity; i += 2 {
 		elts[i>>1] = &ast.KeyValueExpr{Key: args[i].Val, Value: args[i+1].Val}
 		if check {
-			if !AssignableTo(p, args[i].Type, key) {
+			if !AssignableTo(pkg, args[i].Type, key) {
 				src, pos := p.loadExpr(args[i].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in map key", src, args[i].Type, key)
-			} else if !AssignableTo(p, args[i+1].Type, val) {
+			} else if !AssignableTo(pkg, args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in map value", src, args[i+1].Type, val)
@@ -888,7 +888,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		n := arity >> 1
 		elts = make([]ast.Expr, n)
 		for i := 0; i < arity; i += 2 {
-			if !AssignableTo(p, args[i+1].Type, val) {
+			if !AssignableTo(pkg, args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
@@ -911,8 +911,8 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		if check {
 			val = t.Elem()
 		} else {
-			val = boundElementType(p, args, 0, arity, 1)
-			t = types.NewSlice(types.Default(val))
+			val = boundElementType(pkg, args, 0, arity, 1)
+			t = types.NewSlice(Default(pkg, val))
 			typ = t
 			typExpr = toSliceType(pkg, t)
 		}
@@ -920,7 +920,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		for i, arg := range args {
 			elts[i] = arg.Val
 			if check {
-				if !AssignableTo(p, arg.Type, val) {
+				if !AssignableTo(pkg, arg.Type, val) {
 					src, pos := p.loadExpr(arg.Src)
 					p.panicCodeErrorf(
 						&pos, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)
@@ -966,7 +966,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		}
 		elts = make([]ast.Expr, arity>>1)
 		for i := 0; i < arity; i += 2 {
-			if !AssignableTo(p, args[i+1].Type, val) {
+			if !AssignableTo(pkg, args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in array literal", src, args[i+1].Type, val)
@@ -986,7 +986,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		elts = make([]ast.Expr, arity)
 		for i, arg := range args {
 			elts[i] = arg.Val
-			if !AssignableTo(p, arg.Type, val) {
+			if !AssignableTo(pkg, arg.Type, val) {
 				src, pos := p.loadExpr(arg.Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
@@ -1030,7 +1030,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 			}
 			elt := t.Field(idx)
 			eltTy, eltName := elt.Type(), elt.Name()
-			if !AssignableTo(p, args[i+1].Type, eltTy) {
+			if !AssignableTo(pkg, args[i+1].Type, eltTy) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in value of field %s",
@@ -1052,7 +1052,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 		for i, arg := range args {
 			elts[i] = arg.Val
 			eltTy := t.Field(i).Type()
-			if !AssignableTo(p, arg.Type, eltTy) {
+			if !AssignableTo(pkg, arg.Type, eltTy) {
 				src, pos := p.loadExpr(arg.Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in value of field %s",

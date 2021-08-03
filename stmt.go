@@ -110,7 +110,7 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int) {
 		list = make([]ast.Expr, n)
 		for i, arg := range cb.stk.GetArgs(n) {
 			if p.tag.Val != nil { // switch tag {...}
-				if !ComparableTo(cb, arg.Type, p.tag.Type) {
+				if !ComparableTo(cb.pkg, arg.Type, p.tag.Type) {
 					log.Panicf("TODO: case expr can't compare %v to %v\n", arg.Type, p.tag.Type)
 				}
 			} else { // switch {...}

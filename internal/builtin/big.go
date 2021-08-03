@@ -25,13 +25,20 @@ import (
 //
 
 type Gop_ninteger = uint
-type Gop_untyped_bigint *big.Int
-type Gop_untyped_bigrat *big.Rat
-type Gop_untyped_bigfloat *big.Float
 
 func Gop_istmp(a interface{}) bool {
 	return false
 }
+
+// -----------------------------------------------------------------------------
+
+type Gop_untyped_bigint *big.Int
+type Gop_untyped_bigrat *big.Rat
+type Gop_untyped_bigfloat *big.Float
+
+type Gop_untyped_bigint_Default Gop_bigint
+type Gop_untyped_bigrat_Default Gop_bigrat
+type Gop_untyped_bigfloat_Default Gop_bigfloat
 
 // -----------------------------------------------------------------------------
 // type bigint
@@ -368,6 +375,14 @@ func Gop_bigrat_Init__1(x constant.Value) Gop_bigrat {
 		return Gop_bigrat{ret}
 	}
 	panic("TODO: init bigrat: not a number")
+}
+
+func Gop_bigrat_Init__2(x Gop_untyped_bigrat) Gop_bigrat {
+	panic("to make compiler happy")
+}
+
+func Gop_bigrat_Init__3(x Gop_untyped_bigint) Gop_bigrat {
+	panic("to make compiler happy")
 }
 
 // -----------------------------------------------------------------------------
