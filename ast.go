@@ -162,7 +162,7 @@ func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
 	return &ast.Ident{Name: t.Name()}
 }
 
-func isUntyped(typ types.Type) bool {
+func isUntyped(pkg *Package, typ types.Type) bool {
 	if t, ok := typ.(*types.Basic); ok {
 		return (t.Info() & types.IsUntyped) != 0
 	}
@@ -529,7 +529,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	}
 	tyRet := toRetType(sig.Results(), it)
 	if cval != nil { // untyped bigint/bigrat
-		if ret, ok := untypeBig(&pkg.cb, cval, tyRet); ok {
+		if ret, ok := untypeBig(pkg, cval, tyRet); ok {
 			pkg.removedExprs = true
 			return ret, nil
 		}
@@ -556,9 +556,9 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	}, nil
 }
 
-func untypeBig(cb *CodeBuilder, cval constant.Value, tyRet types.Type) (*internal.Elem, bool) {
+func untypeBig(pkg *Package, cval constant.Value, tyRet types.Type) (*internal.Elem, bool) {
 	switch tyRet {
-	case cb.utBigInt:
+	case pkg.utBigInt:
 		var val *big.Int
 		switch v := constant.Val(cval).(type) {
 		case int64:
@@ -568,9 +568,8 @@ func untypeBig(cb *CodeBuilder, cval constant.Value, tyRet types.Type) (*interna
 		default:
 			panic("unexpected constant")
 		}
-		cb.UntypedBigInt(val)
-		return cb.stk.Pop(), true
-	case cb.utBigRat:
+		return pkg.cb.UntypedBigInt(val).stk.Pop(), true
+	case pkg.utBigRat:
 		var val *big.Rat
 		switch v := constant.Val(cval).(type) {
 		case int64:
@@ -582,8 +581,7 @@ func untypeBig(cb *CodeBuilder, cval constant.Value, tyRet types.Type) (*interna
 		default:
 			panic("unexpected constant")
 		}
-		cb.UntypedBigRat(val)
-		return cb.stk.Pop(), true
+		return pkg.cb.UntypedBigRat(val).stk.Pop(), true
 	case types.Typ[types.Bool]:
 		return &internal.Elem{
 			Val: boolean(constant.BoolVal(cval)), Type: tyRet, CVal: cval,

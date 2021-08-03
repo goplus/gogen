@@ -203,6 +203,26 @@ var a = builtin.Gop_bigrat_Init__1(big.NewRat(2, 21))
 `)
 }
 
+/*
+func TestUntypedBigIntQuo2(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.CB().NewVarStart(nil, "a").
+		Val(6).
+		UntypedBigInt(big.NewInt(63)).
+		BinaryOp(token.QUO).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a = builtin.Gop_bigrat_Init__1(big.NewRat(2, 21))
+`)
+}
+*/
+
 func TestUntypedBigIntRem(t *testing.T) {
 	pkg := newGopMainPackage()
 	pkg.CB().NewVarStart(nil, "a").

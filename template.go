@@ -101,7 +101,7 @@ func boundType(pkg *Package, arg, param types.Type) error {
 			if p.tBound == nil {
 				p.boundTo(arg)
 			} else if !AssignableTo(pkg, arg, p.tBound) {
-				if isUntyped(p.tBound) && AssignableTo(pkg, p.tBound, arg) {
+				if isUntyped(pkg, p.tBound) && AssignableTo(pkg, p.tBound, arg) {
 					p.tBound = arg
 					return nil
 				}

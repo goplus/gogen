@@ -140,10 +140,6 @@ type CodeBuilder struct {
 	comments  *ast.CommentGroup
 	pkg       *Package
 	varDecl   *ValueDecl
-	utBigInt  *types.Named
-	utBigRat  *types.Named
-	utBigFlt  *types.Named
-	pkgBig    *PkgRef
 	interp    NodeInterpreter
 	handleErr func(err error)
 	closureParamInsts
@@ -162,18 +158,8 @@ func (p *CodeBuilder) init(pkg *Package) {
 		p.interp = nodeInterp{}
 	}
 	p.current.scope = pkg.Types.Scope()
-	p.utBigInt = conf.UntypedBigInt
-	p.utBigRat = conf.UntypedBigRat
-	p.utBigFlt = conf.UntypedBigFloat
 	p.stk.Init()
 	p.closureParamInsts.init()
-}
-
-func (p *CodeBuilder) big() *PkgRef {
-	if p.pkgBig == nil {
-		p.pkgBig = p.pkg.Import("math/big")
-	}
-	return p.pkgBig
 }
 
 func defaultHandleErr(err error) {
@@ -1221,7 +1207,8 @@ func (p *CodeBuilder) Typ(typ types.Type) *CodeBuilder {
 
 // UntypedBigInt func
 func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
-	big := p.big()
+	pkg := p.pkg
+	big := pkg.big()
 	if v.IsInt64() {
 		val := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(v.Int64(), 10)}
 		p.Val(big.Ref("NewInt")).Val(val).Call(1)
@@ -1232,7 +1219,6 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 				return v
 			}()
 		*/
-		pkg := p.pkg
 		typ := big.Ref("Int").Type()
 		retTyp := types.NewPointer(typ)
 		ret := pkg.NewParam(token.NoPos, "", retTyp)
@@ -1244,13 +1230,14 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 			End().Call(0)
 	}
 	ret := p.stk.Get(-1)
-	ret.Type, ret.CVal, ret.Src = p.utBigInt, constant.Make(v), getSrc(src)
+	ret.Type, ret.CVal, ret.Src = pkg.utBigInt, constant.Make(v), getSrc(src)
 	return p
 }
 
 // UntypedBigRat func
 func (p *CodeBuilder) UntypedBigRat(v *big.Rat, src ...ast.Node) *CodeBuilder {
-	big := p.big()
+	pkg := p.pkg
+	big := pkg.big()
 	a, b := v.Num(), v.Denom()
 	if a.IsInt64() && b.IsInt64() {
 		va := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(a.Int64(), 10)}
@@ -1262,7 +1249,7 @@ func (p *CodeBuilder) UntypedBigRat(v *big.Rat, src ...ast.Node) *CodeBuilder {
 			MemberVal("SetFrac").UntypedBigInt(a).UntypedBigInt(b).Call(2)
 	}
 	ret := p.stk.Get(-1)
-	ret.Type, ret.CVal, ret.Src = p.utBigRat, constant.Make(v), getSrc(src)
+	ret.Type, ret.CVal, ret.Src = pkg.utBigRat, constant.Make(v), getSrc(src)
 	return p
 }
 

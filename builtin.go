@@ -749,7 +749,7 @@ func (p addableT) Match(pkg *Package, typ types.Type) bool {
 	switch t := typ.(type) {
 	case *types.Named:
 		switch t {
-		case pkg.cb.utBigInt, pkg.cb.utBigRat, pkg.cb.utBigFlt:
+		case pkg.utBigInt, pkg.utBigRat, pkg.utBigFlt:
 			return true
 		}
 	}
@@ -771,7 +771,7 @@ func (p numberT) Match(pkg *Package, typ types.Type) bool {
 	switch t := typ.(type) {
 	case *types.Named:
 		switch t {
-		case pkg.cb.utBigInt, pkg.cb.utBigRat, pkg.cb.utBigFlt:
+		case pkg.utBigInt, pkg.utBigRat, pkg.utBigFlt:
 			return true
 		}
 	}
@@ -793,7 +793,7 @@ func (p orderableT) Match(pkg *Package, typ types.Type) bool {
 	switch t := typ.(type) {
 	case *types.Named:
 		switch t {
-		case pkg.cb.utBigInt, pkg.cb.utBigRat, pkg.cb.utBigFlt:
+		case pkg.utBigInt, pkg.utBigRat, pkg.utBigFlt:
 			return true
 		}
 	}
@@ -816,7 +816,7 @@ func (p integerT) Match(pkg *Package, typ types.Type) bool {
 	if c.Match(pkg, typ) {
 		return true
 	}
-	return typ == pkg.cb.utBigInt
+	return typ == pkg.utBigInt
 }
 
 func (p integerT) String() string {

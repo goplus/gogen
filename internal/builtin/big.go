@@ -226,8 +226,13 @@ func Gop_bigint_Init__1(x *big.Int) Gop_bigint {
 	return Gop_bigint{x}
 }
 
+// Gop_bigint_Init: func bigint.init(x int) bigint
+func Gop_bigint_Init__2(x int) Gop_bigint {
+	return Gop_bigint{big.NewInt(int64(x))}
+}
+
 // Gop_bigint_Init: func bigint.init(x constant.Value) bigint
-func Gop_bigint_Init__2(x constant.Value) Gop_bigint {
+func Gop_bigint_Init__3(x constant.Value) Gop_bigint {
 	switch v := constant.Val(x).(type) {
 	case int64:
 		return Gop_bigint{big.NewInt(v)}

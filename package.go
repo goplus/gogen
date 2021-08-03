@@ -108,6 +108,10 @@ type Package struct {
 	conf          *Config
 	prefix        string
 	builtin       *types.Package
+	pkgBig        *PkgRef
+	utBigInt      *types.Named
+	utBigRat      *types.Named
+	utBigFlt      *types.Named
 	loadPkgs      LoadPkgsFunc
 	autoPrefix    string
 	autoIdx       int
@@ -143,8 +147,18 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.builtin = newBuiltin(pkg, prefix, conf)
+	pkg.utBigInt = conf.UntypedBigInt
+	pkg.utBigRat = conf.UntypedBigRat
+	pkg.utBigFlt = conf.UntypedBigFloat
 	pkg.cb.init(pkg)
 	return pkg
+}
+
+func (p *Package) big() *PkgRef {
+	if p.pkgBig == nil {
+		p.pkgBig = p.Import("math/big")
+	}
+	return p.pkgBig
 }
 
 // Builtin returns the buitlin package.
