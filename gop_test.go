@@ -171,6 +171,7 @@ func TestUntypedBigRat(t *testing.T) {
 	pkg := newGopMainPackage()
 	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.CB().NewVarStart(mbig.Ref("Gop_bigrat").Type(), "a").UntypedBigRat(big.NewRat(6, 63)).EndInit(1)
+	// TODO: builtin.Gop_bigrat_Init__0
 	domTest(t, pkg, `package main
 
 import (

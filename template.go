@@ -158,18 +158,23 @@ func boundType(pkg *Package, arg, param types.Type) error {
 // for untyped nil is untyped nil.
 //
 func Default(pkg *Package, t types.Type) types.Type {
+	typ, _ := defaultWithConv(pkg, t)
+	return typ
+}
+
+func defaultWithConv(pkg *Package, t types.Type) (types.Type, bool) {
 	if named, ok := t.(*types.Named); ok {
 		o := named.Obj()
 		if at := o.Pkg(); at != nil {
 			name := o.Name() + "_Default"
 			if typ := at.Scope().Lookup(name); typ != nil {
 				if tn, ok := typ.(*types.TypeName); ok {
-					return tn.Type()
+					return tn.Type(), true
 				}
 			}
 		}
 	}
-	return types.Default(t)
+	return types.Default(t), false
 }
 
 // AssignableTo reports whether a value of type V is assignable to a variable of type T.
@@ -205,6 +210,9 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 				fn := internal.Elem{Type: ini.Type()}
 				args := []internal.Elem{{Type: V}}
 				_, err := matchFuncCall(pkg, fn, args, 0)
+				if debugMatch {
+					log.Println("==> MatchFuncCall return", err == nil)
+				}
 				return err == nil
 			}
 		}

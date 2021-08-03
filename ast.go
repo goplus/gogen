@@ -436,6 +436,9 @@ func getParam1st(sig *types.Signature) int {
 }
 
 func matchFuncCall(pkg *Package, fn internal.Elem, args []internal.Elem, flags InstrFlags) (ret internal.Elem, err error) {
+	if debugMatch {
+		log.Println("==> MatchFuncCall", fn.Type)
+	}
 	var it *instantiated
 	var sig *types.Signature
 	var cval constant.Value

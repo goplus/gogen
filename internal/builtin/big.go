@@ -356,13 +356,18 @@ func Gop_bigrat_Cast__4(a *big.Rat) Gop_bigrat {
 	return Gop_bigrat{a}
 }
 
-// Gop_bigrat_Init: func bigrat.init(x untyped_rat) bigrat
-func Gop_bigrat_Init__0(x *big.Rat) Gop_bigrat {
+// Gop_bigrat_Init: func bigrat.init(x untyped_int) bigrat
+func Gop_bigrat_Init__0(x Gop_untyped_bigint) Gop_bigrat {
+	return Gop_bigrat{new(big.Rat).SetInt(x)}
+}
+
+// Gop_bigrat_Init: func bigrat.init(x *big.Rat) bigrat
+func Gop_bigrat_Init__1(x *big.Rat) Gop_bigrat {
 	return Gop_bigrat{x}
 }
 
 // Gop_bigrat_Init: func bigrat.init(x constant.Value) bigrat
-func Gop_bigrat_Init__1(x constant.Value) Gop_bigrat {
+func Gop_bigrat_Init__2(x constant.Value) Gop_bigrat {
 	switch v := constant.Val(x).(type) {
 	case int64:
 		return Gop_bigrat{big.NewRat(v, 1)}
@@ -375,14 +380,6 @@ func Gop_bigrat_Init__1(x constant.Value) Gop_bigrat {
 		return Gop_bigrat{ret}
 	}
 	panic("TODO: init bigrat: not a number")
-}
-
-func Gop_bigrat_Init__2(x Gop_untyped_bigrat) Gop_bigrat {
-	panic("to make compiler happy")
-}
-
-func Gop_bigrat_Init__3(x Gop_untyped_bigint) Gop_bigrat {
-	panic("to make compiler happy")
 }
 
 // -----------------------------------------------------------------------------
