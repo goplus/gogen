@@ -44,6 +44,14 @@ func Gop_untyped_bigint_Init__0(x int) Gop_untyped_bigint {
 	panic("make compiler happy")
 }
 
+func Gop_untyped_bigrat_Init__0(x int) Gop_untyped_bigrat {
+	panic("make compiler happy")
+}
+
+func Gop_untyped_bigrat_Init__1(x Gop_untyped_bigint) Gop_untyped_bigrat {
+	panic("make compiler happy")
+}
+
 // -----------------------------------------------------------------------------
 // type bigint
 

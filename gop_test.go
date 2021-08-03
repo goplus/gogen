@@ -296,6 +296,42 @@ var a = builtin.Gop_bigrat_Init__1(big.NewRat(1, 2))
 `)
 }
 
+func TestUntypedBigRatAdd2(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.CB().NewVarStart(nil, "a").
+		UntypedBigRat(big.NewRat(1, 6)).
+		UntypedBigInt(big.NewInt(3)).
+		BinaryOp(token.ADD).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a = builtin.Gop_bigrat_Init__1(big.NewRat(19, 6))
+`)
+}
+
+func TestUntypedBigRatAdd3(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.CB().NewVarStart(nil, "a").
+		UntypedBigInt(big.NewInt(3)).
+		UntypedBigRat(big.NewRat(1, 6)).
+		BinaryOp(token.ADD).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a = builtin.Gop_bigrat_Init__1(big.NewRat(19, 6))
+`)
+}
+
 func TestUntypedBigRatSub(t *testing.T) {
 	pkg := newGopMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
