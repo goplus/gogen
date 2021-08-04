@@ -29,6 +29,7 @@ import (
 var (
 	gblFset     *token.FileSet
 	gblLoadPkgs gox.LoadPkgsFunc
+	handleErr   func(err error)
 )
 
 func init() {
@@ -42,6 +43,10 @@ func newMainPackage(noCache ...bool) *gox.Package {
 		Fset:            gblFset,
 		LoadPkgs:        gblLoadPkgs,
 		NodeInterpreter: nodeInterp{},
+	}
+	if handleErr != nil {
+		conf.HandleErr = handleErr
+		handleErr = nil
 	}
 	if noCache != nil {
 		conf = nil
@@ -269,7 +274,7 @@ func TestRecv(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyChan, "a").
 		NewVarStart(types.Typ[types.Uint], "b").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW).EndInit(1).
-		DefineVarStart("c", "ok").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW, true).EndInit(1).
+		DefineVarStart(0, "c", "ok").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW, true).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -514,8 +519,8 @@ func TestTypeAssert(t *testing.T) {
 	pkg := newMainPackage()
 	params := types.NewTuple(pkg.NewParam(token.NoPos, "v", gox.TyEmptyInterface))
 	pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
-		DefineVarStart("x").Val(ctxRef(pkg, "v")).TypeAssert(types.Typ[types.Int], false).EndInit(1).
-		DefineVarStart("y", "ok").Val(ctxRef(pkg, "v")).TypeAssert(types.Typ[types.String], true).EndInit(1).
+		DefineVarStart(0, "x").Val(ctxRef(pkg, "v")).TypeAssert(types.Typ[types.Int], false).EndInit(1).
+		DefineVarStart(0, "y", "ok").Val(ctxRef(pkg, "v")).TypeAssert(types.Typ[types.String], true).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -597,14 +602,14 @@ func TestSelect(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyXchg, "xchg").
 		/**/ Select().
-		/****/ DefineVarStart("x").Val(ctxRef(pkg, "xchg")).UnaryOp(token.ARROW).EndInit(1).CommCase(1).
+		/****/ DefineVarStart(0, "x").Val(ctxRef(pkg, "xchg")).UnaryOp(token.ARROW).EndInit(1).CommCase(1).
 		/******/ NewVarStart(types.Typ[types.Int], "t").Val(ctxRef(pkg, "x")).EndInit(1).
 		/****/ End().
 		/****/ Val(ctxRef(pkg, "xchg")).Val(1).Send().CommCase(1).
-		/******/ DefineVarStart("x").Val(1).EndInit(1).
+		/******/ DefineVarStart(0, "x").Val(1).EndInit(1).
 		/****/ End().
 		/****/ CommCase(0).
-		/******/ DefineVarStart("x").Val("Hi").EndInit(1).
+		/******/ DefineVarStart(0, "x").Val("Hi").EndInit(1).
 		/****/ End().
 		/**/ End().
 		End()
@@ -931,7 +936,7 @@ func TestDefineVar(t *testing.T) {
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.Int], "n").
-		DefineVarStart("n", "err").Val(fmt.Ref("Println")).Val(2).Call(1).EndInit(1).
+		DefineVarStart(0, "n", "err").Val(fmt.Ref("Println")).Val(2).Call(1).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -1230,7 +1235,7 @@ func foo(format string, args ...interface {
 func TestIf(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		/**/ If().DefineVarStart("x").Val(3).EndInit(1).
+		/**/ If().DefineVarStart(0, "x").Val(3).EndInit(1).
 		/******/ Val(ctxRef(pkg, "x")).Val(1).BinaryOp(token.GTR).Then().
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("OK!").Call(1).EndStmt().
 		/**/ End().
@@ -1251,7 +1256,7 @@ func TestIfElse(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		/**/ If().DefineVarStart("x").Val(3).EndInit(1).
+		/**/ If().DefineVarStart(0, "x").Val(3).EndInit(1).
 		/******/ Val(ctxRef(pkg, "x")).Val(1).BinaryOp(token.GTR).Then().
 		/******/ Val(fmt.Ref("Println")).Val("OK!").Call(1).EndStmt().
 		/**/ Else().
@@ -1326,7 +1331,7 @@ func TestSwitch(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		/**/ Switch().DefineVarStart("x").Val(3).EndInit(1).Val(ctxRef(pkg, "x")).Then(). // switch x := 3; x {
+		/**/ Switch().DefineVarStart(0, "x").Val(3).EndInit(1).Val(ctxRef(pkg, "x")).Then(). // switch x := 3; x {
 		/**/ Val(1).Val(2).Case(2). // case 1, 2:
 		/******/ Val(fmt.Ref("Println")).Val("1 or 2").Call(1).EndStmt().
 		/******/ End().
@@ -1359,7 +1364,7 @@ func TestSwitchNoTag(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		/**/ DefineVarStart("x").Val(3).EndInit(1).
+		/**/ DefineVarStart(0, "x").Val(3).EndInit(1).
 		/**/ Switch().None().Then(). // switch {
 		/**/ Val(ctxRef(pkg, "x")).Val(2).BinaryOp(token.EQL).Case(1). // case x == 2:
 		/******/ Val(fmt.Ref("Println")).Val("x = 2").Call(1).EndStmt().
@@ -1395,7 +1400,7 @@ func main() {
 func TestFor(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		/**/ For().DefineVarStart("i").Val(0).EndInit(1). // for i := 0; i < len("Hello"); i=i+1 {
+		/**/ For().DefineVarStart(0, "i").Val(0).EndInit(1). // for i := 0; i < len("Hello"); i=i+1 {
 		/******/ Val(ctxRef(pkg, "i")).Val(ctxRef(pkg, "len")).Val("Hello").Call(1).BinaryOp(token.LSS).Then().
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
 		/******/ Post().
@@ -1437,7 +1442,7 @@ func TestLabeledFor(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Label("label").
-		/**/ For().DefineVarStart("i").Val(0).EndInit(1). // for i := 0; i < 10; i=i+1 {
+		/**/ For().DefineVarStart(0, "i").Val(0).EndInit(1). // for i := 0; i < 10; i=i+1 {
 		/******/ Val(ctxRef(pkg, "i")).Val(10).BinaryOp(token.LSS).Then().
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
 		/******/ Break("label").
@@ -1462,7 +1467,7 @@ label:
 func TestForRange(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart("a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
+		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
 		/**/ ForRange("i").Val(ctxRef(pkg, "a")).RangeAssignThen().
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
 		/**/ End().
@@ -1504,7 +1509,7 @@ func main() {
 func TestForRangeKV(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart("a").Val(1).Val(1.2).Val(3).ArrayLit(types.NewArray(types.Typ[types.Float64], 3), 3).EndInit(1).
+		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).ArrayLit(types.NewArray(types.Typ[types.Float64], 3), 3).EndInit(1).
 		/**/ ForRange("_", "x").Val(ctxRef(pkg, "a")).RangeAssignThen().
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "x")).Call(1).EndStmt().
 		/**/ End().
@@ -1548,7 +1553,7 @@ func main() {
 func TestForRangeNoAssign(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart("a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
+		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
 		/**/ ForRange().Val(ctxRef(pkg, "a")).RangeAssignThen().
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
 		/**/ End().
@@ -1572,7 +1577,7 @@ func TestForRangeAssignKV(t *testing.T) {
 	tyInt := types.Typ[types.Int]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyString, "k").NewVar(tyInt, "v").
-		DefineVarStart("a").Val("a").Val(1).Val("b").Val(3).MapLit(nil, 4).EndInit(1).
+		DefineVarStart(0, "a").Val("a").Val(1).Val("b").Val(3).MapLit(nil, 4).EndInit(1).
 		/**/ ForRange().VarRef(ctxRef(pkg, "k")).VarRef(ctxRef(pkg, "v")).Val(ctxRef(pkg, "a")).RangeAssignThen().
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "k")).Val(ctxRef(pkg, "v")).Call(2).EndStmt().
 		/**/ End().
@@ -1902,7 +1907,7 @@ func TestIndex(t *testing.T) {
 	y := pkg.NewParam(token.NoPos, "y", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
 	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
 	pkg.NewFunc(nil, "foo", gox.NewTuple(x, y), gox.NewTuple(ret), false).BodyStart(pkg).
-		DefineVarStart("v", "ok").Val(y).Val("a").Index(1, true).EndInit(1).
+		DefineVarStart(0, "v", "ok").Val(y).Val("a").Index(1, true).EndInit(1).
 		Val(x).Val(0).Index(1, false).Return(1).
 		End()
 
@@ -1952,7 +1957,7 @@ func TestStar(t *testing.T) {
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint32]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart("a").Typ(tyInt).Star().Val(nil).Call(1).EndInit(1).
+		DefineVarStart(0, "a").Typ(tyInt).Star().Val(nil).Call(1).EndInit(1).
 		NewVarStart(tyInt, "b").Val(ctxRef(pkg, "a")).Star().EndInit(1).
 		End()
 	domTest(t, pkg, `package main
@@ -2201,9 +2206,9 @@ func TestCallInlineClosure(t *testing.T) {
 	err := pkg.NewParam(token.NoPos, "", gox.TyError)
 	sig := gox.NewSignature(nil, nil, types.NewTuple(ret), false)
 	pkg.NewFunc(nil, "foo", nil, types.NewTuple(err), false).BodyStart(pkg).
-		DefineVarStart("n").
+		DefineVarStart(0, "n").
 		CallInlineClosureStart(sig, 0, false).
-		/**/ DefineVarStart("n", "err").Val(fmt.Ref("Println")).Val("Hi").Call(1).EndInit(1).
+		/**/ DefineVarStart(0, "n", "err").Val(fmt.Ref("Println")).Val("Hi").Call(1).EndInit(1).
 		/**/ If().Val(ctxRef(pkg, "err")).CompareNil(token.NEQ).Then().
 		/******/ Val(ctxRef(pkg, "err")).ReturnErr(true).
 		/******/ End().
@@ -2272,7 +2277,7 @@ func TestCallInlineClosureEllipsis(t *testing.T) {
 		Val(fmt.Ref("Println")).
 		Val(1).SliceLit(types.NewSlice(gox.TyEmptyInterface), 1).
 		CallInlineClosureStart(sig, 1, true).
-		/**/ DefineVarStart("n", "err").Val(fmt.Ref("Println")).Val(x).Call(1, true).EndInit(1).
+		/**/ DefineVarStart(0, "n", "err").Val(fmt.Ref("Println")).Val(x).Call(1, true).EndInit(1).
 		/**/ Val(ctxRef(pkg, "n")).Return(1).
 		/**/ End().
 		Call(1).EndStmt().
@@ -2312,9 +2317,9 @@ func TestExample(t *testing.T) {
 	v := pkg.NewParam(token.NoPos, "v", types.Typ[types.String]) // v string
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart("a", "b").Val("Hi").Val(3).EndInit(2).   // a, b := "Hi", 3
-		NewVarStart(nil, "c").Val(ctxRef(pkg, "b")).EndInit(1). // var c = b
-		NewVar(gox.TyEmptyInterface, "x", "y").                 // var x, y interface{}
+		DefineVarStart(0, "a", "b").Val("Hi").Val(3).EndInit(2). // a, b := "Hi", 3
+		NewVarStart(nil, "c").Val(ctxRef(pkg, "b")).EndInit(1).  // var c = b
+		NewVar(gox.TyEmptyInterface, "x", "y").                  // var x, y interface{}
 		Val(fmt.Ref("Println")).
 		/**/ Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "c")). // fmt.Println(a, b, c)
 		/**/ Call(3).EndStmt().

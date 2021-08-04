@@ -443,7 +443,7 @@ func TestUntypedBigRat2(t *testing.T) {
 	denom := new(big.Int).Lsh(one, 128)
 	v := new(big.Rat).SetFrac(one, denom)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart("a").UntypedBigRat(v).EndInit(1).
+		DefineVarStart(0, "a").UntypedBigRat(v).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 

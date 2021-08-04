@@ -142,12 +142,27 @@ func TestErrNewVar(t *testing.T) {
 		})
 }
 
+func TestErrDefineVar(t *testing.T) {
+	handleErr = func(err error) {
+		if err.Error() != "./foo.gop:2:1 no new variables on left side of :=" {
+			t.Fatal("TestErrDefineVar:", err)
+		}
+	}
+	codeErrorTest(t, `./foo.gop:2:6 cannot use "Hi" (type untyped string) as type int in assignment`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				DefineVarStart(0, "foo").Val(1).EndInit(1).
+				DefineVarStart(position(2, 1), "foo").Val("Hi", source(`"Hi"`, 2, 6)).EndInit(1).
+				End()
+		})
+}
+
 func TestErrForRange(t *testing.T) {
 	codeErrorTest(t, `./foo.gop:1:5 cannot assign type string to a (type int) in range`,
 		func(pkg *gox.Package) {
 			tySlice := types.NewSlice(types.Typ[types.String])
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				DefineVarStart("a").Val(1).EndInit(1).
+				DefineVarStart(0, "a").Val(1).EndInit(1).
 				NewVar(tySlice, "b").
 				ForRange().
 				VarRef(nil).
@@ -308,16 +323,6 @@ func TestErrLabel(t *testing.T) {
 	})
 }
 
-func _TestErrDefineVar(t *testing.T) {
-	codeErrorTest(t, "foo redeclared in this block\n\tprevious declaration at ./foo.gop:1",
-		func(pkg *gox.Package) {
-			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				DefineVarStart("foo").Val(1).EndInit(1).
-				DefineVarStart("foo").Val("Hi").EndInit(1).
-				End()
-		})
-}
-
 func TestErrStructLit(t *testing.T) {
 	codeErrorTest(t, `./foo.gop:1:7 too many values in struct{x int; y string}{...}`,
 		func(pkg *gox.Package) {
@@ -382,7 +387,7 @@ func TestErrMapLit(t *testing.T) {
 		func(pkg *gox.Package) {
 			tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
 			cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				DefineVarStart("x")
+				DefineVarStart(0, "x")
 			cb.ResetInit()
 			cb.Val(1, source("1")).
 				Val(2, source("2")).

@@ -206,11 +206,20 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 }
 
 func (p *Package) newValueDecl(pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
+	scope := p.cb.current.scope
 	n := len(names)
 	if tok == token.DEFINE { // a, b := expr
+		noNewVar := true
 		nameIdents := make([]ast.Expr, n)
 		for i, name := range names {
 			nameIdents[i] = ident(name)
+			if noNewVar && scope.Lookup(name) == nil {
+				noNewVar = false
+			}
+		}
+		if noNewVar {
+			err := p.cb.newCodePosError(pos, "no new variables on left side of :=")
+			p.cb.handleErr(err)
 		}
 		stmt := &ast.AssignStmt{Tok: token.DEFINE, Lhs: nameIdents}
 		at := p.cb.startStmtAt(stmt)
@@ -218,7 +227,6 @@ func (p *Package) newValueDecl(pos token.Pos, tok token.Token, typ types.Type, n
 	}
 	// var a, b = expr
 	// const a, b = expr
-	scope := p.cb.current.scope
 	nameIdents := make([]*ast.Ident, n)
 	for i, name := range names {
 		nameIdents[i] = ident(name)

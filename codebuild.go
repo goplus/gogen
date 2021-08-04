@@ -608,11 +608,11 @@ func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder 
 }
 
 // DefineVarStart func
-func (p *CodeBuilder) DefineVarStart(names ...string) *CodeBuilder {
+func (p *CodeBuilder) DefineVarStart(pos token.Pos, names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("DefineVarStart", names)
 	}
-	return p.pkg.newValueDecl(token.NoPos, token.DEFINE, nil, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(pos, token.DEFINE, nil, names...).InitStart(p.pkg)
 }
 
 // NewAutoVar func
@@ -1223,7 +1223,7 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 		retTyp := types.NewPointer(typ)
 		ret := pkg.NewParam(token.NoPos, "", retTyp)
 		p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
-			DefineVarStart("v", "_").
+			DefineVarStart(token.NoPos, "v", "_").
 			Val(pkg.builtin.Scope().Lookup("new")).Typ(typ).Call(1).
 			MemberVal("SetString").Val(v.String()).Val(10).Call(2).EndInit(1).
 			Val(p.Scope().Lookup("v")).Return(1).
