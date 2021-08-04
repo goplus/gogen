@@ -834,7 +834,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 				}
 				arg.Type = t.tBound
 			}
-			return boundType(pkg, arg.Type, param)
+			return boundType(pkg, arg.Type, param, &arg.Val)
 		}
 	}
 	if AssignableConv(pkg, arg.Type, param, &arg.Val) {

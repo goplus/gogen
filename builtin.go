@@ -751,6 +751,15 @@ func (p addableT) Match(pkg *Package, typ types.Type) bool {
 		switch t {
 		case pkg.utBigInt, pkg.utBigRat, pkg.utBigFlt:
 			return true
+		default:
+			// TODO: refactor
+			kind := pkg.cb.None().findMember(typ, "Gop_Add", nil, nil)
+			if kind != 0 {
+				pkg.cb.stk.PopN(1)
+				if kind == MemberMethod {
+					return true
+				}
+			}
 		}
 	}
 	c := &basicContract{kinds: kindsAddable}

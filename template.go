@@ -65,13 +65,14 @@ const (
 type unboundFuncParam struct {
 	tBound types.Type
 	typ    *TemplateParamType
+	expr   *ast.Expr
 }
 
-func (p *unboundFuncParam) boundTo(t types.Type) {
+func (p *unboundFuncParam) boundTo(pkg *Package, t types.Type, expr *ast.Expr) {
 	if !p.typ.allowUntyped() {
-		t = types.Default(t)
+		t = DefaultConv(pkg, t, expr)
 	}
-	p.tBound = t
+	p.tBound, p.expr = t, expr
 }
 
 func (p *unboundFuncParam) Underlying() types.Type {
@@ -94,14 +95,14 @@ func (p *unboundProxyParam) String() string {
 	return fmt.Sprintf("unboundProxyParam{typ: %v}", p.real)
 }
 
-func boundType(pkg *Package, arg, param types.Type) error {
+func boundType(pkg *Package, arg, param types.Type, expr *ast.Expr) error {
 	switch p := param.(type) {
 	case *unboundFuncParam: // template function param
 		if p.typ.contract.Match(pkg, arg) {
 			if p.tBound == nil {
-				p.boundTo(arg)
+				p.boundTo(pkg, arg, expr)
 			} else if !AssignableTo(pkg, arg, p.tBound) {
-				if isUntyped(pkg, p.tBound) && AssignableTo(pkg, p.tBound, arg) {
+				if isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.expr) {
 					p.tBound = arg
 					return nil
 				}
@@ -114,23 +115,23 @@ func boundType(pkg *Package, arg, param types.Type) error {
 		switch param := p.real.(type) {
 		case *types.Pointer:
 			if t, ok := arg.(*types.Pointer); ok {
-				return boundType(pkg, t.Elem(), param.Elem())
+				return boundType(pkg, t.Elem(), param.Elem(), nil) // TODO: expr = nil
 			}
 		case *types.Array:
 			if t, ok := arg.(*types.Array); ok && param.Len() == t.Len() {
-				return boundType(pkg, t.Elem(), param.Elem())
+				return boundType(pkg, t.Elem(), param.Elem(), nil) // TODO: expr = nil
 			}
 		case *types.Map:
 			if t, ok := arg.(*types.Map); ok {
-				if err1 := boundType(pkg, t.Key(), param.Key()); err1 != nil {
+				if err1 := boundType(pkg, t.Key(), param.Key(), nil); err1 != nil { // TODO: expr = nil
 					return fmt.Errorf("TODO: bound map keyType %v => %v failed", t.Key(), param.Key())
 				}
-				return boundType(pkg, t.Elem(), param.Elem())
+				return boundType(pkg, t.Elem(), param.Elem(), nil) // TODO: expr = nil
 			}
 		case *types.Chan:
 			if t, ok := arg.(*types.Chan); ok {
 				if dir := t.Dir(); dir == param.Dir() || dir == types.SendRecv {
-					return boundType(pkg, t.Elem(), param.Elem())
+					return boundType(pkg, t.Elem(), param.Elem(), nil) // TODO: expr = nil
 				}
 			}
 		case *types.Struct:
@@ -141,7 +142,7 @@ func boundType(pkg *Package, arg, param types.Type) error {
 		return fmt.Errorf("TODO: bound %v => unboundProxyParam", arg)
 	case *types.Slice:
 		if t, ok := arg.(*types.Slice); ok {
-			return boundType(pkg, t.Elem(), p.Elem())
+			return boundType(pkg, t.Elem(), p.Elem(), nil) // TODO: expr = nil
 		}
 		return fmt.Errorf("TODO: bound slice failed - %v not a slice", arg)
 	case *types.Signature:
@@ -195,9 +196,6 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 
 func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
 	V, T = realType(V), realType(T)
-	if debugMatch {
-		log.Println("==> AssignableTo", V, T)
-	}
 	if types.AssignableTo(V, T) {
 		if t, ok := T.(*types.Basic); ok { // untyped type
 			vkind := V.(*types.Basic).Kind()
@@ -230,23 +228,21 @@ func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
 	return false
 }
 
-var (
-	nilExpr ast.Expr
-)
-
 func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool {
 	o := t.Obj()
 	if at := o.Pkg(); at != nil {
 		name := o.Name() + "_Init"
 		if ini := at.Scope().Lookup(name); ini != nil {
-			if expr == nil {
-				expr = &nilExpr
-			}
 			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
-			args := []*internal.Elem{{Val: *expr, Type: v}}
-			ret, err := matchFuncCall(pkg, fn, args, 0)
+			arg := &internal.Elem{Type: v}
+			if expr != nil {
+				arg.Val = *expr
+			}
+			ret, err := matchFuncCall(pkg, fn, []*internal.Elem{arg}, 0)
 			if err == nil {
-				*expr = ret.Val
+				if expr != nil {
+					*expr = ret.Val
+				}
 				return true
 			}
 		}

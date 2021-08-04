@@ -371,6 +371,24 @@ var b = a.Gop_Add(builtin.Gop_bigrat_Init__0(100))
 `)
 }
 
+func TestUntypedBigRatAdd6(t *testing.T) {
+	pkg := newGopMainPackage()
+	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(token.NoPos, mbig.Ref("Gop_bigrat").Type(), "a")
+	pkg.CB().NewVarStart(nil, "b").
+		Val(100).
+		Val(ctxRef(pkg, "a")).
+		BinaryOp(token.ADD).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+var a builtin.Gop_bigrat
+var b = builtin.Gop_bigrat_Init__0(100) + a
+`)
+}
+
 func TestUntypedBigRatSub(t *testing.T) {
 	pkg := newGopMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
