@@ -33,6 +33,7 @@ var (
 )
 
 func init() {
+	// log.SetFlags(log.Llongfile)
 	gox.SetDebug(gox.DbgFlagAll)
 	gblFset = token.NewFileSet()
 	gblLoadPkgs = gox.NewLoadPkgsCached(nil)

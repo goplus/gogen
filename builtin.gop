@@ -79,6 +79,20 @@ func [T number] -(a T) T  // func Gop_Neg[T number](a T) T
 func [T integer] ^(a T) T // func Gop_Not[T integer](a T) T
 func [T bool] !(a T) T    // func Gop_LNot[T bool](a T) T
 
+func [T addable] (a *T) += (b T) // func Gop_AddAssign[T addable](a *T, b T)
+func [T number] (a *T) -= (b T)  // func Gop_SubAssign[T number](a *T, b T)
+func [T number] (a *T) *= (b T)  // func Gop_MulAssign[T number](a *T, b T)
+func [T number] (a *T) /= (b T)  // func Gop_QuoAssign[T number](a *T, b T)
+func [T integer] (a *T) %= (b T)  // func Gop_RemAssign[T integer](a *T, b T)
+
+func [T integer] (a *T) |= (b T)    // func Gop_OrAssign[T integer](a *T, b T)
+func [T integer] (a *T) ^= (b T)    // func Gop_XorAssign[T integer](a *T, b T)
+func [T integer] (a *T) &= (b T)    // func Gop_AndAssign[T integer](a *T, b T)
+func [T integer] (a *T) &^= (b T)   // func Gop_AndNotAssign[T integer](a *T, b T)
+
+func [T integer, N ninteger] (a *T) <<= (n N) // func Gop_LshAssign[T integer, N ninteger](a *T, n N)
+func [T integer, N ninteger] (a *T) >>= (n N) // func Gop_RshAssign[T integer, N ninteger](a *T, n N)
+
 // -----------------------------------------------------------------------------
 
 func [T integer] ++(a *T)   // func Gop_Inc[T integer](a *T)

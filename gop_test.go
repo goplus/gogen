@@ -185,6 +185,48 @@ var a = builtin.Gop_bigint_Init__1(big.NewInt(69))
 `)
 }
 
+func TestBigRatAssignOp(t *testing.T) {
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(ctxRef(pkg, "a")).
+		Val(ctxRef(pkg, "b")).
+		AssignOp(token.ADD_ASSIGN).
+		End()
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+var a, b builtin.Gop_bigrat
+
+func main() {
+	a.Gop_AddAssign(b)
+}
+`)
+}
+
+func TestBigRatAssignOp2(t *testing.T) {
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(ctxRef(pkg, "a")).
+		Val(1).
+		AssignOp(token.ADD_ASSIGN).
+		End()
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+var a builtin.Gop_bigrat
+
+func main() {
+	a.Gop_AddAssign(builtin.Gop_bigrat_Init__0(1))
+}
+`)
+}
+
 func TestUntypedBigIntQuo(t *testing.T) {
 	pkg := newGopMainPackage()
 	pkg.CB().NewVarStart(nil, "a").

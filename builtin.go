@@ -29,6 +29,7 @@ var (
 func newBuiltinDefault(pkg PkgImporter, prefix string, conf *Config) *types.Package {
 	builtin := types.NewPackage("", "")
 	InitBuiltinOps(builtin, prefix, conf)
+	InitBuiltinAssignOps(builtin, prefix)
 	InitBuiltinFuncs(builtin)
 	return builtin
 }
@@ -169,6 +170,72 @@ func newTParams(params []typeTParam) []*TemplateParamType {
 	tparams := make([]*TemplateParamType, n)
 	for i, tparam := range params {
 		tparams[i] = NewTemplateParamType(i, tparam.name, tparam.contract)
+	}
+	return tparams
+}
+
+// InitBuiltinAssignOps initializes assign operators of the builtin package.
+func InitBuiltinAssignOps(builtin *types.Package, pre string) {
+	ops := [...]struct {
+		name     string
+		t        Contract
+		ninteger bool
+	}{
+		{"AddAssign", addable, false},
+		// func Gop_AddAssign[T addable](a *T, b T)
+
+		{"SubAssign", number, false},
+		// func Gop_SubAssign[T number](a *T, b T)
+
+		{"MulAssign", number, false},
+		// func Gop_MulAssign[T number](a *T, b T)
+
+		{"QuoAssign", number, false},
+		// func Gop_QuoAssign[T number](a *T, b T)
+
+		{"RemAssign", integer, false},
+		// func Gop_RemAssign[T integer](a *T, b T)
+
+		{"OrAssign", integer, false},
+		// func Gop_OrAssign[T integer](a *T, b T)
+
+		{"XorAssign", integer, false},
+		// func Gop_XorAssign[T integer](a *T, b T)
+
+		{"AndAssign", integer, false},
+		// func Gop_Assign[T integer](a *T, b T)
+
+		{"AndNotAssign", integer, false},
+		// func Gop_AndNotAssign[T integer](a *T, b T)
+
+		{"LshAssign", integer, true},
+		// func Gop_LshAssign[T integer, N ninteger](a *T, n N)
+
+		{"RshAssign", integer, true},
+		// func Gop_RshAssign[T integer, N ninteger](a *T, n N)
+	}
+	gbl := builtin.Scope()
+	for _, op := range ops {
+		tparams := newOpTParams(op.t, op.ninteger)
+		params := make([]*types.Var, 2)
+		params[0] = types.NewParam(token.NoPos, builtin, "a", NewPointer(tparams[0]))
+		if op.ninteger {
+			params[1] = types.NewParam(token.NoPos, builtin, "n", tparams[1])
+		} else {
+			params[1] = types.NewParam(token.NoPos, builtin, "b", tparams[0])
+		}
+		name := pre + op.name
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), nil, false, 0)
+		tfn := NewTemplateFunc(token.NoPos, builtin, name, tsig)
+		gbl.Insert(tfn)
+	}
+}
+
+func newOpTParams(t Contract, utinteger bool) []*TemplateParamType {
+	tparams := make([]*TemplateParamType, 1, 2)
+	tparams[0] = NewTemplateParamType(0, "T", t)
+	if utinteger {
+		tparams = append(tparams, NewTemplateParamType(1, "N", ninteger))
 	}
 	return tparams
 }
@@ -753,9 +820,11 @@ func (p addableT) Match(pkg *Package, typ types.Type) bool {
 			return true
 		default:
 			// TODO: refactor
-			kind := pkg.cb.None().findMember(typ, "Gop_Add", nil, nil)
+			cb := pkg.cb
+			cb.stk.Push(elemNone)
+			kind := cb.findMember(typ, "Gop_Add", nil, nil)
 			if kind != 0 {
-				pkg.cb.stk.PopN(1)
+				cb.stk.PopN(1)
 				if kind == MemberMethod {
 					return true
 				}

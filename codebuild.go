@@ -653,7 +653,7 @@ func (p *CodeBuilder) doVarRef(ref interface{}, src ast.Node, allowDebug bool) *
 		switch v := ref.(type) {
 		case *types.Var:
 			if allowDebug && debugInstr {
-				log.Println("VarRef", v.Name())
+				log.Println("VarRef", v.Name(), v.Type())
 			}
 			fn := p.current.fn
 			if fn != nil && fn.isInline() { // is in an inline call
@@ -1507,21 +1507,64 @@ func indirect(typ types.Type) types.Type {
 }
 
 // AssignOp func
-func (p *CodeBuilder) AssignOp(tok token.Token) *CodeBuilder {
-	if debugInstr {
-		log.Println("AssignOp", tok)
-	}
+func (p *CodeBuilder) AssignOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	args := p.stk.GetArgs(2)
-	stmt := &ast.AssignStmt{
-		Tok: tok,
-		Lhs: []ast.Expr{args[0].Val},
-		Rhs: []ast.Expr{args[1].Val},
-	}
-	// TODO: type check
+	stmt := callAssignOp(p.pkg, op, args)
 	p.emitStmt(stmt)
 	p.stk.PopN(2)
 	return p
 }
+
+func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem) ast.Stmt {
+	name := pkg.prefix + assignOps[tok]
+	if debugInstr {
+		log.Println("AssignOp", tok, name)
+	}
+	if t, ok := args[0].Type.(*refType).typ.(*types.Named); ok {
+		op := lookupMethod(t, name)
+		if op != nil {
+			fn := &internal.Elem{
+				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
+				Type: realType(op.Type()),
+			}
+			ret := toFuncCall(pkg, fn, args, 0)
+			if ret.Type != nil {
+				log.Panicf("TODO: AssignOp %s should return no results\n", name)
+			}
+			return &ast.ExprStmt{X: ret.Val}
+		}
+	}
+	op := pkg.builtin.Scope().Lookup(name)
+	if op == nil {
+		panic("TODO: operator not matched")
+	}
+	fn := &internal.Elem{
+		Val: ident(op.Name()), Type: op.Type(),
+	}
+	toFuncCall(pkg, fn, args, 0)
+	return &ast.AssignStmt{
+		Tok: tok,
+		Lhs: []ast.Expr{args[0].Val},
+		Rhs: []ast.Expr{args[1].Val},
+	}
+}
+
+var (
+	assignOps = [...]string{
+		token.ADD_ASSIGN: "AddAssign", // +=
+		token.SUB_ASSIGN: "SubAssign", // -=
+		token.MUL_ASSIGN: "MulAssign", // *=
+		token.QUO_ASSIGN: "QuoAssign", // /=
+		token.REM_ASSIGN: "RemAssign", // %=
+
+		token.AND_ASSIGN:     "AndAssign",    // &=
+		token.OR_ASSIGN:      "OrAssign",     // |=
+		token.XOR_ASSIGN:     "XorAssign",    // ^=
+		token.AND_NOT_ASSIGN: "AndNotAssign", // &^=
+		token.SHL_ASSIGN:     "LshAssign",    // <<=
+		token.SHR_ASSIGN:     "RshAssign",    // >>=
+	}
+)
 
 // Assign func
 func (p *CodeBuilder) Assign(lhs int, rhs ...int) *CodeBuilder {

@@ -114,8 +114,11 @@ func boundType(pkg *Package, arg, param types.Type, expr *ast.Expr) error {
 	case *unboundProxyParam:
 		switch param := p.real.(type) {
 		case *types.Pointer:
-			if t, ok := arg.(*types.Pointer); ok {
+			switch t := arg.(type) {
+			case *types.Pointer:
 				return boundType(pkg, t.Elem(), param.Elem(), nil) // TODO: expr = nil
+			case *refType:
+				return boundType(pkg, t.typ, param.Elem(), nil)
 			}
 		case *types.Array:
 			if t, ok := arg.(*types.Array); ok && param.Len() == t.Len() {
@@ -196,6 +199,13 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 
 func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
 	V, T = realType(V), realType(T)
+	if v, ok := V.(*refType); ok { // ref type
+		if t, ok := T.(*types.Pointer); ok {
+			V, T = v.typ, t.Elem()
+		} else {
+			V = v.typ
+		}
+	}
 	if types.AssignableTo(V, T) {
 		if t, ok := T.(*types.Basic); ok { // untyped type
 			vkind := V.(*types.Basic).Kind()
