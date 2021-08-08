@@ -751,7 +751,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 		switch tt := typ.(type) {
 		case *types.Named:
 			typExpr = toNamedType(pkg, tt)
-			t = pkg.getUnderlying(tt).(*types.Map)
+			t = tt.Underlying().(*types.Map)
 		case *types.Map:
 			typExpr = toMapType(pkg, tt)
 			t = tt
@@ -861,7 +861,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		switch tt := typ.(type) {
 		case *types.Named:
 			typExpr = toNamedType(pkg, tt)
-			t = pkg.getUnderlying(tt).(*types.Slice)
+			t = tt.Underlying().(*types.Slice)
 		case *types.Slice:
 			typExpr = toSliceType(pkg, tt)
 			t = tt
@@ -935,7 +935,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 	switch tt := typ.(type) {
 	case *types.Named:
 		typExpr = toNamedType(pkg, tt)
-		t = pkg.getUnderlying(tt).(*types.Array)
+		t = tt.Underlying().(*types.Array)
 	case *types.Array:
 		typExpr = toArrayType(pkg, tt)
 		t = tt
@@ -998,7 +998,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 	switch tt := typ.(type) {
 	case *types.Named:
 		typExpr = toNamedType(pkg, tt)
-		t = pkg.getUnderlying(tt).(*types.Struct)
+		t = tt.Underlying().(*types.Struct)
 	case *types.Struct:
 		typExpr = toStructType(pkg, tt)
 		t = tt
@@ -1340,7 +1340,7 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 	arg := p.stk.Get(-1)
 	switch o := indirect(arg.Type).(type) {
 	case *types.Named:
-		if struc, ok := p.pkg.getUnderlying(o).(*types.Struct); ok {
+		if struc, ok := o.Underlying().(*types.Struct); ok {
 			if p.fieldRef(arg.Val, struc, name) {
 				return p
 			}
@@ -1417,7 +1417,7 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 			if p.method(t, name, argVal, srcExpr) {
 				return MemberMethod
 			}
-			if struc, ok := p.pkg.getUnderlying(t).(*types.Struct); ok {
+			if struc, ok := t.Underlying().(*types.Struct); ok {
 				if kind := p.field(struc, name, argVal, srcExpr); kind != 0 {
 					return kind
 				}
@@ -1431,7 +1431,7 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 		if p.method(o, name, argVal, srcExpr) {
 			return MemberMethod
 		}
-		switch t := p.pkg.getUnderlying(o).(type) {
+		switch t := o.Underlying().(type) {
 		case *types.Struct:
 			if kind := p.field(t, name, argVal, srcExpr); kind != 0 {
 				return kind

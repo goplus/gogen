@@ -634,7 +634,7 @@ retry:
 			return true
 		}
 	case *types.Named:
-		typ = pkg.getUnderlying(t)
+		typ = t.Underlying()
 		goto retry
 	}
 	return false
@@ -686,7 +686,7 @@ retry:
 	case *types.Basic:
 		return t.Kind() != types.UntypedNil // excluding nil
 	case *types.Named:
-		typ = pkg.getUnderlying(t)
+		typ = t.Underlying()
 		goto retry
 	case *types.Slice: // slice/map/func is very special
 		return false
@@ -744,7 +744,7 @@ retry:
 		_, ok := t.Elem().(*types.Array) // array_pointer
 		return ok
 	case *types.Named:
-		typ = pkg.getUnderlying(t)
+		typ = t.Underlying()
 		goto retry
 	}
 	return false
@@ -770,7 +770,7 @@ retry:
 	case *types.Map:
 		return true
 	case *types.Named:
-		typ = pkg.getUnderlying(t)
+		typ = t.Underlying()
 		goto retry
 	}
 	return capable.Match(pkg, typ)
@@ -796,7 +796,7 @@ retry:
 	case *types.Chan:
 		return true
 	case *types.Named:
-		typ = pkg.getUnderlying(t)
+		typ = t.Underlying()
 		goto retry
 	}
 	return false

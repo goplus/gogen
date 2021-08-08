@@ -101,10 +101,6 @@ func (p *Package) newType(name string, typ types.Type, alias token.Pos) *TypeDec
 	return &TypeDecl{typ: named, typExpr: &spec.Type}
 }
 
-func (p *Package) getUnderlying(typ *types.Named) types.Type {
-	return typ.Underlying()
-}
-
 // ----------------------------------------------------------------------------
 
 // ValueDecl type
