@@ -20,6 +20,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"os"
 	"testing"
 
 	"github.com/goplus/gox"
@@ -198,6 +199,11 @@ func TestTestingFile(t *testing.T) {
 func foo() {
 }
 `, true)
+	err := gox.WriteFile("_gop_autogen_test.go", pkg, true)
+	if err != nil {
+		t.Fatal("gox.WriteFile failed:", err)
+	}
+	os.Remove("_gop_autogen_test.go")
 }
 
 func TestMake(t *testing.T) {
