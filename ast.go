@@ -538,7 +538,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	tyRet := toRetType(sig.Results(), it)
 	if cval != nil { // untyped bigint/bigrat
 		if ret, ok := untypeBig(pkg, cval, tyRet); ok {
-			pkg.removedExprs = true
+			pkg.files[pkg.inTestingFile].removedExprs = true
 			return ret, nil
 		}
 	}

@@ -20,7 +20,6 @@ import (
 	"go/types"
 	"log"
 	"os"
-	"reflect"
 	"strconv"
 
 	"golang.org/x/tools/go/packages"
@@ -60,7 +59,8 @@ type PkgRef struct {
 	// module is the module information for the package if it exists.
 	Module *Module
 
-	pkg *Package // to import packages anywhere
+	file *file // to import packages anywhere
+	pkg  *Package
 
 	// IllTyped indicates whether the package or any dependency contains errors.
 	// It is set only when Types is set.
@@ -92,7 +92,7 @@ func (p *PkgRef) Ref(name string) Ref {
 // EnsureImported ensures this package is imported.
 func (p *PkgRef) EnsureImported() {
 	if p.Types == nil {
-		p.pkg.endImport()
+		p.file.endImport(p.pkg)
 	}
 }
 
@@ -224,129 +224,7 @@ func (p *Package) InternalGetLoadConfig() *packages.Config {
 
 // Import func
 func (p *Package) Import(pkgPath string) *PkgRef {
-	// TODO: canonical pkgPath
-	pkgImport, ok := p.importPkgs[pkgPath]
-	if !ok {
-		pkgImport = &PkgRef{pkg: p}
-		p.importPkgs[pkgPath] = pkgImport
-	}
-	if !ok || pkgPathNotFound(p.allPkgPaths, pkgPath) {
-		p.allPkgPaths = append(p.allPkgPaths, pkgPath)
-		p.delayPkgPaths = append(p.delayPkgPaths, pkgPath)
-	}
-	return pkgImport
-}
-
-func pkgPathNotFound(allPkgPaths []string, pkgPath string) bool {
-	for _, path := range allPkgPaths {
-		if path == pkgPath {
-			return false
-		}
-	}
-	return true
-}
-
-func (p *Package) endImport() {
-	pkgPaths := p.delayPkgPaths
-	if len(pkgPaths) == 0 {
-		return
-	}
-	if debugImport {
-		log.Println("==> LoadPkgs", pkgPaths)
-	}
-	if n := p.loadPkgs(p, p.importPkgs, pkgPaths...); n > 0 {
-		log.Panicf("total %d errors\n", n) // TODO: error message
-	}
-	p.delayPkgPaths = pkgPaths[:0]
-}
-
-func (p *Package) markUsed() {
-	if p.removedExprs {
-		// travel all ast nodes to mark used
-		markUsed(p, reflect.ValueOf(p.decls))
-		return
-	}
-	// no removed exprs, mark used simplely
-	for _, pkg := range p.importPkgs {
-		if pkg.nameRefs != nil {
-			pkg.isUsed = true
-		}
-	}
-}
-
-func markUsed(pkg *Package, val reflect.Value) {
-retry:
-	switch val.Kind() {
-	case reflect.Slice:
-		for i, n := 0, val.Len(); i < n; i++ {
-			markUsed(pkg, val.Index(i))
-		}
-	case reflect.Ptr:
-		if val.IsNil() {
-			return
-		}
-		t := val.Type()
-		if t == tySelExprPtr {
-			x := val.Interface().(*ast.SelectorExpr).X
-			if sym, ok := x.(*ast.Ident); ok {
-				name := sym.Name
-				for _, at := range pkg.importPkgs {
-					if at.Types.Name() == name { // pkg.Object
-						at.markUsed(sym)
-					}
-				}
-			} else {
-				markUsed(pkg, reflect.ValueOf(x))
-			}
-		} else if t.Implements(tyAstNode) { // ast.Node
-			elem := val.Elem()
-			for i, n := 0, elem.NumField(); i < n; i++ {
-				markUsed(pkg, elem.Field(i))
-			}
-		}
-	case reflect.Interface:
-		val = val.Elem()
-		goto retry
-	}
-}
-
-var (
-	tyAstNode    = reflect.TypeOf((*ast.Node)(nil)).Elem()
-	tySelExprPtr = reflect.TypeOf((*ast.SelectorExpr)(nil))
-)
-
-func (p *Package) getDecls() (decls []ast.Decl) {
-	p.markUsed()
-	n := len(p.allPkgPaths)
-	if n == 0 {
-		return p.decls
-	}
-	specs := make([]ast.Spec, 0, n)
-	names := p.newAutoNames()
-	for _, pkgPath := range p.allPkgPaths {
-		pkg := p.importPkgs[pkgPath]
-		if !pkg.isUsed { // unused
-			continue
-		}
-		pkgName, renamed := names.RequireName(pkg.Types.Name())
-		if renamed {
-			pkg.Types.SetName(pkgName)
-			for _, nameRef := range pkg.nameRefs {
-				nameRef.Name = pkgName
-			}
-		}
-		specs = append(specs, &ast.ImportSpec{
-			Name: ident(pkgName),
-			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkgPath)},
-		})
-	}
-	if len(specs) == 0 {
-		return p.decls
-	}
-	decls = make([]ast.Decl, 0, len(p.decls)+1)
-	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
-	decls = append(decls, p.decls...)
-	return
+	return p.files[p.inTestingFile].importPkg(p, pkgPath)
 }
 
 // ----------------------------------------------------------------------------

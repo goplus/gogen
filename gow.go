@@ -25,24 +25,25 @@ import (
 // ----------------------------------------------------------------------------
 
 // ASTFile func
-func ASTFile(pkg *Package) *ast.File {
-	return &ast.File{Name: ident(pkg.Types.Name()), Decls: pkg.getDecls()}
+func ASTFile(pkg *Package, testingFile bool) *ast.File {
+	idx := getInTestingFile(testingFile)
+	return &ast.File{Name: ident(pkg.Types.Name()), Decls: pkg.files[idx].getDecls(pkg)}
 }
 
 // WriteTo func
-func WriteTo(dst io.Writer, pkg *Package) (err error) {
+func WriteTo(dst io.Writer, pkg *Package, testingFile bool) (err error) {
 	fset := token.NewFileSet()
-	return format.Node(dst, fset, ASTFile(pkg))
+	return format.Node(dst, fset, ASTFile(pkg, testingFile))
 }
 
 // WriteFile func
-func WriteFile(file string, pkg *Package) (err error) {
+func WriteFile(file string, pkg *Package, testingFile bool) (err error) {
 	f, err := os.Create(file)
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	return WriteTo(f, pkg)
+	return WriteTo(f, pkg, testingFile)
 }
 
 // ----------------------------------------------------------------------------

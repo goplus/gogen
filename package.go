@@ -5,6 +5,9 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
+	"reflect"
+	"strconv"
 )
 
 type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
@@ -97,14 +100,149 @@ type Config struct {
 	UntypedBigInt, UntypedBigRat, UntypedBigFloat *types.Named
 }
 
-// Package type
-type Package struct {
-	PkgRef
+// ----------------------------------------------------------------------------
+
+type file struct {
 	decls         []ast.Decl
-	cb            CodeBuilder
 	importPkgs    map[string]*PkgRef
 	allPkgPaths   []string // all import pkgPaths
 	delayPkgPaths []string // all delay-load pkgPaths
+	removedExprs  bool
+}
+
+func pkgPathNotFound(allPkgPaths []string, pkgPath string) bool {
+	for _, path := range allPkgPaths {
+		if path == pkgPath {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *file) importPkg(pkg *Package, pkgPath string) *PkgRef {
+	// TODO: canonical pkgPath
+	pkgImport, ok := p.importPkgs[pkgPath]
+	if !ok {
+		pkgImport = &PkgRef{pkg: pkg, file: p}
+		p.importPkgs[pkgPath] = pkgImport
+	}
+	if !ok || pkgPathNotFound(p.allPkgPaths, pkgPath) {
+		p.allPkgPaths = append(p.allPkgPaths, pkgPath)
+		p.delayPkgPaths = append(p.delayPkgPaths, pkgPath)
+	}
+	return pkgImport
+}
+
+func (p *file) endImport(pkg *Package) {
+	pkgPaths := p.delayPkgPaths
+	if len(pkgPaths) == 0 {
+		return
+	}
+	if debugImport {
+		log.Println("==> LoadPkgs", pkgPaths)
+	}
+	if n := pkg.loadPkgs(pkg, p.importPkgs, pkgPaths...); n > 0 {
+		log.Panicf("total %d errors\n", n) // TODO: error message
+	}
+	p.delayPkgPaths = pkgPaths[:0]
+}
+
+func (p *file) markUsed(pkg *Package) {
+	if p.removedExprs {
+		// travel all ast nodes to mark used
+		p.markUsedBy(pkg, reflect.ValueOf(p.decls))
+		return
+	}
+	// no removed exprs, mark used simplely
+	for _, pkg := range p.importPkgs {
+		if pkg.nameRefs != nil {
+			pkg.isUsed = true
+		}
+	}
+}
+
+var (
+	tyAstNode    = reflect.TypeOf((*ast.Node)(nil)).Elem()
+	tySelExprPtr = reflect.TypeOf((*ast.SelectorExpr)(nil))
+)
+
+func (p *file) markUsedBy(pkg *Package, val reflect.Value) {
+retry:
+	switch val.Kind() {
+	case reflect.Slice:
+		for i, n := 0, val.Len(); i < n; i++ {
+			p.markUsedBy(pkg, val.Index(i))
+		}
+	case reflect.Ptr:
+		if val.IsNil() {
+			return
+		}
+		t := val.Type()
+		if t == tySelExprPtr {
+			x := val.Interface().(*ast.SelectorExpr).X
+			if sym, ok := x.(*ast.Ident); ok {
+				name := sym.Name
+				for _, at := range p.importPkgs {
+					if at.Types.Name() == name { // pkg.Object
+						at.markUsed(sym)
+					}
+				}
+			} else {
+				p.markUsedBy(pkg, reflect.ValueOf(x))
+			}
+		} else if t.Implements(tyAstNode) { // ast.Node
+			elem := val.Elem()
+			for i, n := 0, elem.NumField(); i < n; i++ {
+				p.markUsedBy(pkg, elem.Field(i))
+			}
+		}
+	case reflect.Interface:
+		val = val.Elem()
+		goto retry
+	}
+}
+
+func (p *file) getDecls(pkg *Package) (decls []ast.Decl) {
+	p.markUsed(pkg)
+	n := len(p.allPkgPaths)
+	if n == 0 {
+		return p.decls
+	}
+	specs := make([]ast.Spec, 0, n)
+	names := pkg.newAutoNames()
+	for _, pkgPath := range p.allPkgPaths {
+		pkg := p.importPkgs[pkgPath]
+		if !pkg.isUsed { // unused
+			continue
+		}
+		pkgName, renamed := names.RequireName(pkg.Types.Name())
+		if renamed {
+			pkg.Types.SetName(pkgName)
+			for _, nameRef := range pkg.nameRefs {
+				nameRef.Name = pkgName
+			}
+		}
+		specs = append(specs, &ast.ImportSpec{
+			Name: ident(pkgName),
+			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkgPath)},
+		})
+	}
+	if len(specs) == 0 {
+		return p.decls
+	}
+	decls = make([]ast.Decl, 0, len(p.decls)+1)
+	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
+	decls = append(decls, p.decls...)
+	return
+}
+
+// ----------------------------------------------------------------------------
+
+// Package type
+type Package struct {
+	PkgRef
+	cb            CodeBuilder
+	files         [2]file
 	conf          *Config
 	prefix        string
 	builtin       *types.Package
@@ -115,7 +253,7 @@ type Package struct {
 	loadPkgs      LoadPkgsFunc
 	autoPrefix    string
 	autoIdx       int
-	removedExprs  bool
+	inTestingFile int
 }
 
 // NewPackage creates a new package.
@@ -135,11 +273,15 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if loadPkgs == nil {
 		loadPkgs = LoadGoPkgs
 	}
+	files := [2]file{
+		{importPkgs: make(map[string]*PkgRef)},
+		{importPkgs: make(map[string]*PkgRef)},
+	}
 	pkg := &Package{
 		PkgRef: PkgRef{
 			Fset: conf.Fset,
 		},
-		importPkgs: make(map[string]*PkgRef),
+		files:      files,
 		conf:       conf,
 		prefix:     prefix,
 		loadPkgs:   loadPkgs,
@@ -169,6 +311,23 @@ func (p *Package) Builtin() *PkgRef {
 // CB returns the code builder.
 func (p *Package) CB() *CodeBuilder {
 	return &p.cb
+}
+
+// SetInTestingFile sets inTestingFile or not.
+func (p *Package) SetInTestingFile(inTestingFile bool) {
+	p.inTestingFile = getInTestingFile(inTestingFile)
+}
+
+func getInTestingFile(inTestingFile bool) int {
+	if inTestingFile {
+		return 1
+	}
+	return 0
+}
+
+// HasTestingFile returns true if this package has testing files.
+func (p *Package) HasTestingFile() bool {
+	return len(p.files[1].decls) != 0
 }
 
 // ----------------------------------------------------------------------------

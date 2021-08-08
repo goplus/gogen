@@ -88,7 +88,8 @@ func (p *Package) newType(name string, typ types.Type, alias token.Pos) *TypeDec
 	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
 	decl := &ast.GenDecl{Tok: token.TYPE, Specs: []ast.Spec{spec}}
 	if scope == p.Types.Scope() {
-		p.decls = append(p.decls, decl)
+		idx := p.inTestingFile
+		p.files[idx].decls = append(p.files[idx].decls, decl)
 	} else {
 		p.cb.emitStmt(&ast.DeclStmt{Decl: decl})
 	}
@@ -248,7 +249,8 @@ func (p *Package) newValueDecl(pos token.Pos, tok token.Token, typ types.Type, n
 	at := -1
 	decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
 	if scope == p.Types.Scope() {
-		p.decls = append(p.decls, decl)
+		idx := p.inTestingFile
+		p.files[idx].decls = append(p.files[idx].decls, decl)
 	} else {
 		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
 	}

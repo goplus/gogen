@@ -56,8 +56,12 @@ func newMainPackage(noCache ...bool) *gox.Package {
 }
 
 func domTest(t *testing.T, pkg *gox.Package, expected string) {
+	domTestEx(t, pkg, expected, false)
+}
+
+func domTestEx(t *testing.T, pkg *gox.Package, expected string, testingFile bool) {
 	var b bytes.Buffer
-	err := gox.WriteTo(&b, pkg)
+	err := gox.WriteTo(&b, pkg, testingFile)
 	if err != nil {
 		t.Fatal("gox.WriteTo failed:", err)
 	}
@@ -179,6 +183,21 @@ func TestBasic(t *testing.T) {
 func main() {
 }
 `)
+}
+
+func TestTestingFile(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	pkg.SetInTestingFile(true)
+	pkg.NewFunc(nil, "foo", nil, nil, false).BodyStart(pkg).End()
+	if !pkg.HasTestingFile() {
+		t.Fatal("not HasTestingFile?")
+	}
+	domTestEx(t, pkg, `package main
+
+func foo() {
+}
+`, true)
 }
 
 func TestMake(t *testing.T) {
