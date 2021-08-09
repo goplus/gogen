@@ -123,6 +123,22 @@ var a builtin.Gop_bigint
 `)
 }
 
+func TestBigIntVarInit(t *testing.T) {
+	pkg := newGopMainPackage()
+	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.CB().NewVarStart(mbig.Ref("Gop_bigint").Type(), "a").
+		UntypedBigInt(big.NewInt(6)).EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a builtin.Gop_bigint = builtin.Gop_bigint_Init__1(big.NewInt(6))
+`)
+}
+
 func TestBigInt(t *testing.T) {
 	pkg := newGopMainPackage()
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")

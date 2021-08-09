@@ -160,9 +160,12 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	pkg, scope := cb.pkg, cb.current.scope
 	typ := p.typ
 	if typ != nil {
-		for _, ret := range rets {
+		for i, ret := range rets {
 			if err := matchType(pkg, ret, typ, "assignment"); err != nil {
 				panic(err)
+			}
+			if values != nil { // ret.Val may be changed
+				values[i] = ret.Val
 			}
 		}
 	}
