@@ -2117,4 +2117,9 @@ func (p *CodeBuilder) Debug(dbg func(cb *CodeBuilder)) *CodeBuilder {
 	return p
 }
 
+// Get func
+func (p *CodeBuilder) Get(idx int) *Element {
+	return p.stk.Get(idx)
+}
+
 // ----------------------------------------------------------------------------
