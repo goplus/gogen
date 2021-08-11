@@ -351,8 +351,8 @@ func isUnboundTuple(t *types.Tuple) bool {
 }
 
 func isUnboundSignature(sig *types.Signature) bool {
-	return isUnboundVar(sig.Recv()) &&
-		isUnboundTuple(sig.Params()) &&
+	return isUnboundVar(sig.Recv()) ||
+		isUnboundTuple(sig.Params()) ||
 		isUnboundTuple(sig.Results())
 }
 
@@ -404,6 +404,11 @@ func toNormalize(tparams []*unboundFuncParam, typ types.Type) (types.Type, bool)
 		default:
 			log.Panicln("TODO: toNormalize - unknown type:", t)
 		}
+	case *unboundType:
+		if tt.tBound == nil {
+			log.Panicln("TODO: unbound type")
+		}
+		return tt.tBound, true
 	case *types.Slice:
 		if elem, ok := toNormalize(tparams, tt.Elem()); ok {
 			return types.NewSlice(elem), true

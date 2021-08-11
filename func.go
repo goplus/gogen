@@ -85,7 +85,7 @@ func (p *Func) End(cb *CodeBuilder) {
 	}
 	pkg := cb.pkg
 	body := &ast.BlockStmt{List: cb.endFuncBody(p.old)}
-	t := p.Type().(*types.Signature)
+	t, _ := toNormalizeSignature(nil, p.Type().(*types.Signature))
 	if fn := p.decl; fn == nil { // is closure
 		expr := &ast.FuncLit{Type: toFuncType(pkg, t), Body: body}
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t})
