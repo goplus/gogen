@@ -107,6 +107,7 @@ type file struct {
 	importPkgs    map[string]*PkgRef
 	allPkgPaths   []string // all import pkgPaths
 	delayPkgPaths []string // all delay-load pkgPaths
+	pkgBig        *PkgRef
 	removedExprs  bool
 }
 
@@ -119,11 +120,11 @@ func pkgPathNotFound(allPkgPaths []string, pkgPath string) bool {
 	return true
 }
 
-func (p *file) importPkg(pkg *Package, pkgPath string) *PkgRef {
+func (p *file) importPkg(this *Package, pkgPath string) *PkgRef {
 	// TODO: canonical pkgPath
 	pkgImport, ok := p.importPkgs[pkgPath]
 	if !ok {
-		pkgImport = &PkgRef{pkg: pkg, file: p}
+		pkgImport = &PkgRef{pkg: this, file: p}
 		p.importPkgs[pkgPath] = pkgImport
 	}
 	if !ok || pkgPathNotFound(p.allPkgPaths, pkgPath) {
@@ -133,7 +134,7 @@ func (p *file) importPkg(pkg *Package, pkgPath string) *PkgRef {
 	return pkgImport
 }
 
-func (p *file) endImport(pkg *Package) {
+func (p *file) endImport(this *Package) {
 	pkgPaths := p.delayPkgPaths
 	if len(pkgPaths) == 0 {
 		return
@@ -141,22 +142,22 @@ func (p *file) endImport(pkg *Package) {
 	if debugImport {
 		log.Println("==> LoadPkgs", pkgPaths)
 	}
-	if n := pkg.loadPkgs(pkg, p.importPkgs, pkgPaths...); n > 0 {
+	if n := this.loadPkgs(this, p.importPkgs, pkgPaths...); n > 0 {
 		log.Panicf("total %d errors\n", n) // TODO: error message
 	}
 	p.delayPkgPaths = pkgPaths[:0]
 }
 
-func (p *file) markUsed(pkg *Package) {
+func (p *file) markUsed(this *Package) {
 	if p.removedExprs {
 		// travel all ast nodes to mark used
-		p.markUsedBy(pkg, reflect.ValueOf(p.decls))
+		p.markUsedBy(this, reflect.ValueOf(p.decls))
 		return
 	}
 	// no removed exprs, mark used simplely
-	for _, pkg := range p.importPkgs {
-		if pkg.nameRefs != nil {
-			pkg.isUsed = true
+	for _, pkgImport := range p.importPkgs {
+		if pkgImport.nameRefs != nil {
+			pkgImport.isUsed = true
 		}
 	}
 }
@@ -166,12 +167,12 @@ var (
 	tySelExprPtr = reflect.TypeOf((*ast.SelectorExpr)(nil))
 )
 
-func (p *file) markUsedBy(pkg *Package, val reflect.Value) {
+func (p *file) markUsedBy(this *Package, val reflect.Value) {
 retry:
 	switch val.Kind() {
 	case reflect.Slice:
 		for i, n := 0, val.Len(); i < n; i++ {
-			p.markUsedBy(pkg, val.Index(i))
+			p.markUsedBy(this, val.Index(i))
 		}
 	case reflect.Ptr:
 		if val.IsNil() {
@@ -188,12 +189,12 @@ retry:
 					}
 				}
 			} else {
-				p.markUsedBy(pkg, reflect.ValueOf(x))
+				p.markUsedBy(this, reflect.ValueOf(x))
 			}
 		} else if t.Implements(tyAstNode) { // ast.Node
 			elem := val.Elem()
 			for i, n := 0, elem.NumField(); i < n; i++ {
-				p.markUsedBy(pkg, elem.Field(i))
+				p.markUsedBy(this, elem.Field(i))
 			}
 		}
 	case reflect.Interface:
@@ -202,23 +203,23 @@ retry:
 	}
 }
 
-func (p *file) getDecls(pkg *Package) (decls []ast.Decl) {
-	p.markUsed(pkg)
+func (p *file) getDecls(this *Package) (decls []ast.Decl) {
+	p.markUsed(this)
 	n := len(p.allPkgPaths)
 	if n == 0 {
 		return p.decls
 	}
 	specs := make([]ast.Spec, 0, n)
-	names := pkg.newAutoNames()
+	names := this.newAutoNames()
 	for _, pkgPath := range p.allPkgPaths {
-		pkg := p.importPkgs[pkgPath]
-		if !pkg.isUsed { // unused
+		pkgImport := p.importPkgs[pkgPath]
+		if !pkgImport.isUsed { // unused
 			continue
 		}
-		pkgName, renamed := names.RequireName(pkg.Types.Name())
+		pkgName, renamed := names.RequireName(pkgImport.Types.Name())
 		if renamed {
-			pkg.Types.SetName(pkgName)
-			for _, nameRef := range pkg.nameRefs {
+			pkgImport.Types.SetName(pkgName)
+			for _, nameRef := range pkgImport.nameRefs {
 				nameRef.Name = pkgName
 			}
 		}
@@ -236,6 +237,13 @@ func (p *file) getDecls(pkg *Package) (decls []ast.Decl) {
 	return
 }
 
+func (p *file) big(this *Package) *PkgRef {
+	if p.pkgBig == nil {
+		p.pkgBig = p.importPkg(this, "math/big")
+	}
+	return p.pkgBig
+}
+
 // ----------------------------------------------------------------------------
 
 // Package type
@@ -246,7 +254,6 @@ type Package struct {
 	conf          *Config
 	prefix        string
 	builtin       *types.Package
-	pkgBig        *PkgRef
 	utBigInt      *types.Named
 	utBigRat      *types.Named
 	utBigFlt      *types.Named
@@ -294,13 +301,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	pkg.utBigFlt = conf.UntypedBigFloat
 	pkg.cb.init(pkg)
 	return pkg
-}
-
-func (p *Package) big() *PkgRef {
-	if p.pkgBig == nil {
-		p.pkgBig = p.Import("math/big")
-	}
-	return p.pkgBig
 }
 
 // Builtin returns the buitlin package.

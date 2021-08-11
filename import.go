@@ -227,6 +227,10 @@ func (p *Package) Import(pkgPath string) *PkgRef {
 	return p.files[p.inTestingFile].importPkg(p, pkgPath)
 }
 
+func (p *Package) big() *PkgRef {
+	return p.files[p.inTestingFile].big(p)
+}
+
 // ----------------------------------------------------------------------------
 
 type null struct{}
