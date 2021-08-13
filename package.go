@@ -145,11 +145,11 @@ func pkgPathNotFound(allPkgPaths []string, pkgPath string) bool {
 	return true
 }
 
-func (p *file) importPkg(this *Package, pkgPath string) *PkgRef {
+func (p *file) importPkg(this *Package, pkgPath string, testingFile bool) *PkgRef {
 	// TODO: canonical pkgPath
 	pkgImport, ok := p.importPkgs[pkgPath]
 	if !ok {
-		pkgImport = &PkgRef{pkg: this, file: p}
+		pkgImport = &PkgRef{pkg: this, file: p, inTestingFile: testingFile}
 		p.importPkgs[pkgPath] = pkgImport
 	}
 	if !ok || pkgPathNotFound(p.allPkgPaths, pkgPath) {
@@ -159,13 +159,13 @@ func (p *file) importPkg(this *Package, pkgPath string) *PkgRef {
 	return pkgImport
 }
 
-func (p *file) endImport(this *Package) {
+func (p *file) endImport(this *Package, testingFile bool) {
 	pkgPaths := p.delayPkgPaths
 	if len(pkgPaths) == 0 {
 		return
 	}
 	if debugImport {
-		log.Println("==> LoadPkgs", pkgPaths)
+		log.Println("==> LoadPkgs", pkgPaths, testingFile)
 	}
 	if n := this.loadPkgs(this, p.importPkgs, pkgPaths...); n > 0 {
 		log.Panicf("total %d errors\n", n) // TODO: error message
@@ -262,9 +262,9 @@ func (p *file) getDecls(this *Package) (decls []ast.Decl) {
 	return
 }
 
-func (p *file) big(this *Package) *PkgRef {
+func (p *file) big(this *Package, testingFile bool) *PkgRef {
 	if p.pkgBig == nil {
-		p.pkgBig = p.importPkg(this, "math/big")
+		p.pkgBig = p.importPkg(this, "math/big", testingFile)
 	}
 	return p.pkgBig
 }

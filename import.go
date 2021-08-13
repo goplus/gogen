@@ -66,6 +66,8 @@ type PkgRef struct {
 	// It is set only when Types is set.
 	IllTyped bool
 
+	inTestingFile bool // this package is refered in a testing file.
+
 	isUsed   bool
 	nameRefs []*ast.Ident // for internal use
 }
@@ -92,7 +94,7 @@ func (p *PkgRef) Ref(name string) Ref {
 // EnsureImported ensures this package is imported.
 func (p *PkgRef) EnsureImported() {
 	if p.Types == nil {
-		p.file.endImport(p.pkg)
+		p.file.endImport(p.pkg, p.inTestingFile)
 	}
 }
 
@@ -224,11 +226,11 @@ func (p *Package) InternalGetLoadConfig() *packages.Config {
 
 // Import func
 func (p *Package) Import(pkgPath string) *PkgRef {
-	return p.files[p.inTestingFile].importPkg(p, pkgPath)
+	return p.files[p.inTestingFile].importPkg(p, pkgPath, p.inTestingFile != 0)
 }
 
 func (p *Package) big() *PkgRef {
-	return p.files[p.inTestingFile].big(p)
+	return p.files[p.inTestingFile].big(p, p.inTestingFile != 0)
 }
 
 // ----------------------------------------------------------------------------
