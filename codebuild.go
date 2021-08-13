@@ -28,28 +28,6 @@ import (
 	"github.com/goplus/gox/internal/go/printer"
 )
 
-const (
-	DbgFlagInstruction = 1 << iota
-	DbgFlagImport
-	DbgFlagMatch
-	DbgFlagComments
-	DbgFlagAll = DbgFlagInstruction | DbgFlagImport | DbgFlagMatch | DbgFlagComments
-)
-
-var (
-	debugInstr    bool
-	debugMatch    bool
-	debugImport   bool
-	debugComments bool
-)
-
-func SetDebug(dbgFlags int) {
-	debugInstr = (dbgFlags & DbgFlagInstruction) != 0
-	debugImport = (dbgFlags & DbgFlagImport) != 0
-	debugMatch = (dbgFlags & DbgFlagMatch) != 0
-	debugComments = (dbgFlags & DbgFlagComments) != 0
-}
-
 func getSrc(node []ast.Node) ast.Node {
 	if node != nil {
 		return node[0]

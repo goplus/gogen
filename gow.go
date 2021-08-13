@@ -17,6 +17,7 @@ import (
 	"go/ast"
 	"go/token"
 	"io"
+	"log"
 	"os"
 
 	"github.com/goplus/gox/internal/go/format"
@@ -38,6 +39,9 @@ func WriteTo(dst io.Writer, pkg *Package, testingFile bool) (err error) {
 
 // WriteFile func
 func WriteFile(file string, pkg *Package, testingFile bool) (err error) {
+	if debugWriteFile {
+		log.Println("WriteFile", file, testingFile)
+	}
 	f, err := os.Create(file)
 	if err != nil {
 		return

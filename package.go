@@ -13,6 +13,31 @@ import (
 type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
 type LoadUnderlyingFunc = func(at *Package, typ *types.Named) types.Type
 
+const (
+	DbgFlagInstruction = 1 << iota
+	DbgFlagImport
+	DbgFlagMatch
+	DbgFlagComments
+	DbgFlagWriteFile
+	DbgFlagAll = DbgFlagInstruction | DbgFlagImport | DbgFlagMatch | DbgFlagComments | DbgFlagWriteFile
+)
+
+var (
+	debugInstr     bool
+	debugMatch     bool
+	debugImport    bool
+	debugComments  bool
+	debugWriteFile bool
+)
+
+func SetDebug(dbgFlags int) {
+	debugInstr = (dbgFlags & DbgFlagInstruction) != 0
+	debugImport = (dbgFlags & DbgFlagImport) != 0
+	debugMatch = (dbgFlags & DbgFlagMatch) != 0
+	debugComments = (dbgFlags & DbgFlagComments) != 0
+	debugWriteFile = (dbgFlags & DbgFlagWriteFile) != 0
+}
+
 // ----------------------------------------------------------------------------
 
 type PkgImporter interface {
