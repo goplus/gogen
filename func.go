@@ -183,6 +183,25 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 	return types.NewTypeName(pos, pkg, name, &overloadFuncType{funcs})
 }
 
+func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
+	ofnt := &overloadFuncType{funcs}
+	recv := types.NewParam(token.NoPos, pkg, "", ofnt)
+	sig := types.NewSignature(recv, nil, nil, false)
+	ofn := types.NewFunc(pos, pkg, name, sig)
+	typ.AddMethod(ofn)
+	return ofn
+}
+
+func CheckOverloadMethod(ofn *types.Func) (funcs []types.Object, ok bool) {
+	sig := ofn.Type().(*types.Signature)
+	if recv := sig.Recv(); recv != nil {
+		if oft, ok := recv.Type().(*overloadFuncType); ok {
+			return oft.funcs, true
+		}
+	}
+	return nil, false
+}
+
 // ----------------------------------------------------------------------------
 
 type Element = internal.Elem

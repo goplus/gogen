@@ -154,34 +154,64 @@ func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Packag
 	}
 }
 
+type omthd struct {
+	named *types.Named
+	mthd  string
+}
+
 func initGopPkg(pkg *types.Package) {
 	scope := pkg.Scope()
 	overloads := make(map[string][]types.Object)
+	moverloads := make(map[omthd][]types.Object)
 	names := scope.Names()
 	for _, name := range names {
+		o := scope.Lookup(name)
 		if n := len(name); n > 3 && name[n-3:n-1] == "__" { // overload function
 			key := name[:n-3]
-			overloads[key] = append(overloads[key], scope.Lookup(name))
+			overloads[key] = append(overloads[key], o)
+		} else if named, ok := o.Type().(*types.Named); ok {
+			for i, n := 0, named.NumMethods(); i < n; i++ {
+				m := named.Method(i)
+				mName := m.Name()
+				if n := len(mName); n > 3 && mName[n-3:n-1] == "__" { // overload method
+					mthd := mName[:n-3]
+					key := omthd{named, mthd}
+					moverloads[key] = append(moverloads[key], m)
+				}
+			}
 		}
 	}
 	for key, items := range overloads {
 		off := len(key) + 2
-		fns := make([]types.Object, len(items))
-		for _, item := range items {
-			idx := toIndex(item.Name()[off])
-			if idx >= len(items) {
-				panic("overload function must be from 0 to N")
-			}
-			if fns[idx] != nil {
-				panic("overload function exists?")
-			}
-			fns[idx] = item
-		}
+		fns := overloadFuncs(off, items)
 		if debugImport {
 			log.Println("==> NewOverloadFunc", key)
 		}
 		scope.Insert(NewOverloadFunc(token.NoPos, pkg, key, fns...))
 	}
+	for key, items := range moverloads {
+		off := len(key.mthd) + 2
+		fns := overloadFuncs(off, items)
+		if debugImport {
+			log.Println("==> NewOverloadMethod", key.named.Obj().Name(), key.mthd)
+		}
+		NewOverloadMethod(key.named, token.NoPos, pkg, key.mthd, fns...)
+	}
+}
+
+func overloadFuncs(off int, items []types.Object) []types.Object {
+	fns := make([]types.Object, len(items))
+	for _, item := range items {
+		idx := toIndex(item.Name()[off])
+		if idx >= len(items) {
+			log.Panicln("overload function must be from 0 to N:", item.Name(), len(fns))
+		}
+		if fns[idx] != nil {
+			panic("overload function exists?")
+		}
+		fns[idx] = item
+	}
+	return fns
 }
 
 func toIndex(c byte) int {

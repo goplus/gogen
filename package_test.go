@@ -76,6 +76,28 @@ type goxVar = types.Var
 
 // ----------------------------------------------------------------------------
 
+func TestImportGopPkg(t *testing.T) {
+	pkg := newMainPackage(false)
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	foo.EnsureImported()
+	nodeSet := foo.Ref("NodeSet")
+	if nodeSet == nil {
+		t.Fatal("TestImportGopPkg: NodeSet not found")
+	}
+	typ := nodeSet.(*types.TypeName).Type().(*types.Named)
+	for i, n := 0, typ.NumMethods(); i < n; i++ {
+		m := typ.Method(i)
+		if m.Name() == "Attr" {
+			funcs, ok := gox.CheckOverloadMethod(m)
+			if !ok || len(funcs) != 2 {
+				t.Fatal("CheckOverloadMethod failed:", funcs, ok)
+			}
+			return
+		}
+	}
+	t.Fatal("TestImportGopPkg: NodeSet.Attr not found")
+}
+
 func TestAssignableTo(t *testing.T) {
 	assigns := []struct {
 		v, t types.Type
