@@ -20,6 +20,7 @@ const (
 	DbgFlagComments
 	DbgFlagWriteFile
 	DbgFlagSetDebug
+	DbgFlagPanicTesting
 	DbgFlagAll = DbgFlagInstruction | DbgFlagImport | DbgFlagMatch |
 		DbgFlagComments | DbgFlagWriteFile | DbgFlagSetDebug
 )
@@ -171,6 +172,9 @@ func (p *file) endImport(this *Package, testingFile bool) {
 	}
 	if debugImport {
 		log.Println("==> LoadPkgs", pkgPaths, testingFile)
+		if (debugFlags&DbgFlagPanicTesting) != 0 && !testingFile && pkgPaths[0] == "testing" {
+			panic("import testing in a noraml gop file?")
+		}
 	}
 	if n := this.loadPkgs(this, p.importPkgs, pkgPaths...); n > 0 {
 		log.Panicf("total %d errors\n", n) // TODO: error message
