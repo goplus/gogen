@@ -129,6 +129,7 @@ type CodeBuilder struct {
 	pkg       *Package
 	varDecl   *ValueDecl
 	interp    NodeInterpreter
+	loadNamed LoadNamedFunc
 	handleErr func(err error)
 	closureParamInsts
 	commentOnce bool
@@ -145,9 +146,17 @@ func (p *CodeBuilder) init(pkg *Package) {
 	if p.interp == nil {
 		p.interp = nodeInterp{}
 	}
+	p.loadNamed = conf.LoadNamed
+	if p.loadNamed == nil {
+		p.loadNamed = defaultLoadNamed
+	}
 	p.current.scope = pkg.Types.Scope()
 	p.stk.Init()
 	p.closureParamInsts.init()
+}
+
+func defaultLoadNamed(t *types.Named) {
+	// no delay-loaded named types
 }
 
 func defaultHandleErr(err error) {
@@ -1399,11 +1408,18 @@ func (p *CodeBuilder) Member(name string, src ...ast.Node) (kind MemberKind, err
 		&pos, fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name))
 }
 
+func (p *CodeBuilder) ensureLoaded(t *types.Named) {
+	if t.Underlying() == nil {
+		p.loadNamed(t)
+	}
+}
+
 func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, srcExpr ast.Node) MemberKind {
 	switch o := typ.(type) {
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
 		case *types.Named:
+			p.ensureLoaded(t)
 			if p.method(t, name, argVal, srcExpr) {
 				return MemberMethod
 			}
@@ -1418,6 +1434,7 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 			}
 		}
 	case *types.Named:
+		p.ensureLoaded(o)
 		if p.method(o, name, argVal, srcExpr) {
 			return MemberMethod
 		}

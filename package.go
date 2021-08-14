@@ -11,7 +11,7 @@ import (
 )
 
 type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
-type LoadUnderlyingFunc = func(at *Package, typ *types.Named) types.Type
+type LoadNamedFunc = func(typ *types.Named)
 
 const (
 	DbgFlagInstruction = 1 << iota
@@ -119,6 +119,9 @@ type Config struct {
 
 	// LoadPkgs is called to load all import packages.
 	LoadPkgs LoadPkgsFunc
+
+	// LoadNamed is called to load a delay-loaded named type.
+	LoadNamed LoadNamedFunc
 
 	// Prefix is name prefix.
 	Prefix string

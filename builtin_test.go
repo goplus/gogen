@@ -112,3 +112,17 @@ func TestNodeInterp(t *testing.T) {
 		t.Fatal("TestNodeInterp cb.getCaller failed")
 	}
 }
+
+func TestEnsureLoaded(t *testing.T) {
+	var cb CodeBuilder
+	cb.loadNamed = func(t *types.Named) {
+		panic("loadNamed")
+	}
+	defer func() {
+		if e := recover(); e != "loadNamed" {
+			t.Fatal("TestEnsureLoaded failed")
+		}
+	}()
+	named := types.NewNamed(types.NewTypeName(0, nil, "foo", nil), nil, nil)
+	cb.ensureLoaded(named)
+}
