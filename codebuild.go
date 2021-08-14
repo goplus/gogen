@@ -379,6 +379,7 @@ func (p *CodeBuilder) ReturnErr(outer bool) *CodeBuilder {
 			}
 			p.stk.Push(err)
 			p.returnResults(n)
+			p.current.flows |= flowFlagReturn
 			return p
 		}
 	}
@@ -416,6 +417,7 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 		}
 		p.Goto(p.getEndingLabel(fn))
 	} else {
+		p.current.flows |= flowFlagReturn
 		p.returnResults(n)
 	}
 	return p
@@ -1966,6 +1968,7 @@ func (p *CodeBuilder) Goto(name string, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Goto", name)
 	}
+	p.current.flows |= flowFlagGoto
 	p.current.useLabel(p, name, p.nodePosition(getSrc(src)))
 	p.emitStmt(&ast.BranchStmt{Tok: token.GOTO, Label: ident(name)})
 	return p
@@ -1977,7 +1980,10 @@ func (p *CodeBuilder) Break(name string, src ...ast.Node) *CodeBuilder {
 		log.Println("Break", name)
 	}
 	if name != "" {
+		p.current.flows |= (flowFlagBreak | flowFlagWithLabel)
 		p.current.useLabel(p, name, p.nodePosition(getSrc(src)))
+	} else {
+		p.current.flows |= flowFlagBreak
 	}
 	p.emitStmt(&ast.BranchStmt{Tok: token.BREAK, Label: ident(name)})
 	return p
@@ -1989,7 +1995,10 @@ func (p *CodeBuilder) Continue(name string, src ...ast.Node) *CodeBuilder {
 		log.Println("Continue", name)
 	}
 	if name != "" {
+		p.current.flows |= (flowFlagContinue | flowFlagWithLabel)
 		p.current.useLabel(p, name, p.nodePosition(getSrc(src)))
+	} else {
+		p.current.flows |= flowFlagContinue
 	}
 	p.emitStmt(&ast.BranchStmt{Tok: token.CONTINUE, Label: ident(name)})
 	return p

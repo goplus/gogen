@@ -427,6 +427,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 			}
 		}
 	}
+	p.stmt.For = pos
 }
 
 func (p *forRangeStmt) getKeyValTypes(typ types.Type) []types.Type {
@@ -527,6 +528,10 @@ func findMethod(o *types.Named, name string) types.Object {
 	return nil
 }
 
+const (
+	cantUseFlows = "can't use return/continue/break/goto in for range of udt.Gop_Enum(callback)"
+)
+
 func (p *forRangeStmt) End(cb *CodeBuilder) {
 	stmts, flows := cb.endBlockStmt(p.old)
 	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
@@ -574,7 +579,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 			})
 		*/
 		if flows != 0 {
-			panic("TODO: can't use flow controls in for range of udt.Gop_Enum(callback)")
+			cb.panicCodePosError(p.stmt.For, cantUseFlows)
 		}
 		n = -n
 		def := p.stmt.Tok == token.DEFINE
