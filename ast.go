@@ -23,9 +23,14 @@ var (
 )
 
 var (
-	identTrue  = ident("true")
-	identFalse = ident("false")
-	identNil   = ident("nil")
+	identTrue   = ident("true")
+	identFalse  = ident("false")
+	identNil    = ident("nil")
+	identAppend = ident("append")
+	identLen    = ident("len")
+	identCap    = ident("cap")
+	identNew    = ident("new")
+	identMake   = ident("make")
 )
 
 func ident(name string) *ast.Ident {

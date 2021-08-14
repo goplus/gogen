@@ -411,7 +411,7 @@ func (p appendStringInstr) Call(pkg *Package, args []*Element, flags InstrFlags)
 					if v.Kind() == types.String || v.Kind() == types.UntypedString {
 						return &Element{
 							Val: &ast.CallExpr{
-								Fun:      ident("append"),
+								Fun:      identAppend,
 								Args:     []ast.Expr{args[0].Val, args[1].Val},
 								Ellipsis: 1,
 							},
@@ -462,7 +462,7 @@ func (p lenInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *El
 		}
 	}
 	ret = &Element{
-		Val:  &ast.CallExpr{Fun: ident("len"), Args: []ast.Expr{args[0].Val}},
+		Val:  &ast.CallExpr{Fun: identLen, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Int],
 		CVal: cval,
 	}
@@ -490,7 +490,7 @@ func (p capInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *El
 		}
 	}
 	ret = &Element{
-		Val:  &ast.CallExpr{Fun: ident("cap"), Args: []ast.Expr{args[0].Val}},
+		Val:  &ast.CallExpr{Fun: identCap, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Int],
 		CVal: cval,
 	}
@@ -578,7 +578,7 @@ func (p newInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *El
 	typ := ttyp.Type()
 	ret = &Element{
 		Val: &ast.CallExpr{
-			Fun:  ident("new"),
+			Fun:  identNew,
 			Args: []ast.Expr{args[0].Val},
 		},
 		Type: types.NewPointer(typ),
@@ -611,7 +611,7 @@ func (p makeInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *E
 	}
 	ret = &Element{
 		Val: &ast.CallExpr{
-			Fun:  ident("make"),
+			Fun:  identMake,
 			Args: argsExpr,
 		},
 		Type: typ,

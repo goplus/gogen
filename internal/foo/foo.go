@@ -17,7 +17,22 @@ const (
 	GopPackage = true // to indicate this is a Go+ package
 )
 
+// -----------------------------------------------------------------------------
+
+type nodeSetIt struct {
+}
+
+func (p *nodeSetIt) Next() (key int, val string, ok bool) {
+	return
+}
+
+// -----------------------------------------------------------------------------
+
 type NodeSet struct {
+}
+
+func (p NodeSet) Gop_Enum() *nodeSetIt {
+	return &nodeSetIt{}
 }
 
 func (p NodeSet) Attr__0(k string, exactlyOne ...bool) (text string, err error) {
@@ -27,3 +42,21 @@ func (p NodeSet) Attr__0(k string, exactlyOne ...bool) (text string, err error) 
 func (p NodeSet) Attr__1(k, v string) (ret NodeSet) {
 	return
 }
+
+// -----------------------------------------------------------------------------
+
+type barIt struct {
+}
+
+func (p barIt) Next() (val string, ok bool) {
+	return
+}
+
+type Bar struct {
+}
+
+func (p *Bar) Gop_Enum() barIt {
+	return barIt{}
+}
+
+// -----------------------------------------------------------------------------

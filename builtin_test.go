@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"go/token"
 	"go/types"
 	"testing"
 )
@@ -84,5 +85,13 @@ func TestCheckOverloadMethod(t *testing.T) {
 	sig := types.NewSignature(nil, nil, nil, false)
 	if _, ok := CheckOverloadMethod(sig); ok {
 		t.Fatal("TestCheckOverloadMethod failed:")
+	}
+}
+
+func TestCheckUdt(t *testing.T) {
+	o := types.NewNamed(types.NewTypeName(token.NoPos, nil, "foo", nil), types.Typ[types.Int], nil)
+	udt := 0
+	if _, ok := checkUdt(o, &udt); ok {
+		t.Fatal("findMethod failed: bar exists?")
 	}
 }

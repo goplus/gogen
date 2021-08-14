@@ -1533,6 +1533,95 @@ func main() {
 `)
 }
 
+func TestForRangeUDT2(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	bar := foo.Ref("Bar").Type()
+	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		ForRange("_", "val").Val(v).RangeAssignThen().
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	foo "github.com/goplus/gox/internal/foo"
+	fmt "fmt"
+)
+
+func bar(v *foo.Bar) {
+	for _gop_it := v.Gop_Enum(); ; {
+		var _gop_ok bool
+		val, _gop_ok := _gop_it.Next()
+		if !_gop_ok {
+			break
+		}
+		fmt.Println(val)
+	}
+}
+`)
+}
+
+func TestForRangeUDT3(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	bar := foo.Ref("Bar").Type()
+	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.String], "val").
+		ForRange().VarRef(ctxRef(pkg, "val")).Val(v).RangeAssignThen().
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	foo "github.com/goplus/gox/internal/foo"
+	fmt "fmt"
+)
+
+func bar(v *foo.Bar) {
+	var val string
+	for _gop_it := v.Gop_Enum(); ; {
+		var _gop_ok bool
+		val, _gop_ok = _gop_it.Next()
+		if !_gop_ok {
+			break
+		}
+		fmt.Println(val)
+	}
+}
+`)
+}
+
+func TestForRangeUDT(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	nodeSet := foo.Ref("NodeSet").Type()
+	v := pkg.NewParam(token.NoPos, "v", nodeSet)
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		ForRange("_", "val").Val(v).RangeAssignThen().
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	foo "github.com/goplus/gox/internal/foo"
+	fmt "fmt"
+)
+
+func bar(v foo.NodeSet) {
+	for _gop_it := v.Gop_Enum(); ; {
+		var _gop_ok bool
+		_, val, _gop_ok := _gop_it.Next()
+		if !_gop_ok {
+			break
+		}
+		fmt.Println(val)
+	}
+}
+`)
+}
+
 func TestForRangeChan(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

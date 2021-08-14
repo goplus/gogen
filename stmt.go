@@ -338,6 +338,7 @@ type forRangeStmt struct {
 	names []string
 	stmt  *ast.RangeStmt
 	old   codeBlockCtx
+	udt   int // 0: non-udt, 2: (elem,ok), 3: (key,elem,ok)
 }
 
 func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
@@ -352,7 +353,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
 		}
 		x := cb.stk.Pop()
 		pkg, scope := cb.pkg, cb.current.scope
-		typs := getKeyValTypes(x.Type)
+		typs := getKeyValTypes(x.Type, &p.udt)
 		if typs[1] == nil { // chan
 			if names[0] == "_" && len(names) > 1 {
 				names[0], val = names[1], nil
@@ -393,9 +394,9 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
 			Value: val.Val,
 			X:     x.Val,
 		}
+		typs := getKeyValTypes(x.Type, &p.udt)
 		if n > 1 {
 			p.stmt.Tok = token.ASSIGN
-			typs := getKeyValTypes(x.Type)
 			checkAssign(cb.pkg, &key, typs[0], "range")
 			if val.Val != nil {
 				checkAssign(cb.pkg, &val, typs[1], "range")
@@ -404,7 +405,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
 	}
 }
 
-func getKeyValTypes(typ types.Type) []types.Type {
+func getKeyValTypes(typ types.Type, udt *int) []types.Type {
 	switch t := typ.(type) {
 	case *types.Slice:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
@@ -413,19 +414,136 @@ func getKeyValTypes(typ types.Type) []types.Type {
 	case *types.Array:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
 	case *types.Pointer:
-		if e, ok := t.Elem().(*types.Array); ok {
+		switch e := t.Elem().(type) {
+		case *types.Array:
 			return []types.Type{types.Typ[types.Int], e.Elem()}
+		case *types.Named:
+			if kv, ok := checkUdt(e, udt); ok {
+				return kv
+			}
 		}
 	case *types.Chan:
 		return []types.Type{t.Elem(), nil}
+	case *types.Named:
+		if kv, ok := checkUdt(t, udt); ok {
+			return kv
+		}
 	}
 	log.Panicln("TODO: can't for range to type", typ)
 	return nil
 }
 
-func (p *forRangeStmt) End(cb *CodeBuilder) {
-	p.stmt.Body = &ast.BlockStmt{List: cb.endBlockStmt(p.old)}
-	cb.emitStmt(p.stmt)
+func checkUdt(o *types.Named, udt *int) ([]types.Type, bool) {
+	if m := findMethod(o, "Gop_Enum"); m != nil {
+		enumRet := m.Type().(*types.Signature).Results()
+		if enumRet.Len() == 1 {
+			typ := enumRet.At(0).Type()
+			if t, ok := typ.(*types.Pointer); ok {
+				typ = t.Elem()
+			}
+			if it, ok := typ.(*types.Named); ok {
+				if next := findMethod(it, "Next"); next != nil {
+					ret := next.Type().(*types.Signature).Results()
+					typs := make([]types.Type, 2)
+					n := ret.Len()
+					switch n {
+					case 2: // elem, ok
+						typs[0] = ret.At(0).Type()
+					case 3: // key, elem, ok
+						typs[0], typs[1] = ret.At(0).Type(), ret.At(1).Type()
+					default:
+						return nil, false
+					}
+					if ret.At(n-1).Type() == types.Typ[types.Bool] {
+						*udt = n
+						return typs, true
+					}
+				}
+			}
+		}
+	}
+	return nil, false
 }
+
+func findMethod(o *types.Named, name string) types.Object {
+	for i, n := 0, o.NumMethods(); i < n; i++ {
+		method := o.Method(i)
+		if method.Name() == name {
+			return method
+		}
+	}
+	return nil
+}
+
+/*
+	for k, v = range X {
+		...
+	}
+
+	for _gop_it := X.Gop_Enum();; {
+		var _gop_ok bool
+		k, v, _gop_ok = _gop_it.Next()
+		if !_gop_ok {
+			break
+		}
+		...
+	}
+*/
+func (p *forRangeStmt) End(cb *CodeBuilder) {
+	stmts := cb.endBlockStmt(p.old)
+	if p.udt > 0 {
+		lhs := make([]ast.Expr, p.udt)
+		lhs[0] = p.stmt.Key
+		lhs[1] = p.stmt.Value
+		lhs[p.udt-1] = identGopOk
+		body := make([]ast.Stmt, len(stmts)+3)
+		body[0] = stmtGopOkDecl
+		body[1] = &ast.AssignStmt{Lhs: lhs, Tok: p.stmt.Tok, Rhs: exprIterNext}
+		body[2] = stmtBreakIfNotGopOk
+		copy(body[3:], stmts)
+		stmt := &ast.ForStmt{
+			Init: &ast.AssignStmt{
+				Lhs: []ast.Expr{identGopIt},
+				Tok: token.DEFINE,
+				Rhs: []ast.Expr{
+					&ast.CallExpr{
+						Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: identGopEnum},
+					},
+				},
+			},
+			Body: &ast.BlockStmt{List: body},
+		}
+		cb.emitStmt(stmt)
+	} else {
+		p.stmt.Body = &ast.BlockStmt{List: stmts}
+		cb.emitStmt(p.stmt)
+	}
+}
+
+var (
+	identGopOk   = ident("_gop_ok")
+	identGopIt   = ident("_gop_it")
+	identGopEnum = ident("Gop_Enum")
+)
+
+var (
+	stmtGopOkDecl = &ast.DeclStmt{
+		Decl: &ast.GenDecl{
+			Tok: token.VAR,
+			Specs: []ast.Spec{
+				&ast.ValueSpec{Names: []*ast.Ident{identGopOk}, Type: ident("bool")},
+			},
+		},
+	}
+	stmtBreakIfNotGopOk = &ast.IfStmt{
+		Cond: &ast.UnaryExpr{Op: token.NOT, X: identGopOk},
+		Body: &ast.BlockStmt{List: []ast.Stmt{&ast.BranchStmt{Tok: token.BREAK}}},
+	}
+	exprIterNext = []ast.Expr{
+		&ast.CallExpr{
+			Fun: &ast.SelectorExpr{X: identGopIt, Sel: ident("Next")},
+		},
+	}
+)
 
 // ----------------------------------------------------------------------------
