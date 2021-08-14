@@ -201,11 +201,9 @@ func (p *CodeBuilder) panicCodeError(pos *token.Position, msg string) {
 	panic(p.newCodeError(pos, msg))
 }
 
-/*
 func (p *CodeBuilder) panicCodePosError(pos token.Pos, msg string) {
 	panic(p.newCodePosError(pos, msg))
 }
-*/
 
 func (p *CodeBuilder) panicCodeErrorf(pos *token.Position, format string, args ...interface{}) {
 	panic(p.newCodeError(pos, fmt.Sprintf(format, args...)))
@@ -2031,12 +2029,12 @@ func (p *CodeBuilder) ForRange(names ...string) *CodeBuilder {
 }
 
 // RangeAssignThen func
-func (p *CodeBuilder) RangeAssignThen() *CodeBuilder {
+func (p *CodeBuilder) RangeAssignThen(pos token.Pos) *CodeBuilder {
 	if debugInstr {
 		log.Println("RangeAssignThen")
 	}
 	if flow, ok := p.current.codeBlock.(*forRangeStmt); ok {
-		flow.RangeAssignThen(p)
+		flow.RangeAssignThen(p, pos)
 		return p
 	}
 	panic("please use RangeAssignThen() in for range statement")

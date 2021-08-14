@@ -1516,7 +1516,7 @@ func TestForRange(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
-		/**/ ForRange("i").Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/**/ ForRange("i").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -1539,7 +1539,7 @@ func TestForRangeUDT2(t *testing.T) {
 	bar := foo.Ref("Bar").Type()
 	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		ForRange("_", "val").Val(v).RangeAssignThen().
+		ForRange("_", "val").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
 		End().End()
 	domTest(t, pkg, `package main
@@ -1569,7 +1569,7 @@ func TestForRangeUDT3(t *testing.T) {
 	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.String], "val").
-		ForRange().VarRef(ctxRef(pkg, "val")).Val(v).RangeAssignThen().
+		ForRange().VarRef(ctxRef(pkg, "val")).Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
 		End().End()
 	domTest(t, pkg, `package main
@@ -1599,7 +1599,7 @@ func TestForRangeUDT(t *testing.T) {
 	nodeSet := foo.Ref("NodeSet").Type()
 	v := pkg.NewParam(token.NoPos, "v", nodeSet)
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		ForRange("_", "val").Val(v).RangeAssignThen().
+		ForRange("_", "val").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
 		End().End()
 	domTest(t, pkg, `package main
@@ -1626,7 +1626,7 @@ func TestForRangeChan(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewChan(types.SendRecv, types.Typ[types.Int]), "a").
-		/**/ ForRange("_", "i").Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/**/ ForRange("_", "i").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -1647,7 +1647,7 @@ func TestForRangeKV(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).ArrayLit(types.NewArray(types.Typ[types.Float64], 3), 3).EndInit(1).
-		/**/ ForRange("_", "x").Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/**/ ForRange("_", "x").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "x")).Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -1668,7 +1668,7 @@ func TestForRangeArrayPointer(t *testing.T) {
 	pkg := newMainPackage()
 	v := pkg.NewParam(token.NoPos, "a", types.NewPointer(types.NewArray(types.Typ[types.Float64], 3)))
 	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).
-		/**/ ForRange("_", "x").Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/**/ ForRange("_", "x").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "x")).Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -1691,7 +1691,7 @@ func TestForRangeNoAssign(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
-		/**/ ForRange().Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/**/ ForRange().Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -1715,7 +1715,7 @@ func TestForRangeAssignKV(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyString, "k").NewVar(tyInt, "v").
 		DefineVarStart(0, "a").Val("a").Val(1).Val("b").Val(3).MapLit(nil, 4).EndInit(1).
-		/**/ ForRange().VarRef(ctxRef(pkg, "k")).VarRef(ctxRef(pkg, "v")).Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/**/ ForRange().VarRef(ctxRef(pkg, "k")).VarRef(ctxRef(pkg, "v")).Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "k")).Val(ctxRef(pkg, "v")).Call(2).EndStmt().
 		/**/ End().
 		End()
@@ -1740,7 +1740,7 @@ func TestForRangeAssign(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyBool, "k").
 		NewVar(types.NewChan(types.SendRecv, tyBool), "a").
-		/**/ ForRange().VarRef(ctxRef(pkg, "k")).Val(ctxRef(pkg, "a")).RangeAssignThen().
+		/**/ ForRange().VarRef(ctxRef(pkg, "k")).Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "k")).Call(1).EndStmt().
 		/**/ End().
 		End()

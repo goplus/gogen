@@ -158,6 +158,28 @@ func TestErrDefineVar(t *testing.T) {
 }
 
 func TestErrForRange(t *testing.T) {
+	codeErrorTest(t, `./foo.gop:1:17 too many variables in range`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a", "b", "c").
+				ForRange().
+				VarRef(ctxRef(pkg, "a")).
+				VarRef(ctxRef(pkg, "b")).
+				VarRef(ctxRef(pkg, "c")).
+				Val("Hello").
+				RangeAssignThen(position(1, 17)).
+				End().
+				End()
+		})
+	codeErrorTest(t, `./foo.gop:1:17 too many variables in range`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				ForRange("a", "b", "c").
+				Val("Hello").
+				RangeAssignThen(position(1, 17)).
+				End().
+				End()
+		})
 	codeErrorTest(t, `./foo.gop:1:5 cannot assign type string to a (type int) in range`,
 		func(pkg *gox.Package) {
 			tySlice := types.NewSlice(types.Typ[types.String])
@@ -168,7 +190,7 @@ func TestErrForRange(t *testing.T) {
 				VarRef(nil).
 				VarRef(ctxRef(pkg, "a"), source("a", 1, 5)).
 				Val(ctxRef(pkg, "b"), source("b", 1, 9)).
-				RangeAssignThen().
+				RangeAssignThen(token.NoPos).
 				End().
 				End()
 		})

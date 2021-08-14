@@ -341,7 +341,7 @@ type forRangeStmt struct {
 	udt   int // 0: non-udt, 2: (elem,ok), 3: (key,elem,ok)
 }
 
-func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
+func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 	if names := p.names; names != nil { // for k, v := range XXX {
 		var val ast.Expr
 		switch len(names) {
@@ -349,7 +349,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
 		case 2:
 			val = ident(names[1])
 		default:
-			panic("TODO: invalid syntax of for range :=")
+			cb.panicCodePosError(pos, "too many variables in range")
 		}
 		x := cb.stk.Pop()
 		pkg, scope := cb.pkg, cb.current.scope
@@ -386,7 +386,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder) {
 		case 3:
 			key, val, x = *args[0], *args[1], *args[2]
 		default:
-			panic("TODO: invalid syntax of for range =")
+			cb.panicCodePosError(pos, "too many variables in range")
 		}
 		cb.stk.PopN(n)
 		p.stmt = &ast.RangeStmt{
