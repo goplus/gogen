@@ -156,7 +156,7 @@ func (p *Package) NewFuncWith(
 	}
 
 	decl := &ast.FuncDecl{}
-	idx := p.inTestingFile
+	idx := p.testingFile
 	p.files[idx].decls = append(p.files[idx].decls, decl)
 	return &Func{Func: fn, decl: decl}, nil
 }

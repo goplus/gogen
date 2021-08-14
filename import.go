@@ -300,11 +300,11 @@ func (p *Package) InternalGetLoadConfig() *packages.Config {
 
 // Import func
 func (p *Package) Import(pkgPath string) *PkgRef {
-	return p.files[p.inTestingFile].importPkg(p, pkgPath, p.inTestingFile != 0)
+	return p.files[p.testingFile].importPkg(p, pkgPath, p.testingFile != 0)
 }
 
 func (p *Package) big() *PkgRef {
-	return p.files[p.inTestingFile].big(p, p.inTestingFile != 0)
+	return p.files[p.testingFile].big(p, p.testingFile != 0)
 }
 
 // ----------------------------------------------------------------------------

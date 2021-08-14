@@ -283,18 +283,18 @@ func (p *file) big(this *Package, testingFile bool) *PkgRef {
 // Package type
 type Package struct {
 	PkgRef
-	cb            CodeBuilder
-	files         [2]file
-	conf          *Config
-	prefix        string
-	builtin       *types.Package
-	utBigInt      *types.Named
-	utBigRat      *types.Named
-	utBigFlt      *types.Named
-	loadPkgs      LoadPkgsFunc
-	autoPrefix    string
-	autoIdx       int
-	inTestingFile int
+	cb          CodeBuilder
+	files       [2]file
+	conf        *Config
+	prefix      string
+	builtin     *types.Package
+	utBigInt    *types.Named
+	utBigRat    *types.Named
+	utBigFlt    *types.Named
+	loadPkgs    LoadPkgsFunc
+	autoPrefix  string
+	autoIdx     int
+	testingFile int
 }
 
 // NewPackage creates a new package.
@@ -349,7 +349,12 @@ func (p *Package) CB() *CodeBuilder {
 
 // SetInTestingFile sets inTestingFile or not.
 func (p *Package) SetInTestingFile(inTestingFile bool) {
-	p.inTestingFile = getInTestingFile(inTestingFile)
+	p.testingFile = getInTestingFile(inTestingFile)
+}
+
+// InTestingFile returns inTestingFile or not.
+func (p *Package) InTestingFile() bool {
+	return p.testingFile != 0
 }
 
 func getInTestingFile(inTestingFile bool) int {
