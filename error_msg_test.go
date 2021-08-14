@@ -80,24 +80,26 @@ func (p nodeInterp) LoadExpr(node ast.Node) (src string, pos token.Position) {
 	return
 }
 
-func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package)) {
+func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package), disableRecover ...bool) {
 	pos2Positions = map[token.Pos]token.Position{}
 	pkg := newMainPackage()
-	defer func() {
-		if e := recover(); e != nil {
-			switch err := e.(type) {
-			case *gox.CodeError, *gox.MatchError:
-				pkg.CB().ResetStmt()
-				if ret := err.(error).Error(); ret != msg {
-					t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
+	if !(disableRecover != nil && disableRecover[0]) {
+		defer func() {
+			if e := recover(); e != nil {
+				switch err := e.(type) {
+				case *gox.CodeError, *gox.MatchError:
+					pkg.CB().ResetStmt()
+					if ret := err.(error).Error(); ret != msg {
+						t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
+					}
+				default:
+					t.Fatal("Unexpected error:", e)
 				}
-			default:
-				t.Fatal("Unexpected error:", e)
+			} else {
+				t.Fatal("no error?")
 			}
-		} else {
-			t.Fatal("no error?")
-		}
-	}()
+		}()
+	}
 	source(pkg)
 	var b bytes.Buffer
 	gox.WriteTo(&b, pkg, false)
@@ -158,6 +160,30 @@ func TestErrDefineVar(t *testing.T) {
 }
 
 func TestErrForRange(t *testing.T) {
+	codeErrorTest(t, `./foo.gop:1:17 cannot range over v (type *github.com/goplus/gox/internal/foo.Foo4)`,
+		func(pkg *gox.Package) {
+			foo := pkg.Import("github.com/goplus/gox/internal/foo")
+			bar := foo.Ref("Foo4").Type()
+			v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+				ForRange().
+				Val(v, source("v", 1, 9)).
+				RangeAssignThen(position(1, 17)).
+				End().
+				End()
+		})
+	codeErrorTest(t, `./foo.gop:1:17 cannot range over v (type *github.com/goplus/gox/internal/foo.Foo3)`,
+		func(pkg *gox.Package) {
+			foo := pkg.Import("github.com/goplus/gox/internal/foo")
+			bar := foo.Ref("Foo3").Type()
+			v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+				ForRange("a", "b").
+				Val(v, source("v", 1, 9)).
+				RangeAssignThen(position(1, 17)).
+				End().
+				End()
+		})
 	codeErrorTest(t, `./foo.gop:1:17 cannot range over 13 (type untyped int)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

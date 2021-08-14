@@ -65,7 +65,10 @@ func (p *ifStmt) Else(cb *CodeBuilder) {
 }
 
 func (p *ifStmt) End(cb *CodeBuilder) {
-	var blockStmt = &ast.BlockStmt{List: cb.endBlockStmt(p.old)}
+	stmts, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= flows
+
+	var blockStmt = &ast.BlockStmt{List: stmts}
 	var el ast.Stmt
 	if p.body != nil { // if..else
 		el = blockStmt
@@ -127,7 +130,10 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int) {
 }
 
 func (p *switchStmt) End(cb *CodeBuilder) {
-	body := &ast.BlockStmt{List: cb.endBlockStmt(p.old)}
+	stmts, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= (flows &^ flowFlagBreak)
+
+	body := &ast.BlockStmt{List: stmts}
 	cb.emitStmt(&ast.SwitchStmt{Init: p.init, Tag: p.tag.Val, Body: body})
 }
 
@@ -141,7 +147,8 @@ func (p *caseStmt) Fallthrough(cb *CodeBuilder) {
 }
 
 func (p *caseStmt) End(cb *CodeBuilder) {
-	body := cb.endBlockStmt(p.old)
+	body, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= flows
 	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
 }
 
@@ -169,8 +176,9 @@ func (p *selectStmt) CommCase(cb *CodeBuilder, n int) {
 }
 
 func (p *selectStmt) End(cb *CodeBuilder) {
-	body := &ast.BlockStmt{List: cb.endBlockStmt(p.old)}
-	cb.emitStmt(&ast.SelectStmt{Body: body})
+	stmts, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= (flows &^ flowFlagBreak)
+	cb.emitStmt(&ast.SelectStmt{Body: &ast.BlockStmt{List: stmts}})
 }
 
 type commCase struct {
@@ -179,7 +187,8 @@ type commCase struct {
 }
 
 func (p *commCase) End(cb *CodeBuilder) {
-	body := cb.endBlockStmt(p.old)
+	body, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= flows
 	cb.emitStmt(&ast.CommClause{Comm: p.comm, Body: body})
 }
 
@@ -249,7 +258,10 @@ func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
 }
 
 func (p *typeSwitchStmt) End(cb *CodeBuilder) {
-	body := &ast.BlockStmt{List: cb.endBlockStmt(p.old)}
+	stmts, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= (flows &^ flowFlagBreak)
+
+	body := &ast.BlockStmt{List: stmts}
 	var assign ast.Stmt
 	x := &ast.TypeAssertExpr{X: p.x}
 	if p.name != "" {
@@ -270,7 +282,8 @@ type typeCaseStmt struct {
 }
 
 func (p *typeCaseStmt) End(cb *CodeBuilder) {
-	body := cb.endBlockStmt(p.old)
+	body, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= flows
 	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
 }
 
@@ -311,7 +324,9 @@ func (p *forStmt) Post(cb *CodeBuilder) {
 }
 
 func (p *forStmt) End(cb *CodeBuilder) {
-	var stmts = cb.endBlockStmt(p.old)
+	stmts, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
+
 	var post ast.Stmt
 	if p.body != nil { // has post stmt
 		if len(stmts) != 1 {
@@ -338,6 +353,7 @@ type forRangeStmt struct {
 	names []string
 	stmt  *ast.RangeStmt
 	old   codeBlockCtx
+	kvt   []types.Type
 	udt   int // 0: non-udt, 2: (elem,ok), 3: (key,elem,ok)
 }
 
@@ -353,7 +369,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 		}
 		x := cb.stk.Pop()
 		pkg, scope := cb.pkg, cb.current.scope
-		typs := getKeyValTypes(x.Type, &p.udt)
+		typs := p.getKeyValTypes(x.Type)
 		if typs == nil {
 			src, _ := cb.loadExpr(x.Src)
 			cb.panicCodePosErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
@@ -398,7 +414,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 			Value: val.Val,
 			X:     x.Val,
 		}
-		typs := getKeyValTypes(x.Type, &p.udt)
+		typs := p.getKeyValTypes(x.Type)
 		if typs == nil {
 			src, _ := cb.loadExpr(x.Src)
 			cb.panicCodePosErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
@@ -413,7 +429,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 	}
 }
 
-func getKeyValTypes(typ types.Type, udt *int) []types.Type {
+func (p *forRangeStmt) getKeyValTypes(typ types.Type) []types.Type {
 	switch t := typ.(type) {
 	case *types.Slice:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
@@ -426,23 +442,52 @@ func getKeyValTypes(typ types.Type, udt *int) []types.Type {
 		case *types.Array:
 			return []types.Type{types.Typ[types.Int], e.Elem()}
 		case *types.Named:
-			if kv, ok := checkUdt(e, udt); ok {
+			if kv, ok := p.checkUdt(e); ok {
 				return kv
 			}
 		}
 	case *types.Chan:
 		return []types.Type{t.Elem(), nil}
 	case *types.Named:
-		if kv, ok := checkUdt(t, udt); ok {
+		if kv, ok := p.checkUdt(t); ok {
 			return kv
 		}
 	}
 	return nil
 }
 
-func checkUdt(o *types.Named, udt *int) ([]types.Type, bool) {
+func (p *forRangeStmt) checkUdt(o *types.Named) ([]types.Type, bool) {
 	if m := findMethod(o, "Gop_Enum"); m != nil {
-		enumRet := m.Type().(*types.Signature).Results()
+		sig := m.Type().(*types.Signature)
+		enumRet := sig.Results()
+		params := sig.Params()
+		switch params.Len() {
+		case 0:
+			// iter := obj.Gop_Enum()
+			// key, val, ok := iter.Next()
+		case 1:
+			// obj.Gop_Enum(func(key K, val V) { ... })
+			if enumRet.Len() != 0 {
+				return nil, false
+			}
+			typ := params.At(0).Type()
+			if t, ok := typ.(*types.Signature); ok && t.Results().Len() == 0 {
+				kv := t.Params()
+				n := kv.Len()
+				if n > 0 {
+					p.kvt = []types.Type{kv.At(0).Type(), nil}
+					if n > 1 {
+						n = 2
+						p.kvt[1] = kv.At(1).Type()
+					}
+					p.udt = -n
+					return p.kvt, true
+				}
+			}
+			fallthrough
+		default:
+			return nil, false
+		}
 		if enumRet.Len() == 1 {
 			typ := enumRet.At(0).Type()
 			if t, ok := typ.(*types.Pointer); ok {
@@ -462,7 +507,7 @@ func checkUdt(o *types.Named, udt *int) ([]types.Type, bool) {
 						return nil, false
 					}
 					if ret.At(n-1).Type() == types.Typ[types.Bool] {
-						*udt = n
+						p.udt = n
 						return typs, true
 					}
 				}
@@ -482,27 +527,28 @@ func findMethod(o *types.Named, name string) types.Object {
 	return nil
 }
 
-/*
-	for k, v = range X {
-		...
-	}
-
-	for _gop_it := X.Gop_Enum();; {
-		var _gop_ok bool
-		k, v, _gop_ok = _gop_it.Next()
-		if !_gop_ok {
-			break
-		}
-		...
-	}
-*/
 func (p *forRangeStmt) End(cb *CodeBuilder) {
-	stmts := cb.endBlockStmt(p.old)
-	if p.udt > 0 {
-		lhs := make([]ast.Expr, p.udt)
+	stmts, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
+
+	if n := p.udt; n == 0 {
+		p.stmt.Body = &ast.BlockStmt{List: stmts}
+		cb.emitStmt(p.stmt)
+	} else if n > 0 {
+		/*
+			for _gop_it := X.Gop_Enum();; {
+				var _gop_ok bool
+				k, v, _gop_ok = _gop_it.Next()
+				if !_gop_ok {
+					break
+				}
+				...
+			}
+		*/
+		lhs := make([]ast.Expr, n)
 		lhs[0] = p.stmt.Key
 		lhs[1] = p.stmt.Value
-		lhs[p.udt-1] = identGopOk
+		lhs[n-1] = identGopOk
 		body := make([]ast.Stmt, len(stmts)+3)
 		body[0] = stmtGopOkDecl
 		body[1] = &ast.AssignStmt{Lhs: lhs, Tok: p.stmt.Tok, Rhs: exprIterNext}
@@ -522,8 +568,43 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 		}
 		cb.emitStmt(stmt)
 	} else {
-		p.stmt.Body = &ast.BlockStmt{List: stmts}
-		cb.emitStmt(p.stmt)
+		/*
+			X.Gop_Enum(func(k K, v V) {
+				...
+			})
+		*/
+		if flows != 0 {
+			panic("TODO: can't use flow controls in for range of udt.Gop_Enum(callback)")
+		}
+		n = -n
+		def := p.stmt.Tok == token.DEFINE
+		args := make([]*ast.Field, n)
+		if def {
+			args[0] = &ast.Field{
+				Names: []*ast.Ident{p.stmt.Key.(*ast.Ident)},
+				Type:  toType(cb.pkg, p.kvt[0]),
+			}
+			if n > 1 {
+				args[1] = &ast.Field{
+					Names: []*ast.Ident{p.stmt.Value.(*ast.Ident)},
+					Type:  toType(cb.pkg, p.kvt[1]),
+				}
+			}
+		} else {
+			panic("TODO: for range udt assign")
+		}
+		stmt := &ast.ExprStmt{
+			X: &ast.CallExpr{
+				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: identGopEnum},
+				Args: []ast.Expr{
+					&ast.FuncLit{
+						Type: &ast.FuncType{Params: &ast.FieldList{List: args}},
+						Body: &ast.BlockStmt{List: stmts},
+					},
+				},
+			},
+		}
+		cb.emitStmt(stmt)
 	}
 }
 

@@ -90,8 +90,8 @@ func TestCheckOverloadMethod(t *testing.T) {
 
 func TestCheckUdt(t *testing.T) {
 	o := types.NewNamed(types.NewTypeName(token.NoPos, nil, "foo", nil), types.Typ[types.Int], nil)
-	udt := 0
-	if _, ok := checkUdt(o, &udt); ok {
+	var frs forRangeStmt
+	if _, ok := frs.checkUdt(o); ok {
 		t.Fatal("findMethod failed: bar exists?")
 	}
 }

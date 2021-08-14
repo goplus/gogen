@@ -47,7 +47,16 @@ type codeBlockCtx struct {
 	base  int
 	stmts []ast.Stmt
 	label *ast.LabeledStmt
+	flows int // flow flags
 }
+
+const (
+	flowFlagBreak = 1 << iota
+	flowFlagContinue
+	flowFlagReturn
+	flowFlagGoto
+	flowFlagWithLabel
+)
 
 type funcBodyCtx struct {
 	codeBlockCtx
@@ -253,23 +262,25 @@ func insertParams(scope *types.Scope, params *types.Tuple) {
 func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
 	p.current.checkLabels(p)
 	p.current.fn = old.fn
-	return p.endBlockStmt(old.codeBlockCtx)
+	stmts, _ := p.endBlockStmt(old.codeBlockCtx)
+	return stmts
 }
 
 func (p *CodeBuilder) startBlockStmt(current codeBlock, comment string, old *codeBlockCtx) *CodeBuilder {
 	scope := types.NewScope(p.current.scope, token.NoPos, token.NoPos, comment)
-	p.current.codeBlockCtx, *old = codeBlockCtx{current, scope, p.stk.Len(), nil, nil}, p.current.codeBlockCtx
+	p.current.codeBlockCtx, *old = codeBlockCtx{current, scope, p.stk.Len(), nil, nil, 0}, p.current.codeBlockCtx
 	return p
 }
 
-func (p *CodeBuilder) endBlockStmt(old codeBlockCtx) []ast.Stmt {
+func (p *CodeBuilder) endBlockStmt(old codeBlockCtx) ([]ast.Stmt, int) {
+	flows := p.current.flows
 	if p.current.label != nil {
 		p.emitStmt(&ast.EmptyStmt{})
 	}
 	stmts := p.current.stmts
 	p.stk.SetLen(p.current.base)
 	p.current.codeBlockCtx = old
-	return stmts
+	return stmts, flows
 }
 
 func (p *CodeBuilder) clearBlockStmt() []ast.Stmt {
