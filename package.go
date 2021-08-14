@@ -38,7 +38,7 @@ func SetDebug(dbgFlags int) {
 	debugMatch = (dbgFlags & DbgFlagMatch) != 0
 	debugComments = (dbgFlags & DbgFlagComments) != 0
 	if ((dbgFlags | debugFlags) & DbgFlagSetDebug) != 0 {
-		log.Printf("SetDebug: import=%v, match=%v, instr=%v", debugImport, debugMatch, debugInstr)
+		log.Printf("SetDebug: import=%v, match=%v, instr=%v\n", debugImport, debugMatch, debugInstr)
 	}
 	debugFlags = dbgFlags
 }
