@@ -115,7 +115,7 @@ func TestNodeInterp(t *testing.T) {
 
 func TestEnsureLoaded(t *testing.T) {
 	var cb CodeBuilder
-	cb.loadNamed = func(t *types.Named) {
+	cb.loadNamed = func(at *Package, t *types.Named) {
 		panic("loadNamed")
 	}
 	defer func() {

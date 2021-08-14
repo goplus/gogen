@@ -155,7 +155,7 @@ func (p *CodeBuilder) init(pkg *Package) {
 	p.closureParamInsts.init()
 }
 
-func defaultLoadNamed(t *types.Named) {
+func defaultLoadNamed(at *Package, t *types.Named) {
 	// no delay-loaded named types
 }
 
@@ -1410,7 +1410,7 @@ func (p *CodeBuilder) Member(name string, src ...ast.Node) (kind MemberKind, err
 
 func (p *CodeBuilder) ensureLoaded(t *types.Named) {
 	if t.Underlying() == nil {
-		p.loadNamed(t)
+		p.loadNamed(p.pkg, t)
 	}
 }
 

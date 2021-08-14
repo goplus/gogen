@@ -11,7 +11,7 @@ import (
 )
 
 type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
-type LoadNamedFunc = func(typ *types.Named)
+type LoadNamedFunc = func(at *Package, typ *types.Named)
 
 const (
 	DbgFlagInstruction = 1 << iota
