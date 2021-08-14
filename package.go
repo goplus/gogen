@@ -348,8 +348,9 @@ func (p *Package) CB() *CodeBuilder {
 }
 
 // SetInTestingFile sets inTestingFile or not.
-func (p *Package) SetInTestingFile(inTestingFile bool) {
-	p.testingFile = getInTestingFile(inTestingFile)
+func (p *Package) SetInTestingFile(inTestingFile bool) (old bool) {
+	p.testingFile, old = getInTestingFile(inTestingFile), p.InTestingFile()
+	return
 }
 
 // InTestingFile returns inTestingFile or not.
