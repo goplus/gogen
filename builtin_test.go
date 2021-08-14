@@ -118,6 +118,7 @@ func TestEnsureLoaded(t *testing.T) {
 	cb.loadNamed = func(at *Package, t *types.Named) {
 		panic("loadNamed")
 	}
+	defaultLoadNamed(nil, nil)
 	defer func() {
 		if e := recover(); e != "loadNamed" {
 			t.Fatal("TestEnsureLoaded failed")
