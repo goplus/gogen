@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/goplus/gox/internal"
 	"github.com/goplus/gox/internal/go/printer"
@@ -2084,7 +2085,12 @@ func (p *CodeBuilder) EndStmt() *CodeBuilder {
 // End func
 func (p *CodeBuilder) End() *CodeBuilder {
 	if debugInstr {
-		log.Println("End")
+		typ := reflect.TypeOf(p.current.codeBlock)
+		if typ.Kind() == reflect.Ptr {
+			typ = typ.Elem()
+		}
+		name := strings.TrimSuffix(strings.Title(typ.Name()), "Stmt")
+		log.Println("End //", name)
 		if p.stk.Len() > p.current.base {
 			panic("forget to call EndStmt()?")
 		}
