@@ -1474,6 +1474,9 @@ func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src a
 
 func methodTypeOf(typ types.Type) types.Type {
 	sig := typ.(*types.Signature)
+	if _, ok := sig.Recv().Type().(*overloadFuncType); ok { // is overload method
+		return typ
+	}
 	return types.NewSignature(nil, sig.Params(), sig.Results(), sig.Variadic())
 }
 

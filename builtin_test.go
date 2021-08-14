@@ -14,7 +14,6 @@
 package gox
 
 import (
-	"go/token"
 	"go/types"
 	"testing"
 )
@@ -83,8 +82,7 @@ func TestToIndex(t *testing.T) {
 
 func TestCheckOverloadMethod(t *testing.T) {
 	sig := types.NewSignature(nil, nil, nil, false)
-	fn := types.NewFunc(token.NoPos, nil, "foo", sig)
-	if _, ok := CheckOverloadMethod(fn); ok {
+	if _, ok := CheckOverloadMethod(sig); ok {
 		t.Fatal("TestCheckOverloadMethod failed:")
 	}
 }

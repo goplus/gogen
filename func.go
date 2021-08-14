@@ -192,8 +192,7 @@ func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name
 	return ofn
 }
 
-func CheckOverloadMethod(ofn *types.Func) (funcs []types.Object, ok bool) {
-	sig := ofn.Type().(*types.Signature)
+func CheckOverloadMethod(sig *types.Signature) (funcs []types.Object, ok bool) {
 	if recv := sig.Recv(); recv != nil {
 		if oft, ok := recv.Type().(*overloadFuncType); ok {
 			return oft.funcs, true

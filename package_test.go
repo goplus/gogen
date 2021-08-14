@@ -88,7 +88,7 @@ func TestImportGopPkg(t *testing.T) {
 	for i, n := 0, typ.NumMethods(); i < n; i++ {
 		m := typ.Method(i)
 		if m.Name() == "Attr" {
-			funcs, ok := gox.CheckOverloadMethod(m)
+			funcs, ok := gox.CheckOverloadMethod(m.Type().(*types.Signature))
 			if !ok || len(funcs) != 2 {
 				t.Fatal("CheckOverloadMethod failed:", funcs, ok)
 			}
@@ -1808,6 +1808,27 @@ func main() {
 	var x string
 	x = strings.NewReplacer("?", "!").Replace("hello, world???")
 	println(x)
+}
+`)
+}
+
+func TestOverloadMethod(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	nodeSet := foo.Ref("NodeSet").Type()
+	v := pkg.NewParam(token.NoPos, "v", nodeSet)
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "val", "err").Val(v).
+		MemberVal("Attr").Val("key").Call(1).EndInit(1).EndStmt().
+		VarRef(v).Val(v).MemberVal("Attr").Val("key").Val("val").Call(2).Assign(1).
+		End()
+	domTest(t, pkg, `package main
+
+import foo "github.com/goplus/gox/internal/foo"
+
+func bar(v foo.NodeSet) {
+	val, err := v.Attr__0("key")
+	v = v.Attr__1("key", "val")
 }
 `)
 }

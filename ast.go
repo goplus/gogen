@@ -488,15 +488,40 @@ func getParam1st(sig *types.Signature) int {
 }
 
 func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+	fnType := fn.Type
 	if debugMatch {
-		log.Println("==> MatchFuncCall", fn.Type)
+		var funcs []types.Object
+		var ok bool
+		if t, ok1 := fnType.(*types.Signature); ok1 {
+			funcs, ok = CheckOverloadMethod(t)
+		}
+		if ok {
+			log.Println("==> MatchFuncCall", funcs)
+		} else {
+			log.Println("==> MatchFuncCall", fnType)
+		}
 	}
 	var it *instantiated
 	var sig *types.Signature
 	var cval constant.Value
-	switch t := fn.Type.(type) {
+	switch t := fnType.(type) {
 	case *types.Signature:
-		sig = t
+		if funcs, ok := CheckOverloadMethod(t); ok {
+			backup := backupArgs(args)
+			for _, o := range funcs {
+				mfn := *fn
+				mfn.Val.(*ast.SelectorExpr).Sel = ident(o.Name())
+				mfn.Type = methodTypeOf(o.Type())
+				if ret, err = matchFuncCall(pkg, &mfn, args, flags); err == nil {
+					fn.Val, fn.Type = mfn.Val, mfn.Type
+					return
+				}
+				restoreArgs(args, backup)
+			}
+			return
+		} else {
+			sig = t
+		}
 	case *TypeType: // type convert
 		valArgs := make([]ast.Expr, len(args))
 		for i, v := range args { // TODO: type check
