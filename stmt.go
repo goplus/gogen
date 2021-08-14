@@ -354,6 +354,10 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 		x := cb.stk.Pop()
 		pkg, scope := cb.pkg, cb.current.scope
 		typs := getKeyValTypes(x.Type, &p.udt)
+		if typs == nil {
+			src, _ := cb.loadExpr(x.Src)
+			cb.panicCodePosErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
+		}
 		if typs[1] == nil { // chan
 			if names[0] == "_" && len(names) > 1 {
 				names[0], val = names[1], nil
@@ -395,6 +399,10 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 			X:     x.Val,
 		}
 		typs := getKeyValTypes(x.Type, &p.udt)
+		if typs == nil {
+			src, _ := cb.loadExpr(x.Src)
+			cb.panicCodePosErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
+		}
 		if n > 1 {
 			p.stmt.Tok = token.ASSIGN
 			checkAssign(cb.pkg, &key, typs[0], "range")
@@ -429,7 +437,6 @@ func getKeyValTypes(typ types.Type, udt *int) []types.Type {
 			return kv
 		}
 	}
-	log.Panicln("TODO: can't for range to type", typ)
 	return nil
 }
 
