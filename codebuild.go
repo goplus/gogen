@@ -1386,11 +1386,11 @@ func (p *CodeBuilder) MemberVal(name string) *CodeBuilder {
 
 // Member func
 func (p *CodeBuilder) Member(name string, src ...ast.Node) (kind MemberKind, err error) {
-	if debugInstr {
-		log.Println("Member", name)
-	}
 	srcExpr := getSrc(src)
 	arg := p.stk.Get(-1)
+	if debugInstr {
+		log.Println("Member", name, "//", arg.Type)
+	}
 	if kind = p.findMember(arg.Type, name, arg.Val, srcExpr); kind != 0 {
 		return
 	}
