@@ -27,50 +27,12 @@ var (
 	gopNamePrefix = "Gop_"
 )
 
-func toIndex(c byte) int {
-	if c >= '0' && c <= '9' {
-		return int(c - '0')
-	}
-	if c >= 'a' && c <= 'z' {
-		return int(c - ('a' - 10))
-	}
-	panic("TODO: invalid character out of [0-9,a-z]")
-}
-
-func initGopPkg(pkg *types.Package) {
-	scope := pkg.Scope()
-	overloads := make(map[string][]types.Object)
-	names := scope.Names()
-	for _, name := range names {
-		if n := len(name); n > 3 && name[n-3:n-1] == "__" { // overload function
-			key := name[:n-3]
-			overloads[key] = append(overloads[key], scope.Lookup(name))
-		}
-	}
-	for key, items := range overloads {
-		off := len(key) + 2
-		fns := make([]types.Object, len(items))
-		for _, item := range items {
-			idx := toIndex(item.Name()[off])
-			if idx >= len(items) {
-				panic("overload function must be from 0 to N")
-			}
-			if fns[idx] != nil {
-				panic("overload function exists?")
-			}
-			fns[idx] = item
-		}
-		scope.Insert(gox.NewOverloadFunc(token.NoPos, pkg, key, fns...))
-	}
-}
-
 func initGopBuiltin(pkg gox.PkgImporter, conf *gox.Config) {
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	big.EnsureImported()
 	conf.UntypedBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
 	conf.UntypedBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
 	conf.UntypedBigFloat = big.Ref("Gop_untyped_bigfloat").Type().(*types.Named)
-	initGopPkg(big.Types)
 }
 
 func newGopBuiltinDefault(pkg gox.PkgImporter, prefix string, conf *gox.Config) *types.Package {

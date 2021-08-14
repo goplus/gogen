@@ -67,3 +67,15 @@ func TestContract(t *testing.T) {
 		}
 	}
 }
+
+func TestToIndex(t *testing.T) {
+	if toIndex('b') != 11 {
+		t.Fatal("toIndex('b') != 11")
+	}
+	defer func() {
+		if recover() != "invalid character out of [0-9,a-z]" {
+			t.Fatal("toIndex('!') not panic?")
+		}
+	}()
+	toIndex('!')
+}
