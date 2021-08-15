@@ -67,7 +67,7 @@ func (p *Package) AliasType(name string, typ types.Type) *types.Named {
 	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
-	decl := p.newType(name, typ, 1)
+	decl := p.doNewType(p.Types.Scope(), name, typ, 1)
 	return decl.typ
 }
 
@@ -76,12 +76,11 @@ func (p *Package) NewType(name string) *TypeDecl {
 	if debugInstr {
 		log.Println("NewType", name)
 	}
-	return p.newType(name, nil, 0)
+	return p.doNewType(p.Types.Scope(), name, nil, 0)
 }
 
-func (p *Package) newType(name string, typ types.Type, alias token.Pos) *TypeDecl {
+func (p *Package) doNewType(scope *types.Scope, name string, typ types.Type, alias token.Pos) *TypeDecl {
 	typName := types.NewTypeName(token.NoPos, p.Types, name, typ)
-	scope := p.cb.current.scope
 	if scope.Insert(typName) != nil {
 		log.Panicln("TODO: type already defined -", name)
 	}
