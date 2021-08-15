@@ -67,6 +67,7 @@ type PkgRef struct {
 	IllTyped bool
 
 	inTestingFile bool // this package is refered in a testing file.
+	isForceUsed   bool // this package is force-used
 
 	isUsed   bool
 	nameRefs []*ast.Ident // for internal use
@@ -89,6 +90,11 @@ func (p *PkgRef) markUsed(v *ast.Ident) {
 func (p *PkgRef) Ref(name string) Ref {
 	p.EnsureImported()
 	return p.Types.Scope().Lookup(name)
+}
+
+// MarkForceUsed marks this package is force-used.
+func (p *PkgRef) MarkForceUsed() {
+	p.isForceUsed = true
 }
 
 // EnsureImported ensures this package is imported.

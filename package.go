@@ -247,6 +247,12 @@ func (p *file) getDecls(this *Package) (decls []ast.Decl) {
 	for _, pkgPath := range p.allPkgPaths {
 		pkgImport := p.importPkgs[pkgPath]
 		if !pkgImport.isUsed { // unused
+			if pkgImport.isForceUsed { // force-used
+				specs = append(specs, &ast.ImportSpec{
+					Name: underscore, // _
+					Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkgPath)},
+				})
+			}
 			continue
 		}
 		pkgName, renamed := names.RequireName(pkgImport.Types.Name())

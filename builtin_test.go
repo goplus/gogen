@@ -127,3 +127,9 @@ func TestEnsureLoaded(t *testing.T) {
 	named := types.NewNamed(types.NewTypeName(0, nil, "foo", nil), nil, nil)
 	cb.ensureLoaded(named)
 }
+
+func TestWriteFile(t *testing.T) {
+	if WriteFile("/", nil, false) == nil {
+		t.Fatal("WriteFile: no error?")
+	}
+}

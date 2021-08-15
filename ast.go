@@ -19,7 +19,7 @@ import (
 // ----------------------------------------------------------------------------
 
 var (
-	underscore ast.Expr = &ast.Ident{Name: "_"}
+	underscore = &ast.Ident{Name: "_"}
 )
 
 var (
