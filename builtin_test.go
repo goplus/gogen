@@ -113,19 +113,37 @@ func TestNodeInterp(t *testing.T) {
 	}
 }
 
-func TestEnsureLoaded(t *testing.T) {
-	var cb CodeBuilder
+func TestGetUnderlying(t *testing.T) {
+	var pkg = new(Package)
+	var cb = &pkg.cb
 	cb.loadNamed = func(at *Package, t *types.Named) {
 		panic("loadNamed")
 	}
 	defaultLoadNamed(nil, nil)
 	defer func() {
 		if e := recover(); e != "loadNamed" {
-			t.Fatal("TestEnsureLoaded failed")
+			t.Fatal("TestGetUnderlying failed")
 		}
 	}()
 	named := types.NewNamed(types.NewTypeName(0, nil, "foo", nil), nil, nil)
-	cb.ensureLoaded(named)
+	cb.getUnderlying(named)
+}
+
+func TestGetUnderlying2(t *testing.T) {
+	var pkg = new(Package)
+	var cb = &pkg.cb
+	cb.pkg = pkg
+	cb.loadNamed = func(at *Package, t *types.Named) {
+		panic("loadNamed")
+	}
+	defaultLoadNamed(nil, nil)
+	defer func() {
+		if e := recover(); e != "loadNamed" {
+			t.Fatal("TestGetUnderlying2 failed")
+		}
+	}()
+	named := types.NewNamed(types.NewTypeName(0, nil, "foo", nil), nil, nil)
+	getUnderlying(pkg, named)
 }
 
 func TestWriteFile(t *testing.T) {

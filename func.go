@@ -137,7 +137,7 @@ func (p *Package) NewFuncWith(
 			return nil, cb.newCodePosErrorf(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is not a defined type)", typ, typ)
 		}
-		switch t.Obj().Type().Underlying().(type) {
+		switch getUnderlying(p, t.Obj().Type()).(type) {
 		case *types.Interface:
 			return nil, cb.newCodePosErrorf(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is an interface type)", typ, typ)

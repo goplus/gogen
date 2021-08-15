@@ -725,7 +725,7 @@ retry:
 	case *types.Chan:
 		return p.Val(nil)
 	case *types.Named:
-		typ = t.Underlying()
+		typ = p.getUnderlying(t)
 		goto retry
 	}
 	ret := &ast.CompositeLit{}
@@ -757,7 +757,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 		switch tt := typ.(type) {
 		case *types.Named:
 			typExpr = toNamedType(pkg, tt)
-			t = tt.Underlying().(*types.Map)
+			t = p.getUnderlying(tt).(*types.Map)
 		case *types.Map:
 			typExpr = toMapType(pkg, tt)
 			t = tt
@@ -867,7 +867,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		switch tt := typ.(type) {
 		case *types.Named:
 			typExpr = toNamedType(pkg, tt)
-			t = tt.Underlying().(*types.Slice)
+			t = p.getUnderlying(tt).(*types.Slice)
 		case *types.Slice:
 			typExpr = toSliceType(pkg, tt)
 			t = tt
@@ -941,7 +941,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 	switch tt := typ.(type) {
 	case *types.Named:
 		typExpr = toNamedType(pkg, tt)
-		t = tt.Underlying().(*types.Array)
+		t = p.getUnderlying(tt).(*types.Array)
 	case *types.Array:
 		typExpr = toArrayType(pkg, tt)
 		t = tt
@@ -1004,7 +1004,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 	switch tt := typ.(type) {
 	case *types.Named:
 		typExpr = toNamedType(pkg, tt)
-		t = tt.Underlying().(*types.Struct)
+		t = p.getUnderlying(tt).(*types.Struct)
 	case *types.Struct:
 		typExpr = toStructType(pkg, tt)
 		t = tt
@@ -1346,7 +1346,7 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 	arg := p.stk.Get(-1)
 	switch o := indirect(arg.Type).(type) {
 	case *types.Named:
-		if struc, ok := o.Underlying().(*types.Struct); ok {
+		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
 			if p.fieldRef(arg.Val, struc, name) {
 				return p
 			}
@@ -1415,10 +1415,24 @@ func (p *CodeBuilder) Member(name string, src ...ast.Node) (kind MemberKind, err
 		&pos, fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name))
 }
 
-func (p *CodeBuilder) ensureLoaded(t *types.Named) {
-	if t.Underlying() == nil {
+func (p *CodeBuilder) getUnderlying(t *types.Named) types.Type {
+	u := t.Underlying()
+	if u == nil {
 		p.loadNamed(p.pkg, t)
+		u = t.Underlying()
 	}
+	return u
+}
+
+func getUnderlying(pkg *Package, typ types.Type) types.Type {
+	u := typ.Underlying()
+	if u == nil {
+		if t, ok := typ.(*types.Named); ok {
+			pkg.cb.loadNamed(pkg, t)
+			u = t.Underlying()
+		}
+	}
+	return u
 }
 
 func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, srcExpr ast.Node) MemberKind {
@@ -1426,11 +1440,11 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
 		case *types.Named:
-			p.ensureLoaded(t)
+			u := p.getUnderlying(t)
 			if p.method(t, name, argVal, srcExpr) {
 				return MemberMethod
 			}
-			if struc, ok := t.Underlying().(*types.Struct); ok {
+			if struc, ok := u.(*types.Struct); ok {
 				if kind := p.field(struc, name, argVal, srcExpr); kind != 0 {
 					return kind
 				}
@@ -1441,11 +1455,11 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 			}
 		}
 	case *types.Named:
-		p.ensureLoaded(o)
+		u := p.getUnderlying(o)
 		if p.method(o, name, argVal, srcExpr) {
 			return MemberMethod
 		}
-		switch t := o.Underlying().(type) {
+		switch t := u.(type) {
 		case *types.Struct:
 			if kind := p.field(t, name, argVal, srcExpr); kind != 0 {
 				return kind
