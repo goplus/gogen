@@ -151,3 +151,15 @@ func TestWriteFile(t *testing.T) {
 		t.Fatal("WriteFile: no error?")
 	}
 }
+
+func TestScopeHasName(t *testing.T) {
+	scope := types.NewScope(types.Universe, 0, 0, "")
+	child := types.NewScope(scope, 0, 0, "")
+	child.Insert(types.NewVar(0, nil, "foo", types.Typ[types.Int]))
+	has := scopeHasName(scope, "foo")
+	if !has {
+		t.Fatal("scopeHasName failed: foo not found?")
+	}
+}
+
+// ----------------------------------------------------------------------------

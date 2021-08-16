@@ -27,17 +27,23 @@ import (
 	"golang.org/x/tools/go/gcexportdata"
 )
 
+const (
+	cachefile = "_gox_pkgs.cache"
+)
+
 var (
 	gblFset     *token.FileSet
+	gblCached   *gox.LoadPkgsCached
 	gblLoadPkgs gox.LoadPkgsFunc
 	handleErr   func(err error)
 )
 
 func init() {
-	// log.SetFlags(log.Llongfile)
 	gox.SetDebug(gox.DbgFlagAll)
+	os.Remove(cachefile)
+	gblCached = gox.OpenLoadPkgsCached(cachefile, nil)
 	gblFset = token.NewFileSet()
-	gblLoadPkgs = gox.NewLoadPkgsCached(nil)
+	gblLoadPkgs = gblCached.Load
 }
 
 func newMainPackage(noCache ...bool) *gox.Package {
@@ -2563,6 +2569,21 @@ func main() {
 	}("Hello")
 }
 `)
+}
+
+// ----------------------------------------------------------------------------
+
+func TestSaveAndLoadPkgsCache(t *testing.T) {
+	defer os.Remove(cachefile)
+	pkg := gox.NewPackage("", "main", nil)
+	cached := gblCached
+	imports := map[string]*gox.PkgRef{}
+	if cached.Load(pkg, imports, "fmt") != 0 {
+		t.Fatal("TestSaveAndLoadPkgsCache: Load failed")
+	}
+	if err := cached.Save(); err != nil {
+		t.Fatal("TestSaveAndLoadPkgsCache: Save filed:", err)
+	}
 }
 
 // ----------------------------------------------------------------------------

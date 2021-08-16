@@ -20,16 +20,17 @@ const (
 	DbgFlagComments
 	DbgFlagWriteFile
 	DbgFlagSetDebug
+	DbgFlagPersistPkgsLoad
 	DbgFlagAll = DbgFlagInstruction | DbgFlagImport | DbgFlagMatch |
-		DbgFlagComments | DbgFlagWriteFile | DbgFlagSetDebug
+		DbgFlagComments | DbgFlagWriteFile | DbgFlagSetDebug | DbgFlagPersistPkgsLoad
 )
 
 var (
-	debugInstr    bool
-	debugMatch    bool
-	debugImport   bool
-	debugComments bool
-	debugFlags    int
+	debugInstr     bool
+	debugMatch     bool
+	debugImport    bool
+	debugComments  bool
+	debugWriteFile bool
 )
 
 func SetDebug(dbgFlags int) {
@@ -37,10 +38,10 @@ func SetDebug(dbgFlags int) {
 	debugImport = (dbgFlags & DbgFlagImport) != 0
 	debugMatch = (dbgFlags & DbgFlagMatch) != 0
 	debugComments = (dbgFlags & DbgFlagComments) != 0
-	if ((dbgFlags | debugFlags) & DbgFlagSetDebug) != 0 {
+	debugWriteFile = (dbgFlags & DbgFlagWriteFile) != 0
+	if (dbgFlags & DbgFlagSetDebug) != 0 {
 		log.Printf("SetDebug: import=%v, match=%v, instr=%v\n", debugImport, debugMatch, debugInstr)
 	}
-	debugFlags = dbgFlags
 }
 
 // ----------------------------------------------------------------------------
@@ -292,6 +293,7 @@ type Package struct {
 	files       [2]file
 	conf        *Config
 	prefix      string
+	Fset        *token.FileSet
 	builtin     *types.Package
 	utBigInt    *types.Named
 	utBigRat    *types.Named
@@ -324,9 +326,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		{importPkgs: make(map[string]*PkgRef)},
 	}
 	pkg := &Package{
-		PkgRef: PkgRef{
-			Fset: conf.Fset,
-		},
+		Fset:       conf.Fset,
 		files:      files,
 		conf:       conf,
 		prefix:     prefix,
@@ -344,7 +344,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 
 // Builtin returns the buitlin package.
 func (p *Package) Builtin() *PkgRef {
-	return &PkgRef{Types: p.builtin, Fset: p.Fset, pkg: p}
+	return &PkgRef{Types: p.builtin, pkg: p}
 }
 
 // CB returns the code builder.

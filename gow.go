@@ -39,7 +39,7 @@ func WriteTo(dst io.Writer, pkg *Package, testingFile bool) (err error) {
 
 // WriteFile func
 func WriteFile(file string, pkg *Package, testingFile bool) (err error) {
-	if (debugFlags & DbgFlagWriteFile) != 0 {
+	if debugWriteFile {
 		log.Println("WriteFile", file, testingFile)
 	}
 	f, err := os.Create(file)

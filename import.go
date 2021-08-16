@@ -52,10 +52,6 @@ type PkgRef struct {
 	// unless NeedDeps and NeedImports are also set.
 	Types *types.Package
 
-	// Fset provides position information for Types, TypesInfo, and Syntax.
-	// It is set only when Types is set.
-	Fset *token.FileSet
-
 	// module is the module information for the package if it exists.
 	Module *Module
 
@@ -143,7 +139,6 @@ func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Packag
 			pkg.ID = loadPkg.ID
 			pkg.Errors = loadPkg.Errors
 			pkg.Types = pkgTypes
-			pkg.Fset = loadPkg.Fset
 			pkg.Module = loadPkg.Module
 			pkg.IllTyped = loadPkg.IllTyped
 		}
@@ -153,19 +148,17 @@ func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Packag
 			ID:       loadPkg.ID,
 			Errors:   loadPkg.Errors,
 			Types:    pkgTypes,
-			Fset:     loadPkg.Fset,
 			Module:   loadPkg.Module,
 			IllTyped: loadPkg.IllTyped,
 		}
 	}
 }
 
-type omthd struct {
-	named *types.Named
-	mthd  string
-}
-
 func initGopPkg(pkg *types.Package) {
+	type omthd struct {
+		named *types.Named
+		mthd  string
+	}
 	scope := pkg.Scope()
 	overloads := make(map[string][]types.Object)
 	moverloads := make(map[omthd][]types.Object)
@@ -230,12 +223,17 @@ func toIndex(c byte) int {
 	panic("invalid character out of [0-9,a-z]")
 }
 
-type loadPkgsCached struct {
-	imports  map[string]*PkgRef
-	pkgsLoad func(cfg *packages.Config, patterns ...string) ([]*packages.Package, error)
+type LoadPkgsCached struct {
+	imports   map[string]*PkgRef
+	pkgsLoad  func(cfg *packages.Config, patterns ...string) ([]*packages.Package, error)
+	cacheFile string
 }
 
-func (p *loadPkgsCached) load(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int {
+func (p *LoadPkgsCached) Save() error {
+	return savePkgsCache(p.cacheFile, p.imports)
+}
+
+func (p *LoadPkgsCached) Load(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int {
 	var unimportedPaths []string
 retry:
 	for _, pkgPath := range pkgPaths {
@@ -245,7 +243,6 @@ retry:
 				pkg.ID = loadPkg.ID
 				pkg.Errors = loadPkg.Errors
 				pkg.Types = &typs // clone *types.Package instance
-				pkg.Fset = loadPkg.Fset
 				pkg.Module = loadPkg.Module
 				pkg.IllTyped = loadPkg.IllTyped
 			}
@@ -272,14 +269,24 @@ retry:
 	return 0
 }
 
-// NewLoadPkgsCached returns a cached
+// NewLoadPkgsCached returns a cached pkgLoader.
 func NewLoadPkgsCached(
 	load func(cfg *packages.Config, patterns ...string) ([]*packages.Package, error)) LoadPkgsFunc {
-	imports := make(map[string]*PkgRef)
 	if load == nil {
 		load = packages.Load
 	}
-	return (&loadPkgsCached{imports: imports, pkgsLoad: load}).load
+	imports := make(map[string]*PkgRef)
+	return (&LoadPkgsCached{imports: imports, pkgsLoad: load}).Load
+}
+
+// OpenLoadPkgsCached opens cache file and returns the cached pkgLoader.
+func OpenLoadPkgsCached(
+	file string, load func(cfg *packages.Config, patterns ...string) ([]*packages.Package, error)) *LoadPkgsCached {
+	if load == nil {
+		load = packages.Load
+	}
+	imports := loadPkgsCacheFrom(file)
+	return &LoadPkgsCached{imports: imports, pkgsLoad: load, cacheFile: file}
 }
 
 // ----------------------------------------------------------------------------
