@@ -16,6 +16,7 @@ package gox
 import (
 	"go/token"
 	"go/types"
+	"reflect"
 	"testing"
 )
 
@@ -160,6 +161,63 @@ func TestScopeHasName(t *testing.T) {
 	if !has {
 		t.Fatal("scopeHasName failed: foo not found?")
 	}
+}
+
+func TestToPersistNamedType(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	o := types.NewTypeName(token.NoPos, pkg, "bar", types.Typ[types.Int])
+	typ := types.NewNamed(o, types.Typ[types.Int], nil)
+	val := toPersistNamedType(typ)
+	if val != "int" {
+		t.Fatal("TestToPersistNamedType:", val)
+	}
+}
+
+func TestFromPersistStruct(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	ctx := &persistPkgCtx{}
+	ctx.pkg = pkg
+	val := fromPersistStruct(ctx, pobj{"type": "struct", "fields": []interface{}{
+		pobj{"name": "foo", "type": "int", "tag": "hello"},
+	}})
+	if val.NumFields() != 1 || val.Tag(0) != "hello" {
+		t.Fatal("TestFromPersistStruct:", val)
+	}
+}
+
+func TestPersistSignature(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	recv := types.NewParam(token.NoPos, pkg, "bar", TyEmptyInterface)
+	sig := types.NewSignature(recv, nil, nil, false)
+	val := toPersistSignature(sig)
+	empty := []persistVar{}
+	if !reflect.DeepEqual(val, pobj{"type": "sig", "params": empty, "results": empty}) {
+		t.Fatal("TestPersistSignature:", val)
+	}
+	defer func() {
+		if e := recover(); e != "unexpected signature" {
+			t.Fatal("TestPersistSignature:", e)
+		}
+	}()
+	fromPersistSignature(nil, pobj{"type": "foo"})
+}
+
+func TestToPersistType(t *testing.T) {
+	defer func() {
+		if e := recover(); e != "unsupported type - overloadFuncType{funcs: []}" {
+			t.Fatal("TestToPersistType:", e)
+		}
+	}()
+	toPersistType(&overloadFuncType{})
+}
+
+func TestFromPersistType(t *testing.T) {
+	defer func() {
+		if e := recover(); e != "unexpected type" {
+			t.Fatal("TestFromPersistType:", e)
+		}
+	}()
+	fromPersistType(nil, 0)
 }
 
 // ----------------------------------------------------------------------------

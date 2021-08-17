@@ -22,6 +22,7 @@ import (
 	"go/types"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/goplus/gox"
 	"golang.org/x/tools/go/gcexportdata"
@@ -2583,6 +2584,29 @@ func TestSaveAndLoadPkgsCache(t *testing.T) {
 	}
 	if err := cached.Save(); err != nil {
 		t.Fatal("TestSaveAndLoadPkgsCache: Save filed:", err)
+	}
+	conf := &gox.Config{
+		Fset:            token.NewFileSet(),
+		LoadPkgs:        gox.OpenLoadPkgsCached(cachefile, nil).Load,
+		NodeInterpreter: nodeInterp{},
+	}
+	start := time.Now()
+	pkg = gox.NewPackage("", "main", conf)
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	fmt.Println("Hello")
+}
+`)
+	duration := time.Since(start)
+	if duration > time.Second/100 {
+		t.Fatal("TestSaveAndLoadPkgsCache duration:", duration)
 	}
 }
 

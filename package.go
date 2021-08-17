@@ -20,17 +20,18 @@ const (
 	DbgFlagComments
 	DbgFlagWriteFile
 	DbgFlagSetDebug
-	DbgFlagPersistPkgsLoad
+	DbgFlagPersistCache
 	DbgFlagAll = DbgFlagInstruction | DbgFlagImport | DbgFlagMatch |
-		DbgFlagComments | DbgFlagWriteFile | DbgFlagSetDebug | DbgFlagPersistPkgsLoad
+		DbgFlagComments | DbgFlagWriteFile | DbgFlagSetDebug | DbgFlagPersistCache
 )
 
 var (
-	debugInstr     bool
-	debugMatch     bool
-	debugImport    bool
-	debugComments  bool
-	debugWriteFile bool
+	debugInstr        bool
+	debugMatch        bool
+	debugImport       bool
+	debugComments     bool
+	debugWriteFile    bool
+	debugPersistCache bool
 )
 
 func SetDebug(dbgFlags int) {
@@ -39,6 +40,7 @@ func SetDebug(dbgFlags int) {
 	debugMatch = (dbgFlags & DbgFlagMatch) != 0
 	debugComments = (dbgFlags & DbgFlagComments) != 0
 	debugWriteFile = (dbgFlags & DbgFlagWriteFile) != 0
+	debugPersistCache = (dbgFlags & DbgFlagPersistCache) != 0
 	if (dbgFlags & DbgFlagSetDebug) != 0 {
 		log.Printf("SetDebug: import=%v, match=%v, instr=%v\n", debugImport, debugMatch, debugInstr)
 	}

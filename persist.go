@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"log"
 	"math/big"
-	"os"
 	"reflect"
 	"strconv"
 )
@@ -34,11 +33,23 @@ type pobj = map[string]interface{}
 
 func toPersistNamedType(t *types.Named) interface{} {
 	o := t.Obj()
+	if o.IsAlias() {
+		return toPersistType(o.Type())
+	}
 	ret := pobj{"type": "named", "name": o.Name()}
 	if pkg := o.Pkg(); pkg != nil {
 		ret["pkg"] = pkg.Path()
 	}
 	return ret
+}
+
+func fromPersistNamedType(ctx *persistPkgCtx, t pobj) *types.Named {
+	name := t["name"].(string)
+	if v, ok := t["pkg"]; ok {
+		return ctx.ref(v.(string), name)
+	}
+	o := types.Universe.Lookup(name)
+	return o.Type().(*types.Named)
 }
 
 func toPersistInterface(t *types.Interface) interface{} {
@@ -58,6 +69,20 @@ func toPersistInterface(t *types.Interface) interface{} {
 	return ret
 }
 
+func fromPersistInterface(ctx *persistPkgCtx, t pobj) *types.Interface {
+	methods := t["methods"].([]interface{})
+	mthds := fromPersistInterfaceMethods(ctx, methods)
+	var embeddeds []types.Type
+	if v, ok := t["embeddeds"]; ok {
+		in := v.([]interface{})
+		embeddeds = make([]types.Type, len(in))
+		for i, t := range in {
+			embeddeds[i] = fromPersistType(ctx, t)
+		}
+	}
+	return types.NewInterfaceType(mthds, embeddeds)
+}
+
 func toPersistStruct(t *types.Struct) interface{} {
 	n := t.NumFields()
 	fields := make([]persistVar, n)
@@ -66,6 +91,19 @@ func toPersistStruct(t *types.Struct) interface{} {
 		fields[i].Tag = t.Tag(i)
 	}
 	return pobj{"type": "struct", "fields": fields}
+}
+
+func fromPersistStruct(ctx *persistPkgCtx, t pobj) *types.Struct {
+	in := t["fields"].([]interface{})
+	fields := make([]*types.Var, len(in))
+	tags := make([]string, len(in))
+	for i, v := range in {
+		fields[i] = fromPersistVar(ctx, v)
+		if tag, ok := v.(pobj)["tag"]; ok {
+			tags[i] = tag.(string)
+		}
+	}
+	return types.NewStruct(fields, tags)
 }
 
 func toPersistSignature(sig *types.Signature) interface{} {
@@ -93,6 +131,24 @@ func toPersistSignature(sig *types.Signature) interface{} {
 		ret["variadic"] = true
 	}
 	return ret
+}
+
+func fromPersistSignature(ctx *persistPkgCtx, v interface{}) *types.Signature {
+	sig := v.(pobj)
+	if sig["type"].(string) != "sig" {
+		panic("unexpected signature")
+	}
+	params := fromPersistVars(ctx, sig["params"].([]interface{}))
+	results := fromPersistVars(ctx, sig["results"].([]interface{}))
+	var variadic bool
+	if v, ok := sig["variadic"]; ok {
+		variadic = v.(bool)
+	}
+	var recv *types.Var
+	if v, ok := sig["recv"]; ok {
+		recv = fromPersistVar(ctx, v)
+	}
+	return types.NewSignature(recv, params, results, variadic)
 }
 
 func toPersistType(typ types.Type) interface{} {
@@ -123,16 +179,58 @@ func toPersistType(typ types.Type) interface{} {
 	}
 }
 
-/*
-func fromPersistType(typ interface{}) types.Type {
+func fromPersistType(ctx *persistPkgCtx, typ interface{}) types.Type {
 	switch t := typ.(type) {
 	case string:
-		return types.Universe.Lookup(t).Type()
-	default:
-		panic("TODO: unexpected")
+		if ret := types.Universe.Lookup(t); ret != nil {
+			return ret.Type()
+		} else if kind, ok := typsUntyped[t]; ok {
+			return types.Typ[kind]
+		}
+	case pobj:
+		switch t["type"].(string) {
+		case "slice":
+			elem := fromPersistType(ctx, t["elem"])
+			return types.NewSlice(elem)
+		case "map":
+			key := fromPersistType(ctx, t["key"])
+			elem := fromPersistType(ctx, t["elem"])
+			return types.NewMap(key, elem)
+		case "named":
+			return fromPersistNamedType(ctx, t)
+		case "ptr":
+			elem := fromPersistType(ctx, t["elem"])
+			return types.NewPointer(elem)
+		case "interface":
+			return fromPersistInterface(ctx, t)
+		case "struct":
+			return fromPersistStruct(ctx, t)
+		case "sig":
+			return fromPersistSignature(ctx, t)
+		case "array":
+			iv, err := strconv.ParseInt(t["len"].(string), 10, 64)
+			if err == nil {
+				elem := fromPersistType(ctx, t["elem"])
+				return types.NewArray(elem, iv)
+			}
+		case "chan":
+			elem := fromPersistType(ctx, t["elem"])
+			return types.NewChan(types.ChanDir(t["dir"].(float64)), elem)
+		}
 	}
+	panic("unexpected type")
 }
-*/
+
+var typsUntyped = map[string]types.BasicKind{
+	"untyped int":     types.UntypedInt,
+	"untyped float":   types.UntypedFloat,
+	"untyped string":  types.UntypedString,
+	"untyped bool":    types.UntypedBool,
+	"untyped rune":    types.UntypedRune,
+	"untyped complex": types.UntypedComplex,
+	"untyped nil":     types.UntypedNil,
+	"Pointer":         types.UnsafePointer,
+}
 
 // ----------------------------------------------------------------------------
 
@@ -153,7 +251,6 @@ func toPersistVal(val constant.Value) interface{} {
 	}
 }
 
-/*
 func fromPersistVal(val interface{}) constant.Value {
 	var ret interface{}
 	switch v := val.(type) {
@@ -163,37 +260,31 @@ func fromPersistVal(val interface{}) constant.Value {
 		switch typ := v["type"].(string); typ {
 		case "int64":
 			iv, err := strconv.ParseInt(v["val"].(string), 10, 64)
-			if err != nil {
-				panic("fromPersistVal failed: " + err.Error())
+			if err == nil {
+				ret = iv
 			}
-			ret = iv
 		case "bigint":
 			bval := v["val"].(string)
-			bv, ok := new(big.Int).SetString(bval, 10)
-			if !ok {
-				panic("fromPersistVal failed: " + bval)
+			if bv, ok := new(big.Int).SetString(bval, 10); ok {
+				ret = bv
 			}
-			ret = bv
 		case "bigrat":
 			num := v["num"].(string)
 			denom := v["denom"].(string)
 			bnum, ok1 := new(big.Int).SetString(num, 10)
 			bdenom, ok2 := new(big.Int).SetString(denom, 10)
-			if !ok1 || !ok2 {
-				panic("fromPersistVal failed: " + num + "/" + denom)
+			if ok1 && ok2 {
+				ret = new(big.Rat).SetFrac(bnum, bdenom)
 			}
-			ret = new(big.Rat).SetFrac(bnum, bdenom)
-		default:
-			panic("fromPersistVal failed: unknown type - " + typ)
 		}
 	case bool:
 		ret = v
-	default:
-		panic("fromPersistVal: unsupported constant")
 	}
-	return constant.Make(ret)
+	if ret != nil {
+		return constant.Make(ret)
+	}
+	panic("unsupported constant")
 }
-*/
 
 // ----------------------------------------------------------------------------
 
@@ -210,6 +301,22 @@ func toPersistVar(v *types.Var) persistVar {
 	}
 }
 
+func fromPersistVarDecl(ctx *persistPkgCtx, v persistVar) {
+	typ := fromPersistType(ctx, v.Type)
+	o := types.NewVar(token.NoPos, ctx.pkg, v.Name, typ)
+	ctx.scope.Insert(o)
+}
+
+func fromPersistVar(ctx *persistPkgCtx, v interface{}) *types.Var {
+	obj := v.(pobj)
+	var name string
+	if o, ok := obj["name"]; ok {
+		name = o.(string)
+	}
+	typ := fromPersistType(ctx, obj["type"])
+	return types.NewVar(token.NoPos, ctx.pkg, name, typ)
+}
+
 func toPersistVars(v *types.Tuple) []persistVar {
 	n := v.Len()
 	vars := make([]persistVar, n)
@@ -217,6 +324,18 @@ func toPersistVars(v *types.Tuple) []persistVar {
 		vars[i] = toPersistVar(v.At(i))
 	}
 	return vars
+}
+
+func fromPersistVars(ctx *persistPkgCtx, vars []interface{}) *types.Tuple {
+	n := len(vars)
+	if n == 0 {
+		return nil
+	}
+	ret := make([]*types.Var, n)
+	for i, v := range vars {
+		ret[i] = fromPersistVar(ctx, v)
+	}
+	return types.NewTuple(ret...)
 }
 
 type persistConst struct {
@@ -233,6 +352,15 @@ func toPersistConst(v *types.Const) persistConst {
 	}
 }
 
+func fromPersistConst(ctx *persistPkgCtx, v persistConst) {
+	typ := fromPersistType(ctx, v.Type)
+	val := fromPersistVal(v.Val)
+	o := types.NewConst(token.NoPos, ctx.pkg, v.Name, typ, val)
+	ctx.scope.Insert(o)
+}
+
+// ----------------------------------------------------------------------------
+
 type persistFunc struct {
 	Name string      `json:"name"`
 	Sig  interface{} `json:"sig"`
@@ -245,6 +373,34 @@ func toPersistFunc(v *types.Func) *persistFunc {
 	}
 	return &persistFunc{Name: v.Name(), Sig: sig}
 }
+
+func fromPersistFunc(ctx *persistPkgCtx, v persistFunc) *types.Func {
+	sig := fromPersistSignature(ctx, v.Sig)
+	return types.NewFunc(token.NoPos, ctx.pkg, v.Name, sig)
+}
+
+func fromPersistInterfaceMethod(ctx *persistPkgCtx, fn interface{}) *types.Func {
+	in := fn.(pobj)
+	sig := fromPersistSignature(ctx, in["sig"])
+	return types.NewFunc(token.NoPos, ctx.pkg, in["name"].(string), sig)
+}
+
+func fromPersistInterfaceMethods(ctx *persistPkgCtx, funcs []interface{}) []*types.Func {
+	mthds := make([]*types.Func, len(funcs))
+	for i, fn := range funcs {
+		mthds[i] = fromPersistInterfaceMethod(ctx, fn)
+	}
+	return mthds
+}
+
+func fromPersistMethods(ctx *persistPkgCtx, t *types.Named, funcs []persistFunc) {
+	for _, fn := range funcs {
+		ret := fromPersistFunc(ctx, fn)
+		t.AddMethod(ret)
+	}
+}
+
+// ----------------------------------------------------------------------------
 
 type persistNamed struct {
 	Name       string        `json:"name"`
@@ -262,10 +418,10 @@ func toPersistTypeName(v *types.TypeName) persistNamed {
 	var methods []persistFunc
 	t := v.Type().(*types.Named)
 	if n := t.NumMethods(); n > 0 {
-		methods = make([]persistFunc, n)
+		methods = make([]persistFunc, 0, n)
 		for i := 0; i < n; i++ {
 			if mthd := toPersistFunc(t.Method(i)); mthd != nil {
-				methods[i] = *mthd
+				methods = append(methods, *mthd)
 			}
 		}
 	}
@@ -276,11 +432,28 @@ func toPersistTypeName(v *types.TypeName) persistNamed {
 	}
 }
 
-/*
-func fromPersistTypeName(v persistNamed) *types.TypeName {
-	panic("not impl")
+func fromPersistTypeName(ctx *persistPkgCtx, v persistNamed) {
+	if v.IsAlias {
+		typ := fromPersistType(ctx, v.Type)
+		o := types.NewTypeName(token.NoPos, ctx.pkg, v.Name, typ)
+		ctx.scope.Insert(o)
+	} else {
+		var o *types.TypeName
+		var t *types.Named
+		obj := ctx.scope.Lookup(v.Name)
+		if obj != nil {
+			o = obj.(*types.TypeName)
+			t = o.Type().(*types.Named)
+		} else {
+			o = types.NewTypeName(token.NoPos, ctx.pkg, v.Name, nil)
+			t = types.NewNamed(o, nil, nil)
+			ctx.scope.Insert(o)
+		}
+		underlying := fromPersistType(ctx, v.Underlying)
+		t.SetUnderlying(underlying)
+		fromPersistMethods(ctx, t, v.Methods)
+	}
 }
-*/
 
 // ----------------------------------------------------------------------------
 
@@ -295,20 +468,20 @@ type persistPkgRef struct {
 }
 
 func toPersistPkg(pkg *PkgRef) *persistPkgRef {
-	pkgTypes := pkg.Types
-	if pkgTypes == types.Unsafe {
-		return &persistPkgRef{ID: pkg.ID, PkgPath: "unsafe"}
-	}
 	var (
 		vars   []persistVar
 		consts []persistConst
 		typs   []persistNamed
 		funcs  []persistFunc
 	)
+	pkgTypes := pkg.Types
 	scope := pkgTypes.Scope()
+	if debugPersistCache {
+		log.Println("==> Persist", pkgTypes.Path())
+	}
 	for _, name := range scope.Names() {
 		o := scope.Lookup(name)
-		// export private types because they may be refered by public functions
+		// persist private types because they may be refered by public functions
 		if v, ok := o.(*types.TypeName); ok {
 			if _, ok := v.Type().(*overloadFuncType); !ok {
 				typs = append(typs, toPersistTypeName(v))
@@ -340,35 +513,115 @@ func toPersistPkg(pkg *PkgRef) *persistPkgRef {
 	}
 }
 
-func fromPersistPkg(pkg *persistPkgRef) *PkgRef {
-	panic("not impl")
+func fromPersistPkg(ctx *persistPkgCtx, pkg *persistPkgRef) *PkgRef {
+	ctx.pkg = types.NewPackage(pkg.PkgPath, pkg.Name)
+	ctx.scope = ctx.pkg.Scope()
+	ctx.checks = nil
+	ret := &PkgRef{ID: pkg.ID, Types: ctx.pkg}
+	ctx.imports[pkg.PkgPath] = ret
+	for _, typ := range pkg.Types {
+		fromPersistTypeName(ctx, typ)
+	}
+	ctx.check()
+	for _, c := range pkg.Consts {
+		fromPersistConst(ctx, c)
+	}
+	for _, v := range pkg.Vars {
+		fromPersistVarDecl(ctx, v)
+	}
+	for _, fn := range pkg.Funcs {
+		o := fromPersistFunc(ctx, fn)
+		ctx.scope.Insert(o)
+	}
+	return ret
 }
 
 // ----------------------------------------------------------------------------
 
+type persistPkgState struct {
+	pkg    *types.Package
+	scope  *types.Scope
+	checks []*types.TypeName
+}
+
+type persistPkgCtx struct {
+	imports map[string]*PkgRef
+	from    map[string]*persistPkgRef
+	persistPkgState
+}
+
+func (ctx *persistPkgCtx) check() {
+	for _, c := range ctx.checks {
+		if c.Type().Underlying() == nil {
+			panic("type not found - " + ctx.pkg.Path() + "." + c.Name())
+		}
+	}
+}
+
+func (ctx *persistPkgCtx) ref(pkgPath, name string) *types.Named {
+	pkg, ok := ctx.imports[pkgPath]
+	if !ok {
+		persist, ok := ctx.from[pkgPath]
+		if !ok {
+			panic("unexpected: package not found - " + pkgPath)
+		}
+		old := ctx.persistPkgState
+		pkg = fromPersistPkg(ctx, persist)
+		ctx.persistPkgState = old
+	}
+	if o := pkg.Types.Scope().Lookup(name); o != nil {
+		return o.Type().(*types.Named)
+	}
+	if pkg.Types == ctx.pkg { // maybe not loaded
+		o := types.NewTypeName(token.NoPos, pkg.Types, name, nil)
+		t := types.NewNamed(o, nil, nil)
+		ctx.scope.Insert(o)
+		ctx.checks = append(ctx.checks, o)
+		return t
+	}
+	panic("type not found: " + pkgPath + "." + name)
+}
+
+func fromPersistPkgs(from map[string]*persistPkgRef) map[string]*PkgRef {
+	imports := make(map[string]*PkgRef, len(from))
+	ctx := &persistPkgCtx{imports: imports, from: from}
+	imports["unsafe"] = &PkgRef{
+		ID:    "unsafe",
+		Types: types.Unsafe,
+	}
+	for pkgPath, pkg := range from {
+		if _, ok := imports[pkgPath]; ok {
+			// already loaded
+			continue
+		}
+		imports[pkgPath] = fromPersistPkg(ctx, pkg)
+	}
+	return imports
+}
+
 func toPersistPkgs(imports map[string]*PkgRef) map[string]*persistPkgRef {
 	ret := make(map[string]*persistPkgRef, len(imports))
 	for pkgPath, pkg := range imports {
+		if pkg.Types == types.Unsafe {
+			// don't persist unsafe package
+			continue
+		}
 		ret[pkgPath] = toPersistPkg(pkg)
 	}
 	return ret
 }
 
-func fromPersistPkgs(from map[string]*persistPkgRef) map[string]*PkgRef {
-	imports := make(map[string]*PkgRef, len(from))
-	for pkgPath, pkg := range from {
-		imports[pkgPath] = fromPersistPkg(pkg)
-	}
-	return imports
-}
-
 // ----------------------------------------------------------------------------
+
+const (
+	jsonFile = "go.json"
+)
 
 func savePkgsCache(file string, imports map[string]*PkgRef) (err error) {
 	ret := toPersistPkgs(imports)
 	buf := new(bytes.Buffer)
 	zipf := zip.NewWriter(buf)
-	zipw, _ := zipf.Create("go.json")
+	zipw, _ := zipf.Create(jsonFile)
 	err = json.NewEncoder(zipw).Encode(ret)
 	if err != nil {
 		return
@@ -378,15 +631,23 @@ func savePkgsCache(file string, imports map[string]*PkgRef) (err error) {
 }
 
 func loadPkgsCacheFrom(file string) map[string]*PkgRef {
-	f, err := os.Open(file)
+	zipf, err := zip.OpenReader(file)
 	if err == nil {
-		defer f.Close()
-		var ret map[string]*persistPkgRef
-		err = json.NewDecoder(f).Decode(&ret)
-		if err != nil {
-			log.Println("[WARN] loadPkgsCache failed:", err)
+		defer zipf.Close()
+		for _, item := range zipf.File {
+			if item.Name == jsonFile {
+				f, err := item.Open()
+				if err == nil {
+					defer f.Close()
+					var ret map[string]*persistPkgRef
+					if err = json.NewDecoder(f).Decode(&ret); err == nil {
+						return fromPersistPkgs(ret)
+					}
+				}
+				log.Println("[WARN] loadPkgsCache failed:", err)
+				break
+			}
 		}
-		return fromPersistPkgs(ret)
 	}
 	return make(map[string]*PkgRef)
 }
