@@ -226,6 +226,9 @@ func TestImported(t *testing.T) {
 	}
 	imports := map[string]*PkgRef{"foo": pkg}
 	cached := &LoadPkgsCached{imports: imports}
+	if cached.Save() != nil {
+		t.Fatal("cached.Save failed")
+	}
 	if _, ok := cached.imported("foo"); ok {
 		t.Fatal("TestImported failed")
 	}

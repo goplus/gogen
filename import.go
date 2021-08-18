@@ -273,6 +273,9 @@ func (p *LoadPkgsCached) imported(pkgPath string) (pkg *PkgRef, ok bool) {
 }
 
 func (p *LoadPkgsCached) Save() error {
+	if p.cacheFile == "" {
+		return nil
+	}
 	return savePkgsCache(p.cacheFile, p.imports)
 }
 
