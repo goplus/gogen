@@ -465,6 +465,8 @@ type persistPkgRef struct {
 	Consts  []persistConst `json:"consts,omitempty"`
 	Types   []persistNamed `json:"types,omitempty"`
 	Funcs   []persistFunc  `json:"funcs,omitempty"`
+	Files   []string       `json:"files,omitempty"`
+	Fingerp string         `json:"fingerp,omitempty"`
 }
 
 func toPersistPkg(pkg *PkgRef) *persistPkgRef {
@@ -502,7 +504,7 @@ func toPersistPkg(pkg *PkgRef) *persistPkgRef {
 			log.Panicln("unexpected object -", reflect.TypeOf(o), o.Name())
 		}
 	}
-	return &persistPkgRef{
+	ret := &persistPkgRef{
 		ID:      pkg.ID,
 		PkgPath: pkgTypes.Path(),
 		Name:    pkgTypes.Name(),
@@ -511,13 +513,22 @@ func toPersistPkg(pkg *PkgRef) *persistPkgRef {
 		Funcs:   funcs,
 		Consts:  consts,
 	}
+	if pkg.pkgf != nil {
+		ret.Fingerp = pkg.pkgf.getFingerp()
+		ret.Files = pkg.pkgf.files
+	}
+	return ret
 }
 
 func fromPersistPkg(ctx *persistPkgCtx, pkg *persistPkgRef) *PkgRef {
 	ctx.pkg = types.NewPackage(pkg.PkgPath, pkg.Name)
 	ctx.scope = ctx.pkg.Scope()
 	ctx.checks = nil
-	ret := &PkgRef{ID: pkg.ID, Types: ctx.pkg}
+	var pkgf *pkgFingerp
+	if pkg.Fingerp != "" {
+		pkgf = &pkgFingerp{files: pkg.Files, fingerp: pkg.Fingerp}
+	}
+	ret := &PkgRef{ID: pkg.ID, Types: ctx.pkg, pkgf: pkgf}
 	ctx.imports[pkg.PkgPath] = ret
 	for _, typ := range pkg.Types {
 		fromPersistTypeName(ctx, typ)

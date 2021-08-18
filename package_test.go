@@ -51,6 +51,7 @@ func newMainPackage(noCache ...bool) *gox.Package {
 	conf := &gox.Config{
 		Fset:            gblFset,
 		LoadPkgs:        gblLoadPkgs,
+		ModPath:         "github.com/goplus/gox",
 		NodeInterpreter: nodeInterp{},
 	}
 	if handleErr != nil {
@@ -2576,7 +2577,7 @@ func main() {
 
 func TestSaveAndLoadPkgsCache(t *testing.T) {
 	defer os.Remove(cachefile)
-	pkg := gox.NewPackage("", "main", nil)
+	pkg := gox.NewPackage("", "main", &gox.Config{ModPath: "github.com/goplus/gox"})
 	cached := gblCached
 	imports := map[string]*gox.PkgRef{}
 	if cached.Load(pkg, imports, "fmt") != 0 {
@@ -2588,6 +2589,7 @@ func TestSaveAndLoadPkgsCache(t *testing.T) {
 	conf := &gox.Config{
 		Fset:            token.NewFileSet(),
 		LoadPkgs:        gox.OpenLoadPkgsCached(cachefile, nil).Load,
+		ModPath:         "github.com/goplus/gox",
 		NodeInterpreter: nodeInterp{},
 	}
 	start := time.Now()

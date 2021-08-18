@@ -82,6 +82,9 @@ type Config struct {
 	// If Dir is empty, the tool is run in the current directory.
 	Dir string
 
+	// ModPath is the pkgPath of this module
+	ModPath string
+
 	// Env is the environment to use when invoking the build system's query tool.
 	// If Env is nil, the current environment is used.
 	// As in os/exec's Cmd, only the last value in the slice for
@@ -294,6 +297,7 @@ type Package struct {
 	cb          CodeBuilder
 	files       [2]file
 	conf        *Config
+	modPath     string
 	prefix      string
 	Fset        *token.FileSet
 	builtin     *types.Package
@@ -331,6 +335,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		Fset:       conf.Fset,
 		files:      files,
 		conf:       conf,
+		modPath:    conf.ModPath,
 		prefix:     prefix,
 		loadPkgs:   loadPkgs,
 		autoPrefix: "_auto" + prefix,

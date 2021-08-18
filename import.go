@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -30,21 +31,11 @@ import (
 // Ref type
 type Ref = types.Object
 
-// An Error describes a problem with a package's metadata, syntax, or types.
-type Error = packages.Error
-
-// Module provides module information for a package.
-type Module = packages.Module
-
 // PkgRef type is a subset of golang.org/x/tools/go/packages.Package
 type PkgRef struct {
 	// ID is a unique identifier for a package,
 	// in a syntax provided by the underlying build system.
 	ID string
-
-	// Errors contains any errors encountered querying the metadata
-	// of the package, or while parsing or type-checking its files.
-	Errors []Error
 
 	// Types provides type information for the package.
 	// The NeedTypes LoadMode bit sets this field for packages matching the
@@ -52,11 +43,10 @@ type PkgRef struct {
 	// unless NeedDeps and NeedImports are also set.
 	Types *types.Package
 
-	// module is the module information for the package if it exists.
-	Module *Module
-
 	file *file // to import packages anywhere
 	pkg  *Package
+
+	pkgf *pkgFingerp
 
 	// IllTyped indicates whether the package or any dependency contains errors.
 	// It is set only when Types is set.
@@ -67,6 +57,31 @@ type PkgRef struct {
 
 	isUsed   bool
 	nameRefs []*ast.Ident // for internal use
+}
+
+type pkgFingerp struct {
+	files   []string // files to generate fingerprint
+	fingerp string   // package code fingerprint, or empty (delay calc)
+	updated bool     // dirty flag is valid
+	dirty   bool
+}
+
+func (p *pkgFingerp) getFingerp() string {
+	if p.fingerp == "" {
+		p.fingerp = calcFingerp(p.files)
+	}
+	return p.fingerp
+}
+
+func (p *pkgFingerp) changed() bool {
+	if p == nil {
+		return false
+	}
+	if !p.updated {
+		p.dirty = (calcFingerp(p.files) != p.fingerp)
+		p.updated = true
+	}
+	return p.dirty
 }
 
 func (p *PkgRef) markUsed(v *ast.Ident) {
@@ -122,12 +137,13 @@ func LoadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) 
 func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Package) {
 	for _, impPkg := range loadPkg.Imports {
 		if _, ok := imports[impPkg.PkgPath]; ok {
+			// this package is loaded
 			continue
 		}
 		LoadGoPkg(at, imports, impPkg)
 	}
 	if debugImport {
-		log.Println("==> Import", loadPkg.PkgPath)
+		log.Println("==> Import", loadPkg.PkgPath, loadPkg.Module)
 	}
 	pkg, ok := imports[loadPkg.PkgPath]
 	pkgTypes := loadPkg.Types
@@ -137,21 +153,38 @@ func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Packag
 	if ok {
 		if pkg.ID == "" {
 			pkg.ID = loadPkg.ID
-			pkg.Errors = loadPkg.Errors
 			pkg.Types = pkgTypes
-			pkg.Module = loadPkg.Module
 			pkg.IllTyped = loadPkg.IllTyped
 		}
 	} else {
-		imports[loadPkg.PkgPath] = &PkgRef{
-			pkg:      at,
+		pkg = &PkgRef{
 			ID:       loadPkg.ID,
-			Errors:   loadPkg.Errors,
 			Types:    pkgTypes,
-			Module:   loadPkg.Module,
 			IllTyped: loadPkg.IllTyped,
+			pkg:      at,
+		}
+		imports[loadPkg.PkgPath] = pkg
+	}
+	if loadPkg.Module != nil && loadPkg.Module.Path == at.modPath {
+		pkg.pkgf = &pkgFingerp{files: fileList(loadPkg), updated: true}
+	}
+}
+
+func fileList(loadPkg *packages.Package) []string {
+	return loadPkg.GoFiles
+}
+
+func calcFingerp(files []string) string {
+	var gopTime time.Time
+	for _, file := range files {
+		if fi, err := os.Stat(file); err == nil {
+			modTime := fi.ModTime()
+			if modTime.After(gopTime) {
+				gopTime = modTime
+			}
 		}
 	}
+	return strconv.FormatInt(gopTime.UnixMicro(), 36)
 }
 
 func initGopPkg(pkg *types.Package) {
@@ -229,6 +262,16 @@ type LoadPkgsCached struct {
 	cacheFile string
 }
 
+func (p *LoadPkgsCached) imported(pkgPath string) (pkg *PkgRef, ok bool) {
+	if pkg, ok = p.imports[pkgPath]; ok {
+		if pkg.pkgf.changed() {
+			delete(p.imports, pkgPath)
+			return nil, false
+		}
+	}
+	return
+}
+
 func (p *LoadPkgsCached) Save() error {
 	return savePkgsCache(p.cacheFile, p.imports)
 }
@@ -237,13 +280,11 @@ func (p *LoadPkgsCached) Load(at *Package, importPkgs map[string]*PkgRef, pkgPat
 	var unimportedPaths []string
 retry:
 	for _, pkgPath := range pkgPaths {
-		if loadPkg, ok := p.imports[pkgPath]; ok {
+		if loadPkg, ok := p.imported(pkgPath); ok {
 			if pkg, ok := importPkgs[pkgPath]; ok {
 				typs := *loadPkg.Types
 				pkg.ID = loadPkg.ID
-				pkg.Errors = loadPkg.Errors
 				pkg.Types = &typs // clone *types.Package instance
-				pkg.Module = loadPkg.Module
 				pkg.IllTyped = loadPkg.IllTyped
 			}
 		} else {
@@ -293,7 +334,7 @@ func OpenLoadPkgsCached(
 
 const (
 	loadTypes = packages.NeedImports | packages.NeedDeps | packages.NeedTypes
-	loadModes = loadTypes | packages.NeedName | packages.NeedModule
+	loadModes = loadTypes | packages.NeedName | packages.NeedModule | packages.NeedFiles
 )
 
 // InternalGetLoadConfig is a internal function. don't use it.

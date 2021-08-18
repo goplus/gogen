@@ -220,4 +220,15 @@ func TestFromPersistType(t *testing.T) {
 	fromPersistType(nil, 0)
 }
 
+func TestImported(t *testing.T) {
+	pkg := &PkgRef{
+		pkgf: &pkgFingerp{fingerp: "abc"},
+	}
+	imports := map[string]*PkgRef{"foo": pkg}
+	cached := &LoadPkgsCached{imports: imports}
+	if _, ok := cached.imported("foo"); ok {
+		t.Fatal("TestImported failed")
+	}
+}
+
 // ----------------------------------------------------------------------------
