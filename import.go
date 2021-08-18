@@ -184,7 +184,7 @@ func calcFingerp(files []string) string {
 			}
 		}
 	}
-	return strconv.FormatInt(gopTime.UnixMicro(), 36)
+	return strconv.FormatInt(gopTime.UnixNano()/1000, 36)
 }
 
 func initGopPkg(pkg *types.Package) {
