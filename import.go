@@ -147,9 +147,7 @@ func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Packag
 	}
 	pkg, ok := imports[loadPkg.PkgPath]
 	pkgTypes := loadPkg.Types
-	if pkgTypes.Scope().Lookup("GopPackage") != nil { // is a Go+ package
-		initGopPkg(pkgTypes)
-	}
+	initGopPkg(pkgTypes)
 	if ok {
 		if pkg.ID == "" {
 			pkg.ID = loadPkg.ID
@@ -188,6 +186,9 @@ func calcFingerp(files []string) string {
 }
 
 func initGopPkg(pkg *types.Package) {
+	if pkg.Scope().Lookup("GopPackage") == nil { // not is a Go+ package
+		return
+	}
 	type omthd struct {
 		named *types.Named
 		mthd  string

@@ -564,6 +564,7 @@ func fromPersistPkg(ctx *persistPkgCtx, pkg *persistPkgRef) *PkgRef {
 		o := fromPersistFunc(ctx, fn)
 		ctx.scope.Insert(o)
 	}
+	initGopPkg(ctx.pkg)
 	return ret
 }
 
