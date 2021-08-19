@@ -87,7 +87,7 @@ func toPersistStruct(t *types.Struct) interface{} {
 	n := t.NumFields()
 	fields := make([]persistVar, n)
 	for i := 0; i < n; i++ {
-		fields[i] = toPersistVar(t.Field(i))
+		fields[i] = toPersistField(t.Field(i))
 		fields[i].Tag = t.Tag(i)
 	}
 	return pobj{"type": "struct", "fields": fields}
@@ -98,7 +98,7 @@ func fromPersistStruct(ctx *persistPkgCtx, t pobj) *types.Struct {
 	fields := make([]*types.Var, len(in))
 	tags := make([]string, len(in))
 	for i, v := range in {
-		fields[i] = fromPersistVar(ctx, v)
+		fields[i] = fromPersistField(ctx, v)
 		if tag, ok := v.(pobj)["tag"]; ok {
 			tags[i] = tag.(string)
 		}
@@ -125,7 +125,7 @@ func toPersistSignature(sig *types.Signature) interface{} {
 	variadic := sig.Variadic()
 	ret := pobj{"type": "sig", "params": params, "results": results}
 	if recv != nil {
-		ret["recv"] = toPersistVar(recv)
+		ret["recv"] = toPersistParam(recv)
 	}
 	if variadic {
 		ret["variadic"] = true
@@ -146,7 +146,7 @@ func fromPersistSignature(ctx *persistPkgCtx, v interface{}) *types.Signature {
 	}
 	var recv *types.Var
 	if v, ok := sig["recv"]; ok {
-		recv = fromPersistVar(ctx, v)
+		recv = fromPersistParam(ctx, v)
 	}
 	return types.NewSignature(recv, params, results, variadic)
 }
@@ -289,15 +289,24 @@ func fromPersistVal(val interface{}) constant.Value {
 // ----------------------------------------------------------------------------
 
 type persistVar struct {
-	Name string      `json:"name,omitempty"`
-	Type interface{} `json:"type"`
-	Tag  string      `json:"tag,omitempty"`
+	Name     string      `json:"name,omitempty"`
+	Type     interface{} `json:"type"`
+	Tag      string      `json:"tag,omitempty"`
+	Embedded bool        `json:"embedded,omitempty"`
 }
 
-func toPersistVar(v *types.Var) persistVar {
+func toPersistParam(v *types.Var) persistVar {
 	return persistVar{
 		Name: v.Name(),
 		Type: toPersistType(v.Type()),
+	}
+}
+
+func toPersistField(v *types.Var) persistVar {
+	return persistVar{
+		Name:     v.Name(),
+		Type:     toPersistType(v.Type()),
+		Embedded: v.Embedded(),
 	}
 }
 
@@ -307,21 +316,32 @@ func fromPersistVarDecl(ctx *persistPkgCtx, v persistVar) {
 	ctx.scope.Insert(o)
 }
 
-func fromPersistVar(ctx *persistPkgCtx, v interface{}) *types.Var {
+func fromPersistParam(ctx *persistPkgCtx, v interface{}) *types.Var {
 	obj := v.(pobj)
 	var name string
 	if o, ok := obj["name"]; ok {
 		name = o.(string)
 	}
 	typ := fromPersistType(ctx, obj["type"])
-	return types.NewVar(token.NoPos, ctx.pkg, name, typ)
+	return types.NewParam(token.NoPos, ctx.pkg, name, typ)
+}
+
+func fromPersistField(ctx *persistPkgCtx, v interface{}) *types.Var {
+	obj := v.(pobj)
+	var name string
+	if o, ok := obj["name"]; ok {
+		name = o.(string)
+	}
+	typ := fromPersistType(ctx, obj["type"])
+	_, embedded := obj["embedded"]
+	return types.NewField(token.NoPos, ctx.pkg, name, typ, embedded)
 }
 
 func toPersistVars(v *types.Tuple) []persistVar {
 	n := v.Len()
 	vars := make([]persistVar, n)
 	for i := 0; i < n; i++ {
-		vars[i] = toPersistVar(v.At(i))
+		vars[i] = toPersistParam(v.At(i))
 	}
 	return vars
 }
@@ -333,7 +353,7 @@ func fromPersistVars(ctx *persistPkgCtx, vars []interface{}) *types.Tuple {
 	}
 	ret := make([]*types.Var, n)
 	for i, v := range vars {
-		ret[i] = fromPersistVar(ctx, v)
+		ret[i] = fromPersistParam(ctx, v)
 	}
 	return types.NewTuple(ret...)
 }
@@ -499,7 +519,7 @@ func toPersistPkg(pkg *PkgRef) *persistPkgRef {
 		case *types.Const:
 			consts = append(consts, toPersistConst(v))
 		case *types.Var:
-			vars = append(vars, toPersistVar(v))
+			vars = append(vars, toPersistParam(v))
 		default:
 			log.Panicln("unexpected object -", reflect.TypeOf(o), o.Name())
 		}
