@@ -5,7 +5,7 @@ gox - Code generator for the Go language
 [![Go Report Card](https://goreportcard.com/badge/github.com/goplus/gox)](https://goreportcard.com/report/github.com/goplus/gox)
 [![GitHub release](https://img.shields.io/github/v/tag/goplus/gox.svg?label=release)](https://github.com/goplus/gox/releases)
 [![Coverage Status](https://codecov.io/gh/goplus/gox/branch/main/graph/badge.svg)](https://codecov.io/gh/goplus/gox)
-[![GoDoc](https://img.shields.io/badge/godoc-reference-teal.svg)](https://pkg.go.dev/mod/github.com/goplus/gox)
+[![GoDoc](https://pkg.go.dev/badge/github.com/goplus/gox.svg)](https://pkg.go.dev/mod/github.com/goplus/gox)
 
 ## Tutorials
 
