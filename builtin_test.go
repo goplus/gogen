@@ -115,6 +115,14 @@ func TestNodeInterp(t *testing.T) {
 	}
 }
 
+func TestInternalStack(t *testing.T) {
+	var cb CodeBuilder
+	cb.InternalStack().Push(nil)
+	if cb.Get(-1) != nil {
+		t.Fatal("InternalStack/Get failed")
+	}
+}
+
 func TestGetUnderlying(t *testing.T) {
 	var pkg = new(Package)
 	var cb = &pkg.cb

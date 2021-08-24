@@ -2166,3 +2166,12 @@ func (p *CodeBuilder) Get(idx int) *Element {
 }
 
 // ----------------------------------------------------------------------------
+
+type InternalStack = internal.Stack
+
+// InternalStack: don't call it (only for internal use)
+func (p *CodeBuilder) InternalStack() *InternalStack {
+	return &p.stk
+}
+
+// ----------------------------------------------------------------------------
