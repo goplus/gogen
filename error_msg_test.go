@@ -728,7 +728,7 @@ func TestErrMember(t *testing.T) {
 				NewVar(types.Typ[types.String], "x").
 				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
 				Debug(func(cb *gox.CodeBuilder) {
-					_, err := cb.Member("y", source("x.y", 1, 5))
+					_, err := cb.Member("y", false, source("x.y", 1, 5))
 					if err != nil {
 						panic(err)
 					}

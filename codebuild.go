@@ -1338,28 +1338,38 @@ func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 	return p
 }
 
+// MemberVal func
+func (p *CodeBuilder) MemberVal(name string, src ...ast.Node) *CodeBuilder {
+	_, err := p.Member(name, false, src...)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
 // MemberRef func
 func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
-	if debugInstr {
-		log.Println("MemberRef", name)
+	_, err := p.Member(name, true, src...)
+	if err != nil {
+		panic(err)
 	}
-	arg := p.stk.Get(-1)
-	switch o := indirect(arg.Type).(type) {
+	return p
+}
+
+func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr) MemberKind {
+	switch o := indirect(typ).(type) {
 	case *types.Named:
 		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
-			if p.fieldRef(arg.Val, struc, name) {
-				return p
+			if p.fieldRef(argVal, struc, name) {
+				return MemberField
 			}
 		}
 	case *types.Struct:
-		if p.fieldRef(arg.Val, o, name) {
-			return p
+		if p.fieldRef(argVal, o, name) {
+			return MemberField
 		}
 	}
-	code, pos := p.loadExpr(getSrc(src))
-	p.panicCodeErrorf(
-		&pos, fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name))
-	return p
+	return MemberInvalid
 }
 
 func (p *CodeBuilder) fieldRef(x ast.Expr, struc *types.Struct, name string) bool {
@@ -1391,23 +1401,19 @@ const (
 	MemberField
 )
 
-// MemberVal func
-func (p *CodeBuilder) MemberVal(name string) *CodeBuilder {
-	_, err := p.Member(name)
-	if err != nil {
-		panic(err)
-	}
-	return p
-}
-
 // Member func
-func (p *CodeBuilder) Member(name string, src ...ast.Node) (kind MemberKind, err error) {
+func (p *CodeBuilder) Member(name string, lhs bool, src ...ast.Node) (kind MemberKind, err error) {
 	srcExpr := getSrc(src)
 	arg := p.stk.Get(-1)
 	if debugInstr {
-		log.Println("Member", name, "//", arg.Type)
+		log.Println("Member", name, lhs, "//", arg.Type)
 	}
-	if kind = p.findMember(arg.Type, name, arg.Val, srcExpr); kind != 0 {
+	if lhs {
+		kind = p.refMember(arg.Type, name, arg.Val)
+	} else {
+		kind = p.findMember(arg.Type, name, arg.Val, srcExpr)
+	}
+	if kind != MemberInvalid {
 		return
 	}
 	code, pos := p.loadExpr(srcExpr)
@@ -1480,7 +1486,7 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 			return MemberMethod
 		}
 	}
-	return 0
+	return MemberInvalid
 }
 
 type methodList interface {
