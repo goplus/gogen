@@ -63,24 +63,32 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 }
 
 // AliasType gives a specified type with a new name
-func (p *Package) AliasType(name string, typ types.Type) *types.Named {
+func (p *Package) AliasType(name string, typ types.Type, pos ...token.Pos) *types.Named {
 	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
-	decl := p.doNewType(p.Types.Scope(), name, typ, 1)
+	decl := p.doNewType(p.Types.Scope(), getPos(pos), name, typ, 1)
 	return decl.typ
 }
 
 // NewType creates a new type (which need to call InitType later).
-func (p *Package) NewType(name string) *TypeDecl {
+func (p *Package) NewType(name string, pos ...token.Pos) *TypeDecl {
 	if debugInstr {
 		log.Println("NewType", name)
 	}
-	return p.doNewType(p.Types.Scope(), name, nil, 0)
+	return p.doNewType(p.Types.Scope(), getPos(pos), name, nil, 0)
 }
 
-func (p *Package) doNewType(scope *types.Scope, name string, typ types.Type, alias token.Pos) *TypeDecl {
-	typName := types.NewTypeName(token.NoPos, p.Types, name, typ)
+func getPos(pos []token.Pos) token.Pos {
+	if pos == nil {
+		return 0
+	}
+	return pos[0]
+}
+
+func (p *Package) doNewType(
+	scope *types.Scope, pos token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {
+	typName := types.NewTypeName(pos, p.Types, name, typ)
 	if scope.Insert(typName) != nil {
 		log.Panicln("TODO: type already defined -", name)
 	}

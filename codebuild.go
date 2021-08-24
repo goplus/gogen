@@ -572,19 +572,19 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 }
 
 // NewType func
-func (p *CodeBuilder) NewType(name string) *TypeDecl {
+func (p *CodeBuilder) NewType(name string, pos ...token.Pos) *TypeDecl {
 	if debugInstr {
 		log.Println("NewType", name)
 	}
-	return p.pkg.doNewType(p.current.scope, name, nil, 0)
+	return p.pkg.doNewType(p.current.scope, getPos(pos), name, nil, 0)
 }
 
 // AliasType func
-func (p *CodeBuilder) AliasType(name string, typ types.Type) *types.Named {
+func (p *CodeBuilder) AliasType(name string, typ types.Type, pos ...token.Pos) *types.Named {
 	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
-	decl := p.pkg.doNewType(p.current.scope, name, typ, 1)
+	decl := p.pkg.doNewType(p.current.scope, getPos(pos), name, typ, 1)
 	return decl.typ
 }
 

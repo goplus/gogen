@@ -258,6 +258,7 @@ func TestToFields(t *testing.T) {
 }
 
 func TestToVariadic(t *testing.T) {
+	getPos([]token.Pos{1})
 	defer func() {
 		if e := recover(); e == nil {
 			t.Fatal("TestToVariadic: no error?")
