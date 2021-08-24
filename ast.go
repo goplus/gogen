@@ -82,10 +82,9 @@ func toFields(pkg *Package, t *types.Struct) []*ast.Field {
 	flds := make([]*ast.Field, n)
 	for i := 0; i < n; i++ {
 		item := t.Field(i)
-		name := item.Name()
 		var names []*ast.Ident
-		if name != "" {
-			names = []*ast.Ident{ident(name)}
+		if !item.Embedded() {
+			names = []*ast.Ident{{Name: item.Name()}}
 		}
 		typ := toType(pkg, item.Type())
 		fld := &ast.Field{Names: names, Type: typ}
@@ -99,7 +98,7 @@ func toFields(pkg *Package, t *types.Struct) []*ast.Field {
 
 func toVariadic(fld *ast.Field) {
 	t, ok := fld.Type.(*ast.ArrayType)
-	if !ok {
+	if !ok || t.Len != nil {
 		panic("TODO: not a slice type")
 	}
 	fld.Type = &ast.Ellipsis{Elt: t.Elt}

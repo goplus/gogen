@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"go/ast"
 	"go/token"
 	"go/types"
 	"reflect"
@@ -232,6 +233,29 @@ func TestImported(t *testing.T) {
 	if _, ok := cached.imported("foo"); ok {
 		t.Fatal("TestImported failed")
 	}
+}
+
+func TestToFields(t *testing.T) {
+	pkg := new(Package)
+	pkg.Types = types.NewPackage("", "foo")
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "bar", nil), types.Typ[types.Int], nil)
+	flds := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "bar", typ, true),
+	}
+	struc := types.NewStruct(flds, []string{"`bar`"})
+	out := toFields(pkg, struc)
+	if !(len(out) == 1 && out[0].Names == nil) {
+		t.Fatal("TestToFields failed:", out)
+	}
+}
+
+func TestToVariadic(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestToVariadic: no error?")
+		}
+	}()
+	toVariadic(&ast.Field{Type: &ast.Ident{Name: "int"}})
 }
 
 // ----------------------------------------------------------------------------
