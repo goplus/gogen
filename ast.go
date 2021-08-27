@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	gopast "github.com/goplus/gop/ast"
 	"github.com/goplus/gox/internal"
 )
 
@@ -515,7 +516,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 			for _, o := range funcs {
 				mfn := *fn
 				mfn.Val.(*ast.SelectorExpr).Sel = ident(o.Name())
-				mfn.Type = methodTypeOf(o.Type())
+				mfn.Type = methodTypeOf(o.Type(), false)
 				if ret, err = matchFuncCall(pkg, &mfn, args, flags); err == nil {
 					fn.Val, fn.Type = mfn.Val, mfn.Type
 					return
@@ -579,12 +580,18 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		t.X = args[0].Val
 		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	}
+
+	var argStartIndex int = getParam1st(sig)
+	if indent, ok := fn.Src.(*gopast.Ident); ok {
+		if indent.Obj != nil && indent.Obj.Kind == gopast.Var {
+			argStartIndex = 0
+		}
+	}
 	var valArgs []ast.Expr
-	var recv = getParam1st(sig)
-	if n := len(args); n > recv { // for method, args[0] is already in fn.Val
-		valArgs = make([]ast.Expr, n-recv)
-		for i := recv; i < n; i++ {
-			valArgs[i-recv] = args[i].Val
+	if n := len(args); n > argStartIndex { // for method, args[0] is already in fn.Val
+		valArgs = make([]ast.Expr, n-argStartIndex)
+		for i := argStartIndex; i < n; i++ {
+			valArgs[i-argStartIndex] = args[i].Val
 		}
 	}
 	return &internal.Elem{

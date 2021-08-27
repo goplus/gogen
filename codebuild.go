@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	gopast "github.com/goplus/gop/ast"
 	"github.com/goplus/gox/internal"
 	"github.com/goplus/gox/internal/go/printer"
 )
@@ -1442,7 +1443,12 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 }
 
 func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, srcExpr ast.Node) MemberKind {
-	switch o := typ.(type) {
+	var real_type types.Type
+	real_type = typ
+	if t, ok := typ.(*TypeType); ok {
+		real_type = t.Type()
+	}
+	switch o := real_type.(type) {
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
 		case *types.Named:
@@ -1498,9 +1504,17 @@ func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, src ast
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		if method.Name() == name {
+			var needRecv bool = false
+			if selExpr, ok := src.(*gopast.SelectorExpr) ; ok {
+				if indent, ok := selExpr.X.(*gopast.Ident); ok {
+					if indent.Obj != nil && indent.Obj.Kind == gopast.Typ {
+						needRecv = true
+					}
+				}
+			}
 			p.stk.Ret(1, &internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
-				Type: methodTypeOf(method.Type()),
+				Type: methodTypeOf(method.Type(), needRecv),
 				Src:  src,
 			})
 			return true
@@ -1528,12 +1542,17 @@ func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src a
 	return 0
 }
 
-func methodTypeOf(typ types.Type) types.Type {
+func methodTypeOf(typ types.Type, needRecv bool) types.Type {
 	sig := typ.(*types.Signature)
 	if _, ok := sig.Recv().Type().(*overloadFuncType); ok { // is overload method
 		return typ
 	}
-	return types.NewSignature(nil, sig.Params(), sig.Results(), sig.Variadic())
+	if needRecv {
+		return types.NewSignature(sig.Recv(), sig.Params(), sig.Results(), sig.Variadic())
+	} else {
+		return types.NewSignature(nil, sig.Params(), sig.Results(), sig.Variadic())
+	}
+
 }
 
 func indirect(typ types.Type) types.Type {
