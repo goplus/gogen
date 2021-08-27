@@ -80,7 +80,9 @@ func fromPersistInterface(ctx *persistPkgCtx, t pobj) *types.Interface {
 			embeddeds[i] = fromPersistType(ctx, t)
 		}
 	}
-	return types.NewInterfaceType(mthds, embeddeds)
+	i := types.NewInterfaceType(mthds, embeddeds)
+	ctx.intfs = append(ctx.intfs, i)
+	return i
 }
 
 func toPersistStruct(t *types.Struct) interface{} {
@@ -544,6 +546,7 @@ func fromPersistPkg(ctx *persistPkgCtx, pkg *persistPkgRef) *PkgRef {
 	ctx.pkg = types.NewPackage(pkg.PkgPath, pkg.Name)
 	ctx.scope = ctx.pkg.Scope()
 	ctx.checks = nil
+	ctx.intfs = nil
 	var pkgf *pkgFingerp
 	if pkg.Fingerp != "" {
 		pkgf = &pkgFingerp{files: pkg.Files, fingerp: pkg.Fingerp}
@@ -574,6 +577,7 @@ type persistPkgState struct {
 	pkg    *types.Package
 	scope  *types.Scope
 	checks []*types.TypeName
+	intfs  []*types.Interface
 }
 
 type persistPkgCtx struct {
@@ -587,6 +591,9 @@ func (ctx *persistPkgCtx) check() {
 		if c.Type().Underlying() == nil {
 			panic("type not found - " + ctx.pkg.Path() + "." + c.Name())
 		}
+	}
+	for _, i := range ctx.intfs {
+		i.Complete()
 	}
 }
 
