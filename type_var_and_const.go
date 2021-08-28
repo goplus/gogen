@@ -34,7 +34,7 @@ func (p *Package) ConstStart() *CodeBuilder {
 func (p *CodeBuilder) EndConst() types.TypeAndValue {
 	elem := p.stk.Pop()
 	if elem.CVal == nil {
-		panic("TODO: expression is not a constant")
+		fatal("TODO: expression is not a constant")
 	}
 	return types.TypeAndValue{Type: elem.Type, Value: elem.CVal}
 }
@@ -129,7 +129,7 @@ func (p *ValueDecl) InitStart(pkg *Package) *CodeBuilder {
 }
 
 func (p *ValueDecl) End(cb *CodeBuilder) {
-	panic("don't call End(), please use EndInit() instead")
+	fatal("don't call End(), please use EndInit() instead")
 }
 
 func (p *ValueDecl) resetInit(cb *CodeBuilder) *ValueDecl {
@@ -148,7 +148,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	if arity == 1 && n != 1 {
 		t, ok := rets[0].Type.(*types.Tuple)
 		if !ok || n != t.Len() {
-			panic("TODO: unmatched var/const define")
+			fatal("TODO: unmatched var/const define")
 		}
 		*p.vals = []ast.Expr{rets[0].Val}
 		rets = make([]*internal.Elem, n)
@@ -156,7 +156,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			rets[i] = &internal.Elem{Type: t.At(i).Type()}
 		}
 	} else if n != arity {
-		panic("TODO: unmatched var/const define")
+		fatal("TODO: unmatched var/const define")
 	} else {
 		values = make([]ast.Expr, arity)
 		for i, ret := range rets {
@@ -293,7 +293,8 @@ type refType struct {
 }
 
 func (p *refType) Underlying() types.Type {
-	panic("ref type")
+	fatal("ref type")
+	return nil
 }
 
 func (p *refType) String() string {
@@ -308,7 +309,7 @@ type unboundType struct {
 
 func (p *unboundType) boundTo(pkg *Package, arg types.Type) {
 	if p.tBound != nil {
-		panic("TODO: type is already bounded")
+		fatal("TODO: type is already bounded")
 	}
 	p.tBound = arg
 	for _, pt := range p.ptypes {
@@ -318,7 +319,8 @@ func (p *unboundType) boundTo(pkg *Package, arg types.Type) {
 }
 
 func (p *unboundType) Underlying() types.Type {
-	panic("unbound type")
+	fatal("unbound type")
+	return nil
 }
 
 func (p *unboundType) String() string {
@@ -345,7 +347,8 @@ type unboundMapElemType struct {
 }
 
 func (p *unboundMapElemType) Underlying() types.Type {
-	panic("unbound map elem type")
+	fatal("unbound map elem type")
+	return nil
 }
 
 func (p *unboundMapElemType) String() string {
@@ -360,7 +363,8 @@ type overloadFuncType struct {
 }
 
 func (p *overloadFuncType) Underlying() types.Type {
-	panic("overload function type")
+	fatal("overload function type")
+	return nil
 }
 
 func (p *overloadFuncType) String() string {
@@ -372,7 +376,8 @@ type instructionType struct {
 }
 
 func (p *instructionType) Underlying() types.Type {
-	panic("instruction type")
+	fatal("instruction type")
+	return nil
 }
 
 func (p *instructionType) String() string {
@@ -404,7 +409,8 @@ func (p *TypeType) Type() types.Type {
 }
 
 func (p *TypeType) Underlying() types.Type {
-	panic("type of type")
+	fatal("type of type")
+	return nil
 }
 
 func (p *TypeType) String() string {

@@ -46,6 +46,12 @@ func SetDebug(dbgFlags int) {
 	}
 }
 
+type fatalMsg string
+
+func fatal(msg string) {
+	panic(fatalMsg(msg))
+}
+
 // ----------------------------------------------------------------------------
 
 type PkgImporter interface {
