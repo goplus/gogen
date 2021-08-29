@@ -267,4 +267,25 @@ func TestToVariadic(t *testing.T) {
 	toVariadic(&ast.Field{Type: &ast.Ident{Name: "int"}})
 }
 
+func TestUnderlying(t *testing.T) {
+	typs := []types.Type{
+		&refType{},
+		&unboundType{},
+		&unboundMapElemType{},
+		&overloadFuncType{},
+		&instructionType{},
+		&TypeType{},
+	}
+	for _, typ := range typs {
+		func() {
+			defer func() {
+				if e := recover(); e == nil {
+					t.Fatal("TestUnderlying failed: no error?")
+				}
+			}()
+			typ.Underlying()
+		}()
+	}
+}
+
 // ----------------------------------------------------------------------------

@@ -1512,6 +1512,9 @@ func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, src ast
 func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src ast.Node) MemberKind {
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
+		if debugMatch {
+			log.Println("==> Match field:", fld.Name(), fld.Embedded())
+		}
 		if fld.Name() == name {
 			p.stk.Ret(1, &internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
