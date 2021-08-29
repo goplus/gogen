@@ -1373,7 +1373,7 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr) Me
 }
 
 func (p *CodeBuilder) fieldRef(x ast.Expr, struc *types.Struct, name string) bool {
-	if t := structFieldType(struc, name); t != nil {
+	if t := p.structFieldType(struc, name); t != nil {
 		p.stk.Ret(1, &internal.Elem{
 			Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
 			Type: &refType{typ: t},
@@ -1383,11 +1383,24 @@ func (p *CodeBuilder) fieldRef(x ast.Expr, struc *types.Struct, name string) boo
 	return false
 }
 
-func structFieldType(o *types.Struct, name string) types.Type {
+func (p *CodeBuilder) structFieldType(o *types.Struct, name string) types.Type {
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		if fld.Name() == name {
 			return fld.Type()
+		} else if fld.Embedded() {
+			fldt := fld.Type()
+			if o, ok := fldt.(*types.Pointer); ok {
+				fldt = o.Elem()
+			}
+			if t, ok := fldt.(*types.Named); ok {
+				u := p.getUnderlying(t)
+				if struc, ok := u.(*types.Struct); ok {
+					if typ := p.structFieldType(struc, name); typ != nil {
+						return typ
+					}
+				}
+			}
 		}
 	}
 	return nil
@@ -1512,9 +1525,6 @@ func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, src ast
 func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src ast.Node) MemberKind {
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
-		if debugMatch {
-			log.Println("==> Match field:", fld.Name(), fld.Embedded())
-		}
 		if fld.Name() == name {
 			p.stk.Ret(1, &internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},

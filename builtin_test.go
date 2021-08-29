@@ -288,4 +288,38 @@ func TestUnderlying(t *testing.T) {
 	}
 }
 
+func TestStructFieldType(t *testing.T) {
+	var pkg = types.NewPackage("", "foo")
+	var cb CodeBuilder
+	subFlds := []*types.Var{
+		types.NewField(token.NoPos, pkg, "val", types.Typ[types.Int], false),
+	}
+	subStruc := types.NewStruct(subFlds, nil)
+	bar := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "Bar", nil), subStruc, nil)
+	flds := []*types.Var{
+		types.NewField(token.NoPos, pkg, "Bar", bar, true),
+	}
+	struc := types.NewStruct(flds, nil)
+	if typ := cb.structFieldType(struc, "val"); typ != types.Typ[types.Int] {
+		t.Fatal("structFieldType failed:", typ)
+	}
+}
+
+func TestStructFieldType2(t *testing.T) {
+	var pkg = types.NewPackage("", "foo")
+	var cb CodeBuilder
+	subFlds := []*types.Var{
+		types.NewField(token.NoPos, pkg, "val", types.Typ[types.Int], false),
+	}
+	subStruc := types.NewStruct(subFlds, nil)
+	bar := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "Bar", nil), subStruc, nil)
+	flds := []*types.Var{
+		types.NewField(token.NoPos, pkg, "Bar", types.NewPointer(bar), true),
+	}
+	struc := types.NewStruct(flds, nil)
+	if typ := cb.structFieldType(struc, "val"); typ != types.Typ[types.Int] {
+		t.Fatal("structFieldType failed:", typ)
+	}
+}
+
 // ----------------------------------------------------------------------------
