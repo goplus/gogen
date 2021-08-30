@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	gopast "github.com/goplus/gop/ast"
 	"github.com/goplus/gox/internal"
 	"github.com/goplus/gox/internal/go/printer"
 )
@@ -436,11 +435,11 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 
 // Call func
 func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
-	return p.CallWith(n, ellipsis != nil && ellipsis[0])
+	return p.CallWith(n, ellipsis != nil && ellipsis[0], false)
 }
 
 // CallWith func
-func (p *CodeBuilder) CallWith(n int, ellipsis bool, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) CallWith(n int, ellipsis bool,  VarFuncCall bool,  src ...ast.Node) *CodeBuilder {
 	args := p.stk.GetArgs(n)
 	n++
 	fn := p.stk.Get(-n)
@@ -451,7 +450,7 @@ func (p *CodeBuilder) CallWith(n int, ellipsis bool, src ...ast.Node) *CodeBuild
 	if debugInstr {
 		log.Println("Call", n-1, int(flags))
 	}
-	ret := toFuncCall(p.pkg, fn, args, flags)
+	ret := toFuncCall(p.pkg, fn, args, VarFuncCall, flags)
 	ret.Src = getSrc(src)
 	p.stk.Ret(n, ret)
 	return p
@@ -1443,17 +1442,12 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 }
 
 func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, srcExpr ast.Node) MemberKind {
-	var real_type types.Type
-	real_type = typ
-	if t, ok := typ.(*TypeType); ok {
-		real_type = t.Type()
-	}
-	switch o := real_type.(type) {
+	switch o := typ.(type) {
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
 		case *types.Named:
 			u := p.getUnderlying(t)
-			if p.method(t, name, argVal, srcExpr) {
+			if p.method(t, name, argVal, false, srcExpr) {
 				return MemberMethod
 			}
 			if struc, ok := u.(*types.Struct); ok {
@@ -1468,7 +1462,7 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 		}
 	case *types.Named:
 		u := p.getUnderlying(o)
-		if p.method(o, name, argVal, srcExpr) {
+		if p.method(o, name, argVal, false, srcExpr) {
 			return MemberMethod
 		}
 		switch t := u.(type) {
@@ -1478,8 +1472,23 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 			}
 		case *types.Interface:
 			t.Complete()
-			if p.method(t, name, argVal, srcExpr) {
+			if p.method(t, name, argVal, false, srcExpr) {
 				return MemberMethod
+			}
+		}
+	case *TypeType:
+		if named_type, ok := o.Type().(*types.Named); ok {
+			u := p.getUnderlying(named_type)
+			switch t := u.(type) {
+			case *types.Struct:
+				if p.method(named_type, name, argVal, true, srcExpr) {
+					return MemberMethod
+				}
+			case *types.Interface:
+				t.Complete()
+				if p.method(t, name, argVal, true, srcExpr) {
+					return MemberMethod
+				}
 			}
 		}
 	case *types.Struct:
@@ -1488,7 +1497,7 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 		}
 	case *types.Interface:
 		o.Complete()
-		if p.method(o, name, argVal, srcExpr) {
+		if p.method(o, name, argVal, false, srcExpr) {
 			return MemberMethod
 		}
 	}
@@ -1500,18 +1509,10 @@ type methodList interface {
 	Method(i int) *types.Func
 }
 
-func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, src ast.Node) bool {
+func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, needRecv bool, src ast.Node) bool {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		if method.Name() == name {
-			var needRecv bool = false
-			if selExpr, ok := src.(*gopast.SelectorExpr) ; ok {
-				if indent, ok := selExpr.X.(*gopast.Ident); ok {
-					if indent.Obj != nil && indent.Obj.Kind == gopast.Typ {
-						needRecv = true
-					}
-				}
-			}
 			p.stk.Ret(1, &internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
 				Type: methodTypeOf(method.Type(), needRecv),
@@ -1583,7 +1584,7 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem) ast.Stmt
 				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
 				Type: realType(op.Type()),
 			}
-			ret := toFuncCall(pkg, fn, args, 0)
+			ret := toFuncCall(pkg, fn, args, false, 0)
 			if ret.Type != nil {
 				log.Panicf("TODO: AssignOp %s should return no results\n", name)
 			}
@@ -1597,7 +1598,7 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem) ast.Stmt
 	fn := &internal.Elem{
 		Val: ident(op.Name()), Type: op.Type(),
 	}
-	toFuncCall(pkg, fn, args, 0)
+	toFuncCall(pkg, fn, args, false, 0)
 	return &ast.AssignStmt{
 		Tok: tok,
 		Lhs: []ast.Expr{args[0].Val},
@@ -1704,14 +1705,14 @@ func callOpFunc(pkg *Package, name string, args []*internal.Elem, flags InstrFla
 				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
 				Type: realType(op.Type()),
 			}
-			return toFuncCall(pkg, fn, args, flags)
+			return toFuncCall(pkg, fn, args, false, flags)
 		}
 	}
 	op := pkg.builtin.Scope().Lookup(name)
 	if op == nil {
 		panic("TODO: operator not matched")
 	}
-	return toFuncCall(pkg, toObject(pkg, op, nil), args, flags)
+	return toFuncCall(pkg, toObject(pkg, op, nil), args, false, flags)
 }
 
 // BinaryOp func

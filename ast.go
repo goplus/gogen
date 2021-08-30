@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	gopast "github.com/goplus/gop/ast"
 	"github.com/goplus/gox/internal"
 )
 
@@ -396,8 +395,8 @@ var (
 	}
 )
 
-func toFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) *internal.Elem {
-	ret, err := matchFuncCall(pkg, fn, args, flags)
+func toFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, VarFuncCall bool, flags InstrFlags) *internal.Elem {
+	ret, err := matchFuncCall(pkg, fn, args, VarFuncCall, flags)
 	if err != nil {
 		panic(err)
 	}
@@ -492,7 +491,7 @@ func getParam1st(sig *types.Signature) int {
 	return 0
 }
 
-func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, VarFuncCall bool, flags InstrFlags) (ret *internal.Elem, err error) {
 	fnType := fn.Type
 	if debugMatch {
 		var funcs []types.Object
@@ -517,7 +516,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 				mfn := *fn
 				mfn.Val.(*ast.SelectorExpr).Sel = ident(o.Name())
 				mfn.Type = methodTypeOf(o.Type(), false)
-				if ret, err = matchFuncCall(pkg, &mfn, args, flags); err == nil {
+				if ret, err = matchFuncCall(pkg, &mfn, args, false, flags); err == nil {
 					fn.Val, fn.Type = mfn.Val, mfn.Type
 					return
 				}
@@ -547,7 +546,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	case *overloadFuncType:
 		backup := backupArgs(args)
 		for _, o := range t.funcs {
-			if ret, err = matchFuncCall(pkg, toObject(pkg, o, fn.Src), args, flags); err == nil {
+			if ret, err = matchFuncCall(pkg, toObject(pkg, o, fn.Src), args, false, flags); err == nil {
 				return
 			}
 			restoreArgs(args, backup)
@@ -582,10 +581,8 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	}
 
 	var argStartIndex int = getParam1st(sig)
-	if indent, ok := fn.Src.(*gopast.Ident); ok {
-		if indent.Obj != nil && indent.Obj.Kind == gopast.Var {
-			argStartIndex = 0
-		}
+	if VarFuncCall {
+		argStartIndex = 0
 	}
 	var valArgs []ast.Expr
 	if n := len(args); n > argStartIndex { // for method, args[0] is already in fn.Val

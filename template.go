@@ -248,7 +248,7 @@ func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool
 			if expr != nil {
 				arg.Val = *expr
 			}
-			ret, err := matchFuncCall(pkg, fn, []*internal.Elem{arg}, 0)
+			ret, err := matchFuncCall(pkg, fn, []*internal.Elem{arg}, false, 0)
 			if err == nil {
 				if expr != nil {
 					*expr = ret.Val

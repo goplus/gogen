@@ -265,7 +265,7 @@ func TestErrAssign(t *testing.T) {
 				NewVar(types.Typ[types.Int], "x").
 				VarRef(ctxRef(pkg, "x")).
 				Val(ctxRef(pkg, "bar")).
-				CallWith(0, false, source("bar()", 1, 5)).
+				CallWith(0, false, false, source("bar()", 1, 5)).
 				AssignWith(1, 1, source("x = bar()", 1, 3)).
 				End()
 		})
@@ -300,7 +300,7 @@ func TestErrReturn(t *testing.T) {
 			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt2, retByte), false).BodyStart(pkg).End()
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
-				CallWith(0, false, source("bar()", 2, 9)).
+				CallWith(0, false, false, source("bar()", 2, 9)).
 				Return(1, source("return bar()", 2, 5)).
 				End()
 		})
@@ -332,7 +332,7 @@ func TestErrReturn(t *testing.T) {
 			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(ret), false).BodyStart(pkg).End()
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
-				CallWith(0, false, source("bar()", 2, 9)).
+				CallWith(0, false, false, source("bar()", 2, 9)).
 				Return(1, source("return bar()", 2, 5)).
 				End()
 		})
@@ -344,7 +344,7 @@ func TestErrReturn(t *testing.T) {
 			ret := pkg.NewParam(position(1, 10), "", gox.TyByte)
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
-				CallWith(0, false, source("bar()", 2, 9)).
+				CallWith(0, false, false, source("bar()", 2, 9)).
 				Return(1, source("return bar()", 2, 5)).
 				End()
 		})

@@ -2573,6 +2573,87 @@ func main() {
 `)
 }
 
+func TestInterfaceMethodVarCall(t *testing.T) {
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+	methods := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "bar", types.NewSignature(nil, nil, nil, false)),
+	}
+	tyInterf := types.NewInterfaceType(methods, nil).Complete()
+	tyInt := types.Typ[types.Int]
+	foo := pkg.NewType("foo").InitType(pkg, tyInterf)
+	_ = foo
+	tt := pkg.NewType("t").InitType(pkg, tyInt)
+	recv := pkg.NewParam(token.NoPos, "tt", tt)
+	pkg.NewFunc(recv, "bar", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val(recv).Call(1).EndStmt(). // fmt.Println(v)
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v").Val(ctxRef(pkg, "foo")).MemberVal("bar").EndInit(1).
+		NewVarStart(tt, "tt").Val(123).EndInit(1).
+		Val(ctxRef(pkg, "v")).Val(ctxRef(pkg, "tt")).CallWith(1, false, true).
+		EndStmt().End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+type foo interface {
+	bar()
+}
+type t int
+
+func (tt t) bar() {
+	fmt.Println(tt)
+}
+func main() {
+	v := foo.bar
+	var tt t = 123
+	v(tt)
+}
+`)
+}
+
+
+
+func TestStructMethodVarCall(t *testing.T) {
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+	}
+	typStruc := types.NewStruct(fields, nil)
+	foo := pkg.NewType("foo").InitType(pkg, typStruc)
+
+	recv := pkg.NewParam(token.NoPos, "f", foo)
+	pkg.NewFunc(recv, "bar", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val(recv).MemberVal("x").Call(1).EndStmt(). // fmt.Println(v)
+		End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v").Val(ctxRef(pkg, "foo")).MemberVal("bar").EndInit(1).
+		NewVarStart(foo, "f").Val(123).
+		StructLit(foo, 1, false).EndInit(1).
+		Val(ctxRef(pkg, "v")).Val(ctxRef(pkg, "f")).CallWith(1, false, true).
+		EndStmt().End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+type foo struct {
+	x int
+}
+
+func (f foo) bar() {
+	fmt.Println(f.x)
+}
+func main() {
+	v := foo.bar
+	var f foo = foo{123}
+	v(f)
+}
+`)
+}
+
 // ----------------------------------------------------------------------------
 
 func TestSaveAndLoadPkgsCache(t *testing.T) {
