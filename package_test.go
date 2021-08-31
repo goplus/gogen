@@ -2612,4 +2612,34 @@ func main() {
 	}
 }
 
+func TestTypeNamed(t *testing.T) {
+	pkg := newMainPackage()
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typ := types.NewStruct(fields, nil)
+	t1 := pkg.NewType("T").InitType(pkg, typ)
+	recv := pkg.NewParam(token.NoPos, "a", t1)
+	pkg.NewFunc(recv, "Bar", nil, nil, false).BodyStart(pkg).End()
+	t2 := pkg.NewType("T1").InitType(pkg, types.NewNamed(types.NewTypeName(token.NoPos, nil, "T", t1), t1.Underlying(), nil))
+	recv2 := pkg.NewParam(token.NoPos, "a", t2)
+	pkg.NewFunc(recv2, "Foo", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+type T struct {
+	x int
+	y string
+}
+
+func (a T) Bar() {
+}
+
+type T1 T
+
+func (a T1) Foo() {
+}
+`)
+}
+
 // ----------------------------------------------------------------------------
