@@ -1421,10 +1421,29 @@ func (p *CodeBuilder) Member(name string, lhs bool, src ...ast.Node) (kind Membe
 	if debugInstr {
 		log.Println("Member", name, lhs, "//", arg.Type)
 	}
+	var isTypeType bool
+	at := arg.Type
+	if t, ok := at.(*TypeType); ok {
+		at = t.typ
+		isTypeType = true
+	}
 	if lhs {
-		kind = p.refMember(arg.Type, name, arg.Val)
+		kind = p.refMember(at, name, arg.Val)
 	} else {
-		kind = p.findMember(arg.Type, name, arg.Val, srcExpr)
+		kind = p.findMember(at, name, arg.Val, srcExpr)
+	}
+	if isTypeType && kind == MemberMethod {
+		e := p.Get(-1)
+		if sig, ok := e.Type.(*types.Signature); ok {
+			var vars []*types.Var
+			vars = append(vars, types.NewVar(token.NoPos, nil, "recv", at))
+			sp := sig.Params()
+			spLen := sp.Len()
+			for i := 0; i < spLen; i++ {
+				vars = append(vars, sp.At(i))
+			}
+			e.Type = types.NewSignature(nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+		}
 	}
 	if kind != MemberInvalid {
 		return

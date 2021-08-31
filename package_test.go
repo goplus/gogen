@@ -2612,6 +2612,47 @@ func main() {
 	}
 }
 
+func TestInterfaceMethodVarCall(t *testing.T) {
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+	tyInt := types.Typ[types.Int]
+	tyString := types.Typ[types.String]
+	methods := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "bar", types.NewSignature(nil, types.NewTuple(types.NewVar(token.NoPos, nil, "info", tyString)), nil, false)),
+	}
+	tyInterf := types.NewInterfaceType(methods, nil).Complete()
+	foo := pkg.NewType("foo").InitType(pkg, tyInterf)
+	_ = foo
+	tt := pkg.NewType("t").InitType(pkg, tyInt)
+	recv := pkg.NewParam(token.NoPos, "tt", tt)
+	pkg.NewFunc(recv, "bar", types.NewTuple(types.NewVar(token.NoPos, nil, "info", tyString)), nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val(recv).Val(pkg.NewParam(token.NoPos, "info", tyString)).Call(2).EndStmt(). // fmt.Println(v)
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v").Val(ctxRef(pkg, "foo")).MemberVal("bar").EndInit(1).
+		NewVarStart(tt, "tt").Val(123).EndInit(1).
+		Val(ctxRef(pkg, "v")).Val(ctxRef(pkg, "tt")).Val("hello").Call(2, false).
+		EndStmt().End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+type foo interface {
+	bar(info string)
+}
+type t int
+
+func (tt t) bar(info string) {
+	fmt.Println(tt, info)
+}
+func main() {
+	v := foo.bar
+	var tt t = 123
+	v(tt, "hello")
+}
+`)
+}
+
 func TestTypeNamed(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{
