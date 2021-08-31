@@ -1421,18 +1421,21 @@ func (p *CodeBuilder) Member(name string, lhs bool, src ...ast.Node) (kind Membe
 	if debugInstr {
 		log.Println("Member", name, lhs, "//", arg.Type)
 	}
-	var isTypeType bool
-	at := arg.Type
+	at, isType := arg.Type, false
 	if t, ok := at.(*TypeType); ok {
-		at = t.typ
-		isTypeType = true
+		at, isType = t.typ, true
 	}
 	if lhs {
 		kind = p.refMember(at, name, arg.Val)
 	} else {
 		kind = p.findMember(at, name, arg.Val, srcExpr)
 	}
-	if isTypeType && kind == MemberMethod {
+	if isType {
+		if kind != MemberMethod {
+			code, pos := p.loadExpr(srcExpr)
+			return MemberInvalid, p.newCodeError(
+				&pos, fmt.Sprintf("%s undefined (type %v has no method %s)", code, at, name))
+		}
 		e := p.Get(-1)
 		if sig, ok := e.Type.(*types.Signature); ok {
 			sp := sig.Params()

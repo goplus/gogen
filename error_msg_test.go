@@ -712,12 +712,36 @@ func TestErrStar(t *testing.T) {
 
 func TestErrMember(t *testing.T) {
 	codeErrorTest(t,
-		`-  undefined (type string has no field or method y)`,
+		`./foo.gop:1:5 T.x undefined (type T has no method x)`,
+		func(pkg *gox.Package) {
+			fields := []*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+				types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+			}
+			pkg.NewType("T").InitType(pkg, types.NewStruct(fields, nil))
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(ctxRef(pkg, "T")).
+				Debug(func(cb *gox.CodeBuilder) {
+					_, err := cb.Member("x", false, source("T.x", 1, 5))
+					if err != nil {
+						panic(err)
+					}
+				}).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:1:7 x.y undefined (type string has no field or method y)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.String], "x").
 				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
-				MemberVal("y").
+				Debug(func(cb *gox.CodeBuilder) {
+					_, err := cb.Member("y", false, source("x.y", 1, 7))
+					if err != nil {
+						panic(err)
+					}
+				}).
 				EndStmt().
 				End()
 		})
