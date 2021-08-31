@@ -57,7 +57,11 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 	if debugInstr {
 		log.Println("InitType", p.typ.Obj().Name(), typ)
 	}
-	p.typ.SetUnderlying(typ)
+	if named, ok := typ.(*types.Named); ok {
+		p.typ.SetUnderlying(named.Underlying())
+	} else {
+		p.typ.SetUnderlying(typ)
+	}
 	*p.typExpr = toType(pkg, typ)
 	return p.typ
 }
