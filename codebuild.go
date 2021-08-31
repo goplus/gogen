@@ -1435,12 +1435,12 @@ func (p *CodeBuilder) Member(name string, lhs bool, src ...ast.Node) (kind Membe
 	if isTypeType && kind == MemberMethod {
 		e := p.Get(-1)
 		if sig, ok := e.Type.(*types.Signature); ok {
-			var vars []*types.Var
-			vars = append(vars, types.NewVar(token.NoPos, nil, "recv", at))
 			sp := sig.Params()
 			spLen := sp.Len()
+			vars := make([]*types.Var, spLen+1)
+			vars[0] = types.NewVar(token.NoPos, nil, "", at)
 			for i := 0; i < spLen; i++ {
-				vars = append(vars, sp.At(i))
+				vars[i+1] = sp.At(i)
 			}
 			e.Type = types.NewSignature(nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
 		}
