@@ -713,9 +713,6 @@ func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags) 
 	if t := args[1].Type; !ninteger.Match(pkg, t) {
 		panic(fmt.Sprintf("non-integer len argument in unsafe.Slice - %v", t))
 	}
-	// if t, ok := args[1].Type.Underlying().(*types.Basic); !ok || !isInteger(t.Kind()) {
-	// 	panic(fmt.Sprintf("non-integer len argument in unsafe.Slice - %v", t))
-	// }
 	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Slice")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
