@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"fmt"
 	"go/ast"
 	"go/constant"
 	"go/token"
@@ -365,6 +366,13 @@ func InitBuiltinFuncs(builtin *types.Package) {
 	// len & cap are special cases, because they may return a constant value.
 	gbl.Insert(NewInstruction(token.NoPos, builtin, "len", lenInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, builtin, "cap", capInstr{}))
+
+	// unsafe
+	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Sizeof", unsafeSizeofInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Alignof", unsafeAlignofInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Offsetof", unsafeOffsetoffInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Add", unsafeAddInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Slice", unsafeSliceInstr{}))
 }
 
 func newBFunc(builtin *types.Package, name string, t typeBFunc) types.Object {
@@ -615,6 +623,103 @@ func (p makeInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *E
 			Args: argsExpr,
 		},
 		Type: typ,
+	}
+	return
+}
+
+type unsafeSizeofInstr struct{}
+
+// func unsafe.Sizeof(x ArbitraryType) uintptr
+func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+	if len(args) != 1 {
+		panic("TODO: unsafe.Sizeof() should have one parameter")
+	}
+	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Sizeof")}
+	ret = &Element{
+		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
+		Type: types.Typ[types.Uintptr],
+	}
+	return
+}
+
+type unsafeAlignofInstr struct{}
+
+// func unsafe.Alignof(x ArbitraryType) uintptr
+func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+	if len(args) != 1 {
+		panic("TODO: unsafe.Alignof() should have one parameter")
+	}
+	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Alignof")}
+	ret = &Element{
+		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
+		Type: types.Typ[types.Uintptr],
+	}
+	return
+}
+
+type unsafeOffsetoffInstr struct{}
+
+// func unsafe.Offsetof(x ArbitraryType) uintptr
+func (p unsafeOffsetoffInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+	if len(args) != 1 {
+		panic("TODO: unsafe.Offsetof() should have one parameter")
+	}
+	if _, ok := args[0].Val.(*ast.SelectorExpr); !ok {
+		panic("TODO: invalid expression unsafe.Offsetof")
+	}
+	if _, ok := args[0].Type.(*types.Signature); ok {
+		panic("TODO: invalid expression unsafe.Offsetof: argument is a method value")
+	}
+	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Offsetof")}
+	ret = &Element{
+		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
+		Type: types.Typ[types.Uintptr],
+	}
+	return
+}
+
+type unsafeAddInstr struct{}
+
+// func unsafe.Add(ptr Pointer, len IntegerType) Pointer
+func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+	if len(args) != 2 {
+		panic("TODO: unsafe.Add() should have two parameter")
+	}
+	if s := args[0].Type.String(); s != "unsafe.Pointer" {
+		panic(fmt.Sprintf("cannot use n (type %v) as type unsafe.Pointer in argument to unsafe.Add", s))
+	}
+	if t := args[1].Type; !ninteger.Match(pkg, t) {
+		panic(fmt.Sprintf("TODO: cannot use %v (type %v) as type int", args[1].Val, t))
+	}
+	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Add")}
+	ret = &Element{
+		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
+		Type: types.Typ[types.UnsafePointer],
+	}
+	return
+}
+
+type unsafeSliceInstr struct{}
+
+// func unsafe.Slice(ptr *ArbitraryType, len IntegerType) []ArbitraryType
+func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+	if len(args) != 2 {
+		panic("TODO: unsafe.Slice() should have two parameter")
+	}
+	t0, ok := args[0].Type.(*types.Pointer)
+	if !ok {
+		panic(fmt.Sprintf("first argument to unsafe.Slice must be pointer; have %v", args[0].Type))
+	}
+	if t := args[1].Type; !ninteger.Match(pkg, t) {
+		panic(fmt.Sprintf("non-integer len argument in unsafe.Slice - %v", t))
+	}
+	// if t, ok := args[1].Type.Underlying().(*types.Basic); !ok || !isInteger(t.Kind()) {
+	// 	panic(fmt.Sprintf("non-integer len argument in unsafe.Slice - %v", t))
+	// }
+	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Slice")}
+	ret = &Element{
+		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
+		Type: types.NewSlice(t0.Elem()),
 	}
 	return
 }
