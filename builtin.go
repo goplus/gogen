@@ -647,7 +647,7 @@ func (p *basicContract) String() string {
 const (
 	// int, int64, int32, int16, int8, uint, uintptr, uint64, uint32, uint16, uint8
 	kindsInteger = (1 << types.Int) | (1 << types.Int64) | (1 << types.Int32) | (1 << types.Int16) | (1 << types.Int8) |
-		(1 << types.Uint) | (1 << types.Uintptr) | (1 << types.Uint32) | (1 << types.Uint16) | (1 << types.Uint8) |
+		(1 << types.Uint) | (1 << types.Uintptr) | (1 << types.Uint64) | (1 << types.Uint32) | (1 << types.Uint16) | (1 << types.Uint8) |
 		(1 << types.UntypedInt) | (1 << types.UntypedRune)
 
 	// float32, float64
