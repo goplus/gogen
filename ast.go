@@ -616,6 +616,8 @@ func untypeBig(pkg *Package, cval constant.Value, tyRet types.Type) (*internal.E
 			val = big.NewInt(v)
 		case *big.Int:
 			val = v
+		case *big.Rat:
+			return pkg.cb.UntypedBigRat(v).stk.Pop(), true
 		default:
 			panic("unexpected constant")
 		}

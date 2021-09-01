@@ -1170,6 +1170,7 @@ func (p *CodeBuilder) IndexRef(nidx int, src ...ast.Node) *CodeBuilder {
 }
 
 func (p *CodeBuilder) getIdxValTypes(typ types.Type, ref bool, idxSrc ast.Node) ([]types.Type, bool) {
+retry:
 	switch t := typ.(type) {
 	case *types.Slice:
 		return []types.Type{tyInt, t.Elem()}, false
@@ -1189,6 +1190,9 @@ func (p *CodeBuilder) getIdxValTypes(typ types.Type, ref bool, idxSrc ast.Node) 
 			}
 			return []types.Type{tyInt, TyByte}, false
 		}
+	case *types.Named:
+		typ = t.Underlying()
+		goto retry
 	}
 	src, pos := p.loadExpr(idxSrc)
 	p.panicCodeErrorf(&pos, "invalid operation: %s (type %v does not support indexing)", src, typ)
