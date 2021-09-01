@@ -268,15 +268,15 @@ func (p *Package) newValueDecl(
 }
 
 func (p *Package) NewConstStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
-	return p.newValueDecl(p.cb.Scope(), pos, token.CONST, typ, names...).InitStart(p)
+	return p.newValueDecl(p.Types.Scope(), pos, token.CONST, typ, names...).InitStart(p)
 }
 
 func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *ValueDecl {
-	return p.newValueDecl(p.cb.Scope(), pos, token.VAR, typ, names...)
+	return p.newValueDecl(p.Types.Scope(), pos, token.VAR, typ, names...)
 }
 
 func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
-	return p.newValueDecl(p.cb.Scope(), pos, token.VAR, typ, names...).InitStart(p)
+	return p.newValueDecl(p.Types.Scope(), pos, token.VAR, typ, names...).InitStart(p)
 }
 
 // ----------------------------------------------------------------------------
