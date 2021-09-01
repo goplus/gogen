@@ -216,8 +216,8 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	return p.oldv
 }
 
-func (p *Package) newValueDecl(pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
-	scope := p.cb.current.scope
+func (p *Package) newValueDecl(
+	scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
 	n := len(names)
 	if tok == token.DEFINE { // a, b := expr
 		noNewVar := true
@@ -268,15 +268,15 @@ func (p *Package) newValueDecl(pos token.Pos, tok token.Token, typ types.Type, n
 }
 
 func (p *Package) NewConstStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
-	return p.newValueDecl(pos, token.CONST, typ, names...).InitStart(p)
+	return p.newValueDecl(p.cb.Scope(), pos, token.CONST, typ, names...).InitStart(p)
 }
 
 func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *ValueDecl {
-	return p.newValueDecl(pos, token.VAR, typ, names...)
+	return p.newValueDecl(p.cb.Scope(), pos, token.VAR, typ, names...)
 }
 
 func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
-	return p.newValueDecl(pos, token.VAR, typ, names...).InitStart(p)
+	return p.newValueDecl(p.cb.Scope(), pos, token.VAR, typ, names...).InitStart(p)
 }
 
 // ----------------------------------------------------------------------------

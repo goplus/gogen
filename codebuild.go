@@ -593,7 +593,7 @@ func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilde
 	if debugInstr {
 		log.Println("NewConstStart", names)
 	}
-	return p.pkg.newValueDecl(token.NoPos, token.CONST, typ, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(p.current.scope, token.NoPos, token.CONST, typ, names...).InitStart(p.pkg)
 }
 
 // NewVar func
@@ -601,7 +601,7 @@ func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	p.pkg.newValueDecl(token.NoPos, token.VAR, typ, names...)
+	p.pkg.newValueDecl(p.current.scope, token.NoPos, token.VAR, typ, names...)
 	return p
 }
 
@@ -610,7 +610,7 @@ func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder 
 	if debugInstr {
 		log.Println("NewVarStart", names)
 	}
-	return p.pkg.newValueDecl(token.NoPos, token.VAR, typ, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(p.current.scope, token.NoPos, token.VAR, typ, names...).InitStart(p.pkg)
 }
 
 // DefineVarStart func
@@ -618,7 +618,7 @@ func (p *CodeBuilder) DefineVarStart(pos token.Pos, names ...string) *CodeBuilde
 	if debugInstr {
 		log.Println("DefineVarStart", names)
 	}
-	return p.pkg.newValueDecl(pos, token.DEFINE, nil, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(p.current.scope, pos, token.DEFINE, nil, names...).InitStart(p.pkg)
 }
 
 // NewAutoVar func
