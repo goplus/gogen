@@ -154,7 +154,7 @@ func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 			ret := types.NewParam(token.NoPos, builtin, "", conf.UntypedBigRat)
 			sig := NewTemplateSignature(nil, nil, types.NewTuple(a, b), types.NewTuple(ret), false, tokFlag)
 			quo := NewTemplateFunc(token.NoPos, builtin, name, sig)
-			tfn = NewOverloadFunc(token.NoPos, builtin, name, quo, tfn)
+			tfn = NewOverloadFunc(token.NoPos, builtin, name, tfn, quo)
 		}
 		gbl.Insert(tfn)
 	}
