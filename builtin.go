@@ -687,10 +687,6 @@ retry:
 			return true
 		}
 	case *types.Named:
-		switch t {
-		case pkg.utBigInt, pkg.utBigRat:
-			return true
-		}
 		typ = t.Underlying()
 		goto retry
 	}
