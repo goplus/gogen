@@ -14,7 +14,6 @@
 package gox
 
 import (
-	"fmt"
 	"go/ast"
 	"go/constant"
 	"go/token"
@@ -633,13 +632,22 @@ func (p makeInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast
 	return
 }
 
+func checkArgsCount(pkg *Package, n int, args int, src ast.Node) {
+	if args < n {
+		s, pos := pkg.cb.loadExpr(src)
+		pkg.cb.panicCodeErrorf(&pos, "missing argument to function call: %v", s)
+	} else if args > n {
+		s, pos := pkg.cb.loadExpr(src)
+		pkg.cb.panicCodeErrorf(&pos, "too many arguments to function call: %v", s)
+	}
+}
+
 type unsafeSizeofInstr struct{}
 
 // func unsafe.Sizeof(x ArbitraryType) uintptr
 func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	if len(args) != 1 {
-		panic("TODO: unsafe.Sizeof() should have one parameter")
-	}
+	checkArgsCount(pkg, 1, len(args), src)
+
 	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Sizeof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
@@ -652,9 +660,8 @@ type unsafeAlignofInstr struct{}
 
 // func unsafe.Alignof(x ArbitraryType) uintptr
 func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	if len(args) != 1 {
-		panic("TODO: unsafe.Alignof() should have one parameter")
-	}
+	checkArgsCount(pkg, 1, len(args), src)
+
 	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Alignof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
@@ -667,14 +674,17 @@ type unsafeOffsetoffInstr struct{}
 
 // func unsafe.Offsetof(x ArbitraryType) uintptr
 func (p unsafeOffsetoffInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	if len(args) != 1 {
-		panic("TODO: unsafe.Offsetof() should have one parameter")
-	}
+	checkArgsCount(pkg, 1, len(args), src)
+
 	if _, ok := args[0].Val.(*ast.SelectorExpr); !ok {
-		panic("TODO: invalid expression unsafe.Offsetof")
+		s, pos := pkg.cb.loadExpr(src)
+		pos.Column += len("unsafe.Offsetof")
+		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v", s)
 	}
 	if _, ok := args[0].Type.(*types.Signature); ok {
-		panic("TODO: invalid expression unsafe.Offsetof: argument is a method value")
+		s, pos := pkg.cb.loadExpr(src)
+		pos.Column += len("unsafe.Offsetof")
+		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: argument is a method value", s)
 	}
 	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Offsetof")}
 	ret = &Element{
@@ -688,14 +698,19 @@ type unsafeAddInstr struct{}
 
 // func unsafe.Add(ptr Pointer, len IntegerType) Pointer
 func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	if len(args) != 2 {
-		panic("TODO: unsafe.Add() should have two parameter")
-	}
-	if s := args[0].Type.String(); s != "unsafe.Pointer" {
-		panic(fmt.Sprintf("cannot use n (type %v) as type unsafe.Pointer in argument to unsafe.Add", s))
+	checkArgsCount(pkg, 2, len(args), src)
+
+	if ts := args[0].Type.String(); ts != "unsafe.Pointer" {
+		s, _ := pkg.cb.loadExpr(args[0].Src)
+		_, pos := pkg.cb.loadExpr(src)
+		pos.Column += len("unsafe.Add")
+		pkg.cb.panicCodeErrorf(&pos, "cannot use %v (type %v) as type unsafe.Pointer in argument to unsafe.Add", s, ts)
 	}
 	if t := args[1].Type; !ninteger.Match(pkg, t) {
-		panic(fmt.Sprintf("TODO: cannot use %v (type %v) as type int", args[1].Val, t))
+		s, _ := pkg.cb.loadExpr(args[1].Src)
+		_, pos := pkg.cb.loadExpr(src)
+		pos.Column += len("unsafe.Add")
+		pkg.cb.panicCodeErrorf(&pos, "cannot use %v (type %v) as type int", s, t)
 	}
 	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Add")}
 	ret = &Element{
@@ -709,15 +724,18 @@ type unsafeSliceInstr struct{}
 
 // func unsafe.Slice(ptr *ArbitraryType, len IntegerType) []ArbitraryType
 func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	if len(args) != 2 {
-		panic("TODO: unsafe.Slice() should have two parameter")
-	}
+	checkArgsCount(pkg, 2, len(args), src)
+
 	t0, ok := args[0].Type.(*types.Pointer)
 	if !ok {
-		panic(fmt.Sprintf("first argument to unsafe.Slice must be pointer; have %v", args[0].Type))
+		_, pos := pkg.cb.loadExpr(src)
+		pos.Column += len("unsafe.Slice")
+		pkg.cb.panicCodeErrorf(&pos, "first argument to unsafe.Slice must be pointer; have %v", args[0].Type)
 	}
 	if t := args[1].Type; !ninteger.Match(pkg, t) {
-		panic(fmt.Sprintf("non-integer len argument in unsafe.Slice - %v", t))
+		_, pos := pkg.cb.loadExpr(src)
+		pos.Column += len("unsafe.Slice")
+		pkg.cb.panicCodeErrorf(&pos, "non-integer len argument in unsafe.Slice - %v", t)
 	}
 	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Slice")}
 	ret = &Element{
