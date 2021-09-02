@@ -687,7 +687,7 @@ retry:
 			return true
 		}
 	case *types.Named:
-		typ = t.Underlying()
+		typ = pkg.cb.getUnderlying(t)
 		goto retry
 	}
 	return false
