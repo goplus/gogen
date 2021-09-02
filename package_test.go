@@ -342,6 +342,50 @@ func main() {
 `)
 }
 
+func TestRecv2(t *testing.T) {
+	pkg := newMainPackage()
+	tyChan := types.NewChan(types.SendRecv, types.Typ[types.Uint])
+	typ := pkg.NewType("T").InitType(pkg, tyChan)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(typ, "a").
+		NewVarStart(types.Typ[types.Uint], "b").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW).EndInit(1).
+		DefineVarStart(0, "c", "ok").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW, true).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+type T chan uint
+
+func main() {
+	var a T
+	var b uint = <-a
+	c, ok := <-a
+}
+`)
+}
+
+func TestRecv3(t *testing.T) {
+	pkg := newMainPackage()
+	tyUint := pkg.NewType("Uint").InitType(pkg, types.Typ[types.Uint])
+	tyChan := types.NewChan(types.SendRecv, tyUint)
+	typ := pkg.NewType("T").InitType(pkg, tyChan)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(typ, "a").
+		NewVarStart(tyUint, "b").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW).EndInit(1).
+		DefineVarStart(0, "c", "ok").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW, true).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+type Uint uint
+type T chan Uint
+
+func main() {
+	var a T
+	var b Uint = <-a
+	c, ok := <-a
+}
+`)
+}
+
 func TestZeroLit(t *testing.T) {
 	pkg := newMainPackage()
 	tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
@@ -960,7 +1004,7 @@ var y string = "Hello"
 
 func TestVarDeclNoBody(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.CB().NewVar(types.Typ[types.String], "x")
+	pkg.NewVarEx(pkg.Types.Scope(), token.NoPos, types.Typ[types.String], "x")
 	domTest(t, pkg, `package main
 
 var x string
