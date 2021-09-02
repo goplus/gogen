@@ -533,7 +533,10 @@ func (p recvInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *E
 	if len(args) != 1 {
 		panic("TODO: please use <-ch")
 	}
-	if t, ok := args[0].Type.(*types.Chan); ok {
+	t0 := args[0].Type
+retry:
+	switch t := t0.(type) {
+	case *types.Chan:
 		if t.Dir() != types.SendOnly {
 			typ := t.Elem()
 			if flags != 0 { // twoValue mode
@@ -545,6 +548,9 @@ func (p recvInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *E
 			return
 		}
 		panic("TODO: <-ch is a send only chan")
+	case *types.Named:
+		t0 = pkg.cb.getUnderlying(t)
+		goto retry
 	}
 	panic("TODO: <-ch not a chan type")
 }
