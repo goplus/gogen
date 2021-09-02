@@ -549,7 +549,7 @@ retry:
 		}
 		panic("TODO: <-ch is a send only chan")
 	case *types.Named:
-		t0 = t.Underlying()
+		t0 = pkg.cb.getUnderlying(t)
 		goto retry
 	}
 	panic("TODO: <-ch not a chan type")
