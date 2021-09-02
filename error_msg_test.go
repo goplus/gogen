@@ -816,3 +816,24 @@ func TestErrMemberRef(t *testing.T) {
 				End()
 		})
 }
+
+func TestErrUnsafe(t *testing.T) {
+	codeErrorTest(t,
+		`./foo.gop:6:15 missing argument to function call: unsafe.Sizeof()`,
+		func(pkg *gox.Package) {
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(builtin.Ref("Sizeof")).CallWith(0, false, source("unsafe.Sizeof()", 6, 2)).EndStmt().
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:6:15 too many arguments to function call: unsafe.Sizeof(1, 2)`,
+		func(pkg *gox.Package) {
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(builtin.Ref("Sizeof")).Val(1).Val(2).CallWith(2, false, source("unsafe.Sizeof(1, 2)", 6, 2)).EndStmt().
+				EndStmt().
+				End()
+		})
+}
