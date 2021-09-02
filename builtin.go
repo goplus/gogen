@@ -684,21 +684,6 @@ func (p unsafeOffsetoffInstr) Call(pkg *Package, args []*Element, flags InstrFla
 	return
 }
 
-func isIntegerType(pkg *Package, typ types.Type) bool {
-retry:
-	switch t := typ.(type) {
-	case *types.Basic:
-		kind := t.Kind()
-		if (kind >= types.Int && kind <= types.Uintptr) || kind == types.UntypedInt || kind == types.UntypedRune {
-			return true
-		}
-	case *types.Named:
-		typ = pkg.cb.getUnderlying(t)
-		goto retry
-	}
-	return false
-}
-
 type unsafeAddInstr struct{}
 
 // func unsafe.Add(ptr Pointer, len IntegerType) Pointer
@@ -709,7 +694,7 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (r
 	if s := args[0].Type.String(); s != "unsafe.Pointer" {
 		panic(fmt.Sprintf("cannot use n (type %v) as type unsafe.Pointer in argument to unsafe.Add", s))
 	}
-	if t := args[1].Type; !isIntegerType(pkg, t) {
+	if t := args[1].Type; !ninteger.Match(pkg, t) {
 		panic(fmt.Sprintf("TODO: cannot use %v (type %v) as type int", args[1].Val, t))
 	}
 	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Add")}
@@ -731,7 +716,7 @@ func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags) 
 	if !ok {
 		panic(fmt.Sprintf("first argument to unsafe.Slice must be pointer; have %v", args[0].Type))
 	}
-	if t := args[1].Type; !isIntegerType(pkg, t) {
+	if t := args[1].Type; !ninteger.Match(pkg, t) {
 		panic(fmt.Sprintf("non-integer len argument in unsafe.Slice - %v", t))
 	}
 	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Slice")}
