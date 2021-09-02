@@ -632,12 +632,14 @@ func (p makeInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast
 	return
 }
 
-func checkArgsCount(pkg *Package, n int, args int, src ast.Node) {
+func checkArgsCount(pkg *Package, fn string, n int, args int, src ast.Node) {
 	if args < n {
 		s, pos := pkg.cb.loadExpr(src)
+		pos.Column += len(fn)
 		pkg.cb.panicCodeErrorf(&pos, "missing argument to function call: %v", s)
 	} else if args > n {
 		s, pos := pkg.cb.loadExpr(src)
+		pos.Column += len(fn)
 		pkg.cb.panicCodeErrorf(&pos, "too many arguments to function call: %v", s)
 	}
 }
@@ -646,7 +648,7 @@ type unsafeSizeofInstr struct{}
 
 // func unsafe.Sizeof(x ArbitraryType) uintptr
 func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	checkArgsCount(pkg, 1, len(args), src)
+	checkArgsCount(pkg, "unsafe.Sizeof", 1, len(args), src)
 
 	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Sizeof")}
 	ret = &Element{
@@ -660,7 +662,7 @@ type unsafeAlignofInstr struct{}
 
 // func unsafe.Alignof(x ArbitraryType) uintptr
 func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	checkArgsCount(pkg, 1, len(args), src)
+	checkArgsCount(pkg, "unsafe.Alignof", 1, len(args), src)
 
 	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Alignof")}
 	ret = &Element{
@@ -674,7 +676,7 @@ type unsafeOffsetoffInstr struct{}
 
 // func unsafe.Offsetof(x ArbitraryType) uintptr
 func (p unsafeOffsetoffInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	checkArgsCount(pkg, 1, len(args), src)
+	checkArgsCount(pkg, "unsafe.Offsetof", 1, len(args), src)
 
 	if _, ok := args[0].Val.(*ast.SelectorExpr); !ok {
 		s, pos := pkg.cb.loadExpr(src)
@@ -698,7 +700,7 @@ type unsafeAddInstr struct{}
 
 // func unsafe.Add(ptr Pointer, len IntegerType) Pointer
 func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	checkArgsCount(pkg, 2, len(args), src)
+	checkArgsCount(pkg, "unsafe.Add", 2, len(args), src)
 
 	if ts := args[0].Type.String(); ts != "unsafe.Pointer" {
 		s, _ := pkg.cb.loadExpr(args[0].Src)
@@ -724,7 +726,7 @@ type unsafeSliceInstr struct{}
 
 // func unsafe.Slice(ptr *ArbitraryType, len IntegerType) []ArbitraryType
 func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	checkArgsCount(pkg, 2, len(args), src)
+	checkArgsCount(pkg, "unsafe.Slice", 2, len(args), src)
 
 	t0, ok := args[0].Type.(*types.Pointer)
 	if !ok {
