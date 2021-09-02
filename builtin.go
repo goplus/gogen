@@ -411,7 +411,7 @@ type appendStringInstr struct {
 }
 
 // func append(slice []byte, val ..string) []byte
-func (p appendStringInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p appendStringInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) == 2 && flags != 0 {
 		if t, ok := args[0].Type.(*types.Slice); ok {
 			if elem, ok := t.Elem().(*types.Basic); ok && elem.Kind() == types.Byte {
@@ -440,7 +440,7 @@ type capInstr struct {
 }
 
 // func [Type lenable] len(v Type) int
-func (p lenInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p lenInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: len() should have one parameter")
 	}
@@ -478,7 +478,7 @@ func (p lenInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *El
 }
 
 // func [Type capable] cap(v Type) int
-func (p capInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p capInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: cap() should have one parameter")
 	}
@@ -512,12 +512,12 @@ type decInstr struct {
 }
 
 // val++
-func (p incInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p incInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	return callIncDec(pkg, args, token.INC)
 }
 
 // val--
-func (p decInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p decInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	return callIncDec(pkg, args, token.DEC)
 }
 
@@ -537,7 +537,7 @@ type recvInstr struct {
 }
 
 // <-ch
-func (p recvInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p recvInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: please use <-ch")
 	}
@@ -567,7 +567,7 @@ type addrInstr struct {
 }
 
 // &variable
-func (p addrInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p addrInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: please use &variable to get its address")
 	}
@@ -581,7 +581,7 @@ type newInstr struct {
 }
 
 // func [] new(T any) *T
-func (p newInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p newInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: use new(T) please")
 	}
@@ -604,7 +604,7 @@ type makeInstr struct {
 }
 
 // func [N ninteger] make(Type makable, size ...N) Type
-func (p makeInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p makeInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	n := len(args)
 	if n == 0 {
 		panic("TODO: make without args")
@@ -636,7 +636,7 @@ func (p makeInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *E
 type unsafeSizeofInstr struct{}
 
 // func unsafe.Sizeof(x ArbitraryType) uintptr
-func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: unsafe.Sizeof() should have one parameter")
 	}
@@ -651,7 +651,7 @@ func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags)
 type unsafeAlignofInstr struct{}
 
 // func unsafe.Alignof(x ArbitraryType) uintptr
-func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: unsafe.Alignof() should have one parameter")
 	}
@@ -666,7 +666,7 @@ func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags
 type unsafeOffsetoffInstr struct{}
 
 // func unsafe.Offsetof(x ArbitraryType) uintptr
-func (p unsafeOffsetoffInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p unsafeOffsetoffInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: unsafe.Offsetof() should have one parameter")
 	}
@@ -687,7 +687,7 @@ func (p unsafeOffsetoffInstr) Call(pkg *Package, args []*Element, flags InstrFla
 type unsafeAddInstr struct{}
 
 // func unsafe.Add(ptr Pointer, len IntegerType) Pointer
-func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 2 {
 		panic("TODO: unsafe.Add() should have two parameter")
 	}
@@ -708,7 +708,7 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (r
 type unsafeSliceInstr struct{}
 
 // func unsafe.Slice(ptr *ArbitraryType, len IntegerType) []ArbitraryType
-func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error) {
+func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 2 {
 		panic("TODO: unsafe.Slice() should have two parameter")
 	}

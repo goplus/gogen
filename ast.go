@@ -553,7 +553,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		}
 		return
 	case *instructionType:
-		return t.instr.Call(pkg, args, flags)
+		return t.instr.Call(pkg, args, flags, fn.Src)
 	default:
 		log.Panicln("TODO: call to non function -", t)
 	}

@@ -212,7 +212,7 @@ const (
 )
 
 type Instruction interface {
-	Call(pkg *Package, args []*Element, flags InstrFlags) (ret *Element, err error)
+	Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error)
 }
 
 func NewInstruction(pos token.Pos, pkg *types.Package, name string, instr Instruction) *types.TypeName {

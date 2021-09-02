@@ -450,8 +450,10 @@ func (p *CodeBuilder) CallWith(n int, ellipsis bool, src ...ast.Node) *CodeBuild
 	if debugInstr {
 		log.Println("Call", n-1, int(flags))
 	}
+	s := getSrc(src)
+	fn.Src = s
 	ret := toFuncCall(p.pkg, fn, args, flags)
-	ret.Src = getSrc(src)
+	ret.Src = s
 	p.stk.Ret(n, ret)
 	return p
 }
@@ -1839,7 +1841,7 @@ func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
 	}
 	switch t := fn.Type().(type) {
 	case *instructionType:
-		if _, err := t.instr.Call(pkg, args, token.NoPos); err != nil {
+		if _, err := t.instr.Call(pkg, args, token.NoPos, nil); err != nil {
 			panic(err)
 		}
 	default:
