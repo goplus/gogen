@@ -120,10 +120,11 @@ type ValueDecl struct {
 	typ   types.Type
 	old   codeBlock
 	oldv  *ValueDecl
+	scope *types.Scope
 	vals  *[]ast.Expr
 	tok   token.Token
 	pos   token.Pos
-	at    int
+	at    int // commitStmt(at)
 }
 
 func (p *ValueDecl) InitStart(pkg *Package) *CodeBuilder {
@@ -144,15 +145,22 @@ func (p *ValueDecl) resetInit(cb *CodeBuilder) *ValueDecl {
 	return p.oldv
 }
 
+func checkTuple(t **types.Tuple, typ types.Type) (ok bool) {
+	*t, ok = typ.(*types.Tuple)
+	return
+}
+
 func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
+	var t *types.Tuple
 	var expr *ast.Expr
 	var values []ast.Expr
 	n := len(p.names)
 	rets := cb.stk.GetArgs(arity)
-	if arity == 1 && n != 1 {
-		t, ok := rets[0].Type.(*types.Tuple)
-		if !ok || n != t.Len() {
-			fatal("TODO: unmatched var/const define")
+	if arity == 1 && checkTuple(&t, rets[0].Type) {
+		if n != t.Len() {
+			caller := cb.getCaller(rets[0].Src)
+			cb.panicCodePosErrorf(
+				p.pos, "assignment mismatch: %d variables but %s returns %d values", n, caller, t.Len())
 		}
 		*p.vals = []ast.Expr{rets[0].Val}
 		rets = make([]*internal.Elem, n)
@@ -160,7 +168,13 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			rets[i] = &internal.Elem{Type: t.At(i).Type()}
 		}
 	} else if n != arity {
-		fatal("TODO: unmatched var/const define")
+		if p.tok == token.CONST {
+			if n > arity {
+				cb.panicCodePosError(p.pos, "missing value in const declaration")
+			}
+			cb.panicCodePosError(p.pos, "extra expression in const declaration")
+		}
+		cb.panicCodePosErrorf(p.pos, "assignment mismatch: %d variables but %d values", n, arity)
 	} else {
 		values = make([]ast.Expr, arity)
 		for i, ret := range rets {
@@ -168,8 +182,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 		}
 		*p.vals = values
 	}
-	pkg, scope := cb.pkg, cb.current.scope
-	typ := p.typ
+	pkg, typ := cb.pkg, p.typ
 	if typ != nil {
 		for i, ret := range rets {
 			if err := matchType(pkg, ret, typ, "assignment"); err != nil {
@@ -186,7 +199,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 		}
 		if p.tok == token.CONST {
 			tv := rets[i]
-			if old := scope.Insert(types.NewConst(p.pos, pkg.Types, name, tv.Type, tv.CVal)); old != nil {
+			if old := p.scope.Insert(types.NewConst(p.pos, pkg.Types, name, tv.Type, tv.CVal)); old != nil {
 				oldpos := cb.position(old.Pos())
 				cb.panicCodePosErrorf(
 					p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
@@ -196,7 +209,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 				expr = &values[i]
 			}
 			retType := DefaultConv(pkg, rets[i].Type, expr)
-			if old := scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
+			if old := p.scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {
 					oldpos := cb.position(old.Pos())
 					cb.panicCodePosErrorf(
@@ -234,7 +247,7 @@ func (p *Package) newValueDecl(
 		}
 		stmt := &ast.AssignStmt{Tok: token.DEFINE, Lhs: nameIdents}
 		at := p.cb.startStmtAt(stmt)
-		return &ValueDecl{names: names, tok: tok, pos: pos, vals: &stmt.Rhs, at: at}
+		return &ValueDecl{names: names, tok: tok, pos: pos, scope: scope, vals: &stmt.Rhs, at: at}
 	}
 	// var a, b = expr
 	// const a, b = expr
@@ -264,7 +277,7 @@ func (p *Package) newValueDecl(
 	} else {
 		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
 	}
-	return &ValueDecl{typ: typ, names: names, tok: tok, pos: pos, vals: &spec.Values, at: at}
+	return &ValueDecl{typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: at}
 }
 
 func (p *Package) NewConstStart(scope *types.Scope, pos token.Pos, typ types.Type, names ...string) *CodeBuilder {

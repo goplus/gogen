@@ -88,6 +88,7 @@ func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package), disa
 			if e := recover(); e != nil {
 				switch err := e.(type) {
 				case *gox.CodeError, *gox.MatchError:
+					defer recover()
 					pkg.CB().ResetStmt()
 					if ret := err.(error).Error(); ret != msg {
 						t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
@@ -120,6 +121,18 @@ func newFunc(
 }
 
 func TestErrConst(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:2:9 cannot use 1 (type untyped int) as type string in assignment",
+		func(pkg *gox.Package) {
+			pkg.NewConstStart(pkg.Types.Scope(), position(2, 7), types.Typ[types.String], "a").Val(1, source("1", 2, 9)).EndInit(1)
+		})
+	codeErrorTest(t, "./foo.gop:2:7 missing value in const declaration",
+		func(pkg *gox.Package) {
+			pkg.NewConstStart(pkg.Types.Scope(), position(2, 7), nil, "a", "b").Val(1).EndInit(1)
+		})
+	codeErrorTest(t, "./foo.gop:2:7 extra expression in const declaration",
+		func(pkg *gox.Package) {
+			pkg.NewConstStart(pkg.Types.Scope(), position(2, 7), nil, "a").Val(1).Val(2).EndInit(2)
+		})
 	codeErrorTest(t, "./foo.gop:2:7 a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
 		func(pkg *gox.Package) {
 			pkg.NewVarStart(position(1, 5), nil, "a").Val(1).EndInit(1)
@@ -128,11 +141,6 @@ func TestErrConst(t *testing.T) {
 }
 
 func TestErrNewVar(t *testing.T) {
-	codeErrorTest(t, "./foo.gop:2:7 a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
-		func(pkg *gox.Package) {
-			pkg.NewVarStart(position(1, 5), nil, "a").Val(1).EndInit(1)
-			pkg.NewVarStart(position(2, 7), nil, "a").Val(2).EndInit(1)
-		})
 	codeErrorTest(t, "./foo.gop:2:6 foo redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
 		func(pkg *gox.Package) {
 			var x *types.Var
@@ -141,6 +149,29 @@ func TestErrNewVar(t *testing.T) {
 				NewAutoVar(position(1, 5), "foo", &x).
 				NewAutoVar(position(2, 6), "foo", &x).
 				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:9 cannot use 1 (type untyped int) as type string in assignment",
+		func(pkg *gox.Package) {
+			pkg.NewVarStart(position(2, 7), types.Typ[types.String], "a").Val(1, source("1", 2, 9)).EndInit(1)
+		})
+	codeErrorTest(t, "./foo.gop:2:7 assignment mismatch: 1 variables but fmt.Println returns 2 values",
+		func(pkg *gox.Package) {
+			fmt := pkg.Import("fmt")
+			pkg.NewVarStart(position(2, 7), nil, "a").
+				Val(fmt.Ref("Println")).Val(2).CallWith(1, false, source("fmt.Println(2)", 2, 11)).EndInit(1)
+		})
+	codeErrorTest(t, "./foo.gop:2:7 assignment mismatch: 1 variables but 2 values",
+		func(pkg *gox.Package) {
+			pkg.NewVarStart(position(2, 7), nil, "a").Val(1).Val(2).EndInit(2)
+		})
+	codeErrorTest(t, "./foo.gop:2:7 assignment mismatch: 2 variables but 1 values",
+		func(pkg *gox.Package) {
+			pkg.NewVarStart(position(2, 7), nil, "a", "b").Val(2).EndInit(1)
+		})
+	codeErrorTest(t, "./foo.gop:2:7 a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
+		func(pkg *gox.Package) {
+			pkg.NewVarStart(position(1, 5), nil, "a").Val(1).EndInit(1)
+			pkg.NewVarStart(position(2, 7), nil, "a").Val(2).EndInit(1)
 		})
 }
 

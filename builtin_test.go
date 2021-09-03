@@ -322,4 +322,14 @@ func TestStructFieldType2(t *testing.T) {
 	}
 }
 
+func TestValueDeclEnd(t *testing.T) {
+	var decl ValueDecl
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestValueDeclEnd failed: no error?")
+		}
+	}()
+	decl.End(nil)
+}
+
 // ----------------------------------------------------------------------------
