@@ -431,6 +431,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 }
 
 func (p *forRangeStmt) getKeyValTypes(typ types.Type) []types.Type {
+retry:
 	switch t := typ.(type) {
 	case *types.Slice:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
@@ -453,6 +454,8 @@ func (p *forRangeStmt) getKeyValTypes(typ types.Type) []types.Type {
 		if kv, ok := p.checkUdt(t); ok {
 			return kv
 		}
+		typ = t.Underlying()
+		goto retry
 	}
 	return nil
 }

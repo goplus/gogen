@@ -1158,6 +1158,28 @@ func main() {
 `)
 }
 
+func TestAppend2(t *testing.T) {
+	pkg := newMainPackage()
+	builtin := pkg.Builtin()
+	tySlice := pkg.NewType("T").InitType(pkg, types.NewSlice(types.Typ[types.Int]))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
+		NewVar(tySlice, "b").VarRef(ctxRef(pkg, "b")).Val(builtin.Ref("append")).
+		Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "a")).Call(2, true).Assign(1).EndStmt().
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+type T []int
+
+func foo(a T) {
+	var b T
+	b = append(b, a...)
+}
+func main() {
+}
+`)
+}
+
 func TestAppendString(t *testing.T) {
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()
@@ -1578,6 +1600,30 @@ import fmt "fmt"
 
 func main() {
 	a := []float64{1, 1.2, 3}
+	for i := range a {
+		fmt.Println(i)
+	}
+}
+`)
+}
+
+func TestForRange2(t *testing.T) {
+	pkg := newMainPackage()
+	typ := pkg.NewType("T").InitType(pkg, types.NewSlice(types.Typ[types.Float64]))
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).SliceLit(typ, 3).EndInit(1).
+		/**/ ForRange("i").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+type T []float64
+
+func main() {
+	a := T{1, 1.2, 3}
 	for i := range a {
 		fmt.Println(i)
 	}
