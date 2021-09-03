@@ -144,8 +144,14 @@ func boundType(pkg *Package, arg, param types.Type, expr *ast.Expr) error {
 		}
 		return fmt.Errorf("TODO: bound %v => unboundProxyParam", arg)
 	case *types.Slice:
-		if t, ok := arg.(*types.Slice); ok {
+		typ := arg
+	retry:
+		switch t := typ.(type) {
+		case *types.Slice:
 			return boundType(pkg, t.Elem(), p.Elem(), nil) // TODO: expr = nil
+		case *types.Named:
+			typ = pkg.cb.getUnderlying(t)
+			goto retry
 		}
 		return fmt.Errorf("TODO: bound slice failed - %v not a slice", arg)
 	case *types.Signature:
