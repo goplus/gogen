@@ -237,7 +237,7 @@ func (p *typeSwitchStmt) TypeAssertThen(cb *CodeBuilder) {
 		panic("TODO: type switch statement has too many init statements")
 	}
 	x := cb.stk.Pop()
-	xType, ok := x.Type.(*types.Interface)
+	xType, ok := cb.checkInterface(x.Type)
 	if !ok {
 		panic("TODO: can't type assert on non interface expr")
 	}

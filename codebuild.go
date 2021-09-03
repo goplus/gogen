@@ -1956,7 +1956,7 @@ func (p *CodeBuilder) TypeSwitch(name string) *CodeBuilder {
 // TypeAssert func
 func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool) *CodeBuilder {
 	arg := p.stk.Get(-1)
-	xType, ok := arg.Type.(*types.Interface)
+	xType, ok := p.checkInterface(arg.Type)
 	if !ok {
 		panic("TODO: can't type assert on non interface expr")
 	}
@@ -1974,6 +1974,18 @@ func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool) *CodeBuilder {
 		p.stk.Ret(1, &internal.Elem{Type: typ, Val: ret})
 	}
 	return p
+}
+
+func (p *CodeBuilder) checkInterface(typ types.Type) (*types.Interface, bool) {
+retry:
+	switch t := typ.(type) {
+	case *types.Interface:
+		return t, true
+	case *types.Named:
+		typ = p.getUnderlying(t)
+		goto retry
+	}
+	return nil, false
 }
 
 // TypeAssertThen func

@@ -123,6 +123,22 @@ func TestInternalStack(t *testing.T) {
 	}
 }
 
+func TestCheckInterface(t *testing.T) {
+	var pkg = new(Package)
+	var cb = &pkg.cb
+	if typ, ok := cb.checkInterface(types.Typ[types.Int]); typ != nil || ok {
+		t.Fatal("TestCheckInterface failed:", typ, ok)
+	}
+
+	cb.loadNamed = func(at *Package, t *types.Named) {
+		t.SetUnderlying(TyEmptyInterface)
+	}
+	named := types.NewNamed(types.NewTypeName(0, nil, "foo", nil), nil, nil)
+	if typ, ok := cb.checkInterface(named); typ == nil || !ok {
+		t.Fatal("TestCheckInterface failed:", typ, ok)
+	}
+}
+
 func TestGetUnderlying(t *testing.T) {
 	var pkg = new(Package)
 	var cb = &pkg.cb
