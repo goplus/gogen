@@ -1896,6 +1896,16 @@ func (p *CodeBuilder) Go() *CodeBuilder {
 	return p
 }
 
+// Block func
+func (p *CodeBuilder) Block() *CodeBuilder {
+	if debugInstr {
+		log.Println("Block")
+	}
+	stmt := &blockStmt{}
+	p.startBlockStmt(stmt, "block statement", &stmt.old)
+	return p
+}
+
 // If func
 func (p *CodeBuilder) If() *CodeBuilder {
 	if debugInstr {

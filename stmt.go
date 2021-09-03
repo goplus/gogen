@@ -28,6 +28,22 @@ type controlFlow interface {
 
 // ----------------------------------------------------------------------------
 //
+// block
+//   ...
+// end
+//
+type blockStmt struct {
+	old codeBlockCtx
+}
+
+func (p *blockStmt) End(cb *CodeBuilder) {
+	stmts, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= flows
+	cb.emitStmt(&ast.BlockStmt{List: stmts})
+}
+
+// ----------------------------------------------------------------------------
+//
 // if init; cond then
 //   ...
 // else

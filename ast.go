@@ -298,8 +298,12 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 			Src:  src,
 		}
 	case float64:
+		val := strconv.FormatFloat(v, 'g', -1, 64)
+		if !strings.ContainsAny(val, ".e") {
+			val += ".0"
+		}
 		return &internal.Elem{
-			Val:  &ast.BasicLit{Kind: token.FLOAT, Value: strconv.FormatFloat(v, 'g', -1, 64)},
+			Val:  &ast.BasicLit{Kind: token.FLOAT, Value: val},
 			Type: types.Typ[types.UntypedFloat],
 			CVal: constant.MakeFloat64(v),
 			Src:  src,

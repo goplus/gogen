@@ -926,6 +926,29 @@ var c = [10]interface {
 `)
 }
 
+func TestBlockStmt(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Block().
+		/**/ NewVar(types.Typ[types.String], "x", "y").
+		End().
+		Block().
+		/**/ DefineVarStart(token.NoPos, "x", "y").Val(1).Val(4.0).EndInit(2).
+		End().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	{
+		var x, y string
+	}
+	{
+		x, y := 1, 4.0
+	}
+}
+`)
+}
+
 func TestConst(t *testing.T) {
 	pkg := newMainPackage()
 	tv := pkg.ConstStart().Val(1).Val(2).BinaryOp(token.ADD).EndConst()
