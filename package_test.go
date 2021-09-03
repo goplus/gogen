@@ -1585,6 +1585,30 @@ func main() {
 `)
 }
 
+func TestForRange2(t *testing.T) {
+	pkg := newMainPackage()
+	typ := pkg.NewType("T").InitType(pkg, types.NewSlice(types.Typ[types.Float64]))
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).SliceLit(typ, 3).EndInit(1).
+		/**/ ForRange("i").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+type T []float64
+
+func main() {
+	a := T{1, 1.2, 3}
+	for i := range a {
+		fmt.Println(i)
+	}
+}
+`)
+}
+
 func TestForRangeUDT(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gox/internal/foo")
