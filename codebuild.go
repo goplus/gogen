@@ -1470,7 +1470,7 @@ func (p *CodeBuilder) getUnderlying(t *types.Named) types.Type {
 }
 
 func (p *CodeBuilder) ensureLoaded(typ types.Type) types.Type {
-	if t, ok := typ.(*types.Named); ok && t.Underlying() == nil {
+	if t, ok := typ.(*types.Named); ok && t.NumMethods() == 0 {
 		p.loadNamed(p.pkg, t)
 	}
 	return typ
