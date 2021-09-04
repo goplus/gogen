@@ -363,4 +363,11 @@ func TestValueDeclEnd(t *testing.T) {
 	decl.End(nil)
 }
 
+func TestCheckParenExpr(t *testing.T) {
+	x := checkParenExpr(&ast.CompositeLit{})
+	if _, ok := x.(*ast.ParenExpr); !ok {
+		t.Fatal("TestCheckParenExpr failed:", x)
+	}
+}
+
 // ----------------------------------------------------------------------------

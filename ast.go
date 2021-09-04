@@ -577,7 +577,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	}
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
-		t.X, t.Y = args[0].Val, args[1].Val
+		t.X, t.Y = checkParenExpr(args[0].Val), checkParenExpr(args[1].Val)
 		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	case *ast.UnaryExpr:
 		t.X = args[0].Val
@@ -595,6 +595,13 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		Type: tyRet, CVal: cval,
 		Val: &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 	}, nil
+}
+
+func checkParenExpr(x ast.Expr) ast.Expr {
+	if _, ok := x.(*ast.CompositeLit); ok {
+		return &ast.ParenExpr{X: x}
+	}
+	return x
 }
 
 func backupArgs(args []*internal.Elem) []ast.Expr {
