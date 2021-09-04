@@ -144,8 +144,14 @@ func boundType(pkg *Package, arg, param types.Type, expr *ast.Expr) error {
 		}
 		return fmt.Errorf("TODO: bound %v => unboundProxyParam", arg)
 	case *types.Slice:
-		if t, ok := arg.(*types.Slice); ok {
+		typ := arg
+	retry:
+		switch t := typ.(type) {
+		case *types.Slice:
 			return boundType(pkg, t.Elem(), p.Elem(), nil) // TODO: expr = nil
+		case *types.Named:
+			typ = pkg.cb.getUnderlying(t)
+			goto retry
 		}
 		return fmt.Errorf("TODO: bound slice failed - %v not a slice", arg)
 	case *types.Signature:
@@ -198,6 +204,8 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 }
 
 func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
+	pkg.cb.ensureLoaded(V)
+	pkg.cb.ensureLoaded(T)
 	V, T = realType(V), realType(T)
 	if v, ok := V.(*refType); ok { // ref type
 		if t, ok := T.(*types.Pointer); ok {

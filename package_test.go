@@ -124,12 +124,13 @@ func TestAssignableTo(t *testing.T) {
 		{types.Typ[types.UntypedRune], types.Typ[types.UntypedInt], true},
 		{types.Typ[types.UntypedRune], types.Typ[types.UntypedFloat], true},
 	}
+	pkg := gox.NewPackage("", "foo", nil)
 	for _, a := range assigns {
-		if ret := gox.AssignableTo(nil, a.v, a.t); ret != a.ret {
+		if ret := gox.AssignableTo(pkg, a.v, a.t); ret != a.ret {
 			t.Fatalf("Failed: AssignableTo %v => %v returns %v\n", a.v, a.t, ret)
 		}
 	}
-	if gox.Default(nil, types.Typ[types.UntypedInt]) != types.Typ[types.Int] {
+	if gox.Default(pkg, types.Typ[types.UntypedInt]) != types.Typ[types.Int] {
 		t.Fatal("gox.Default failed")
 	}
 }
@@ -926,6 +927,29 @@ var c = [10]interface {
 `)
 }
 
+func TestBlockStmt(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Block().
+		/**/ NewVar(types.Typ[types.String], "x", "y").
+		End().
+		Block().
+		/**/ DefineVarStart(token.NoPos, "x", "y").Val(1).Val(4.0).EndInit(2).
+		End().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	{
+		var x, y string
+	}
+	{
+		x, y := 1, 4.0
+	}
+}
+`)
+}
+
 func TestConst(t *testing.T) {
 	pkg := newMainPackage()
 	tv := pkg.ConstStart().Val(1).Val(2).BinaryOp(token.ADD).EndConst()
@@ -1151,6 +1175,28 @@ func TestAppend(t *testing.T) {
 
 func foo(a []int) {
 	var b []int
+	b = append(b, a...)
+}
+func main() {
+}
+`)
+}
+
+func TestAppend2(t *testing.T) {
+	pkg := newMainPackage()
+	builtin := pkg.Builtin()
+	tySlice := pkg.NewType("T").InitType(pkg, types.NewSlice(types.Typ[types.Int]))
+	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
+		NewVar(tySlice, "b").VarRef(ctxRef(pkg, "b")).Val(builtin.Ref("append")).
+		Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "a")).Call(2, true).Assign(1).EndStmt().
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+type T []int
+
+func foo(a T) {
+	var b T
 	b = append(b, a...)
 }
 func main() {
@@ -1638,6 +1684,30 @@ import fmt "fmt"
 
 func main() {
 	a := []float64{1, 1.2, 3}
+	for i := range a {
+		fmt.Println(i)
+	}
+}
+`)
+}
+
+func TestForRange2(t *testing.T) {
+	pkg := newMainPackage()
+	typ := pkg.NewType("T").InitType(pkg, types.NewSlice(types.Typ[types.Float64]))
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).SliceLit(typ, 3).EndInit(1).
+		/**/ ForRange("i").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+type T []float64
+
+func main() {
+	a := T{1, 1.2, 3}
 	for i := range a {
 		fmt.Println(i)
 	}

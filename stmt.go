@@ -28,6 +28,22 @@ type controlFlow interface {
 
 // ----------------------------------------------------------------------------
 //
+// block
+//   ...
+// end
+//
+type blockStmt struct {
+	old codeBlockCtx
+}
+
+func (p *blockStmt) End(cb *CodeBuilder) {
+	stmts, flows := cb.endBlockStmt(p.old)
+	cb.current.flows |= flows
+	cb.emitStmt(&ast.BlockStmt{List: stmts})
+}
+
+// ----------------------------------------------------------------------------
+//
 // if init; cond then
 //   ...
 // else
@@ -221,7 +237,7 @@ func (p *typeSwitchStmt) TypeAssertThen(cb *CodeBuilder) {
 		panic("TODO: type switch statement has too many init statements")
 	}
 	x := cb.stk.Pop()
-	xType, ok := x.Type.(*types.Interface)
+	xType, ok := cb.checkInterface(x.Type)
 	if !ok {
 		panic("TODO: can't type assert on non interface expr")
 	}
@@ -431,6 +447,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 }
 
 func (p *forRangeStmt) getKeyValTypes(typ types.Type) []types.Type {
+retry:
 	switch t := typ.(type) {
 	case *types.Slice:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
@@ -453,6 +470,8 @@ func (p *forRangeStmt) getKeyValTypes(typ types.Type) []types.Type {
 		if kv, ok := p.checkUdt(t); ok {
 			return kv
 		}
+		typ = t.Underlying()
+		goto retry
 	}
 	return nil
 }

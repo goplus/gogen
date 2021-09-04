@@ -123,6 +123,37 @@ func TestInternalStack(t *testing.T) {
 	}
 }
 
+func TestCheckInterface(t *testing.T) {
+	var pkg = new(Package)
+	var cb = &pkg.cb
+	if typ, ok := cb.checkInterface(types.Typ[types.Int]); typ != nil || ok {
+		t.Fatal("TestCheckInterface failed:", typ, ok)
+	}
+
+	cb.loadNamed = func(at *Package, t *types.Named) {
+		t.SetUnderlying(TyEmptyInterface)
+	}
+	named := types.NewNamed(types.NewTypeName(0, nil, "foo", nil), nil, nil)
+	if typ, ok := cb.checkInterface(named); typ == nil || !ok {
+		t.Fatal("TestCheckInterface failed:", typ, ok)
+	}
+}
+
+func TestEnsureLoaded(t *testing.T) {
+	var pkg = new(Package)
+	var cb = &pkg.cb
+	cb.loadNamed = func(at *Package, t *types.Named) {
+		panic("loadNamed")
+	}
+	defer func() {
+		if e := recover(); e != "loadNamed" {
+			t.Fatal("TestEnsureLoaded failed")
+		}
+	}()
+	named := types.NewNamed(types.NewTypeName(0, nil, "foo", nil), nil, nil)
+	cb.ensureLoaded(named)
+}
+
 func TestGetUnderlying(t *testing.T) {
 	var pkg = new(Package)
 	var cb = &pkg.cb
@@ -320,6 +351,16 @@ func TestStructFieldType2(t *testing.T) {
 	if typ := cb.structFieldType(struc, "val"); typ != types.Typ[types.Int] {
 		t.Fatal("structFieldType failed:", typ)
 	}
+}
+
+func TestValueDeclEnd(t *testing.T) {
+	var decl ValueDecl
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestValueDeclEnd failed: no error?")
+		}
+	}()
+	decl.End(nil)
 }
 
 // ----------------------------------------------------------------------------
