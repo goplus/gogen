@@ -1469,6 +1469,13 @@ func (p *CodeBuilder) getUnderlying(t *types.Named) types.Type {
 	return u
 }
 
+func (p *CodeBuilder) ensureLoaded(typ types.Type) types.Type {
+	if t, ok := typ.(*types.Named); ok && t.Underlying() == nil {
+		p.loadNamed(p.pkg, t)
+	}
+	return typ
+}
+
 func getUnderlying(pkg *Package, typ types.Type) types.Type {
 	u := typ.Underlying()
 	if u == nil {
@@ -1985,7 +1992,7 @@ func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool, src ...ast.Node)
 }
 
 func (p *CodeBuilder) missingMethod(T types.Type, V *types.Interface) (missing string) {
-	// TODO: ensure T methods is loaded
+	T = p.ensureLoaded(T)
 	if m, _ := types.MissingMethod(T, V, false); m != nil {
 		missing = m.Name()
 	}

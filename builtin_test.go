@@ -139,6 +139,21 @@ func TestCheckInterface(t *testing.T) {
 	}
 }
 
+func TestEnsureLoaded(t *testing.T) {
+	var pkg = new(Package)
+	var cb = &pkg.cb
+	cb.loadNamed = func(at *Package, t *types.Named) {
+		panic("loadNamed")
+	}
+	defer func() {
+		if e := recover(); e != "loadNamed" {
+			t.Fatal("TestEnsureLoaded failed")
+		}
+	}()
+	named := types.NewNamed(types.NewTypeName(0, nil, "foo", nil), nil, nil)
+	cb.ensureLoaded(named)
+}
+
 func TestGetUnderlying(t *testing.T) {
 	var pkg = new(Package)
 	var cb = &pkg.cb
