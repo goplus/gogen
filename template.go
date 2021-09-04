@@ -204,6 +204,8 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 }
 
 func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
+	pkg.cb.ensureLoaded(V)
+	pkg.cb.ensureLoaded(T)
 	V, T = realType(V), realType(T)
 	if v, ok := V.(*refType); ok { // ref type
 		if t, ok := T.(*types.Pointer); ok {
