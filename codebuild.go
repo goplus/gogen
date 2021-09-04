@@ -1954,14 +1954,22 @@ func (p *CodeBuilder) TypeSwitch(name string) *CodeBuilder {
 }
 
 // TypeAssert func
-func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool) *CodeBuilder {
+func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool, src ...ast.Node) *CodeBuilder {
+	if debugInstr {
+		log.Println("TypeAssert", typ, twoValue)
+	}
 	arg := p.stk.Get(-1)
 	xType, ok := p.checkInterface(arg.Type)
 	if !ok {
-		panic("TODO: can't type assert on non interface expr")
+		text, pos := p.loadExpr(getSrc(src))
+		p.panicCodeErrorf(
+			&pos, "invalid type assertion: %s (non-interface type %v on left)", text, arg.Type)
 	}
-	if !types.AssertableTo(xType, typ) {
-		log.Panicf("TODO: can't assert type %v to %v\n", xType, typ)
+	if missing := p.missingMethod(typ, xType); missing != "" {
+		pos := p.nodePosition(getSrc(src))
+		p.panicCodeErrorf(
+			&pos, "impossible type assertion:\n\t%v does not implement %v (missing %s method)",
+			typ, arg.Type, missing)
 	}
 	pkg := p.pkg
 	ret := &ast.TypeAssertExpr{X: arg.Val, Type: toType(pkg, typ)}
@@ -1974,6 +1982,14 @@ func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool) *CodeBuilder {
 		p.stk.Ret(1, &internal.Elem{Type: typ, Val: ret})
 	}
 	return p
+}
+
+func (p *CodeBuilder) missingMethod(T types.Type, V *types.Interface) (missing string) {
+	// TODO: ensure T methods is loaded
+	if m, _ := types.MissingMethod(T, V, false); m != nil {
+		missing = m.Name()
+	}
+	return
 }
 
 func (p *CodeBuilder) checkInterface(typ types.Type) (*types.Interface, bool) {

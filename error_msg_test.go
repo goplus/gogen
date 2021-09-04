@@ -120,6 +120,30 @@ func newFunc(
 	return fn
 }
 
+func TestErrTypeAssert(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:2:9 impossible type assertion:\n\tstring does not implement bar (missing Bar method)",
+		func(pkg *gox.Package) {
+			methods := []*types.Func{
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+			}
+			tyInterf := types.NewInterfaceType(methods, nil).Complete()
+			bar := pkg.NewType("bar").InitType(pkg, tyInterf)
+			params := types.NewTuple(pkg.NewParam(token.NoPos, "v", bar))
+			pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
+				DefineVarStart(0, "x").Val(ctxRef(pkg, "v")).
+				TypeAssert(types.Typ[types.String], false, source("v.(string)", 2, 9)).EndInit(1).
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:9 invalid type assertion: v.(string) (non-interface type int on left)",
+		func(pkg *gox.Package) {
+			params := types.NewTuple(pkg.NewParam(token.NoPos, "v", types.Typ[types.Int]))
+			pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
+				DefineVarStart(0, "x").Val(ctxRef(pkg, "v")).
+				TypeAssert(types.Typ[types.String], false, source("v.(string)", 2, 9)).EndInit(1).
+				End()
+		})
+}
+
 func TestErrConst(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9 cannot use 1 (type untyped int) as type string in assignment",
 		func(pkg *gox.Package) {
