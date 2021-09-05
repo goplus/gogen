@@ -44,15 +44,13 @@ func boolean(v bool) *ast.Ident {
 	return identFalse
 }
 
-func newField(pkg *Package, name string, typ types.Type) *ast.Field {
-	return &ast.Field{
-		Names: []*ast.Ident{ident(name)},
-		Type:  toType(pkg, typ),
-	}
-}
-
 func toRecv(pkg *Package, recv *types.Var) *ast.FieldList {
-	return &ast.FieldList{List: []*ast.Field{newField(pkg, recv.Name(), recv.Type())}}
+	var names []*ast.Ident
+	if name := recv.Name(); name != "" {
+		names = []*ast.Ident{ident(name)}
+	}
+	fld := &ast.Field{Names: names, Type: toType(pkg, recv.Type())}
+	return &ast.FieldList{List: []*ast.Field{fld}}
 }
 
 // -----------------------------------------------------------------------------
@@ -66,9 +64,8 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 	flds := make([]*ast.Field, n)
 	for i := 0; i < n; i++ {
 		item := t.At(i)
-		name := item.Name()
 		var names []*ast.Ident
-		if name != "" {
+		if name := item.Name(); name != "" {
 			names = []*ast.Ident{ident(name)}
 		}
 		typ := toType(pkg, item.Type())
@@ -577,7 +574,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	}
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
-		t.X, t.Y = args[0].Val, args[1].Val
+		t.X, t.Y = checkParenExpr(args[0].Val), checkParenExpr(args[1].Val)
 		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	case *ast.UnaryExpr:
 		t.X = args[0].Val
@@ -595,6 +592,13 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		Type: tyRet, CVal: cval,
 		Val: &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 	}, nil
+}
+
+func checkParenExpr(x ast.Expr) ast.Expr {
+	if _, ok := x.(*ast.CompositeLit); ok {
+		return &ast.ParenExpr{X: x}
+	}
+	return x
 }
 
 func backupArgs(args []*internal.Elem) []ast.Expr {

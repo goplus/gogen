@@ -1465,8 +1465,11 @@ func TestIfElse(t *testing.T) {
 		/**/ If().DefineVarStart(0, "x").Val(3).EndInit(1).
 		/******/ Val(ctxRef(pkg, "x")).Val(1).BinaryOp(token.GTR).Then().
 		/******/ Val(fmt.Ref("Println")).Val("OK!").Call(1).EndStmt().
-		/**/ Else().
+		/**/ Else().If().Val(ctxRef(pkg, "x")).Val(0).BinaryOp(token.GTR).Then().
+		/******/ Val(fmt.Ref("Println")).Val("Hi").Call(1).EndStmt().
+		/****/ Else().
 		/******/ Val(fmt.Ref("Println")).Val("Error!").Call(1).EndStmt().
+		/****/ End().
 		/**/ End().
 		End()
 	domTest(t, pkg, `package main
@@ -1476,6 +1479,8 @@ import fmt "fmt"
 func main() {
 	if x := 3; x > 1 {
 		fmt.Println("OK!")
+	} else if x > 0 {
+		fmt.Println("Hi")
 	} else {
 		fmt.Println("Error!")
 	}

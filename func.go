@@ -145,13 +145,15 @@ func (p *Package) NewFuncWith(
 			return nil, cb.newCodePosErrorf(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
-		t.AddMethod(fn)
+		if fn.Name() != "_" { // skip underscore
+			t.AddMethod(fn)
+		}
 	} else if name == "init" { // init is not a normal func
 		if sig.Params() != nil || sig.Results() != nil {
 			return nil, cb.newCodePosError(
 				pos, "func init must have no arguments and no return values")
 		}
-	} else {
+	} else if fn.Name() != "_" { // skip underscore
 		p.Types.Scope().Insert(fn)
 	}
 

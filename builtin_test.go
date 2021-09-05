@@ -363,4 +363,21 @@ func TestValueDeclEnd(t *testing.T) {
 	decl.End(nil)
 }
 
+func TestCheckParenExpr(t *testing.T) {
+	x := checkParenExpr(&ast.CompositeLit{})
+	if _, ok := x.(*ast.ParenExpr); !ok {
+		t.Fatal("TestCheckParenExpr failed:", x)
+	}
+}
+
+func TestNoFuncName(t *testing.T) {
+	var pkg Package
+	defer func() {
+		if e := recover(); e == nil || e.(string) != "no func name" {
+			t.Fatal("TestNoFuncName failed:", e)
+		}
+	}()
+	pkg.NewFuncWith(0, "", nil, nil)
+}
+
 // ----------------------------------------------------------------------------

@@ -88,6 +88,11 @@ func (p *ifStmt) End(cb *CodeBuilder) {
 	var el ast.Stmt
 	if p.body != nil { // if..else
 		el = blockStmt
+		if len(stmts) == 1 { // if..else if
+			if stmt, ok := stmts[0].(*ast.IfStmt); ok {
+				el = stmt
+			}
+		}
 	} else { // if without else
 		p.body = blockStmt
 	}
