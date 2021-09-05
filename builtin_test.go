@@ -370,4 +370,14 @@ func TestCheckParenExpr(t *testing.T) {
 	}
 }
 
+func TestNoFuncName(t *testing.T) {
+	var pkg Package
+	defer func() {
+		if e := recover(); e == nil || e.(string) != "no func name" {
+			t.Fatal("TestNoFuncName failed:", e)
+		}
+	}()
+	pkg.NewFuncWith(0, "", nil, nil)
+}
+
 // ----------------------------------------------------------------------------
