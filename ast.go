@@ -44,15 +44,13 @@ func boolean(v bool) *ast.Ident {
 	return identFalse
 }
 
-func newField(pkg *Package, name string, typ types.Type) *ast.Field {
-	return &ast.Field{
-		Names: []*ast.Ident{ident(name)},
-		Type:  toType(pkg, typ),
-	}
-}
-
 func toRecv(pkg *Package, recv *types.Var) *ast.FieldList {
-	return &ast.FieldList{List: []*ast.Field{newField(pkg, recv.Name(), recv.Type())}}
+	var names []*ast.Ident
+	if name := recv.Name(); name != "" {
+		names = []*ast.Ident{ident(name)}
+	}
+	fld := &ast.Field{Names: names, Type: toType(pkg, recv.Type())}
+	return &ast.FieldList{List: []*ast.Field{fld}}
 }
 
 // -----------------------------------------------------------------------------
@@ -66,9 +64,8 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 	flds := make([]*ast.Field, n)
 	for i := 0; i < n; i++ {
 		item := t.At(i)
-		name := item.Name()
 		var names []*ast.Ident
-		if name != "" {
+		if name := item.Name(); name != "" {
 			names = []*ast.Ident{ident(name)}
 		}
 		typ := toType(pkg, item.Type())
