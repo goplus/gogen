@@ -19,6 +19,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"runtime"
 	"syscall"
 )
 
@@ -369,7 +370,7 @@ func InitBuiltinFuncs(builtin *types.Package) {
 	// unsafe
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Sizeof", unsafeSizeofInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Alignof", unsafeAlignofInstr{}))
-	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Offsetof", unsafeOffsetoffInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Offsetof", unsafeOffsetofInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Add", unsafeAddInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Slice", unsafeSliceInstr{}))
 }
@@ -633,16 +634,21 @@ func (p makeInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast
 }
 
 func checkArgsCount(pkg *Package, fn string, n int, args int, src ast.Node) {
-	if args < n {
-		s, pos := pkg.cb.loadExpr(src)
-		pos.Column += len(fn)
-		pkg.cb.panicCodeErrorf(&pos, "missing argument to function call: %v", s)
-	} else if args > n {
-		s, pos := pkg.cb.loadExpr(src)
-		pos.Column += len(fn)
-		pkg.cb.panicCodeErrorf(&pos, "too many arguments to function call: %v", s)
+	if args == n {
+		return
 	}
+	cb := &pkg.cb
+	text, pos := cb.loadExpr(src)
+	pos.Column += len(fn)
+	if args < n {
+		cb.panicCodeErrorf(&pos, "missing argument to function call: %v", text)
+	}
+	cb.panicCodeErrorf(&pos, "too many arguments to function call: %v", text)
 }
+
+var (
+	std = types.SizesFor(runtime.Compiler, runtime.GOARCH).(*types.StdSizes)
+)
 
 type unsafeSizeofInstr struct{}
 
@@ -650,10 +656,12 @@ type unsafeSizeofInstr struct{}
 func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Sizeof", 1, len(args), src)
 
-	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Sizeof")}
+	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Sizeof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
+		CVal: constant.MakeInt64(std.Sizeof(args[0].Type)),
+		Src:  src,
 	}
 	return
 }
@@ -664,18 +672,21 @@ type unsafeAlignofInstr struct{}
 func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Alignof", 1, len(args), src)
 
-	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Alignof")}
+	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Alignof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
+		CVal: constant.MakeInt64(std.Alignof(args[0].Type)),
+		Src:  src,
 	}
 	return
 }
 
-type unsafeOffsetoffInstr struct{}
+type unsafeOffsetofInstr struct{}
 
+// TODO: unsafe.Offsetof should have CVal
 // func unsafe.Offsetof(x ArbitraryType) uintptr
-func (p unsafeOffsetoffInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
+func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Offsetof", 1, len(args), src)
 
 	if _, ok := args[0].Val.(*ast.SelectorExpr); !ok {
@@ -688,10 +699,11 @@ func (p unsafeOffsetoffInstr) Call(pkg *Package, args []*Element, flags InstrFla
 		pos.Column += len("unsafe.Offsetof")
 		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: argument is a method value", s)
 	}
-	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Offsetof")}
+	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Offsetof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
+		Src:  src,
 	}
 	return
 }
@@ -714,7 +726,7 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags, sr
 		pos.Column += len("unsafe.Add")
 		pkg.cb.panicCodeErrorf(&pos, "cannot use %v (type %v) as type int", s, t)
 	}
-	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Add")}
+	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Add")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
 		Type: types.Typ[types.UnsafePointer],
@@ -739,7 +751,7 @@ func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, 
 		pos.Column += len("unsafe.Slice")
 		pkg.cb.panicCodeErrorf(&pos, "non-integer len argument in unsafe.Slice - %v", t)
 	}
-	fn := &ast.SelectorExpr{X: ast.NewIdent("unsafe"), Sel: ast.NewIdent("Slice")}
+	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Slice")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
 		Type: types.NewSlice(t0.Elem()),

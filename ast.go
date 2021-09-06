@@ -32,6 +32,7 @@ var (
 	identNew    = ident("new")
 	identMake   = ident("make")
 	identIota   = ident("iota")
+	identUnsafe = ident("unsafe")
 )
 
 func ident(name string) *ast.Ident {
