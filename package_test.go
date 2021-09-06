@@ -1221,6 +1221,20 @@ func main() {
 `)
 }
 
+func TestClose(t *testing.T) {
+	pkg := newMainPackage()
+	tyChan := types.NewChan(types.SendOnly, types.Typ[types.Int])
+	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "c", tyChan)), nil, false).BodyStart(pkg).
+		Val(ctxRef(pkg, "close")).Val(ctxRef(pkg, "c")).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func foo(c chan<- int) {
+	close(c)
+}
+`)
+}
+
 func TestAppend(t *testing.T) {
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()
