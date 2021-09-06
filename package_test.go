@@ -106,35 +106,6 @@ func TestImportGopPkg(t *testing.T) {
 	t.Fatal("TestImportGopPkg: NodeSet.Attr not found")
 }
 
-func TestAssignableTo(t *testing.T) {
-	assigns := []struct {
-		v, t types.Type
-		ret  bool
-	}{
-		{types.Typ[types.UntypedInt], types.Typ[types.Int], true},
-		{types.Typ[types.Int], types.Typ[types.UntypedInt], false},
-		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedComplex], true},
-		{types.Typ[types.UntypedComplex], types.Typ[types.UntypedFloat], false},
-		{types.Typ[types.UntypedInt], types.Typ[types.UntypedFloat], true},
-		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedInt], false},
-		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedBool], false},
-		{types.Typ[types.UntypedInt], types.Typ[types.UntypedRune], false},
-		{types.Typ[types.UntypedFloat], types.Typ[types.Int], false},
-		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedRune], false},
-		{types.Typ[types.UntypedRune], types.Typ[types.UntypedInt], true},
-		{types.Typ[types.UntypedRune], types.Typ[types.UntypedFloat], true},
-	}
-	pkg := gox.NewPackage("", "foo", nil)
-	for _, a := range assigns {
-		if ret := gox.AssignableTo(pkg, a.v, a.t); ret != a.ret {
-			t.Fatalf("Failed: AssignableTo %v => %v returns %v\n", a.v, a.t, ret)
-		}
-	}
-	if gox.Default(pkg, types.Typ[types.UntypedInt]) != types.Typ[types.Int] {
-		t.Fatal("gox.Default failed")
-	}
-}
-
 func TestGoTypesPkg(t *testing.T) {
 	const src = `package foo
 
