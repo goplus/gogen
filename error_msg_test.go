@@ -162,6 +162,16 @@ func TestErrConst(t *testing.T) {
 			pkg.NewVarStart(position(1, 5), nil, "a").Val(1).EndInit(1)
 			pkg.NewConstStart(pkg.Types.Scope(), position(2, 7), nil, "a").Val(2).EndInit(1)
 		})
+	codeErrorTest(t, "./foo.gop:2:9 a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
+		func(pkg *gox.Package) {
+			pkg.NewVarStart(position(1, 5), nil, "a").Val(1).EndInit(1)
+			pkg.NewConstDecl(pkg.Types.Scope()).
+				New(func(cb *gox.CodeBuilder) int {
+					cb.Val(2)
+					return 1
+				}, position(2, 7), nil, "_").
+				Next(position(2, 9), "a")
+		})
 }
 
 func TestErrNewVar(t *testing.T) {

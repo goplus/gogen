@@ -199,6 +199,9 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 		}
 		if p.tok == token.CONST {
 			tv := rets[i]
+			if tv.CVal == nil {
+				panic("TODO: not a constant expression")
+			}
 			if old := p.scope.Insert(types.NewConst(p.pos, pkg.Types, name, tv.Type, tv.CVal)); old != nil {
 				oldpos := cb.position(old.Pos())
 				cb.panicCodePosErrorf(
@@ -230,7 +233,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 }
 
 func (p *Package) newValueDecl(
-	scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
+	cdecl *ConstDecl, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
 	n := len(names)
 	if tok == token.DEFINE { // a, b := expr
 		noNewVar := true
@@ -269,43 +272,112 @@ func (p *Package) newValueDecl(
 			spec.Type = toType(p, typ)
 		}
 	}
+	var decl *ast.GenDecl
+	if cdecl != nil {
+		decl = cdecl.decl
+		decl.Specs = append(decl.Specs, spec)
+	} else {
+		decl = &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
+	}
 	at := -1
-	decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
 	if scope == p.Types.Scope() {
 		idx := p.testingFile
 		p.files[idx].decls = append(p.files[idx].decls, decl)
 	} else {
 		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
 	}
-	return &ValueDecl{typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: at}
+	return &ValueDecl{
+		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: at}
 }
 
+// NewConstStart creates constants with names.
+//
+// Deprecated: Use NewConstDecl instead.
 func (p *Package) NewConstStart(scope *types.Scope, pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("NewConst", names)
 	}
-	return p.newValueDecl(scope, pos, token.CONST, typ, names...).InitStart(p)
+	return p.newValueDecl(nil, scope, pos, token.CONST, typ, names...).InitStart(p)
+}
+
+func (p *Package) NewConstDecl(scope *types.Scope) *ConstDecl {
+	if debugInstr {
+		log.Println("NewConstDecl")
+	}
+	decl := &ast.GenDecl{Tok: token.CONST}
+	return &ConstDecl{pkg: p, scope: scope, decl: decl}
 }
 
 func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *ValueDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	return p.newValueDecl(p.Types.Scope(), pos, token.VAR, typ, names...)
+	return p.newValueDecl(nil, p.Types.Scope(), pos, token.VAR, typ, names...)
 }
 
 func (p *Package) NewVarEx(scope *types.Scope, pos token.Pos, typ types.Type, names ...string) *ValueDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	return p.newValueDecl(scope, pos, token.VAR, typ, names...)
+	return p.newValueDecl(nil, scope, pos, token.VAR, typ, names...)
 }
 
 func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	return p.newValueDecl(p.Types.Scope(), pos, token.VAR, typ, names...).InitStart(p)
+	return p.newValueDecl(nil, p.Types.Scope(), pos, token.VAR, typ, names...).InitStart(p)
+}
+
+// ----------------------------------------------------------------------------
+
+type ConstDecl struct {
+	decl  *ast.GenDecl
+	scope *types.Scope
+	pkg   *Package
+	fn    func(cb *CodeBuilder) int
+	iotav int
+}
+
+func constInitFn(cb *CodeBuilder, iotav *int, fn func(cb *CodeBuilder) int) int {
+	oldv := cb.iotav
+	cb.iotav = *iotav
+	defer func() {
+		cb.iotav = oldv
+		*iotav++
+	}()
+	return fn(cb)
+}
+
+func (p *ConstDecl) New(fn func(cb *CodeBuilder) int, pos token.Pos, typ types.Type, names ...string) *ConstDecl {
+	if debugInstr {
+		log.Println("NewConst", names, p.iotav)
+	}
+	pkg := p.pkg
+	cb := pkg.newValueDecl(p, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
+	n := constInitFn(cb, &p.iotav, fn)
+	cb.EndInit(n)
+	p.fn = fn
+	return p
+}
+
+func (p *ConstDecl) Next(pos token.Pos, name string) *ConstDecl {
+	if name == "_" {
+		p.iotav++
+	} else {
+		pkg := p.pkg
+		cb := pkg.CB()
+		constInitFn(cb, &p.iotav, p.fn)
+		ret := cb.stk.Pop()
+		if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, ret.Type, ret.CVal)); old != nil {
+			oldpos := cb.position(old.Pos())
+			cb.panicCodePosErrorf(
+				pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
+		}
+	}
+	spec := &ast.ValueSpec{Names: []*ast.Ident{ident(name)}}
+	p.decl.Specs = append(p.decl.Specs, spec)
+	return p
 }
 
 // ----------------------------------------------------------------------------
