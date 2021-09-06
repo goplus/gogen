@@ -336,39 +336,36 @@ type ConstDecl struct {
 	scope *types.Scope
 	pkg   *Package
 	fn    func(cb *CodeBuilder) int
-	iotav int
 }
 
-func constInitFn(cb *CodeBuilder, iotav *int, fn func(cb *CodeBuilder) int) int {
+func constInitFn(cb *CodeBuilder, iotav int, fn func(cb *CodeBuilder) int) int {
 	oldv := cb.iotav
-	cb.iotav = *iotav
+	cb.iotav = iotav
 	defer func() {
 		cb.iotav = oldv
-		*iotav++
 	}()
 	return fn(cb)
 }
 
-func (p *ConstDecl) New(fn func(cb *CodeBuilder) int, pos token.Pos, typ types.Type, names ...string) *ConstDecl {
+func (p *ConstDecl) New(
+	fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDecl {
 	if debugInstr {
-		log.Println("NewConst", names, p.iotav)
+		log.Println("NewConst", names, iotav)
 	}
 	pkg := p.pkg
 	cb := pkg.newValueDecl(p, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
-	n := constInitFn(cb, &p.iotav, fn)
+	n := constInitFn(cb, iotav, fn)
 	cb.EndInit(n)
 	p.fn = fn
 	return p
 }
 
-func (p *ConstDecl) Next(pos token.Pos, name string) *ConstDecl {
-	if name == "_" {
-		p.iotav++
-	} else {
+func (p *ConstDecl) Next(iotav int, pos token.Pos, name string) *ConstDecl {
+	if name != "_" {
 		pkg := p.pkg
 		cb := pkg.CB()
-		constInitFn(cb, &p.iotav, p.fn)
-		ret := cb.stk.Pop()
+		constInitFn(cb, iotav, p.fn)
+		ret := cb.stk.Pop() // TODO: maybe ret.Type is incorrect
 		if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, ret.Type, ret.CVal)); old != nil {
 			oldpos := cb.position(old.Pos())
 			cb.panicCodePosErrorf(

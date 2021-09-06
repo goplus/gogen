@@ -169,8 +169,8 @@ func TestErrConst(t *testing.T) {
 				New(func(cb *gox.CodeBuilder) int {
 					cb.Val(2)
 					return 1
-				}, position(2, 7), nil, "_").
-				Next(position(2, 9), "a")
+				}, 0, position(2, 7), nil, "_").
+				Next(1, position(2, 9), "a")
 		})
 }
 

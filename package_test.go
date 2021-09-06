@@ -1012,10 +1012,10 @@ func TestConstDecl2(t *testing.T) {
 		New(func(cb *gox.CodeBuilder) int {
 			cb.Val(ctxRef(pkg, "iota"))
 			return 1
-		}, token.NoPos, nil, "a").
-		Next(token.NoPos, "_").
-		Next(token.NoPos, "_").
-		Next(token.NoPos, "b")
+		}, 0, token.NoPos, nil, "a").
+		Next(1, token.NoPos, "_").
+		Next(2, token.NoPos, "_").
+		Next(3, token.NoPos, "b")
 	o := pkg.Types.Scope().Lookup("b")
 	if v, ok := constant.Int64Val(o.(*types.Const).Val()); !ok || v != 3 {
 		t.Fatal("TestConstDecl2 failed:", v)
@@ -1037,10 +1037,10 @@ func TestConstDecl3(t *testing.T) {
 		New(func(cb *gox.CodeBuilder) int {
 			cb.Val(1).Val(ctxRef(pkg, "iota")).BinaryOp(token.SHL)
 			return 1
-		}, token.NoPos, types.Typ[types.Uint16], "a").
-		Next(token.NoPos, "_").
-		Next(token.NoPos, "_").
-		Next(token.NoPos, "b")
+		}, 0, token.NoPos, types.Typ[types.Uint16], "a").
+		Next(1, token.NoPos, "_").
+		Next(2, token.NoPos, "_").
+		Next(3, token.NoPos, "b")
 	o := pkg.Types.Scope().Lookup("b")
 	if v, ok := constant.Int64Val(o.(*types.Const).Val()); !ok || v != 8 {
 		t.Fatal("TestConstDecl3 failed:", v)
