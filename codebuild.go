@@ -1180,7 +1180,11 @@ retry:
 	case *types.Array:
 		return []types.Type{tyInt, t.Elem()}, false
 	case *types.Pointer:
-		if e, ok := t.Elem().(*types.Array); ok {
+		elem := t.Elem()
+		if named, ok := elem.(*types.Named); ok {
+			elem = p.getUnderlying(named)
+		}
+		if e, ok := elem.(*types.Array); ok {
 			return []types.Type{tyInt, e.Elem()}, false
 		}
 	case *types.Basic:
@@ -1192,7 +1196,7 @@ retry:
 			return []types.Type{tyInt, TyByte}, false
 		}
 	case *types.Named:
-		typ = t.Underlying()
+		typ = p.getUnderlying(t)
 		goto retry
 	}
 	src, pos := p.loadExpr(idxSrc)

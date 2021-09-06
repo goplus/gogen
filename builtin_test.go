@@ -380,4 +380,26 @@ func TestNoFuncName(t *testing.T) {
 	pkg.NewFuncWith(0, "", nil, nil)
 }
 
+func TestGetIdxValTypes(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+	intArr := types.NewArray(types.Typ[types.Int], 10)
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "intArr", nil), intArr, nil)
+	kv, allowTwoValue := cb.getIdxValTypes(typ, false, nil)
+	if allowTwoValue || kv[0] != types.Typ[types.Int] || kv[1] != types.Typ[types.Int] {
+		t.Fatal("TestGetIdxValTypes failed:", kv, allowTwoValue)
+	}
+}
+
+func TestGetIdxValTypes2(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+	intArr := types.NewArray(types.Typ[types.Int], 10)
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "intArr", nil), intArr, nil)
+	kv, allowTwoValue := cb.getIdxValTypes(types.NewPointer(typ), false, nil)
+	if allowTwoValue || kv[0] != types.Typ[types.Int] || kv[1] != types.Typ[types.Int] {
+		t.Fatal("TestGetIdxValTypes2 failed:", kv, allowTwoValue)
+	}
+}
+
 // ----------------------------------------------------------------------------
