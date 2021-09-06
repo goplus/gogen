@@ -16,9 +16,11 @@ package gox
 import (
 	"fmt"
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"log"
+	"math/big"
 
 	"github.com/goplus/gox/internal"
 )
@@ -95,13 +97,28 @@ func (p *unboundProxyParam) String() string {
 	return fmt.Sprintf("unboundProxyParam{typ: %v}", p.real)
 }
 
-func boundType(pkg *Package, arg, param types.Type, expr *ast.Expr) error {
+func getElemType(t types.Type, parg *internal.Elem) types.Type {
+	if parg != nil {
+		if parg.CVal != nil && t == types.Typ[types.UntypedFloat] {
+			if v, ok := constant.Val(parg.CVal).(*big.Rat); ok && v.IsInt() {
+				return types.Typ[types.UntypedInt]
+			}
+		}
+	}
+	return t
+}
+
+func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 	switch p := param.(type) {
 	case *unboundFuncParam: // template function param
 		if p.typ.contract.Match(pkg, arg) {
 			if p.tBound == nil {
+				var expr *ast.Expr
+				if parg != nil {
+					expr = &parg.Val
+				}
 				p.boundTo(pkg, arg, expr)
-			} else if !AssignableTo(pkg, arg, p.tBound) {
+			} else if !AssignableTo(pkg, getElemType(arg, parg), p.tBound) {
 				if isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.expr) {
 					p.tBound = arg
 					return nil
