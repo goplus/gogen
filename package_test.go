@@ -1267,6 +1267,66 @@ func main() {
 `)
 }
 
+func TestUnsafeFunc(t *testing.T) {
+	pkg := newMainPackage()
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typ := types.NewStruct(fields, nil)
+	tyT := pkg.NewType("T").InitType(pkg, typ)
+	tyUintptr := types.Typ[types.Uintptr]
+	builtin := pkg.Builtin()
+	pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
+		NewVar(tyT, "a").NewVar(tyUintptr, "r").
+		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Sizeof")).Val(ctxRef(pkg, "a")).Call(1).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Alignof")).Val(ctxRef(pkg, "a")).Call(1).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "a")).MemberVal("y").Call(1).Assign(1).EndStmt().
+		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).Call(1).EndStmt().
+		End()
+	tyUP := types.Typ[types.UnsafePointer]
+	tyInt := types.Typ[types.Int]
+	pkg.NewFunc(nil, "test17", nil, nil, false).BodyStart(pkg).
+		NewVar(tyUP, "a").NewVar(tyUP, "r").
+		NewVarStart(nil, "ar").
+		Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
+		NewVar(types.NewSlice(tyInt), "r2").
+		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a")).Val(10).Call(2).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r2")).Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val(3).Call(2).Assign(1).EndStmt().
+		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).VarRef(ctxRef(pkg, "r2")).Call(2).EndStmt().
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+import unsafe "unsafe"
+
+type T struct {
+	x int
+	y string
+}
+
+func test() {
+	var a T
+	var r uintptr
+	r = unsafe.Sizeof(a)
+	r = unsafe.Alignof(a)
+	r = unsafe.Offsetof(a.y)
+	println(r)
+}
+func test17() {
+	var a unsafe.Pointer
+	var r unsafe.Pointer
+	var ar = [3]int{1, 2, 3}
+	var r2 []int
+	r = unsafe.Add(a, 10)
+	r2 = unsafe.Slice(&ar[0], 3)
+	println(r, r2)
+}
+func main() {
+}
+`)
+}
+
 func TestOverloadFunc(t *testing.T) {
 	var f, g, x, y *goxVar
 	pkg := newMainPackage()

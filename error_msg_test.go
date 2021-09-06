@@ -887,3 +887,92 @@ func TestErrMemberRef(t *testing.T) {
 				End()
 		})
 }
+
+func TestErrUnsafe(t *testing.T) {
+	codeErrorTest(t,
+		`./foo.gop:6:15 missing argument to function call: unsafe.Sizeof()`,
+		func(pkg *gox.Package) {
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(builtin.Ref("Sizeof")).CallWith(0, false, source("unsafe.Sizeof()", 6, 2)).EndStmt().
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:6:15 too many arguments to function call: unsafe.Sizeof(1, 2)`,
+		func(pkg *gox.Package) {
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(builtin.Ref("Sizeof")).Val(1).Val(2).CallWith(2, false, source("unsafe.Sizeof(1, 2)", 6, 2)).EndStmt().
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:6:17 invalid expression unsafe.Offsetof(1)`,
+		func(pkg *gox.Package) {
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(builtin.Ref("Offsetof")).Val(1).CallWith(1, false, source("unsafe.Offsetof(1)", 6, 2)).EndStmt().
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:14:17 invalid expression unsafe.Offsetof(a.Bar): argument is a method value`,
+		func(pkg *gox.Package) {
+			fields := []*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+				types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+			}
+			typ := types.NewStruct(fields, nil)
+			foo := pkg.NewType("foo").InitType(pkg, typ)
+			recv := pkg.NewParam(token.NoPos, "a", foo)
+			pkg.NewFunc(recv, "Bar", nil, nil, false).BodyStart(pkg).End()
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(foo, "a").
+				Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "a")).MemberVal("Bar").CallWith(1, false, source("unsafe.Offsetof(a.Bar)", 14, 2)).EndStmt().
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:7:12 cannot use a (type int) as type unsafe.Pointer in argument to unsafe.Add`,
+		func(pkg *gox.Package) {
+			tyInt := types.Typ[types.Int]
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyInt, "a").
+				Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val(10).CallWith(2, false, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:7:12 cannot use "hello" (type untyped string) as type int`,
+		func(pkg *gox.Package) {
+			tyUP := types.Typ[types.UnsafePointer]
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyUP, "a").
+				Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val("hello", source(`"hello"`, 7, 16)).CallWith(2, false, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:7:14 first argument to unsafe.Slice must be pointer; have int`,
+		func(pkg *gox.Package) {
+			tyInt := types.Typ[types.Int]
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyInt, "a").
+				Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "a")).Val(10).CallWith(2, false, source(`unsafe.Slice(a, 10)`, 7, 2)).EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:7:14 non-integer len argument in unsafe.Slice - untyped string`,
+		func(pkg *gox.Package) {
+			tyInt := types.Typ[types.Int]
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVarStart(nil, "ar").
+				Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
+				Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val("hello").CallWith(2, false, source(`unsafe.Slice(&a[0],"hello")`, 7, 2)).EndStmt().
+				End()
+		})
+}
