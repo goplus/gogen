@@ -200,9 +200,15 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 		if p.tok == token.CONST {
 			tv := rets[i]
 			if tv.CVal == nil {
-				panic("TODO: not a constant expression")
+				src, _ := cb.loadExpr(tv.Src)
+				cb.panicCodePosErrorf(
+					p.pos, "const initializer %s is not a constant", src)
 			}
-			if old := p.scope.Insert(types.NewConst(p.pos, pkg.Types, name, tv.Type, tv.CVal)); old != nil {
+			tvType := typ
+			if tvType == nil {
+				tvType = tv.Type
+			}
+			if old := p.scope.Insert(types.NewConst(p.pos, pkg.Types, name, tvType, tv.CVal)); old != nil {
 				oldpos := cb.position(old.Pos())
 				cb.panicCodePosErrorf(
 					p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
@@ -339,6 +345,7 @@ type ConstDecl struct {
 	scope *types.Scope
 	pkg   *Package
 	fn    func(cb *CodeBuilder) int
+	typ   types.Type
 	inAST bool
 }
 
@@ -360,7 +367,7 @@ func (p *ConstDecl) New(
 	cb := pkg.newValueDecl(p, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
 	n := constInitFn(cb, iotav, fn)
 	cb.EndInit(n)
-	p.fn = fn
+	p.fn, p.typ = fn, typ
 	return p
 }
 
@@ -369,8 +376,12 @@ func (p *ConstDecl) Next(iotav int, pos token.Pos, name string) *ConstDecl {
 		pkg := p.pkg
 		cb := pkg.CB()
 		constInitFn(cb, iotav, p.fn)
-		ret := cb.stk.Pop() // TODO: maybe ret.Type is incorrect
-		if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, ret.Type, ret.CVal)); old != nil {
+		ret := cb.stk.Pop()
+		typ := p.typ
+		if typ == nil {
+			typ = ret.Type
+		}
+		if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, typ, ret.CVal)); old != nil {
 			oldpos := cb.position(old.Pos())
 			cb.panicCodePosErrorf(
 				pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
