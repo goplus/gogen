@@ -1498,6 +1498,7 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 }
 
 func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, srcExpr ast.Node) MemberKind {
+retry:
 	switch o := typ.(type) {
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
@@ -1517,21 +1518,11 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 			}
 		}
 	case *types.Named:
-		u := p.getUnderlying(o)
+		typ = p.getUnderlying(o)
 		if p.method(o, name, argVal, srcExpr) {
 			return MemberMethod
 		}
-		switch t := u.(type) {
-		case *types.Struct:
-			if kind := p.field(t, name, argVal, srcExpr); kind != 0 {
-				return kind
-			}
-		case *types.Interface:
-			t.Complete()
-			if p.method(t, name, argVal, srcExpr) {
-				return MemberMethod
-			}
-		}
+		goto retry
 	case *types.Struct:
 		if kind := p.field(o, name, argVal, srcExpr); kind != 0 {
 			return kind
