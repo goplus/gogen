@@ -272,19 +272,22 @@ func (p *Package) newValueDecl(
 			spec.Type = toType(p, typ)
 		}
 	}
+	var inAST bool
 	var decl *ast.GenDecl
 	if cdecl != nil {
-		decl = cdecl.decl
+		decl, inAST, cdecl.inAST = cdecl.decl, cdecl.inAST, true
 		decl.Specs = append(decl.Specs, spec)
 	} else {
 		decl = &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
 	}
 	at := -1
-	if scope == p.Types.Scope() {
-		idx := p.testingFile
-		p.files[idx].decls = append(p.files[idx].decls, decl)
-	} else {
-		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
+	if !inAST {
+		if scope == p.Types.Scope() {
+			idx := p.testingFile
+			p.files[idx].decls = append(p.files[idx].decls, decl)
+		} else {
+			at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
+		}
 	}
 	return &ValueDecl{
 		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: at}
@@ -336,6 +339,7 @@ type ConstDecl struct {
 	scope *types.Scope
 	pkg   *Package
 	fn    func(cb *CodeBuilder) int
+	inAST bool
 }
 
 func constInitFn(cb *CodeBuilder, iotav int, fn func(cb *CodeBuilder) int) int {

@@ -1015,10 +1015,18 @@ func TestConstDecl2(t *testing.T) {
 		}, 0, token.NoPos, nil, "a").
 		Next(1, token.NoPos, "_").
 		Next(2, token.NoPos, "_").
-		Next(3, token.NoPos, "b")
+		Next(3, token.NoPos, "b").
+		New(func(cb *gox.CodeBuilder) int {
+			cb.Val(ctxRef(pkg, "iota"))
+			return 1
+		}, 4, token.NoPos, nil, "c")
 	o := pkg.Types.Scope().Lookup("b")
 	if v, ok := constant.Int64Val(o.(*types.Const).Val()); !ok || v != 3 {
-		t.Fatal("TestConstDecl2 failed:", v)
+		t.Fatal("TestConstDecl2 failed: b =", v)
+	}
+	o2 := pkg.Types.Scope().Lookup("c")
+	if v, ok := constant.Int64Val(o2.(*types.Const).Val()); !ok || v != 4 {
+		t.Fatal("TestConstDecl2 failed: c =", v)
 	}
 	domTest(t, pkg, `package main
 
@@ -1027,6 +1035,7 @@ const (
 	_
 	_
 	b
+	c = iota
 )
 `)
 }
