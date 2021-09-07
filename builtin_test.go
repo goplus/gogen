@@ -15,10 +15,13 @@ package gox
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"reflect"
 	"testing"
+
+	"github.com/goplus/gox/internal"
 )
 
 func TestContractName(t *testing.T) {
@@ -363,6 +366,9 @@ func TestUnderlying(t *testing.T) {
 		&overloadFuncType{},
 		&instructionType{},
 		&TypeType{},
+		&unboundFuncParam{},
+		&unboundProxyParam{},
+		&TemplateParamType{},
 	}
 	for _, typ := range typs {
 		func() {
@@ -456,6 +462,27 @@ func TestGetIdxValTypes2(t *testing.T) {
 	kv, allowTwoValue := cb.getIdxValTypes(types.NewPointer(typ), false, nil)
 	if allowTwoValue || kv[0] != types.Typ[types.Int] || kv[1] != types.Typ[types.Int] {
 		t.Fatal("TestGetIdxValTypes2 failed:", kv, allowTwoValue)
+	}
+}
+
+func TestGetElemType(t *testing.T) {
+	cval := constant.MakeFromLiteral("1.1e5", token.FLOAT, 0)
+	arg := types.Typ[types.UntypedFloat]
+	typ := getElemType(arg, &internal.Elem{CVal: cval, Type: arg})
+	if typ != types.Typ[types.UntypedInt] {
+		t.Fatal("TestGetElemType failed")
+	}
+}
+
+func TestBoundElementType(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	elts := []*internal.Elem{
+		{Type: types.Typ[types.String]},
+		{Type: types.Typ[types.Int]},
+	}
+	typ := boundElementType(pkg, elts, 0, len(elts), 1)
+	if typ != TyEmptyInterface {
+		t.Fatal("TestBoundElementType failed:", typ)
 	}
 }
 
