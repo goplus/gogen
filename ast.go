@@ -561,6 +561,9 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 			Type: t.Type(),
 		}
+		if len(args) == 1 { // TODO: const value may changed by type-convert
+			ret.CVal = args[0].CVal
+		}
 		return
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
