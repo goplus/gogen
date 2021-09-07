@@ -84,6 +84,22 @@ type goxVar = types.Var
 
 // ----------------------------------------------------------------------------
 
+func TestPrintlnPrintln(t *testing.T) {
+	pkg := newMainPackage(false)
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val(fmt.Ref("Println")).Call(0).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	fmt.Println(fmt.Println())
+}
+`)
+}
+
 func TestImportGopPkg(t *testing.T) {
 	pkg := newMainPackage(false)
 	foo := pkg.Import("github.com/goplus/gox/internal/foo")
