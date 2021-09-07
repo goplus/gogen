@@ -61,8 +61,9 @@ const (
 
 type funcBodyCtx struct {
 	codeBlockCtx
-	fn     *Func
-	labels map[string]*label
+	fn        *Func
+	labels    map[string]*label
+	lastField *types.Var
 }
 
 type label struct {
@@ -1567,6 +1568,7 @@ func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src a
 				Type: fld.Type(),
 				Src:  src,
 			})
+			p.current.lastField = fld
 			return MemberField
 		} else if fld.Embedded() {
 			if kind := p.findMember(fld.Type(), name, argVal, src); kind != 0 {

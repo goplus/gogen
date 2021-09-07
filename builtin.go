@@ -656,11 +656,12 @@ type unsafeSizeofInstr struct{}
 func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Sizeof", 1, len(args), src)
 
+	typ := types.Default(realType(args[0].Type))
 	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Sizeof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
-		CVal: constant.MakeInt64(std.Sizeof(args[0].Type)),
+		CVal: constant.MakeInt64(std.Sizeof(typ)),
 		Src:  src,
 	}
 	return
@@ -684,7 +685,6 @@ func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags
 
 type unsafeOffsetofInstr struct{}
 
-// TODO: unsafe.Offsetof should have CVal
 // func unsafe.Offsetof(x ArbitraryType) uintptr
 func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Offsetof", 1, len(args), src)
@@ -699,10 +699,13 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 		pos.Column += len("unsafe.Offsetof")
 		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: argument is a method value", s)
 	}
+
+	offset := std.Offsetsof([]*types.Var{pkg.cb.current.lastField})[0]
 	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Offsetof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
+		CVal: constant.MakeInt64(offset),
 		Src:  src,
 	}
 	return
