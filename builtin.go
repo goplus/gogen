@@ -396,7 +396,7 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 		case xtMap:
 			return NewMap(tparams[idx], tparams[idx+1])
 		case xtChanIn:
-			return NewChan(types.RecvOnly, tparams[idx])
+			return NewChan(types.SendOnly, tparams[idx])
 		default:
 			panic("TODO: newXParamType - unexpected xType")
 		}

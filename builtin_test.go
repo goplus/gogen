@@ -71,6 +71,63 @@ func TestContract(t *testing.T) {
 	}
 }
 
+func TestComparableTo(t *testing.T) {
+	tyStr := types.NewNamed(types.NewTypeName(token.NoPos, nil, "str", nil), types.Typ[types.String], nil)
+	cases := []struct {
+		v, t types.Type
+		ret  bool
+	}{
+		{types.Typ[types.UntypedNil], types.Typ[types.Int], false},
+		{types.Typ[types.UntypedComplex], types.Typ[types.Int], false},
+		{types.Typ[types.UntypedFloat], types.Typ[types.Bool], false},
+		{types.Typ[types.UntypedFloat], types.Typ[types.Complex128], true},
+		{types.Typ[types.String], types.Typ[types.Bool], false},
+		{types.Typ[types.String], types.Typ[types.String], true},
+		{types.Typ[types.String], tyStr, true},
+		{types.Typ[types.UntypedBool], types.Typ[types.Bool], true},
+		{types.Typ[types.Bool], types.Typ[types.UntypedBool], true},
+		{types.Typ[types.UntypedRune], types.Typ[types.UntypedString], false},
+		{types.Typ[types.Rune], types.Typ[types.UntypedString], false},
+		{types.Typ[types.UntypedInt], types.Typ[types.Int64], true},
+		{types.Typ[types.Int64], types.Typ[types.UntypedInt], true},
+	}
+	pkg := NewPackage("", "foo", nil)
+	for _, a := range cases {
+		if ret := ComparableTo(pkg, a.v, a.t); ret != a.ret {
+			t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", a.v, a.t, ret)
+		}
+	}
+}
+
+func TestAssignableTo(t *testing.T) {
+	cases := []struct {
+		v, t types.Type
+		ret  bool
+	}{
+		{types.Typ[types.UntypedInt], types.Typ[types.Int], true},
+		{types.Typ[types.Int], types.Typ[types.UntypedInt], false},
+		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedComplex], true},
+		{types.Typ[types.UntypedComplex], types.Typ[types.UntypedFloat], false},
+		{types.Typ[types.UntypedInt], types.Typ[types.UntypedFloat], true},
+		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedInt], false},
+		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedBool], false},
+		{types.Typ[types.UntypedInt], types.Typ[types.UntypedRune], false},
+		{types.Typ[types.UntypedFloat], types.Typ[types.Int], false},
+		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedRune], false},
+		{types.Typ[types.UntypedRune], types.Typ[types.UntypedInt], true},
+		{types.Typ[types.UntypedRune], types.Typ[types.UntypedFloat], true},
+	}
+	pkg := NewPackage("", "foo", nil)
+	for _, a := range cases {
+		if ret := AssignableTo(pkg, a.v, a.t); ret != a.ret {
+			t.Fatalf("Failed: AssignableTo %v => %v returns %v\n", a.v, a.t, ret)
+		}
+	}
+	if Default(pkg, types.Typ[types.UntypedInt]) != types.Typ[types.Int] {
+		t.Fatal("gox.Default failed")
+	}
+}
+
 func TestToIndex(t *testing.T) {
 	if toIndex('b') != 11 {
 		t.Fatal("toIndex('b') != 11")
@@ -378,6 +435,28 @@ func TestNoFuncName(t *testing.T) {
 		}
 	}()
 	pkg.NewFuncWith(0, "", nil, nil)
+}
+
+func TestGetIdxValTypes(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+	intArr := types.NewArray(types.Typ[types.Int], 10)
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "intArr", nil), intArr, nil)
+	kv, allowTwoValue := cb.getIdxValTypes(typ, false, nil)
+	if allowTwoValue || kv[0] != types.Typ[types.Int] || kv[1] != types.Typ[types.Int] {
+		t.Fatal("TestGetIdxValTypes failed:", kv, allowTwoValue)
+	}
+}
+
+func TestGetIdxValTypes2(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+	intArr := types.NewArray(types.Typ[types.Int], 10)
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "intArr", nil), intArr, nil)
+	kv, allowTwoValue := cb.getIdxValTypes(types.NewPointer(typ), false, nil)
+	if allowTwoValue || kv[0] != types.Typ[types.Int] || kv[1] != types.Typ[types.Int] {
+		t.Fatal("TestGetIdxValTypes2 failed:", kv, allowTwoValue)
+	}
 }
 
 // ----------------------------------------------------------------------------

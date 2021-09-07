@@ -132,6 +132,7 @@ type CodeBuilder struct {
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
 	closureParamInsts
+	iotav       int
 	commentOnce bool
 }
 
@@ -595,7 +596,7 @@ func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilde
 	if debugInstr {
 		log.Println("NewConstStart", names)
 	}
-	return p.pkg.newValueDecl(p.current.scope, token.NoPos, token.CONST, typ, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(nil, p.current.scope, token.NoPos, token.CONST, typ, names...).InitStart(p.pkg)
 }
 
 // NewVar func
@@ -603,7 +604,7 @@ func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	p.pkg.newValueDecl(p.current.scope, token.NoPos, token.VAR, typ, names...)
+	p.pkg.newValueDecl(nil, p.current.scope, token.NoPos, token.VAR, typ, names...)
 	return p
 }
 
@@ -612,7 +613,7 @@ func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder 
 	if debugInstr {
 		log.Println("NewVarStart", names)
 	}
-	return p.pkg.newValueDecl(p.current.scope, token.NoPos, token.VAR, typ, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(nil, p.current.scope, token.NoPos, token.VAR, typ, names...).InitStart(p.pkg)
 }
 
 // DefineVarStart func
@@ -620,7 +621,7 @@ func (p *CodeBuilder) DefineVarStart(pos token.Pos, names ...string) *CodeBuilde
 	if debugInstr {
 		log.Println("DefineVarStart", names)
 	}
-	return p.pkg.newValueDecl(p.current.scope, pos, token.DEFINE, nil, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(nil, p.current.scope, pos, token.DEFINE, nil, names...).InitStart(p.pkg)
 }
 
 // NewAutoVar func
@@ -1181,7 +1182,11 @@ retry:
 	case *types.Array:
 		return []types.Type{tyInt, t.Elem()}, false
 	case *types.Pointer:
-		if e, ok := t.Elem().(*types.Array); ok {
+		elem := t.Elem()
+		if named, ok := elem.(*types.Named); ok {
+			elem = p.getUnderlying(named)
+		}
+		if e, ok := elem.(*types.Array); ok {
 			return []types.Type{tyInt, e.Elem()}, false
 		}
 	case *types.Basic:
@@ -1193,7 +1198,7 @@ retry:
 			return []types.Type{tyInt, TyByte}, false
 		}
 	case *types.Named:
-		typ = t.Underlying()
+		typ = p.getUnderlying(t)
 		goto retry
 	}
 	src, pos := p.loadExpr(idxSrc)
@@ -1495,6 +1500,7 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 }
 
 func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, srcExpr ast.Node) MemberKind {
+retry:
 	switch o := typ.(type) {
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
@@ -1514,21 +1520,11 @@ func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, s
 			}
 		}
 	case *types.Named:
-		u := p.getUnderlying(o)
+		typ = p.getUnderlying(o)
 		if p.method(o, name, argVal, srcExpr) {
 			return MemberMethod
 		}
-		switch t := u.(type) {
-		case *types.Struct:
-			if kind := p.field(t, name, argVal, srcExpr); kind != 0 {
-				return kind
-			}
-		case *types.Interface:
-			t.Complete()
-			if p.method(t, name, argVal, srcExpr) {
-				return MemberMethod
-			}
-		}
+		goto retry
 	case *types.Struct:
 		if kind := p.field(o, name, argVal, srcExpr); kind != 0 {
 			return kind

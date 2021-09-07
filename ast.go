@@ -31,6 +31,7 @@ var (
 	identCap    = ident("cap")
 	identNew    = ident("new")
 	identMake   = ident("make")
+	identIota   = ident("iota")
 )
 
 func ident(name string) *ast.Ident {
@@ -263,6 +264,15 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 			return toObject(pkg, v, src)
 		}
 	case types.Object:
+		if v == iotaObj {
+			v := pkg.cb.iotav
+			return &internal.Elem{
+				Val:  identIota,
+				Type: types.Typ[types.UntypedInt],
+				CVal: constant.MakeInt64(int64(v)),
+				Src:  src,
+			}
+		}
 		return toObject(pkg, v, src)
 	case *Element:
 		return v
@@ -308,6 +318,10 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 	}
 	panic("unexpected: unsupport value type")
 }
+
+var (
+	iotaObj = types.Universe.Lookup("iota")
+)
 
 func toBasicKind(tok token.Token) types.BasicKind {
 	return tok2BasicKinds[tok]

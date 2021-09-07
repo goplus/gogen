@@ -106,35 +106,6 @@ func TestImportGopPkg(t *testing.T) {
 	t.Fatal("TestImportGopPkg: NodeSet.Attr not found")
 }
 
-func TestAssignableTo(t *testing.T) {
-	assigns := []struct {
-		v, t types.Type
-		ret  bool
-	}{
-		{types.Typ[types.UntypedInt], types.Typ[types.Int], true},
-		{types.Typ[types.Int], types.Typ[types.UntypedInt], false},
-		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedComplex], true},
-		{types.Typ[types.UntypedComplex], types.Typ[types.UntypedFloat], false},
-		{types.Typ[types.UntypedInt], types.Typ[types.UntypedFloat], true},
-		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedInt], false},
-		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedBool], false},
-		{types.Typ[types.UntypedInt], types.Typ[types.UntypedRune], false},
-		{types.Typ[types.UntypedFloat], types.Typ[types.Int], false},
-		{types.Typ[types.UntypedFloat], types.Typ[types.UntypedRune], false},
-		{types.Typ[types.UntypedRune], types.Typ[types.UntypedInt], true},
-		{types.Typ[types.UntypedRune], types.Typ[types.UntypedFloat], true},
-	}
-	pkg := gox.NewPackage("", "foo", nil)
-	for _, a := range assigns {
-		if ret := gox.AssignableTo(pkg, a.v, a.t); ret != a.ret {
-			t.Fatalf("Failed: AssignableTo %v => %v returns %v\n", a.v, a.t, ret)
-		}
-	}
-	if gox.Default(pkg, types.Typ[types.UntypedInt]) != types.Typ[types.Int] {
-		t.Fatal("gox.Default failed")
-	}
-}
-
 func TestGoTypesPkg(t *testing.T) {
 	const src = `package foo
 
@@ -1006,6 +977,65 @@ const y string = "Hello"
 `)
 }
 
+func TestConstDecl2(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewConstDecl(pkg.Types.Scope()).
+		New(func(cb *gox.CodeBuilder) int {
+			cb.Val(ctxRef(pkg, "iota"))
+			return 1
+		}, 0, token.NoPos, nil, "a").
+		Next(1, token.NoPos, "_").
+		Next(2, token.NoPos, "_").
+		Next(3, token.NoPos, "b").
+		New(func(cb *gox.CodeBuilder) int {
+			cb.Val(ctxRef(pkg, "iota"))
+			return 1
+		}, 4, token.NoPos, nil, "c")
+	o := pkg.Types.Scope().Lookup("b")
+	if v, ok := constant.Int64Val(o.(*types.Const).Val()); !ok || v != 3 {
+		t.Fatal("TestConstDecl2 failed: b =", v)
+	}
+	o2 := pkg.Types.Scope().Lookup("c")
+	if v, ok := constant.Int64Val(o2.(*types.Const).Val()); !ok || v != 4 {
+		t.Fatal("TestConstDecl2 failed: c =", v)
+	}
+	domTest(t, pkg, `package main
+
+const (
+	a = iota
+	_
+	_
+	b
+	c = iota
+)
+`)
+}
+
+func TestConstDecl3(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewConstDecl(pkg.Types.Scope()).
+		New(func(cb *gox.CodeBuilder) int {
+			cb.Val(1).Val(ctxRef(pkg, "iota")).BinaryOp(token.SHL)
+			return 1
+		}, 0, token.NoPos, types.Typ[types.Uint16], "a").
+		Next(1, token.NoPos, "_").
+		Next(2, token.NoPos, "_").
+		Next(3, token.NoPos, "b")
+	o := pkg.Types.Scope().Lookup("b")
+	if v, ok := constant.Int64Val(o.(*types.Const).Val()); !ok || v != 8 {
+		t.Fatal("TestConstDecl3 failed:", v)
+	}
+	domTest(t, pkg, `package main
+
+const (
+	a uint16 = 1 << iota
+	_
+	_
+	b
+)
+`)
+}
+
 func TestVarDecl(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.CB().NewVarStart(nil, "n", "s").
@@ -1158,6 +1188,20 @@ func foo(v []int, array [10]int) {
 	n = cap(array)
 }
 func main() {
+}
+`)
+}
+
+func TestClose(t *testing.T) {
+	pkg := newMainPackage()
+	tyChan := types.NewChan(types.SendOnly, types.Typ[types.Int])
+	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "c", tyChan)), nil, false).BodyStart(pkg).
+		Val(ctxRef(pkg, "close")).Val(ctxRef(pkg, "c")).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func foo(c chan<- int) {
+	close(c)
 }
 `)
 }

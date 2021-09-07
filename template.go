@@ -269,11 +269,36 @@ func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool
 }
 
 func ComparableTo(pkg *Package, V, T types.Type) bool {
-	V, T = types.Default(V), types.Default(T)
-	if V != T && getUnderlying(pkg, V) != getUnderlying(pkg, T) {
+	if V == T {
+		return true
+	}
+	if v, ok := V.(*types.Basic); ok && (v.Info()&types.IsUntyped) != 0 {
+		return checkComparable(pkg, v, T)
+	} else if t, ok := T.(*types.Basic); ok && (t.Info()&types.IsUntyped) != 0 {
+		return checkComparable(pkg, t, V)
+	}
+	if getUnderlying(pkg, V) != getUnderlying(pkg, T) {
 		return false
 	}
 	return types.Comparable(V)
+}
+
+func checkComparable(pkg *Package, v *types.Basic, t types.Type) bool {
+	if u, ok := getUnderlying(pkg, t).(*types.Basic); ok {
+		switch v.Kind() {
+		case types.UntypedBool:
+			return (u.Info() & types.IsBoolean) != 0
+		case types.UntypedInt, types.UntypedRune:
+			return (u.Info() & types.IsNumeric) != 0
+		case types.UntypedFloat:
+			return (u.Info() & (types.IsFloat | types.IsComplex)) != 0
+		case types.UntypedComplex:
+			return (u.Info() & types.IsComplex) != 0
+		case types.UntypedString:
+			return (u.Info() & types.IsString) != 0
+		}
+	}
+	return false
 }
 
 // NewSignature returns a new function type for the given receiver, parameters,

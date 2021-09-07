@@ -390,7 +390,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 		}
 		x := cb.stk.Pop()
 		pkg, scope := cb.pkg, cb.current.scope
-		typs := p.getKeyValTypes(x.Type)
+		typs := p.getKeyValTypes(cb, x.Type)
 		if typs == nil {
 			src, _ := cb.loadExpr(x.Src)
 			cb.panicCodePosErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
@@ -435,7 +435,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 			Value: val.Val,
 			X:     x.Val,
 		}
-		typs := p.getKeyValTypes(x.Type)
+		typs := p.getKeyValTypes(cb, x.Type)
 		if typs == nil {
 			src, _ := cb.loadExpr(x.Src)
 			cb.panicCodePosErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
@@ -451,7 +451,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 	p.stmt.For = pos
 }
 
-func (p *forRangeStmt) getKeyValTypes(typ types.Type) []types.Type {
+func (p *forRangeStmt) getKeyValTypes(cb *CodeBuilder, typ types.Type) []types.Type {
 retry:
 	switch t := typ.(type) {
 	case *types.Slice:
@@ -475,7 +475,7 @@ retry:
 		if kv, ok := p.checkUdt(t); ok {
 			return kv
 		}
-		typ = t.Underlying()
+		typ = cb.getUnderlying(t)
 		goto retry
 	}
 	return nil
