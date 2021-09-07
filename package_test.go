@@ -1234,7 +1234,6 @@ func TestAppend2(t *testing.T) {
 		NewVar(tySlice, "b").VarRef(ctxRef(pkg, "b")).Val(builtin.Ref("append")).
 		Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "a")).Call(2, true).Assign(1).EndStmt().
 		End()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
 type T []int
@@ -1242,8 +1241,6 @@ type T []int
 func foo(a T) {
 	var b T
 	b = append(b, a...)
-}
-func main() {
 }
 `)
 }

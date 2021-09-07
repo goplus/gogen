@@ -558,6 +558,8 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 			cval = unaryOp(t.tok(), args)
 		} else if t.isOp() {
 			cval = binaryOp(t.tok(), args)
+		} else if t.hasApproxType() {
+			flags |= instrFlagApproxType
 		}
 	case *overloadFuncType:
 		backup := backupArgs(args)
@@ -678,6 +680,14 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 func matchFuncType(
 	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, at interface{}) error {
 	n := len(args)
+	if (flags&instrFlagApproxType) != 0 && n > 0 {
+		if typ, ok := args[0].Type.(*types.Named); ok {
+			switch t := pkg.cb.getUnderlying(typ).(type) {
+			case *types.Slice, *types.Map, *types.Chan:
+				args[0].Type = t
+			}
+		}
+	}
 	if sig.Variadic() {
 		if (flags & InstrFlagEllipsis) == 0 {
 			n1 := getParamLen(sig) - 1

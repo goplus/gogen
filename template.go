@@ -508,7 +508,9 @@ func toNormalizeSignature(
 // ----------------------------------------------------------------------------
 
 const (
-	tokUnaryFlag token.Token = 0x80000
+	tokUnaryFlag      token.Token = 0x80000
+	tokFlagApproxType token.Token = 0x40000
+	tokFlagAll                    = tokUnaryFlag | tokFlagApproxType
 )
 
 // TemplateSignature: type of template function
@@ -519,11 +521,15 @@ type TemplateSignature struct {
 }
 
 func (p *TemplateSignature) tok() token.Token {
-	return p.tokFlag &^ tokUnaryFlag
+	return p.tokFlag &^ tokFlagAll
+}
+
+func (p *TemplateSignature) hasApproxType() bool {
+	return (p.tokFlag & tokFlagApproxType) != 0
 }
 
 func (p *TemplateSignature) isOp() bool {
-	return p.tokFlag != 0
+	return (p.tokFlag &^ tokFlagApproxType) != 0
 }
 
 func (p *TemplateSignature) isUnaryOp() bool {
