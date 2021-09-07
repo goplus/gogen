@@ -339,8 +339,12 @@ var (
 )
 
 func toObject(pkg *Package, v types.Object, src ast.Node) *internal.Elem {
+	var cval constant.Value
+	if cv, ok := v.(*types.Const); ok {
+		cval = cv.Val()
+	}
 	return &internal.Elem{
-		Val: toObjectExpr(pkg, v), Type: realType(v.Type()), Src: src,
+		Val: toObjectExpr(pkg, v), Type: realType(v.Type()), CVal: cval, Src: src,
 	}
 }
 
@@ -444,8 +448,13 @@ func doBinaryOp(a constant.Value, tok token.Token, b constant.Value) constant.Va
 	case binaryOpCompare:
 		return constant.MakeBool(constant.Compare(a, tok, b))
 	default:
-		s, _ := constant.Int64Val(b)
-		return constant.Shift(a, tok, uint(s))
+		if v, ok := constant.Val(a).(*big.Rat); ok && v.IsInt() {
+			a = constant.Make(v.Num())
+		}
+		if s, exact := constant.Int64Val(b); exact {
+			return constant.Shift(a, tok, uint(s))
+		}
+		panic("constant value is overflow")
 	}
 }
 

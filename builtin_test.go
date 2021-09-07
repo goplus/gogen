@@ -487,4 +487,23 @@ func TestBoundElementType(t *testing.T) {
 	}
 }
 
+func TestBinaryOp(t *testing.T) {
+	a := constant.MakeFromLiteral("1e1", token.FLOAT, 0)
+	args := []*internal.Elem{
+		{CVal: a},
+		{CVal: constant.MakeInt64(3)},
+	}
+	if cval := binaryOp(token.SHR, args); constant.Val(cval) != int64(1) {
+		t.Fatal("binaryOp failed:", cval)
+	}
+	b := constant.MakeFromLiteral("1e1", token.FLOAT, 0)
+	args[1] = &internal.Elem{CVal: b}
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("binaryOp failed: no error?")
+		}
+	}()
+	binaryOp(token.SHR, args)
+}
+
 // ----------------------------------------------------------------------------
