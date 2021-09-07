@@ -408,6 +408,7 @@ var (
 		"NE": {token.NEQ, 2},
 
 		"Neg":  {token.SUB, 1},
+		"Pos":  {token.ADD, 1},
 		"Not":  {token.XOR, 1},
 		"LNot": {token.NOT, 1},
 		"Recv": {token.ARROW, 1},

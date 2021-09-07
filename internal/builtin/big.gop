@@ -48,6 +48,7 @@ func (a bigint) >= (b bigint) bool
 func (a bigint) == (b bigint) bool
 func (a bigint) != (b bigint) bool
 
+func +(a bigint) bigint
 func -(a bigint) bigint
 func ^(a bigint) bigint
 
@@ -89,6 +90,7 @@ func (a bigrat) >= (b bigrat) bool
 func (a bigrat) == (b bigrat) bool
 func (a bigrat) != (b bigrat) bool
 
+func +(a bigrat) bigrat
 func -(a bigrat) bigrat
 func /(a bigrat) bigrat
 

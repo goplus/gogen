@@ -1832,6 +1832,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 var (
 	unaryOps = [...]string{
 		token.SUB:   "Neg",
+		token.ADD:   "Pos",
 		token.XOR:   "Not",
 		token.NOT:   "LNot",
 		token.ARROW: "Recv",
