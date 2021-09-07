@@ -471,6 +471,10 @@ retry:
 		}
 	case *types.Chan:
 		return []types.Type{t.Elem(), nil}
+	case *types.Basic:
+		if (t.Info() & types.IsString) != 0 {
+			return []types.Type{types.Typ[types.Int], types.Typ[types.Rune]}
+		}
 	case *types.Named:
 		if kv, ok := p.checkUdt(t); ok {
 			return kv

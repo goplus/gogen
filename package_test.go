@@ -1790,6 +1790,20 @@ func main() {
 `)
 }
 
+func TestForRange3(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		ForRange().Val("Hi").RangeAssignThen(token.NoPos).End().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	for range "Hi" {
+	}
+}
+`)
+}
+
 func TestForRangeUDT(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gox/internal/foo")
