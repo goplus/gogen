@@ -1253,13 +1253,26 @@ func TestAppendString(t *testing.T) {
 		VarRef(ctxRef(pkg, "a")).Val(builtin.Ref("append")).
 		Val(ctxRef(pkg, "a")).Val("Hi").Call(2, true).Assign(1).EndStmt().
 		End()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
 func foo(a []uint8) {
 	a = append(a, "Hi"...)
 }
-func main() {
+`)
+}
+
+func TestCopyString(t *testing.T) {
+	pkg := newMainPackage()
+	builtin := pkg.Builtin()
+	tySlice := types.NewSlice(types.Typ[types.Byte])
+	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
+		NewVarStart(types.Typ[types.Int], "n").Val(builtin.Ref("copy")).
+		Val(ctxRef(pkg, "a")).Val("Hi").Call(2).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func foo(a []uint8) {
+	var n int = copy(a, "Hi")
 }
 `)
 }

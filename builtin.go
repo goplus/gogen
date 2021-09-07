@@ -310,6 +310,14 @@ func InitBuiltinFuncs(builtin *types.Package) {
 		if fn.name == "append" { // append is a special case
 			appendString := NewInstruction(token.NoPos, builtin, "append", appendStringInstr{})
 			tfn = NewOverloadFunc(token.NoPos, builtin, "append", appendString, tfn)
+		} else if fn.name == "copy" {
+			// func copy(dst []byte, src string) int
+			dst := types.NewParam(token.NoPos, builtin, "dst", types.NewSlice(types.Typ[types.Byte]))
+			src := types.NewParam(token.NoPos, builtin, "src", types.Typ[types.String])
+			ret := types.NewParam(token.NoPos, builtin, "", types.Typ[types.Int])
+			sig := types.NewSignature(nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
+			copyString := types.NewFunc(token.NoPos, builtin, "copy", sig)
+			tfn = NewOverloadFunc(token.NoPos, builtin, "copy", copyString, tfn)
 		}
 		gbl.Insert(tfn)
 	}
