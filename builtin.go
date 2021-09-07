@@ -673,11 +673,12 @@ type unsafeAlignofInstr struct{}
 func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Alignof", 1, len(args), src)
 
+	typ := types.Default(realType(args[0].Type))
 	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Alignof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
-		CVal: constant.MakeInt64(std.Alignof(args[0].Type)),
+		CVal: constant.MakeInt64(std.Alignof(typ)),
 		Src:  src,
 	}
 	return
@@ -700,7 +701,8 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: argument is a method value", s)
 	}
 
-	offset := std.Offsetsof([]*types.Var{pkg.cb.current.lastField})[0]
+	fields := pkg.cb.current.lastFields
+	offset := std.Offsetsof(fields)[len(fields)-1]
 	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Offsetof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},

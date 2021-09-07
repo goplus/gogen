@@ -61,9 +61,10 @@ const (
 
 type funcBodyCtx struct {
 	codeBlockCtx
-	fn        *Func
-	labels    map[string]*label
-	lastField *types.Var
+	fn          *Func
+	labels      map[string]*label
+	lastInEmbed bool
+	lastFields  []*types.Var
 }
 
 type label struct {
@@ -1564,18 +1565,27 @@ func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, src ast
 }
 
 func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src ast.Node) MemberKind {
+	if !p.current.lastInEmbed {
+		p.current.lastFields = nil
+	}
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
+		embed := fld.Embedded()
+		if !embed {
+			p.current.lastFields = append(p.current.lastFields, fld)
+		}
 		if fld.Name() == name {
 			p.stk.Ret(1, &internal.Elem{
 				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
 				Type: fld.Type(),
 				Src:  src,
 			})
-			p.current.lastField = fld
 			return MemberField
-		} else if fld.Embedded() {
-			if kind := p.findMember(fld.Type(), name, argVal, src); kind != 0 {
+		} else if embed {
+			p.current.lastInEmbed = true
+			kind := p.findMember(fld.Type(), name, argVal, src)
+			p.current.lastInEmbed = false
+			if kind != 0 {
 				return kind
 			}
 		}
