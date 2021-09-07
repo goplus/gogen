@@ -667,11 +667,12 @@ type unsafeSizeofInstr struct{}
 func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Sizeof", 1, len(args), src)
 
+	typ := types.Default(realType(args[0].Type))
 	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Sizeof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
-		CVal: constant.MakeInt64(std.Sizeof(args[0].Type)),
+		CVal: constant.MakeInt64(std.Sizeof(typ)),
 		Src:  src,
 	}
 	return
@@ -683,11 +684,12 @@ type unsafeAlignofInstr struct{}
 func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Alignof", 1, len(args), src)
 
+	typ := types.Default(realType(args[0].Type))
 	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Alignof")}
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
-		CVal: constant.MakeInt64(std.Alignof(args[0].Type)),
+		CVal: constant.MakeInt64(std.Alignof(typ)),
 		Src:  src,
 	}
 	return
