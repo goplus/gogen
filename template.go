@@ -97,7 +97,17 @@ func (p *unboundProxyParam) String() string {
 	return fmt.Sprintf("unboundProxyParam{typ: %v}", p.real)
 }
 
-func getElemType(t types.Type, parg *internal.Elem) types.Type {
+func getElemType(arg *internal.Elem) types.Type {
+	t := arg.Type
+	if arg.CVal != nil && t == types.Typ[types.UntypedFloat] {
+		if v, ok := constant.Val(arg.CVal).(*big.Rat); ok && v.IsInt() {
+			return types.Typ[types.UntypedInt]
+		}
+	}
+	return t
+}
+
+func getElemTypeIf(t types.Type, parg *internal.Elem) types.Type {
 	if parg != nil {
 		if parg.CVal != nil && t == types.Typ[types.UntypedFloat] {
 			if v, ok := constant.Val(parg.CVal).(*big.Rat); ok && v.IsInt() {
@@ -118,7 +128,7 @@ func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 					expr = &parg.Val
 				}
 				p.boundTo(pkg, arg, expr)
-			} else if !AssignableTo(pkg, getElemType(arg, parg), p.tBound) {
+			} else if !AssignableTo(pkg, getElemTypeIf(arg, parg), p.tBound) {
 				if isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.expr) {
 					p.tBound = arg
 					return nil

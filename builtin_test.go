@@ -469,9 +469,13 @@ func TestGetIdxValTypes2(t *testing.T) {
 func TestGetElemType(t *testing.T) {
 	cval := constant.MakeFromLiteral("1.1e5", token.FLOAT, 0)
 	arg := types.Typ[types.UntypedFloat]
-	typ := getElemType(arg, &internal.Elem{CVal: cval, Type: arg})
+	typ := getElemTypeIf(arg, &internal.Elem{CVal: cval, Type: arg})
 	if typ != types.Typ[types.UntypedInt] {
-		t.Fatal("TestGetElemType failed")
+		t.Fatal("getElemTypeIf failed")
+	}
+	typ = getElemType(&internal.Elem{CVal: cval, Type: arg})
+	if typ != types.Typ[types.UntypedInt] {
+		t.Fatal("getElemType failed")
 	}
 }
 
