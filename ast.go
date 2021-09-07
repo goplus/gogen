@@ -577,7 +577,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		src, _ := pkg.cb.loadExpr(fn.Src)
 		return "argument to " + src
 	}
-	if err = matchFuncType(pkg, args, (flags&InstrFlagEllipsis) != token.NoPos, sig, at); err != nil {
+	if err = matchFuncType(pkg, args, flags, sig, at); err != nil {
 		return
 	}
 	tyRet := toRetType(sig.Results(), it)
@@ -676,10 +676,10 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 }
 
 func matchFuncType(
-	pkg *Package, args []*internal.Elem, ellipsis bool, sig *types.Signature, at interface{}) error {
+	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, at interface{}) error {
 	n := len(args)
 	if sig.Variadic() {
-		if !ellipsis {
+		if (flags & InstrFlagEllipsis) == 0 {
 			n1 := getParamLen(sig) - 1
 			if n < n1 {
 				return errors.New("TODO: not enough function parameters")
@@ -693,7 +693,7 @@ func matchFuncType(
 			}
 			return matchElemType(pkg, args[n1:], tyVariadic.Elem(), at)
 		}
-	} else if ellipsis {
+	} else if (flags & InstrFlagEllipsis) != 0 {
 		return errors.New("TODO: call with ... to non variadic function")
 	}
 	if nreq := getParamLen(sig); nreq != n {

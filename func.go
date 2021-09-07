@@ -211,6 +211,7 @@ type InstrFlags = token.Pos
 const (
 	InstrFlagEllipsis InstrFlags = 1 << iota
 	InstrFlagTwoValue
+	instrFlagApproxType // restricts to all types whose underlying type is T
 )
 
 type Instruction interface {
