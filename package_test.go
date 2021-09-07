@@ -1324,6 +1324,34 @@ func main() {
 `)
 }
 
+func TestUnsafeConst(t *testing.T) {
+	pkg := newMainPackage()
+	builtin := pkg.Builtin()
+	typInt := pkg.NewType("T").InitType(pkg, types.Typ[types.Int])
+	pkg.CB().NewVar(typInt, "n")
+	pkg.CB().NewConstStart(nil, "c1").
+		Val(builtin.Ref("Sizeof")).Val(100).Call(1).EndInit(1)
+	pkg.CB().NewConstStart(nil, "c2").
+		Val(builtin.Ref("Sizeof")).Val(ctxRef(pkg, "n")).Call(1).EndInit(1)
+	pkg.CB().NewConstStart(nil, "c3").
+		Val(builtin.Ref("Alignof")).Val("hello").Call(1).EndInit(1)
+	pkg.CB().NewConstStart(nil, "c4").
+		Val(builtin.Ref("Alignof")).Val(ctxRef(pkg, "n")).Call(1).EndInit(1)
+	domTest(t, pkg, `package main
+
+import unsafe "unsafe"
+
+type T int
+
+var n T
+
+const c1 = unsafe.Sizeof(100)
+const c2 = unsafe.Sizeof(n)
+const c3 = unsafe.Alignof("hello")
+const c4 = unsafe.Alignof(n)
+`)
+}
+
 func TestOverloadFunc(t *testing.T) {
 	var f, g, x, y *goxVar
 	pkg := newMainPackage()
