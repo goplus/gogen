@@ -23,6 +23,7 @@ import (
 	"os"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/goplus/gox"
 	"golang.org/x/tools/go/gcexportdata"
@@ -1327,29 +1328,58 @@ func main() {
 func TestUnsafeConst(t *testing.T) {
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()
-	typInt := pkg.NewType("T").InitType(pkg, types.Typ[types.Int])
-	pkg.CB().NewVar(typInt, "n")
+	fieldsM := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "m", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "n", types.Typ[types.String], false),
+	}
+	typM := types.NewStruct(fieldsM, nil)
+	tyM := pkg.NewType("M").InitType(pkg, typM)
+	fieldsT := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+		types.NewField(token.NoPos, pkg.Types, "", tyM, true),
+	}
+	typT := types.NewStruct(fieldsT, nil)
+	tyT := pkg.NewType("T").InitType(pkg, typT)
+	pkg.CB().NewVar(tyT, "t")
 	pkg.CB().NewConstStart(nil, "c1").
 		Val(builtin.Ref("Sizeof")).Val(100).Call(1).EndInit(1)
 	pkg.CB().NewConstStart(nil, "c2").
-		Val(builtin.Ref("Sizeof")).Val(ctxRef(pkg, "n")).Call(1).EndInit(1)
+		Val(builtin.Ref("Sizeof")).Val(ctxRef(pkg, "t")).Call(1).EndInit(1)
 	pkg.CB().NewConstStart(nil, "c3").
 		Val(builtin.Ref("Alignof")).Val("hello").Call(1).EndInit(1)
 	pkg.CB().NewConstStart(nil, "c4").
-		Val(builtin.Ref("Alignof")).Val(ctxRef(pkg, "n")).Call(1).EndInit(1)
+		Val(builtin.Ref("Alignof")).Val(ctxRef(pkg, "t")).Call(1).EndInit(1)
+
 	domTest(t, pkg, `package main
 
 import unsafe "unsafe"
 
-type T int
+type M struct {
+	m int
+	n string
+}
+type T struct {
+	x int
+	y string
+	M
+}
 
-var n T
+var t T
 
 const c1 = unsafe.Sizeof(100)
-const c2 = unsafe.Sizeof(n)
+const c2 = unsafe.Sizeof(t)
 const c3 = unsafe.Alignof("hello")
-const c4 = unsafe.Alignof(n)
+const c4 = unsafe.Alignof(t)
 `)
+	c1 := pkg.CB().Val(builtin.Ref("Sizeof")).Val(ctxRef(pkg, "t")).Call(1).Get(-1)
+	if v, ok := constant.Int64Val(c1.CVal); !ok || uintptr(v) != (unsafe.Sizeof(int(0))*2+unsafe.Sizeof("")*2) {
+		t.Fatalf("unsafe.Sizeof(t) %v", c1.CVal)
+	}
+	c2 := pkg.CB().Val(builtin.Ref("Alignof")).Val(ctxRef(pkg, "t")).Call(1).Get(-1)
+	if v, ok := constant.Int64Val(c2.CVal); !ok || uintptr(v) != unsafe.Alignof("") {
+		t.Fatalf("unsafe.Alignof(t) %v", c2.CVal)
+	}
 }
 
 func TestOverloadFunc(t *testing.T) {
