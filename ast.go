@@ -554,10 +554,10 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		return
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
-		if (t.tokFlag & tokUnaryFlag) != 0 {
-			cval = unaryOp(t.tokFlag&^tokUnaryFlag, args)
-		} else if t.tokFlag != 0 {
-			cval = binaryOp(t.tokFlag, args)
+		if t.isUnaryOp() {
+			cval = unaryOp(t.tok(), args)
+		} else if t.isOp() {
+			cval = binaryOp(t.tok(), args)
 		}
 	case *overloadFuncType:
 		backup := backupArgs(args)
