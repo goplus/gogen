@@ -508,14 +508,32 @@ func toNormalizeSignature(
 // ----------------------------------------------------------------------------
 
 const (
-	tokUnaryFlag token.Token = 0x80000
+	tokUnaryFlag      token.Token = 0x80000
+	tokFlagApproxType token.Token = 0x40000
+	tokFlagAll                    = tokUnaryFlag | tokFlagApproxType
 )
 
 // TemplateSignature: type of template function
 type TemplateSignature struct {
 	params  []*TemplateParamType
 	sig     *types.Signature
-	tokFlag token.Token // only for builtin operator
+	tokFlag token.Token // tok + unary flag, only for builtin operator
+}
+
+func (p *TemplateSignature) tok() token.Token {
+	return p.tokFlag &^ tokFlagAll
+}
+
+func (p *TemplateSignature) hasApproxType() bool {
+	return (p.tokFlag & tokFlagApproxType) != 0
+}
+
+func (p *TemplateSignature) isOp() bool {
+	return (p.tokFlag &^ tokFlagApproxType) != 0
+}
+
+func (p *TemplateSignature) isUnaryOp() bool {
+	return (p.tokFlag & tokUnaryFlag) != 0
 }
 
 func assertValidTemplateSignature(tsig *TemplateSignature) {
@@ -535,15 +553,15 @@ func NewTemplateSignature(
 	if tok != nil {
 		tokFlag = tok[0]
 	}
-	if tokFlag != 0 {
-		for _, tparam := range templateParams {
-			tparam.idxFlag |= paramAllowUntyped
-		}
-	}
 	tsig := &TemplateSignature{
 		params:  templateParams,
 		sig:     types.NewSignature(recv, params, results, variadic),
 		tokFlag: tokFlag,
+	}
+	if tsig.isOp() {
+		for _, tparam := range templateParams {
+			tparam.idxFlag |= paramAllowUntyped
+		}
 	}
 	assertValidTemplateSignature(tsig)
 	return tsig

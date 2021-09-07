@@ -279,7 +279,7 @@ func InitBuiltinFuncs(builtin *types.Package) {
 		// func [Type any] copy(dst, src []Type) int
 
 		{"close", []typeTParam{{"Type", any}}, []typeXParam{{"c", xtChanIn}}, nil},
-		//func [Type any] close(c chan<- Type)
+		// func [Type any] close(c chan<- Type)
 
 		{"append", []typeTParam{{"Type", any}}, []typeXParam{{"slice", xtSlice}, {"elems", xtEllipsis}}, xtSlice},
 		// func [Type any] append(slice []Type, elems ...Type) []Type
@@ -305,7 +305,7 @@ func InitBuiltinFuncs(builtin *types.Package) {
 			typ := newXParamType(tparams, fn.result)
 			results = types.NewTuple(types.NewParam(token.NoPos, builtin, "", typ))
 		}
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis, tokFlagApproxType)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, fn.name, tsig)
 		if fn.name == "append" { // append is a special case
 			appendString := NewInstruction(token.NoPos, builtin, "append", appendStringInstr{})

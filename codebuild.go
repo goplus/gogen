@@ -531,7 +531,11 @@ func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, el
 	}
 	p.startFuncBody(closure, &closure.old)
 	args := p.stk.GetArgs(arity)
-	if err := matchFuncType(pkg, args, ellipsis, sig, "closure argument"); err != nil {
+	var flags InstrFlags
+	if ellipsis {
+		flags = InstrFlagEllipsis
+	}
+	if err := matchFuncType(pkg, args, flags, sig, "closure argument"); err != nil {
 		panic(err)
 	}
 	n1 := getParamLen(sig) - 1

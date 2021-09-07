@@ -369,6 +369,7 @@ func TestUnderlying(t *testing.T) {
 		&unboundFuncParam{},
 		&unboundProxyParam{},
 		&TemplateParamType{},
+		&TemplateSignature{},
 	}
 	for _, typ := range typs {
 		func() {
