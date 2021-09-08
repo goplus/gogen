@@ -266,7 +266,7 @@ func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
 	if t, ok := T.(*types.Named); ok {
 		ok = assignable(pkg, V, t, expr)
 		if debugMatch && expr != nil {
-			log.Println("==> AssignableConv", V, T)
+			log.Println("==> AssignableConv", V, T, ok)
 		}
 		return ok
 	}

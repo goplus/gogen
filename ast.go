@@ -541,6 +541,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	var it *instantiated
 	var sig *types.Signature
 	var cval constant.Value
+retry:
 	switch t := fnType.(type) {
 	case *types.Signature:
 		if funcs, ok := CheckOverloadMethod(t); ok {
@@ -592,8 +593,12 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		return
 	case *instructionType:
 		return t.instr.Call(pkg, args, flags, fn.Src)
+	case *types.Named:
+		fnType = pkg.cb.getUnderlying(t)
+		goto retry
 	default:
-		log.Panicln("TODO: call to non function -", t)
+		src, pos := pkg.cb.loadExpr(fn.Src)
+		pkg.cb.panicCodeErrorf(&pos, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
 	at := func() string {
 		src, _ := pkg.cb.loadExpr(fn.Src)

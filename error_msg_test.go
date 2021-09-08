@@ -351,6 +351,29 @@ func TestErrAssign(t *testing.T) {
 		})
 }
 
+func TestErrFuncCall(t *testing.T) {
+	codeErrorTest(t, `./foo.gop:2:10: cannot call non-function a() (type int)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				Val(ctxRef(pkg, "a")).CallWith(0, false, source("a()", 2, 10)).
+				End()
+		})
+	codeErrorTest(t, `./foo.gop:3:5: cannot use a (type bool) as type int in argument to foo(a)`,
+		func(pkg *gox.Package) {
+			retInt := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+			newFunc(pkg, 1, 5, 1, 7, nil, "foo", types.NewTuple(retInt), nil, false).BodyStart(pkg).
+				End()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Debug(func(cb *gox.CodeBuilder) {
+					pkg.NewVar(position(2, 9), types.Typ[types.Bool], "a")
+				}).
+				Val(ctxRef(pkg, "foo")).Val(ctxRef(pkg, "a"), source("a", 3, 5)).
+				CallWith(1, false, source("foo(a)", 3, 10)).
+				End()
+		})
+}
+
 func TestErrReturn(t *testing.T) {
 	codeErrorTest(t, `./foo.gop:2:9: cannot use "Hi" (type untyped string) as type error in return argument`,
 		func(pkg *gox.Package) {

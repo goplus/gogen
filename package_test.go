@@ -1180,6 +1180,23 @@ func main() {
 `)
 }
 
+func TestNamedFuncAsParam(t *testing.T) {
+	pkg := newMainPackage()
+	typ := pkg.NewType("foo").InitType(pkg, types.NewSignature(nil, nil, nil, false))
+	v := pkg.NewParam(token.NoPos, "v", typ)
+	pkg.NewFunc(nil, "bar", gox.NewTuple(v), nil, false).BodyStart(pkg).
+		Val(ctxRef(pkg, "v")).Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+type foo func()
+
+func bar(v foo) {
+	v()
+}
+`)
+}
+
 func TestBuiltinFunc(t *testing.T) {
 	var a, n *goxVar
 	pkg := newMainPackage()
