@@ -54,7 +54,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 		log.Println("InitType", p.typ.Obj().Name(), typ)
 	}
 	if named, ok := typ.(*types.Named); ok {
-		p.typ.SetUnderlying(named.Underlying())
+		p.typ.SetUnderlying(pkg.cb.getUnderlying(named))
 	} else {
 		p.typ.SetUnderlying(typ)
 	}
