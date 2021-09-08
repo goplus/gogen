@@ -219,15 +219,17 @@ func toMapType(pkg *Package, t *types.Map) ast.Expr {
 
 func toInterface(pkg *Package, t *types.Interface) ast.Expr {
 	var flds []*ast.Field
+	for i, n := 0, t.NumEmbeddeds(); i < n; i++ {
+		typ := toType(pkg, t.EmbeddedType(i))
+		fld := &ast.Field{Type: typ}
+		flds = append(flds, fld)
+	}
 	for i, n := 0, t.NumExplicitMethods(); i < n; i++ {
 		fn := t.ExplicitMethod(i)
 		name := ident(fn.Name())
 		typ := toFuncType(pkg, fn.Type().(*types.Signature))
 		fld := &ast.Field{Names: []*ast.Ident{name}, Type: typ}
 		flds = append(flds, fld)
-	}
-	for i, n := 0, t.NumEmbeddeds(); i < n; i++ {
-		panic("TODO: interface embedded")
 	}
 	return &ast.InterfaceType{Methods: &ast.FieldList{List: flds}}
 }
