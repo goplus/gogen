@@ -449,14 +449,19 @@ func doBinaryOp(a constant.Value, tok token.Token, b constant.Value) constant.Va
 	case binaryOpCompare:
 		return constant.MakeBool(constant.Compare(a, tok, b))
 	default:
-		if v, ok := constant.Val(a).(*big.Rat); ok && v.IsInt() {
-			a = constant.Make(v.Num())
-		}
+		a, b = toInt(a), toInt(b)
 		if s, exact := constant.Int64Val(b); exact {
 			return constant.Shift(a, tok, uint(s))
 		}
 		panic("constant value is overflow")
 	}
+}
+
+func toInt(a constant.Value) constant.Value {
+	if v, ok := constant.Val(a).(*big.Rat); ok && v.IsInt() {
+		return constant.Make(v.Num())
+	}
+	return a
 }
 
 const (

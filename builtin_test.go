@@ -500,7 +500,7 @@ func TestBinaryOp(t *testing.T) {
 	if cval := binaryOp(token.SHR, args); constant.Val(cval) != int64(1) {
 		t.Fatal("binaryOp failed:", cval)
 	}
-	b := constant.MakeFromLiteral("1e1", token.FLOAT, 0)
+	b := constant.MakeFromLiteral("1e100", token.FLOAT, 0)
 	args[1] = &internal.Elem{CVal: b}
 	defer func() {
 		if e := recover(); e == nil {
