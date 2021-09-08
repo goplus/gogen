@@ -941,12 +941,12 @@ func main() {
 func TestConst(t *testing.T) {
 	pkg := newMainPackage()
 	tv := pkg.ConstStart().Val(1).Val(2).BinaryOp(token.ADD).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(3)) {
-		t.Fatal("TestConst: != 3, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(3)) {
+		t.Fatal("TestConst: != 3, it is", tv.CVal)
 	}
 	tv = pkg.ConstStart().Val("1").Val("2").BinaryOp(token.ADD).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeString("12")) {
-		t.Fatal("TestConst: != 12, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeString("12")) {
+		t.Fatal("TestConst: != 12, it is", tv.CVal)
 	}
 }
 
@@ -957,24 +957,24 @@ func TestConstLenCap(t *testing.T) {
 	pkg.Types.Scope().Insert(types.NewVar(token.NoPos, pkg.Types, "array", typ))
 	pkg.Types.Scope().Insert(types.NewVar(token.NoPos, pkg.Types, "parray", typAP))
 	tv := pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val(pkg.Ref("array")).Call(1).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
-		t.Fatal("TestConst: != 10, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.CVal)
 	}
 	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val(pkg.Ref("parray")).Call(1).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
-		t.Fatal("TestConst: != 10, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.CVal)
 	}
 	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val("Hi").Call(1).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(2)) {
-		t.Fatal("TestConst: != 2, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(2)) {
+		t.Fatal("TestConst: != 2, it is", tv.CVal)
 	}
 	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("cap")).Val(pkg.Ref("array")).Call(1).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
-		t.Fatal("TestConst: != 10, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.CVal)
 	}
 	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("cap")).Val(pkg.Ref("parray")).Call(1).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
-		t.Fatal("TestConst: != 10, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.CVal)
 	}
 }
 

@@ -31,12 +31,8 @@ func (p *Package) ConstStart() *CodeBuilder {
 	return &p.cb
 }
 
-func (p *CodeBuilder) EndConst() types.TypeAndValue {
-	elem := p.stk.Pop()
-	if elem.CVal == nil {
-		fatal("TODO: expression is not a constant")
-	}
-	return types.TypeAndValue{Type: elem.Type, Value: elem.CVal}
+func (p *CodeBuilder) EndConst() *Element {
+	return p.stk.Pop()
 }
 
 // ----------------------------------------------------------------------------
