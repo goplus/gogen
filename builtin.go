@@ -326,26 +326,32 @@ func InitBuiltinFuncs(builtin *types.Package) {
 	}
 	overloads := [...]struct {
 		name string
-		fns  [2]typeBFunc
+		fns  [3]typeBFunc
 	}{
 		{"complex", [...]typeBFunc{
+			{[]typeBParam{{"r", types.UntypedFloat}, {"i", types.UntypedFloat}}, types.UntypedComplex},
 			{[]typeBParam{{"r", types.Float32}, {"i", types.Float32}}, types.Complex64},
 			{[]typeBParam{{"r", types.Float64}, {"i", types.Float64}}, types.Complex128},
 		}},
+		// func complex(r, i untyped_float) untyped_complex
 		// func complex(r, i float32) complex64
 		// func complex(r, i float64) complex128
 
 		{"real", [...]typeBFunc{
+			{[]typeBParam{{"c", types.UntypedComplex}}, types.UntypedFloat},
 			{[]typeBParam{{"c", types.Complex64}}, types.Float32},
 			{[]typeBParam{{"c", types.Complex128}}, types.Float64},
 		}},
+		// func real(c untyped_complex) untyped_float
 		// func real(c complex64) float32
 		// func real(c complex128) float64
 
 		{"imag", [...]typeBFunc{
+			{[]typeBParam{{"c", types.UntypedComplex}}, types.UntypedFloat},
 			{[]typeBParam{{"c", types.Complex64}}, types.Float32},
 			{[]typeBParam{{"c", types.Complex128}}, types.Float64},
 		}},
+		// func imag(c untyped_complex) untyped_float
 		// func imag(c complex64) float32
 		// func imag(c complex128) float64
 	}
@@ -353,6 +359,7 @@ func InitBuiltinFuncs(builtin *types.Package) {
 		fns := []types.Object{
 			newBFunc(builtin, overload.name, overload.fns[0]),
 			newBFunc(builtin, overload.name, overload.fns[1]),
+			newBFunc(builtin, overload.name, overload.fns[2]),
 		}
 		gbl.Insert(NewOverloadFunc(token.NoPos, builtin, overload.name, fns...))
 	}
