@@ -116,7 +116,7 @@ type CodeError struct {
 
 func (p *CodeError) Error() string {
 	if p.Pos != nil {
-		return fmt.Sprintf("%v %s", *p.Pos, p.Msg)
+		return fmt.Sprintf("%v: %s", *p.Pos, p.Msg)
 	}
 	return p.Msg
 }
