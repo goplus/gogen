@@ -2365,7 +2365,7 @@ func TestStructMember(t *testing.T) {
 		Debug(func(cb *gox.CodeBuilder) {
 			kind, err := cb.Member("unknown", false, source("a.unknown", 1, 5))
 			if kind != gox.MemberInvalid ||
-				err.Error() != "./foo.gop:1:5 a.unknown undefined (type struct{x int; y string} has no field or method unknown)" {
+				err.Error() != "./foo.gop:1:5: a.unknown undefined (type struct{x int; y string} has no field or method unknown)" {
 				t.Fatal("Member unknown:", kind, err)
 			}
 		}).
