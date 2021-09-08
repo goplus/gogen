@@ -875,11 +875,11 @@ func (p *MatchError) Error() string {
 	if p.fstmt {
 		pos := p.cb.nodePosition(p.Src)
 		return fmt.Sprintf(
-			"%v cannot use %v value as type %v in %s", pos, p.Arg, p.Param, strval(p.At))
+			"%v: cannot use %v value as type %v in %s", pos, p.Arg, p.Param, strval(p.At))
 	}
 	src, pos := p.cb.loadExpr(p.Src)
 	return fmt.Sprintf(
-		"%v cannot use %s (type %v) as type %v in %s", pos, src, p.Arg, p.Param, strval(p.At))
+		"%v: cannot use %s (type %v) as type %v in %s", pos, src, p.Arg, p.Param, strval(p.At))
 }
 
 // TODO: use matchType to all assignable check
