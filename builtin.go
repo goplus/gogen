@@ -389,8 +389,8 @@ func InitBuiltinFuncs(builtin *types.Package) {
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Sizeof", unsafeSizeofInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Alignof", unsafeAlignofInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Offsetof", unsafeOffsetofInstr{}))
-	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Add", unsafeAddInstr{}))
-	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Slice", unsafeSliceInstr{}))
+	// gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Add", unsafeAddInstr{}))
+	// gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Slice", unsafeSliceInstr{}))
 }
 
 func newBFunc(builtin *types.Package, name string, t typeBFunc) types.Object {
@@ -762,6 +762,7 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 	return
 }
 
+/*
 type unsafeAddInstr struct{}
 
 // func unsafe.Add(ptr Pointer, len IntegerType) Pointer
@@ -792,6 +793,11 @@ type unsafeSliceInstr struct{}
 
 // func unsafe.Slice(ptr *ArbitraryType, len IntegerType) []ArbitraryType
 func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Slice"))
+	if fn == nil {
+		_, pos := pkg.cb.loadExpr(src)
+		pkg.cb.panicCodeError(&pos, "undefined: unsafe.Slice")
+	}
 	checkArgsCount(pkg, "unsafe.Slice", 2, len(args), src)
 
 	t0, ok := args[0].Type.(*types.Pointer)
@@ -805,13 +811,13 @@ func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, 
 		pos.Column += len("unsafe.Slice")
 		pkg.cb.panicCodeErrorf(&pos, "non-integer len argument in unsafe.Slice - %v", t)
 	}
-	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Slice"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
 		Type: types.NewSlice(t0.Elem()),
 	}
 	return
 }
+*/
 
 // ----------------------------------------------------------------------------
 

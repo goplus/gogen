@@ -1347,17 +1347,6 @@ func TestUnsafeFunc(t *testing.T) {
 		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "a")).MemberVal("y").Call(1).Assign(1).EndStmt().
 		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).Call(1).EndStmt().
 		End()
-	tyUP := types.Typ[types.UnsafePointer]
-	tyInt := types.Typ[types.Int]
-	pkg.NewFunc(nil, "test17", nil, nil, false).BodyStart(pkg).
-		NewVar(tyUP, "a").NewVar(tyUP, "r").
-		NewVarStart(nil, "ar").
-		Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
-		NewVar(types.NewSlice(tyInt), "r2").
-		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a")).Val(10).Call(2).Assign(1).EndStmt().
-		VarRef(ctxRef(pkg, "r2")).Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val(3).Call(2).Assign(1).EndStmt().
-		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).VarRef(ctxRef(pkg, "r2")).Call(2).EndStmt().
-		End()
 	domTest(t, pkg, `package main
 
 import unsafe "unsafe"
@@ -1375,6 +1364,28 @@ func test() {
 	r = unsafe.Offsetof(a.y)
 	println(r)
 }
+`)
+}
+
+/*
+func TestUnsafeFunc2(t *testing.T) {
+	pkg := newMainPackage()
+	builtin := pkg.Builtin()
+	tyUP := types.Typ[types.UnsafePointer]
+	tyInt := types.Typ[types.Int]
+	pkg.NewFunc(nil, "test17", nil, nil, false).BodyStart(pkg).
+		NewVar(tyUP, "a").NewVar(tyUP, "r").
+		NewVarStart(nil, "ar").
+		Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
+		NewVar(types.NewSlice(tyInt), "r2").
+		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a")).Val(10).Call(2).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r2")).Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val(3).Call(2).Assign(1).EndStmt().
+		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).VarRef(ctxRef(pkg, "r2")).Call(2).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import unsafe "unsafe"
+
 func test17() {
 	var a unsafe.Pointer
 	var r unsafe.Pointer
@@ -1386,6 +1397,7 @@ func test17() {
 }
 `)
 }
+*/
 
 func TestUnsafeConst(t *testing.T) {
 	pkg := newMainPackage()
