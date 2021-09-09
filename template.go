@@ -20,7 +20,6 @@ import (
 	"go/token"
 	"go/types"
 	"log"
-	"math/big"
 
 	"github.com/goplus/gox/internal"
 )
@@ -102,9 +101,9 @@ func (p *unboundProxyParam) String() string {
 }
 
 func getElemTypeIf(t types.Type, parg *internal.Elem) types.Type {
-	if parg != nil {
-		if parg.CVal != nil && t == types.Typ[types.UntypedFloat] {
-			if v, ok := constant.Val(parg.CVal).(*big.Rat); ok && v.IsInt() {
+	if parg != nil && parg.CVal != nil {
+		if tb, ok := t.(*types.Basic); ok && (tb.Info()&types.IsFloat) != 0 {
+			if constant.ToInt(parg.CVal).Kind() == constant.Int {
 				return types.Typ[types.UntypedInt]
 			}
 		}
