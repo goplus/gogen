@@ -365,6 +365,10 @@ func (p *Package) big() *PkgRef {
 	return p.files[p.testingFile].big(p, p.testingFile != 0)
 }
 
+func (p *Package) unsafe() *PkgRef {
+	return p.files[p.testingFile].unsafe(p, p.testingFile != 0)
+}
+
 // ----------------------------------------------------------------------------
 
 type null struct{}

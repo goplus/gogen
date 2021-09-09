@@ -153,6 +153,7 @@ type file struct {
 	allPkgPaths   []string // all import pkgPaths
 	delayPkgPaths []string // all delay-load pkgPaths
 	pkgBig        *PkgRef
+	pkgUnsafe     *PkgRef
 	removedExprs  bool
 }
 
@@ -293,6 +294,13 @@ func (p *file) big(this *Package, testingFile bool) *PkgRef {
 		p.pkgBig = p.importPkg(this, "math/big", testingFile)
 	}
 	return p.pkgBig
+}
+
+func (p *file) unsafe(this *Package, testingFile bool) *PkgRef {
+	if p.pkgUnsafe == nil {
+		p.pkgUnsafe = p.importPkg(this, "unsafe", testingFile)
+	}
+	return p.pkgUnsafe
 }
 
 // ----------------------------------------------------------------------------
