@@ -273,7 +273,7 @@ func insertParams(scope *types.Scope, params *types.Tuple) {
 func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
 	p.current.checkLabels(p)
 	p.current.fn = old.fn
-	stmts, _ := p.endBlockStmt(old.codeBlockCtx)
+	stmts, _ := p.endBlockStmt(&old.codeBlockCtx)
 	return stmts
 }
 
@@ -283,14 +283,14 @@ func (p *CodeBuilder) startBlockStmt(current codeBlock, comment string, old *cod
 	return p
 }
 
-func (p *CodeBuilder) endBlockStmt(old codeBlockCtx) ([]ast.Stmt, int) {
+func (p *CodeBuilder) endBlockStmt(old *codeBlockCtx) ([]ast.Stmt, int) {
 	flows := p.current.flows
 	if p.current.label != nil {
 		p.emitStmt(&ast.EmptyStmt{})
 	}
 	stmts := p.current.stmts
 	p.stk.SetLen(p.current.base)
-	p.current.codeBlockCtx = old
+	p.current.codeBlockCtx = *old
 	return stmts, flows
 }
 
