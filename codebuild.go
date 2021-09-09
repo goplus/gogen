@@ -891,7 +891,8 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		n := arity >> 1
 		elts = make([]ast.Expr, n)
 		for i := 0; i < arity; i += 2 {
-			if !AssignableTo(pkg, args[i+1].Type, val) {
+			arg := args[i+1]
+			if !AssignableConv(pkg, arg.Type, val, arg) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
@@ -923,7 +924,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		for i, arg := range args {
 			elts[i] = arg.Val
 			if check {
-				if !AssignableTo(pkg, arg.Type, val) {
+				if !AssignableConv(pkg, arg.Type, val, arg) {
 					src, pos := p.loadExpr(arg.Src)
 					p.panicCodeErrorf(
 						&pos, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)

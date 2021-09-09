@@ -18,6 +18,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"math/big"
 	"reflect"
 	"testing"
 
@@ -477,6 +478,16 @@ func TestGetElemType(t *testing.T) {
 	if typ != types.Typ[types.UntypedInt] {
 		t.Fatal("getElemType failed")
 	}
+}
+
+func getElemType(arg *internal.Elem) types.Type {
+	t := arg.Type
+	if arg.CVal != nil && t == types.Typ[types.UntypedFloat] {
+		if v, ok := constant.Val(arg.CVal).(*big.Rat); ok && v.IsInt() {
+			return types.Typ[types.UntypedInt]
+		}
+	}
+	return t
 }
 
 func TestBoundElementType(t *testing.T) {

@@ -926,7 +926,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 			return boundType(pkg, arg.Type, param, arg)
 		}
 	}
-	if AssignableConv(pkg, getElemType(arg), param, &arg.Val) {
+	if AssignableConv(pkg, arg.Type, param, arg) {
 		return nil
 	}
 	return &MatchError{

@@ -67,14 +67,18 @@ const (
 type unboundFuncParam struct {
 	tBound types.Type
 	typ    *TemplateParamType
-	expr   *ast.Expr
+	parg   *internal.Elem
 }
 
-func (p *unboundFuncParam) boundTo(pkg *Package, t types.Type, expr *ast.Expr) {
+func (p *unboundFuncParam) boundTo(pkg *Package, t types.Type, parg *internal.Elem) {
 	if !p.typ.allowUntyped() {
+		var expr *ast.Expr
+		if parg != nil {
+			expr = &parg.Val
+		}
 		t = DefaultConv(pkg, t, expr)
 	}
-	p.tBound, p.expr = t, expr
+	p.tBound, p.parg = t, parg
 }
 
 func (p *unboundFuncParam) Underlying() types.Type {
@@ -97,16 +101,6 @@ func (p *unboundProxyParam) String() string {
 	return fmt.Sprintf("unboundProxyParam{typ: %v}", p.real)
 }
 
-func getElemType(arg *internal.Elem) types.Type {
-	t := arg.Type
-	if arg.CVal != nil && t == types.Typ[types.UntypedFloat] {
-		if v, ok := constant.Val(arg.CVal).(*big.Rat); ok && v.IsInt() {
-			return types.Typ[types.UntypedInt]
-		}
-	}
-	return t
-}
-
 func getElemTypeIf(t types.Type, parg *internal.Elem) types.Type {
 	if parg != nil {
 		if parg.CVal != nil && t == types.Typ[types.UntypedFloat] {
@@ -123,13 +117,9 @@ func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 	case *unboundFuncParam: // template function param
 		if p.typ.contract.Match(pkg, arg) {
 			if p.tBound == nil {
-				var expr *ast.Expr
-				if parg != nil {
-					expr = &parg.Val
-				}
-				p.boundTo(pkg, arg, expr)
+				p.boundTo(pkg, arg, parg)
 			} else if !AssignableTo(pkg, getElemTypeIf(arg, parg), p.tBound) {
-				if isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.expr) {
+				if isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.parg) {
 					p.tBound = arg
 					return nil
 				}
@@ -230,7 +220,7 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 	return AssignableConv(pkg, V, T, nil)
 }
 
-func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
+func AssignableConv(pkg *Package, V, T types.Type, pv *internal.Elem) bool {
 	pkg.cb.ensureLoaded(V)
 	pkg.cb.ensureLoaded(T)
 	V, T = realType(V), realType(T)
@@ -240,6 +230,8 @@ func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
 		} else {
 			V = v.typ
 		}
+	} else {
+		V = getElemTypeIf(V, pv)
 	}
 	if types.AssignableTo(V, T) {
 		if t, ok := T.(*types.Basic); ok { // untyped type
@@ -264,8 +256,12 @@ func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
 		return true
 	}
 	if t, ok := T.(*types.Named); ok {
+		var expr *ast.Expr
+		if pv != nil {
+			expr = &pv.Val
+		}
 		ok = assignable(pkg, V, t, expr)
-		if debugMatch && expr != nil {
+		if debugMatch && pv != nil {
 			log.Println("==> AssignableConv", V, T, ok)
 		}
 		return ok
