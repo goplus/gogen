@@ -1195,7 +1195,7 @@ retry:
 			return []types.Type{tyInt, e.Elem()}, false
 		}
 	case *types.Basic:
-		if t.Kind() == types.String {
+		if (t.Info() & types.IsString) != 0 {
 			if ref {
 				src, pos := p.loadExpr(idxSrc)
 				p.panicCodeErrorf(&pos, "cannot assign to %s (strings are immutable)", src)
