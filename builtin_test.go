@@ -547,4 +547,17 @@ func TestBuiltinCall(t *testing.T) {
 	builtinCall(&internal.Elem{Val: ident("undefined")}, nil)
 }
 
+func TestUnsafe(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	sizeof := pkg.unsafe().Ref("Sizeof")
+	expr := toObjectExpr(pkg, sizeof)
+	if v, ok := expr.(*ast.SelectorExpr); ok {
+		if id, ok := v.X.(*ast.Ident); !ok || id.Name != "unsafe" || v.Sel.Name != "Sizeof" {
+			t.Fatal("toObjectExpr failed:", v.X)
+		}
+	} else {
+		t.Fatal("TestUnsafe failed:", expr)
+	}
+}
+
 // ----------------------------------------------------------------------------

@@ -708,9 +708,8 @@ type unsafeSizeofInstr struct{}
 func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Sizeof", 1, len(args), src)
 
-	pkg.unsafe().MarkForceUsed()
 	typ := types.Default(realType(args[0].Type))
-	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Sizeof")}
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Sizeof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
@@ -726,9 +725,8 @@ type unsafeAlignofInstr struct{}
 func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Alignof", 1, len(args), src)
 
-	pkg.unsafe().MarkForceUsed()
 	typ := types.Default(realType(args[0].Type))
-	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Alignof")}
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Alignof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
@@ -755,8 +753,7 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 		pos.Column += len("unsafe.Offsetof")
 		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: argument is a method value", s)
 	}
-	pkg.unsafe().MarkForceUsed()
-	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Offsetof")}
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Offsetof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
@@ -783,8 +780,7 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags, sr
 		pos.Column += len("unsafe.Add")
 		pkg.cb.panicCodeErrorf(&pos, "cannot use %v (type %v) as type int", s, t)
 	}
-	pkg.unsafe().MarkForceUsed()
-	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Add")}
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Add"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
 		Type: types.Typ[types.UnsafePointer],
@@ -809,8 +805,7 @@ func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, 
 		pos.Column += len("unsafe.Slice")
 		pkg.cb.panicCodeErrorf(&pos, "non-integer len argument in unsafe.Slice - %v", t)
 	}
-	pkg.unsafe().MarkForceUsed()
-	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Slice")}
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Slice"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
 		Type: types.NewSlice(t0.Elem()),
