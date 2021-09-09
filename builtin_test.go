@@ -510,4 +510,21 @@ func TestBinaryOp(t *testing.T) {
 	binaryOp(token.SHR, args)
 }
 
+func TestPersistVal(t *testing.T) {
+	re := constant.MakeInt64(1)
+	im := constant.MakeImag(constant.MakeInt64(2))
+	val := constant.BinaryOp(re, token.ADD, im)
+	pval := toPersistVal(val)
+	val2 := fromPersistVal(pval)
+	if !constant.Compare(val, token.EQL, val2) {
+		t.Fatal("TestPersistVal failed")
+	}
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestPersistVal: no error?")
+		}
+	}()
+	toPersistVal(constant.MakeUnknown())
+}
+
 // ----------------------------------------------------------------------------
