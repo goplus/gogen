@@ -1358,7 +1358,6 @@ func TestUnsafeFunc(t *testing.T) {
 		VarRef(ctxRef(pkg, "r2")).Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val(3).Call(2).Assign(1).EndStmt().
 		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).VarRef(ctxRef(pkg, "r2")).Call(2).EndStmt().
 		End()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
 import unsafe "unsafe"
@@ -1384,8 +1383,6 @@ func test17() {
 	r = unsafe.Add(a, 10)
 	r2 = unsafe.Slice(&ar[0], 3)
 	println(r, r2)
-}
-func main() {
 }
 `)
 }
