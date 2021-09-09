@@ -579,6 +579,9 @@ retry:
 		backup := backupArgs(args)
 		for _, o := range t.funcs {
 			if ret, err = matchFuncCall(pkg, toObject(pkg, o, fn.Src), args, flags); err == nil {
+				if ret.CVal == nil && isUntyped(pkg, ret.Type) {
+					ret.CVal = builtinCall(fn, args)
+				}
 				return
 			}
 			restoreArgs(args, backup)

@@ -1226,6 +1226,25 @@ func main() {
 `)
 }
 
+func TestComplex(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "a").
+		Val(ctxRef(pkg, "complex")).Val(1).Val(2).Call(2).
+		EndInit(1)
+	pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "b").
+		Val(ctxRef(pkg, "real")).Val(ctxRef(pkg, "a")).Call(1).
+		EndInit(1)
+	pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "c").
+		Val(ctxRef(pkg, "imag")).Val(ctxRef(pkg, "a")).Call(1).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+const a = complex(1, 2)
+const b = real(a)
+const c = imag(a)
+`)
+}
+
 func TestClose(t *testing.T) {
 	pkg := newMainPackage()
 	tyChan := types.NewChan(types.SendOnly, types.Typ[types.Int])

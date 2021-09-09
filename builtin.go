@@ -425,6 +425,40 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 
 // ----------------------------------------------------------------------------
 
+type builtinFn struct {
+	fn   interface{}
+	narg int
+}
+
+var (
+	builtinFns = map[string]builtinFn{
+		"complex": {makeComplex, 2},
+		"real":    {constant.Real, 1},
+		"imag":    {constant.Imag, 1},
+	}
+)
+
+func builtinCall(fn *Element, args []*Element) constant.Value {
+	if fn, ok := fn.Val.(*ast.Ident); ok {
+		if bfn, ok := builtinFns[fn.Name]; ok {
+			a := args[0].CVal
+			switch bfn.narg {
+			case 1:
+				return bfn.fn.(func(a constant.Value) constant.Value)(a)
+			case 2:
+				b := args[1].CVal
+				return bfn.fn.(func(a, b constant.Value) constant.Value)(a, b)
+			}
+		}
+		panic("builtinCall: expect constant")
+	}
+	return nil
+}
+
+func makeComplex(re, im constant.Value) constant.Value {
+	return constant.BinaryOp(re, token.ADD, constant.Imag(im))
+}
+
 type appendStringInstr struct {
 }
 
