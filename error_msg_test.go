@@ -957,47 +957,45 @@ func TestErrUnsafe(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	/*
-		codeErrorTest(t,
-			`./foo.gop:7:12: cannot use a (type int) as type unsafe.Pointer in argument to unsafe.Add`,
-			func(pkg *gox.Package) {
-				tyInt := types.Typ[types.Int]
-				builtin := pkg.Builtin()
-				pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-					NewVar(tyInt, "a").
-					Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val(10).CallWith(2, false, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
-					End()
-			})
-		codeErrorTest(t,
-			`./foo.gop:7:12: cannot use "hello" (type untyped string) as type int`,
-			func(pkg *gox.Package) {
-				tyUP := types.Typ[types.UnsafePointer]
-				builtin := pkg.Builtin()
-				pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-					NewVar(tyUP, "a").
-					Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val("hello", source(`"hello"`, 7, 16)).CallWith(2, false, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
-					End()
-			})
-		codeErrorTest(t,
-			`./foo.gop:7:14: first argument to unsafe.Slice must be pointer; have int`,
-			func(pkg *gox.Package) {
-				tyInt := types.Typ[types.Int]
-				builtin := pkg.Builtin()
-				pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-					NewVar(tyInt, "a").
-					Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "a")).Val(10).CallWith(2, false, source(`unsafe.Slice(a, 10)`, 7, 2)).EndStmt().
-					End()
-			})
-		codeErrorTest(t,
-			`./foo.gop:7:14: non-integer len argument in unsafe.Slice - untyped string`,
-			func(pkg *gox.Package) {
-				tyInt := types.Typ[types.Int]
-				builtin := pkg.Builtin()
-				pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-					NewVarStart(nil, "ar").
-					Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
-					Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val("hello").CallWith(2, false, source(`unsafe.Slice(&a[0],"hello")`, 7, 2)).EndStmt().
-					End()
-			})
-	*/
+	codeErrorTest(t,
+		`./foo.gop:7:12: cannot use a (type int) as type unsafe.Pointer in argument to unsafe.Add`,
+		func(pkg *gox.Package) {
+			tyInt := types.Typ[types.Int]
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyInt, "a").
+				Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val(10).CallWith(2, false, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:7:12: cannot use "hello" (type untyped string) as type int`,
+		func(pkg *gox.Package) {
+			tyUP := types.Typ[types.UnsafePointer]
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyUP, "a").
+				Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val("hello", source(`"hello"`, 7, 16)).CallWith(2, false, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:7:14: first argument to unsafe.Slice must be pointer; have int`,
+		func(pkg *gox.Package) {
+			tyInt := types.Typ[types.Int]
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyInt, "a").
+				Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "a")).Val(10).CallWith(2, false, source(`unsafe.Slice(a, 10)`, 7, 2)).EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:7:14: non-integer len argument in unsafe.Slice - untyped string`,
+		func(pkg *gox.Package) {
+			tyInt := types.Typ[types.Int]
+			builtin := pkg.Builtin()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVarStart(nil, "ar").
+				Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
+				Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val("hello").CallWith(2, false, source(`unsafe.Slice(&a[0],"hello")`, 7, 2)).EndStmt().
+				End()
+		})
 }
