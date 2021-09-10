@@ -1392,7 +1392,6 @@ func test() {
 `)
 }
 
-/*
 func TestUnsafeFunc2(t *testing.T) {
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()
@@ -1422,7 +1421,6 @@ func test17() {
 }
 `)
 }
-*/
 
 func TestUnsafeConst(t *testing.T) {
 	pkg := newMainPackage()
