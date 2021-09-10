@@ -20,6 +20,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -79,11 +80,35 @@ func domTestEx(t *testing.T, pkg *gox.Package, expected string, testingFile bool
 	if result != expected {
 		t.Fatalf("\nResult:\n%s\nExpected:\n%s\n", result, expected)
 	}
+	log.Printf("====================== %s End =========================\n", t.Name())
 }
 
 type goxVar = types.Var
 
 // ----------------------------------------------------------------------------
+
+func TestRedupPkgIssue796(t *testing.T) {
+	pkg := newMainPackage(false)
+	builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+	builtin.EnsureImported()
+	context := pkg.Import("context")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(context.Ref("WithTimeout")).
+		Val(context.Ref("Background")).Call(0).
+		Val(pkg.Import("time").Ref("Minute")).Call(2).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import (
+	context "context"
+	time "time"
+)
+
+func main() {
+	context.WithTimeout(context.Background(), time.Minute)
+}
+`)
+}
 
 func TestPrintlnPrintln(t *testing.T) {
 	pkg := newMainPackage(false)

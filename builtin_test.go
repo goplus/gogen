@@ -560,4 +560,20 @@ func TestUnsafe(t *testing.T) {
 	}
 }
 
+func TestDedupNamedType(t *testing.T) {
+	pkg := types.NewPackage("foo", "foo")
+	obj := types.NewTypeName(token.NoPos, pkg, "bar", types.Typ[types.Int])
+	pkg.Scope().Insert(obj)
+	imports := map[string]*PkgRef{
+		"foo": {Types: pkg},
+	}
+	pkg2 := types.NewPackage("foo", "foo")
+	obj2 := types.NewTypeName(token.NoPos, pkg2, "bar", types.Typ[types.Int])
+	typ2 := types.NewNamed(obj2, obj2.Type().Underlying(), nil)
+	typ3, dedup := dedupNamedType(imports, typ2)
+	if !dedup || typ3 != types.Typ[types.Int] {
+		t.Fatal("TestDedupNamedType failed:", typ3, dedup)
+	}
+}
+
 // ----------------------------------------------------------------------------

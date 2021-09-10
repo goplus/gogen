@@ -136,18 +136,16 @@ func LoadGoPkgs(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) 
 
 func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Package) {
 	for _, impPkg := range loadPkg.Imports {
-		if _, ok := imports[impPkg.PkgPath]; ok {
-			// this package is loaded
+		if _, ok := imports[impPkg.PkgPath]; ok { // this package is loaded
 			continue
 		}
 		LoadGoPkg(at, imports, impPkg)
 	}
 	if debugImport {
-		log.Println("==> Import", loadPkg.PkgPath, loadPkg.Module)
+		log.Println("==> Import", loadPkg.PkgPath)
 	}
 	pkg, ok := imports[loadPkg.PkgPath]
 	pkgTypes := loadPkg.Types
-	initGopPkg(pkgTypes)
 	if ok {
 		if pkg.ID == "" {
 			pkg.ID = loadPkg.ID
@@ -162,6 +160,9 @@ func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Packag
 			pkg:      at,
 		}
 		imports[loadPkg.PkgPath] = pkg
+	}
+	if loadPkg.PkgPath != "unsafe" {
+		initGopPkg(dedupPkg(imports, pkg))
 	}
 	if loadPkg.Module != nil && loadPkg.Module.Path == at.modPath {
 		pkg.pkgf = &pkgFingerp{files: fileList(loadPkg), updated: true}
