@@ -178,6 +178,26 @@ func TestErrConst(t *testing.T) {
 				}, 0, position(2, 7), nil, "_").
 				Next(1, position(2, 9), "a")
 		})
+	codeErrorTest(t, "./foo.gop:2:9: extra expression in const declaration",
+		func(pkg *gox.Package) {
+			pkg.NewConstDecl(pkg.Types.Scope()).
+				New(func(cb *gox.CodeBuilder) int {
+					cb.Val(2)
+					cb.Val(ctxRef(pkg, "iota"))
+					return 2
+				}, 0, position(2, 7), nil, "a", "b").
+				Next(1, position(2, 9), "c")
+		})
+	codeErrorTest(t, "./foo.gop:2:9: missing value in const declaration",
+		func(pkg *gox.Package) {
+			pkg.NewConstDecl(pkg.Types.Scope()).
+				New(func(cb *gox.CodeBuilder) int {
+					cb.Val(2)
+					cb.Val(ctxRef(pkg, "iota"))
+					return 2
+				}, 0, position(2, 7), nil, "a", "b").
+				Next(1, position(2, 9), "c", "d", "e")
+		})
 }
 
 func TestErrNewVar(t *testing.T) {

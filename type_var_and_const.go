@@ -367,23 +367,36 @@ func (p *ConstDecl) New(
 	return p
 }
 
-func (p *ConstDecl) Next(iotav int, pos token.Pos, name string) *ConstDecl {
-	if name != "_" {
-		pkg := p.pkg
-		cb := pkg.CB()
-		constInitFn(cb, iotav, p.fn)
-		ret := cb.stk.Pop()
+func (p *ConstDecl) Next(iotav int, pos token.Pos, names ...string) *ConstDecl {
+	pkg := p.pkg
+	cb := pkg.CB()
+	n := constInitFn(cb, iotav, p.fn)
+	if len(names) != n {
+		if len(names) < n {
+			cb.panicCodePosError(pos, "extra expression in const declaration")
+		}
+		cb.panicCodePosError(pos, "missing value in const declaration")
+	}
+
+	ret := cb.stk.GetArgs(n)
+	defer cb.stk.PopN(n)
+
+	idents := make([]*ast.Ident, n)
+	for i, name := range names {
 		typ := p.typ
 		if typ == nil {
-			typ = ret.Type
+			typ = ret[i].Type
 		}
-		if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, typ, ret.CVal)); old != nil {
-			oldpos := cb.position(old.Pos())
-			cb.panicCodePosErrorf(
-				pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
+		if name != "_" {
+			if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, typ, ret[i].CVal)); old != nil {
+				oldpos := cb.position(old.Pos())
+				cb.panicCodePosErrorf(
+					pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
+			}
 		}
+		idents[i] = ident(name)
 	}
-	spec := &ast.ValueSpec{Names: []*ast.Ident{ident(name)}}
+	spec := &ast.ValueSpec{Names: idents}
 	p.decl.Specs = append(p.decl.Specs, spec)
 	return p
 }
