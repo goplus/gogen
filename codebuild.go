@@ -1308,12 +1308,16 @@ func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 	}
 	arg := p.stk.Get(-1)
 	ret := &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Src: getSrc(src)}
-	switch t := arg.Type.(type) {
+	argType := arg.Type
+retry:
+	switch t := argType.(type) {
 	case *TypeType:
-		t.typ = types.NewPointer(t.typ)
-		ret.Type = arg.Type
+		ret.Type = &TypeType{typ: types.NewPointer(t.typ)}
 	case *types.Pointer:
 		ret.Type = t.Elem()
+	case *types.Named:
+		argType = p.getUnderlying(t)
+		goto retry
 	default:
 		code, pos := p.loadExpr(arg.Src)
 		p.panicCodeErrorf(&pos, "invalid indirect of %s (type %v)", code, t)
