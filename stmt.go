@@ -163,7 +163,7 @@ func (p *switchStmt) End(cb *CodeBuilder) {
 	cb.current.flows |= (flows &^ flowFlagBreak)
 
 	body := &ast.BlockStmt{List: stmts}
-	cb.emitStmt(&ast.SwitchStmt{Init: p.init, Tag: p.tag.Val, Body: body})
+	cb.emitStmt(&ast.SwitchStmt{Init: p.init, Tag: checkParenExpr(p.tag.Val), Body: body})
 }
 
 type caseStmt struct {
