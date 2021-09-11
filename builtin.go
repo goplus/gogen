@@ -456,7 +456,7 @@ func builtinCall(fn *Element, args []*Element) constant.Value {
 }
 
 func makeComplex(re, im constant.Value) constant.Value {
-	return constant.BinaryOp(re, token.ADD, constant.Imag(im))
+	return constant.BinaryOp(re, token.ADD, constant.MakeImag(im))
 }
 
 type appendStringInstr struct {

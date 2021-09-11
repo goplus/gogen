@@ -521,6 +521,15 @@ func TestBinaryOp(t *testing.T) {
 	binaryOp(token.SHR, args)
 }
 
+func TestBinaryOp2(t *testing.T) {
+	i2 := constant.MakeImag(constant.MakeInt64(2))
+	j2 := makeComplex(constant.MakeInt64(0), constant.MakeInt64(2))
+	ret := doBinaryOp(i2, token.EQL, j2)
+	if !constant.BoolVal(ret) {
+		t.Fatal("TestBinaryOp2 failed:", ret)
+	}
+}
+
 func TestPersistVal(t *testing.T) {
 	re := constant.MakeInt64(1)
 	im := constant.MakeImag(constant.MakeInt64(2))
