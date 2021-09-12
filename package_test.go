@@ -2747,7 +2747,7 @@ func main() {
 	var a []interface {
 	}
 	var b bool = a != nil
-	var c bool = a == nil
+	var c bool = nil == a
 }
 `)
 }

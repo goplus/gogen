@@ -145,6 +145,41 @@ func TestErrTypeSwitch(t *testing.T) {
 		})
 }
 
+func TestErrBinaryOp(t *testing.T) {
+	codeErrorTest(t, `./foo.gop:2:9: invalid operation: v != 3 (mismatched types interface{Bar()} and untyped int)`,
+		func(pkg *gox.Package) {
+			methods := []*types.Func{
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+			}
+			tyInterf := types.NewInterfaceType(methods, nil).Complete()
+			params := types.NewTuple(pkg.NewParam(token.NoPos, "v", tyInterf))
+			pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
+				/**/ If().Val(ctxRef(pkg, "v")).Val(3).BinaryOp(token.NEQ, source(`v != 3`, 2, 9)).Then().
+				/**/ End().
+				End()
+		})
+	codeErrorTest(t, `./foo.gop:2:9: invalid operation: sl == v (mismatched types []int and interface{Bar()})`,
+		func(pkg *gox.Package) {
+			methods := []*types.Func{
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+			}
+			tyInterf := types.NewInterfaceType(methods, nil).Complete()
+			params := types.NewTuple(pkg.NewParam(token.NoPos, "v", tyInterf))
+			pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
+				NewVar(types.NewSlice(types.Typ[types.Int]), "sl").
+				/**/ If().Val(ctxRef(pkg, "sl")).Val(ctxRef(pkg, "v")).BinaryOp(token.EQL, source(`sl == v`, 2, 9)).Then().
+				/**/ End().
+				End()
+		})
+	codeErrorTest(t, `./foo.gop:2:9: invalid operation: 3 == "Hi" (mismatched types untyped int and untyped string)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				/**/ If().Val(3).Val("Hi").BinaryOp(token.EQL, source(`3 == "Hi"`, 2, 9)).Then().
+				/**/ End().
+				End()
+		})
+}
+
 func TestErrTypeAssert(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: impossible type assertion:\n\tstring does not implement bar (missing Bar method)",
 		func(pkg *gox.Package) {

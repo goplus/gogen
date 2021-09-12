@@ -1756,21 +1756,29 @@ func callOpFunc(pkg *Package, name string, args []*internal.Elem, flags InstrFla
 
 // BinaryOp func
 func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
-	name := p.pkg.prefix + binaryOps[op]
-	args := p.stk.GetArgs(2)
-	if args[1].Type == types.Typ[types.UntypedNil] { // arg1 is nil
-		p.stk.PopN(1)
-		return p.CompareNil(op)
-	} else if args[0].Type == types.Typ[types.UntypedNil] { // arg0 is nil
-		args[0] = args[1]
-		p.stk.PopN(1)
-		return p.CompareNil(op)
-	}
 	if debugInstr {
-		log.Println("BinaryOp", op, name)
+		log.Println("BinaryOp", op)
 	}
-	ret := callOpFunc(p.pkg, name, args, 0)
-	ret.Src = getSrc(src)
+	expr := getSrc(src)
+	args := p.stk.GetArgs(2)
+	var ret *internal.Elem
+	switch op {
+	case token.EQL, token.NEQ:
+		if !ComparableTo(p.pkg, args[0], args[1]) {
+			src, pos := p.loadExpr(expr)
+			p.panicCodeErrorf(
+				&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
+		}
+		ret = &internal.Elem{
+			Val:  &ast.BinaryExpr{X: args[0].Val, Op: op, Y: args[1].Val},
+			Type: types.Typ[types.Bool],
+			Src:  expr,
+		}
+	default:
+		name := p.pkg.prefix + binaryOps[op]
+		ret = callOpFunc(p.pkg, name, args, 0)
+		ret.Src = expr
+	}
 	p.stk.Ret(2, ret)
 	return p
 }
@@ -1803,21 +1811,8 @@ var (
 )
 
 // CompareNil func
-func (p *CodeBuilder) CompareNil(op token.Token) *CodeBuilder {
-	if op != token.EQL && op != token.NEQ {
-		panic("TODO: compare nil can only be == or !=")
-	}
-	if debugInstr {
-		log.Println("CompareNil", op)
-	}
-	arg := p.stk.Get(-1)
-	// TODO: type check
-	ret := &internal.Elem{
-		Val:  &ast.BinaryExpr{X: arg.Val, Op: op, Y: identNil},
-		Type: types.Typ[types.Bool],
-	}
-	p.stk.Ret(1, ret)
-	return p
+func (p *CodeBuilder) CompareNil(op token.Token, src ...ast.Node) *CodeBuilder {
+	return p.Val(nil).BinaryOp(op)
 }
 
 // UnaryOp func

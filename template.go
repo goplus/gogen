@@ -290,30 +290,60 @@ func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool
 	return false
 }
 
-func ComparableTo(pkg *Package, V, T types.Type) bool {
+func ComparableTo(pkg *Package, varg, targ *Element) bool {
+	V, T := varg.Type, targ.Type
 	if V == T {
 		return true
 	}
-	if v, ok := V.(*types.Basic); ok && (v.Info()&types.IsUntyped) != 0 {
-		return checkComparable(pkg, v, T)
-	} else if t, ok := T.(*types.Basic); ok && (t.Info()&types.IsUntyped) != 0 {
-		return checkComparable(pkg, t, V)
+
+	switch v := V.(type) {
+	case *types.Basic:
+		if (v.Info() & types.IsUntyped) != 0 {
+			return checkComparable(pkg, v, varg, T)
+		}
+	case *types.Interface:
+		return types.AssertableTo(v, T)
 	}
+
+	switch t := T.(type) {
+	case *types.Basic:
+		if (t.Info() & types.IsUntyped) != 0 {
+			return checkComparable(pkg, t, targ, V)
+		}
+	case *types.Interface:
+		return types.AssertableTo(t, V)
+	}
+
 	if getUnderlying(pkg, V) != getUnderlying(pkg, T) {
 		return false
 	}
 	return types.Comparable(V)
 }
 
-func checkComparable(pkg *Package, v *types.Basic, t types.Type) bool {
-	if u, ok := getUnderlying(pkg, t).(*types.Basic); ok {
+func checkComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type) bool {
+	kind := v.Kind()
+	if kind == types.UntypedNil {
+	retry:
+		switch tt := t.(type) {
+		case *types.Interface, *types.Slice, *types.Pointer, *types.Map, *types.Chan:
+			return true
+		case *types.Named:
+			t = pkg.cb.getUnderlying(tt)
+			goto retry
+		case *types.Basic:
+			return tt.Kind() == types.UnsafePointer || tt.Kind() == types.UntypedNil
+		}
+	} else if u, ok := getUnderlying(pkg, t).(*types.Basic); ok {
 		switch v.Kind() {
 		case types.UntypedBool:
 			return (u.Info() & types.IsBoolean) != 0
+		case types.UntypedFloat:
+			if constant.ToInt(varg.CVal).Kind() != constant.Int {
+				return (u.Info() & (types.IsFloat | types.IsComplex)) != 0
+			}
+			fallthrough
 		case types.UntypedInt, types.UntypedRune:
 			return (u.Info() & types.IsNumeric) != 0
-		case types.UntypedFloat:
-			return (u.Info() & (types.IsFloat | types.IsComplex)) != 0
 		case types.UntypedComplex:
 			return (u.Info() & types.IsComplex) != 0
 		case types.UntypedString:

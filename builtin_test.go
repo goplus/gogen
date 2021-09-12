@@ -97,7 +97,9 @@ func TestComparableTo(t *testing.T) {
 	}
 	pkg := NewPackage("", "foo", nil)
 	for _, a := range cases {
-		if ret := ComparableTo(pkg, a.v, a.t); ret != a.ret {
+		av := &Element{Type: a.v}
+		at := &Element{Type: a.t}
+		if ret := ComparableTo(pkg, av, at); ret != a.ret {
 			t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", a.v, a.t, ret)
 		}
 	}
