@@ -120,6 +120,31 @@ func newFunc(
 	return fn
 }
 
+func TestErrTypeSwitch(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:2:9: impossible type switch case: v (type interface{Bar()}) cannot have dynamic type int (missing Bar method)",
+		func(pkg *gox.Package) {
+			methods := []*types.Func{
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+			}
+			tyInterf := types.NewInterfaceType(methods, nil).Complete()
+			v := pkg.NewParam(token.NoPos, "v", tyInterf)
+			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+				/**/ TypeSwitch("t").Val(v, source("v", 1, 5)).TypeAssertThen().
+				/**/ Typ(types.Typ[types.Int], source("int", 2, 9)).TypeCase(1).
+				/**/ End().
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:9: 1 (type untyped int) is not a type",
+		func(pkg *gox.Package) {
+			v := pkg.NewParam(token.NoPos, "v", gox.TyEmptyInterface)
+			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+				/**/ TypeSwitch("t").Val(v).TypeAssertThen().
+				/**/ Val(1, source("1", 2, 9)).TypeCase(1).
+				/**/ End().
+				End()
+		})
+}
+
 func TestErrTypeAssert(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: impossible type assertion:\n\tstring does not implement bar (missing Bar method)",
 		func(pkg *gox.Package) {

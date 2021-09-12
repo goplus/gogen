@@ -1216,13 +1216,14 @@ var (
 )
 
 // Typ func
-func (p *CodeBuilder) Typ(typ types.Type) *CodeBuilder {
+func (p *CodeBuilder) Typ(typ types.Type, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Typ", typ)
 	}
 	p.stk.Push(&internal.Elem{
 		Val:  toType(p.pkg, typ),
 		Type: NewTypeType(typ),
+		Src:  getSrc(src),
 	})
 	return p
 }

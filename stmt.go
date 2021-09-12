@@ -236,6 +236,7 @@ type typeSwitchStmt struct {
 	init  ast.Stmt
 	name  string
 	x     ast.Expr
+	xSrc  ast.Node
 	xType *types.Interface
 	old   codeBlockCtx
 }
@@ -254,7 +255,7 @@ func (p *typeSwitchStmt) TypeAssertThen(cb *CodeBuilder) {
 	if !ok {
 		panic("TODO: can't type assert on non interface expr")
 	}
-	p.x, p.xType = x.Val, xType
+	p.x, p.xSrc, p.xType = x.Val, x.Src, xType
 }
 
 func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
@@ -264,10 +265,19 @@ func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
 		list = make([]ast.Expr, n)
 		args := cb.stk.GetArgs(n)
 		for i, arg := range args {
-			tt := arg.Type.(*TypeType)
-			typ = tt.typ
-			if !types.AssertableTo(p.xType, typ) {
-				log.Panicf("TODO: can't assert type %v to %v\n", p.xType, typ)
+			typ = arg.Type
+			if tt, ok := typ.(*TypeType); ok {
+				typ = tt.typ
+				if missing := cb.missingMethod(typ, p.xType); missing != "" {
+					xsrc, _ := cb.loadExpr(p.xSrc)
+					pos := cb.nodePosition(arg.Src)
+					cb.panicCodeErrorf(
+						&pos, "impossible type switch case: %s (type %v) cannot have dynamic type %v (missing %s method)",
+						xsrc, p.xType, typ, missing)
+				}
+			} else if typ != types.Typ[types.UntypedNil] {
+				src, pos := cb.loadExpr(arg.Src)
+				cb.panicCodeErrorf(&pos, "%s (type %v) is not a type", src, typ)
 			}
 			list[i] = arg.Val
 		}

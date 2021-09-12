@@ -252,11 +252,6 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 			CVal: constant.MakeFromLiteral(v.Value, v.Kind, 0),
 			Src:  src,
 		}
-	case *types.Builtin:
-		if o := pkg.builtin.Scope().Lookup(v.Name()); o != nil {
-			return toObject(pkg, o, src)
-		}
-		log.Panicln("TODO: unsupported builtin -", v.Name())
 	case *types.TypeName:
 		if typ := v.Type(); isType(typ) {
 			return &internal.Elem{
@@ -265,6 +260,11 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 		} else {
 			return toObject(pkg, v, src)
 		}
+	case *types.Builtin:
+		if o := pkg.builtin.Scope().Lookup(v.Name()); o != nil {
+			return toObject(pkg, o, src)
+		}
+		log.Panicln("TODO: unsupported builtin -", v.Name())
 	case types.Object:
 		if v == iotaObj {
 			v := pkg.cb.iotav
