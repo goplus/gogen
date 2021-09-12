@@ -105,6 +105,49 @@ func TestComparableTo(t *testing.T) {
 	}
 }
 
+func TestComparableTo2(t *testing.T) {
+	pkg := NewPackage("foo", "foo", nil)
+	methods := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+	}
+	methods2 := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "F", types.NewSignature(nil, nil, nil, false)),
+	}
+	tyInterf := types.NewInterfaceType(methods, nil).Complete()
+	tyInterfF := types.NewInterfaceType(methods2, nil).Complete()
+	bar1 := pkg.NewType("bar").InitType(pkg, tyInterf)
+	bar2 := pkg.NewType("bar2").InitType(pkg, tyInterf)
+	f1 := pkg.NewType("f1").InitType(pkg, tyInterfF)
+	tySlice := types.NewSlice(types.Typ[types.Int])
+	cases := []struct {
+		v, t types.Type
+		ret  bool
+	}{
+		{bar1, bar2, true},
+		{bar1, types.Typ[types.Int], false},
+		{types.Typ[types.Int], bar2, false},
+		{bar1, tySlice, false},
+		{tySlice, bar2, false},
+		{f1, bar2, false},
+		{types.Typ[types.UntypedNil], bar2, true},
+		{bar1, types.Typ[types.UntypedNil], true},
+		{tySlice, types.Typ[types.UntypedInt], false},
+		{types.Typ[types.UntypedInt], tySlice, false},
+	}
+	for _, a := range cases {
+		av := &Element{Type: a.v}
+		at := &Element{Type: a.t}
+		if ret := ComparableTo(pkg, av, at); ret != a.ret {
+			t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", av, at, ret)
+		}
+	}
+	av := &Element{Type: types.Typ[types.UntypedFloat], CVal: constant.MakeFromLiteral("1e1", token.FLOAT, 0)}
+	at := &Element{Type: types.Typ[types.Int]}
+	if !ComparableTo(pkg, av, at) {
+		t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", av, at, false)
+	}
+}
+
 func TestAssignableTo(t *testing.T) {
 	cases := []struct {
 		v, t types.Type
