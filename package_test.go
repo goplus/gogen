@@ -20,6 +20,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -79,11 +80,51 @@ func domTestEx(t *testing.T, pkg *gox.Package, expected string, testingFile bool
 	if result != expected {
 		t.Fatalf("\nResult:\n%s\nExpected:\n%s\n", result, expected)
 	}
+	log.Printf("====================== %s End =========================\n", t.Name())
 }
 
 type goxVar = types.Var
 
 // ----------------------------------------------------------------------------
+
+func TestRedupPkgIssue796(t *testing.T) {
+	pkg := newMainPackage(false)
+	builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+	builtin.EnsureImported()
+	context := pkg.Import("context")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(context.Ref("WithTimeout")).
+		Val(context.Ref("Background")).Call(0).
+		Val(pkg.Import("time").Ref("Minute")).Call(2).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import (
+	context "context"
+	time "time"
+)
+
+func main() {
+	context.WithTimeout(context.Background(), time.Minute)
+}
+`)
+}
+
+func TestPrintlnPrintln(t *testing.T) {
+	pkg := newMainPackage(false)
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val(fmt.Ref("Println")).Call(0).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	fmt.Println(fmt.Println())
+}
+`)
+}
 
 func TestImportGopPkg(t *testing.T) {
 	pkg := newMainPackage(false)
@@ -925,12 +966,12 @@ func main() {
 func TestConst(t *testing.T) {
 	pkg := newMainPackage()
 	tv := pkg.ConstStart().Val(1).Val(2).BinaryOp(token.ADD).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(3)) {
-		t.Fatal("TestConst: != 3, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(3)) {
+		t.Fatal("TestConst: != 3, it is", tv.CVal)
 	}
 	tv = pkg.ConstStart().Val("1").Val("2").BinaryOp(token.ADD).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeString("12")) {
-		t.Fatal("TestConst: != 12, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeString("12")) {
+		t.Fatal("TestConst: != 12, it is", tv.CVal)
 	}
 }
 
@@ -941,24 +982,24 @@ func TestConstLenCap(t *testing.T) {
 	pkg.Types.Scope().Insert(types.NewVar(token.NoPos, pkg.Types, "array", typ))
 	pkg.Types.Scope().Insert(types.NewVar(token.NoPos, pkg.Types, "parray", typAP))
 	tv := pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val(pkg.Ref("array")).Call(1).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
-		t.Fatal("TestConst: != 10, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.CVal)
 	}
 	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val(pkg.Ref("parray")).Call(1).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
-		t.Fatal("TestConst: != 10, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.CVal)
 	}
 	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("len")).Val("Hi").Call(1).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(2)) {
-		t.Fatal("TestConst: != 2, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(2)) {
+		t.Fatal("TestConst: != 2, it is", tv.CVal)
 	}
 	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("cap")).Val(pkg.Ref("array")).Call(1).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
-		t.Fatal("TestConst: != 10, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.CVal)
 	}
 	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("cap")).Val(pkg.Ref("parray")).Call(1).EndConst()
-	if constant.Compare(tv.Value, token.NEQ, constant.MakeInt64(10)) {
-		t.Fatal("TestConst: != 10, it is", tv.Value)
+	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(10)) {
+		t.Fatal("TestConst: != 10, it is", tv.CVal)
 	}
 }
 
@@ -1164,6 +1205,23 @@ func main() {
 `)
 }
 
+func TestNamedFuncAsParam(t *testing.T) {
+	pkg := newMainPackage()
+	typ := pkg.NewType("foo").InitType(pkg, types.NewSignature(nil, nil, nil, false))
+	v := pkg.NewParam(token.NoPos, "v", typ)
+	pkg.NewFunc(nil, "bar", gox.NewTuple(v), nil, false).BodyStart(pkg).
+		Val(ctxRef(pkg, "v")).Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+type foo func()
+
+func bar(v foo) {
+	v()
+}
+`)
+}
+
 func TestBuiltinFunc(t *testing.T) {
 	var a, n *goxVar
 	pkg := newMainPackage()
@@ -1190,6 +1248,25 @@ func foo(v []int, array [10]int) {
 }
 func main() {
 }
+`)
+}
+
+func TestComplex(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "a").
+		Val(ctxRef(pkg, "complex")).Val(1).Val(2).Call(2).
+		EndInit(1)
+	pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "b").
+		Val(ctxRef(pkg, "real")).Val(ctxRef(pkg, "a")).Call(1).
+		EndInit(1)
+	pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "c").
+		Val(ctxRef(pkg, "imag")).Val(ctxRef(pkg, "a")).Call(1).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+const a = complex(1, 2)
+const b = real(a)
+const c = imag(a)
 `)
 }
 
@@ -1254,13 +1331,26 @@ func TestAppendString(t *testing.T) {
 		VarRef(ctxRef(pkg, "a")).Val(builtin.Ref("append")).
 		Val(ctxRef(pkg, "a")).Val("Hi").Call(2, true).Assign(1).EndStmt().
 		End()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
 func foo(a []uint8) {
 	a = append(a, "Hi"...)
 }
-func main() {
+`)
+}
+
+func TestCopyString(t *testing.T) {
+	pkg := newMainPackage()
+	builtin := pkg.Builtin()
+	tySlice := types.NewSlice(types.Typ[types.Byte])
+	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
+		NewVarStart(types.Typ[types.Int], "n").Val(builtin.Ref("copy")).
+		Val(ctxRef(pkg, "a")).Val("Hi").Call(2).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func foo(a []uint8) {
+	var n int = copy(a, "Hi")
 }
 `)
 }
@@ -1282,18 +1372,6 @@ func TestUnsafeFunc(t *testing.T) {
 		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "a")).MemberVal("y").Call(1).Assign(1).EndStmt().
 		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).Call(1).EndStmt().
 		End()
-	tyUP := types.Typ[types.UnsafePointer]
-	tyInt := types.Typ[types.Int]
-	pkg.NewFunc(nil, "test17", nil, nil, false).BodyStart(pkg).
-		NewVar(tyUP, "a").NewVar(tyUP, "r").
-		NewVarStart(nil, "ar").
-		Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
-		NewVar(types.NewSlice(tyInt), "r2").
-		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a")).Val(10).Call(2).Assign(1).EndStmt().
-		VarRef(ctxRef(pkg, "r2")).Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val(3).Call(2).Assign(1).EndStmt().
-		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).VarRef(ctxRef(pkg, "r2")).Call(2).EndStmt().
-		End()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
 import unsafe "unsafe"
@@ -1311,6 +1389,27 @@ func test() {
 	r = unsafe.Offsetof(a.y)
 	println(r)
 }
+`)
+}
+
+func TestUnsafeFunc2(t *testing.T) {
+	pkg := newMainPackage()
+	builtin := pkg.Builtin()
+	tyUP := types.Typ[types.UnsafePointer]
+	tyInt := types.Typ[types.Int]
+	pkg.NewFunc(nil, "test17", nil, nil, false).BodyStart(pkg).
+		NewVar(tyUP, "a").NewVar(tyUP, "r").
+		NewVarStart(nil, "ar").
+		Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
+		NewVar(types.NewSlice(tyInt), "r2").
+		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a")).Val(10).Call(2).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r2")).Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val(3).Call(2).Assign(1).EndStmt().
+		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).VarRef(ctxRef(pkg, "r2")).Call(2).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import unsafe "unsafe"
+
 func test17() {
 	var a unsafe.Pointer
 	var r unsafe.Pointer
@@ -1319,8 +1418,6 @@ func test17() {
 	r = unsafe.Add(a, 10)
 	r2 = unsafe.Slice(&ar[0], 3)
 	println(r, r2)
-}
-func main() {
 }
 `)
 }
@@ -1833,6 +1930,20 @@ func main() {
 `)
 }
 
+func TestForRange3(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		ForRange().Val("Hi").RangeAssignThen(token.NoPos).End().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	for range "Hi" {
+	}
+}
+`)
+}
+
 func TestForRangeUDT(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gox/internal/foo")
@@ -2336,7 +2447,7 @@ func TestStructMember(t *testing.T) {
 		Debug(func(cb *gox.CodeBuilder) {
 			kind, err := cb.Member("unknown", false, source("a.unknown", 1, 5))
 			if kind != gox.MemberInvalid ||
-				err.Error() != "./foo.gop:1:5 a.unknown undefined (type struct{x int; y string} has no field or method unknown)" {
+				err.Error() != "./foo.gop:1:5: a.unknown undefined (type struct{x int; y string} has no field or method unknown)" {
 				t.Fatal("Member unknown:", kind, err)
 			}
 		}).
@@ -2650,7 +2761,7 @@ func main() {
 	var a []interface {
 	}
 	var b bool = a != nil
-	var c bool = a == nil
+	var c bool = nil == a
 }
 `)
 }

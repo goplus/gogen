@@ -37,7 +37,7 @@ type blockStmt struct {
 }
 
 func (p *blockStmt) End(cb *CodeBuilder) {
-	stmts, flows := cb.endBlockStmt(p.old)
+	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
 	cb.emitStmt(&ast.BlockStmt{List: stmts})
 }
@@ -55,6 +55,7 @@ type ifStmt struct {
 	cond ast.Expr
 	body *ast.BlockStmt
 	old  codeBlockCtx
+	old2 codeBlockCtx
 }
 
 func (p *ifStmt) Then(cb *CodeBuilder) {
@@ -71,17 +72,23 @@ func (p *ifStmt) Then(cb *CodeBuilder) {
 	default:
 		panic("TODO: if statement has too many init statements")
 	}
+	cb.startBlockStmt(p, "if body", &p.old2)
 }
 
 func (p *ifStmt) Else(cb *CodeBuilder) {
 	if p.body != nil {
 		panic("TODO: else statement already exists")
 	}
-	p.body = &ast.BlockStmt{List: cb.clearBlockStmt()}
+
+	stmts, flows := cb.endBlockStmt(&p.old2)
+	cb.current.flows |= flows
+
+	p.body = &ast.BlockStmt{List: stmts}
+	cb.startBlockStmt(p, "else body", &p.old2)
 }
 
 func (p *ifStmt) End(cb *CodeBuilder) {
-	stmts, flows := cb.endBlockStmt(p.old)
+	stmts, flows := cb.endBlockStmt(&p.old2)
 	cb.current.flows |= flows
 
 	var blockStmt = &ast.BlockStmt{List: stmts}
@@ -96,6 +103,7 @@ func (p *ifStmt) End(cb *CodeBuilder) {
 	} else { // if without else
 		p.body = blockStmt
 	}
+	cb.endBlockStmt(&p.old)
 	cb.emitStmt(&ast.IfStmt{Init: p.init, Cond: p.cond, Body: p.body, Else: el})
 }
 
@@ -134,7 +142,7 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int) {
 		list = make([]ast.Expr, n)
 		for i, arg := range cb.stk.GetArgs(n) {
 			if p.tag.Val != nil { // switch tag {...}
-				if !ComparableTo(cb.pkg, arg.Type, p.tag.Type) {
+				if !ComparableTo(cb.pkg, arg, p.tag) {
 					log.Panicf("TODO: case expr can't compare %v to %v\n", arg.Type, p.tag.Type)
 				}
 			} else { // switch {...}
@@ -151,11 +159,11 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int) {
 }
 
 func (p *switchStmt) End(cb *CodeBuilder) {
-	stmts, flows := cb.endBlockStmt(p.old)
+	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ flowFlagBreak)
 
 	body := &ast.BlockStmt{List: stmts}
-	cb.emitStmt(&ast.SwitchStmt{Init: p.init, Tag: p.tag.Val, Body: body})
+	cb.emitStmt(&ast.SwitchStmt{Init: p.init, Tag: checkParenExpr(p.tag.Val), Body: body})
 }
 
 type caseStmt struct {
@@ -168,7 +176,7 @@ func (p *caseStmt) Fallthrough(cb *CodeBuilder) {
 }
 
 func (p *caseStmt) End(cb *CodeBuilder) {
-	body, flows := cb.endBlockStmt(p.old)
+	body, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
 	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
 }
@@ -197,7 +205,7 @@ func (p *selectStmt) CommCase(cb *CodeBuilder, n int) {
 }
 
 func (p *selectStmt) End(cb *CodeBuilder) {
-	stmts, flows := cb.endBlockStmt(p.old)
+	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ flowFlagBreak)
 	cb.emitStmt(&ast.SelectStmt{Body: &ast.BlockStmt{List: stmts}})
 }
@@ -208,7 +216,7 @@ type commCase struct {
 }
 
 func (p *commCase) End(cb *CodeBuilder) {
-	body, flows := cb.endBlockStmt(p.old)
+	body, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
 	cb.emitStmt(&ast.CommClause{Comm: p.comm, Body: body})
 }
@@ -228,6 +236,7 @@ type typeSwitchStmt struct {
 	init  ast.Stmt
 	name  string
 	x     ast.Expr
+	xSrc  ast.Node
 	xType *types.Interface
 	old   codeBlockCtx
 }
@@ -246,7 +255,7 @@ func (p *typeSwitchStmt) TypeAssertThen(cb *CodeBuilder) {
 	if !ok {
 		panic("TODO: can't type assert on non interface expr")
 	}
-	p.x, p.xType = x.Val, xType
+	p.x, p.xSrc, p.xType = x.Val, x.Src, xType
 }
 
 func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
@@ -256,10 +265,19 @@ func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
 		list = make([]ast.Expr, n)
 		args := cb.stk.GetArgs(n)
 		for i, arg := range args {
-			tt := arg.Type.(*TypeType)
-			typ = tt.typ
-			if !types.AssertableTo(p.xType, typ) {
-				log.Panicf("TODO: can't assert type %v to %v\n", p.xType, typ)
+			typ = arg.Type
+			if tt, ok := typ.(*TypeType); ok {
+				typ = tt.typ
+				if missing := cb.missingMethod(typ, p.xType); missing != "" {
+					xsrc, _ := cb.loadExpr(p.xSrc)
+					pos := cb.nodePosition(arg.Src)
+					cb.panicCodeErrorf(
+						&pos, "impossible type switch case: %s (type %v) cannot have dynamic type %v (missing %s method)",
+						xsrc, p.xType, typ, missing)
+				}
+			} else if typ != types.Typ[types.UntypedNil] {
+				src, pos := cb.loadExpr(arg.Src)
+				cb.panicCodeErrorf(&pos, "%s (type %v) is not a type", src, typ)
 			}
 			list[i] = arg.Val
 		}
@@ -279,7 +297,7 @@ func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
 }
 
 func (p *typeSwitchStmt) End(cb *CodeBuilder) {
-	stmts, flows := cb.endBlockStmt(p.old)
+	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ flowFlagBreak)
 
 	body := &ast.BlockStmt{List: stmts}
@@ -303,7 +321,7 @@ type typeCaseStmt struct {
 }
 
 func (p *typeCaseStmt) End(cb *CodeBuilder) {
-	body, flows := cb.endBlockStmt(p.old)
+	body, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
 	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
 }
@@ -320,6 +338,7 @@ type forStmt struct {
 	cond ast.Expr
 	body *ast.BlockStmt
 	old  codeBlockCtx
+	old2 codeBlockCtx
 }
 
 func (p *forStmt) Then(cb *CodeBuilder) {
@@ -338,24 +357,28 @@ func (p *forStmt) Then(cb *CodeBuilder) {
 	default:
 		panic("TODO: for condition has too many init statements")
 	}
+	cb.startBlockStmt(p, "for body", &p.old2)
 }
 
 func (p *forStmt) Post(cb *CodeBuilder) {
-	p.body = &ast.BlockStmt{List: cb.clearBlockStmt()}
+	stmts, flows := cb.endBlockStmt(&p.old2)
+	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
+	p.body = &ast.BlockStmt{List: stmts}
 }
 
 func (p *forStmt) End(cb *CodeBuilder) {
-	stmts, flows := cb.endBlockStmt(p.old)
-	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
-
 	var post ast.Stmt
 	if p.body != nil { // has post stmt
+		stmts, _ := cb.endBlockStmt(&p.old)
 		if len(stmts) != 1 {
 			panic("TODO: too many post statements")
 		}
 		post = stmts[0]
 	} else { // no post
+		stmts, flows := cb.endBlockStmt(&p.old2)
+		cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
 		p.body = &ast.BlockStmt{List: stmts}
+		cb.endBlockStmt(&p.old)
 	}
 	cb.emitStmt(&ast.ForStmt{Init: p.init, Cond: p.cond, Post: post, Body: p.body})
 }
@@ -471,6 +494,10 @@ retry:
 		}
 	case *types.Chan:
 		return []types.Type{t.Elem(), nil}
+	case *types.Basic:
+		if (t.Info() & types.IsString) != 0 {
+			return []types.Type{types.Typ[types.Int], types.Typ[types.Rune]}
+		}
 	case *types.Named:
 		if kv, ok := p.checkUdt(t); ok {
 			return kv
@@ -557,7 +584,7 @@ const (
 )
 
 func (p *forRangeStmt) End(cb *CodeBuilder) {
-	stmts, flows := cb.endBlockStmt(p.old)
+	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
 
 	if n := p.udt; n == 0 {

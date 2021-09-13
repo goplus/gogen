@@ -249,6 +249,11 @@ func toPersistVal(val constant.Value) interface{} {
 	case *big.Rat:
 		return pobj{"type": "bigrat", "num": v.Num().String(), "denom": v.Denom().String()}
 	default:
+		if val.Kind() == constant.Complex {
+			re := constant.Real(val)
+			im := constant.Imag(val)
+			return pobj{"type": "complex", "re": toPersistVal(re), "im": toPersistVal(im)}
+		}
 		panic("unsupported constant")
 	}
 }
@@ -278,6 +283,10 @@ func fromPersistVal(val interface{}) constant.Value {
 			if ok1 && ok2 {
 				ret = new(big.Rat).SetFrac(bnum, bdenom)
 			}
+		case "complex":
+			re := fromPersistVal(v["re"])
+			im := constant.MakeImag(fromPersistVal(v["im"]))
+			return constant.BinaryOp(re, token.ADD, im)
 		}
 	case bool:
 		ret = v

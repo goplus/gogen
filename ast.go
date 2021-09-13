@@ -32,7 +32,6 @@ var (
 	identNew    = ident("new")
 	identMake   = ident("make")
 	identIota   = ident("iota")
-	identUnsafe = ident("unsafe")
 )
 
 func ident(name string) *ast.Ident {
@@ -157,7 +156,7 @@ retry:
 
 func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
 	if t.Kind() == types.UnsafePointer {
-		return toObjectExpr(pkg, pkg.Import("unsafe").Ref("Pointer"))
+		return toObjectExpr(pkg, pkg.unsafe().Ref("Pointer"))
 	}
 	if (t.Info() & types.IsUntyped) != 0 {
 		panic("unexpected: untyped type")
@@ -219,15 +218,17 @@ func toMapType(pkg *Package, t *types.Map) ast.Expr {
 
 func toInterface(pkg *Package, t *types.Interface) ast.Expr {
 	var flds []*ast.Field
+	for i, n := 0, t.NumEmbeddeds(); i < n; i++ {
+		typ := toType(pkg, t.EmbeddedType(i))
+		fld := &ast.Field{Type: typ}
+		flds = append(flds, fld)
+	}
 	for i, n := 0, t.NumExplicitMethods(); i < n; i++ {
 		fn := t.ExplicitMethod(i)
 		name := ident(fn.Name())
 		typ := toFuncType(pkg, fn.Type().(*types.Signature))
 		fld := &ast.Field{Names: []*ast.Ident{name}, Type: typ}
 		flds = append(flds, fld)
-	}
-	for i, n := 0, t.NumEmbeddeds(); i < n; i++ {
-		panic("TODO: interface embedded")
 	}
 	return &ast.InterfaceType{Methods: &ast.FieldList{List: flds}}
 }
@@ -251,11 +252,6 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 			CVal: constant.MakeFromLiteral(v.Value, v.Kind, 0),
 			Src:  src,
 		}
-	case *types.Builtin:
-		if o := pkg.builtin.Scope().Lookup(v.Name()); o != nil {
-			return toObject(pkg, o, src)
-		}
-		log.Panicln("TODO: unsupported builtin -", v.Name())
 	case *types.TypeName:
 		if typ := v.Type(); isType(typ) {
 			return &internal.Elem{
@@ -264,6 +260,11 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 		} else {
 			return toObject(pkg, v, src)
 		}
+	case *types.Builtin:
+		if o := pkg.builtin.Scope().Lookup(v.Name()); o != nil {
+			return toObject(pkg, o, src)
+		}
+		log.Panicln("TODO: unsupported builtin -", v.Name())
 	case types.Object:
 		if v == iotaObj {
 			v := pkg.cb.iotav
@@ -339,8 +340,12 @@ var (
 )
 
 func toObject(pkg *Package, v types.Object, src ast.Node) *internal.Elem {
+	var cval constant.Value
+	if cv, ok := v.(*types.Const); ok {
+		cval = cv.Val()
+	}
 	return &internal.Elem{
-		Val: toObjectExpr(pkg, v), Type: realType(v.Type()), Src: src,
+		Val: toObjectExpr(pkg, v), Type: realType(v.Type()), CVal: cval, Src: src,
 	}
 }
 
@@ -404,6 +409,7 @@ var (
 		"NE": {token.NEQ, 2},
 
 		"Neg":  {token.SUB, 1},
+		"Pos":  {token.ADD, 1},
 		"Not":  {token.XOR, 1},
 		"LNot": {token.NOT, 1},
 		"Recv": {token.ARROW, 1},
@@ -444,8 +450,11 @@ func doBinaryOp(a constant.Value, tok token.Token, b constant.Value) constant.Va
 	case binaryOpCompare:
 		return constant.MakeBool(constant.Compare(a, tok, b))
 	default:
-		s, _ := constant.Int64Val(b)
-		return constant.Shift(a, tok, uint(s))
+		a, b = constant.ToInt(a), constant.ToInt(b)
+		if s, exact := constant.Int64Val(b); exact {
+			return constant.Shift(a, tok, uint(s))
+		}
+		panic("constant value is overflow")
 	}
 }
 
@@ -524,6 +533,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	var it *instantiated
 	var sig *types.Signature
 	var cval constant.Value
+retry:
 	switch t := fnType.(type) {
 	case *types.Signature:
 		if funcs, ok := CheckOverloadMethod(t); ok {
@@ -551,6 +561,9 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 			Type: t.Type(),
 		}
+		if len(args) == 1 { // TODO: const value may changed by type-convert
+			ret.CVal = args[0].CVal
+		}
 		return
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
@@ -565,6 +578,9 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		backup := backupArgs(args)
 		for _, o := range t.funcs {
 			if ret, err = matchFuncCall(pkg, toObject(pkg, o, fn.Src), args, flags); err == nil {
+				if ret.CVal == nil && isUntyped(pkg, ret.Type) {
+					ret.CVal = builtinCall(fn, args)
+				}
 				return
 			}
 			restoreArgs(args, backup)
@@ -572,8 +588,12 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 		return
 	case *instructionType:
 		return t.instr.Call(pkg, args, flags, fn.Src)
+	case *types.Named:
+		fnType = pkg.cb.getUnderlying(t)
+		goto retry
 	default:
-		log.Panicln("TODO: call to non function -", t)
+		src, pos := pkg.cb.loadExpr(fn.Src)
+		pkg.cb.panicCodeErrorf(&pos, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
 	at := func() string {
 		src, _ := pkg.cb.loadExpr(fn.Src)
@@ -679,8 +699,15 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 
 func matchFuncType(
 	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, at interface{}) error {
+	var t *types.Tuple
 	n := len(args)
-	if (flags&instrFlagApproxType) != 0 && n > 0 {
+	if len(args) == 1 && checkTuple(&t, args[0].Type) {
+		n = t.Len()
+		args = make([]*internal.Elem, n)
+		for i := 0; i < n; i++ {
+			args[i] = &internal.Elem{Type: t.At(i).Type()}
+		}
+	} else if (flags&instrFlagApproxType) != 0 && n > 0 {
 		if typ, ok := args[0].Type.(*types.Named); ok {
 			switch t := pkg.cb.getUnderlying(typ).(type) {
 			case *types.Slice, *types.Map, *types.Chan:
@@ -850,11 +877,11 @@ func (p *MatchError) Error() string {
 	if p.fstmt {
 		pos := p.cb.nodePosition(p.Src)
 		return fmt.Sprintf(
-			"%v cannot use %v value as type %v in %s", pos, p.Arg, p.Param, strval(p.At))
+			"%v: cannot use %v value as type %v in %s", pos, p.Arg, p.Param, strval(p.At))
 	}
 	src, pos := p.cb.loadExpr(p.Src)
 	return fmt.Sprintf(
-		"%v cannot use %s (type %v) as type %v in %s", pos, src, p.Arg, p.Param, strval(p.At))
+		"%v: cannot use %s (type %v) as type %v in %s", pos, src, p.Arg, p.Param, strval(p.At))
 }
 
 // TODO: use matchType to all assignable check
@@ -901,7 +928,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 			return boundType(pkg, arg.Type, param, arg)
 		}
 	}
-	if AssignableConv(pkg, arg.Type, param, &arg.Val) {
+	if AssignableConv(pkg, arg.Type, param, arg) {
 		return nil
 	}
 	return &MatchError{

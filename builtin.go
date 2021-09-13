@@ -116,6 +116,9 @@ func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 		{"Neg", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
 		// func Gop_Neg[T number](a T) T
 
+		{"Pos", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
+		// func Gop_Pos[T number](a T) T
+
 		{"Not", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}}, 0},
 		// func Gop_Not[T integer](a T) T
 
@@ -310,31 +313,45 @@ func InitBuiltinFuncs(builtin *types.Package) {
 		if fn.name == "append" { // append is a special case
 			appendString := NewInstruction(token.NoPos, builtin, "append", appendStringInstr{})
 			tfn = NewOverloadFunc(token.NoPos, builtin, "append", appendString, tfn)
+		} else if fn.name == "copy" {
+			// func copy(dst []byte, src string) int
+			dst := types.NewParam(token.NoPos, builtin, "dst", types.NewSlice(types.Typ[types.Byte]))
+			src := types.NewParam(token.NoPos, builtin, "src", types.Typ[types.String])
+			ret := types.NewParam(token.NoPos, builtin, "", types.Typ[types.Int])
+			sig := types.NewSignature(nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
+			copyString := types.NewFunc(token.NoPos, builtin, "copy", sig)
+			tfn = NewOverloadFunc(token.NoPos, builtin, "copy", copyString, tfn)
 		}
 		gbl.Insert(tfn)
 	}
 	overloads := [...]struct {
 		name string
-		fns  [2]typeBFunc
+		fns  [3]typeBFunc
 	}{
 		{"complex", [...]typeBFunc{
+			{[]typeBParam{{"r", types.UntypedFloat}, {"i", types.UntypedFloat}}, types.UntypedComplex},
 			{[]typeBParam{{"r", types.Float32}, {"i", types.Float32}}, types.Complex64},
 			{[]typeBParam{{"r", types.Float64}, {"i", types.Float64}}, types.Complex128},
 		}},
+		// func complex(r, i untyped_float) untyped_complex
 		// func complex(r, i float32) complex64
 		// func complex(r, i float64) complex128
 
 		{"real", [...]typeBFunc{
+			{[]typeBParam{{"c", types.UntypedComplex}}, types.UntypedFloat},
 			{[]typeBParam{{"c", types.Complex64}}, types.Float32},
 			{[]typeBParam{{"c", types.Complex128}}, types.Float64},
 		}},
+		// func real(c untyped_complex) untyped_float
 		// func real(c complex64) float32
 		// func real(c complex128) float64
 
 		{"imag", [...]typeBFunc{
+			{[]typeBParam{{"c", types.UntypedComplex}}, types.UntypedFloat},
 			{[]typeBParam{{"c", types.Complex64}}, types.Float32},
 			{[]typeBParam{{"c", types.Complex128}}, types.Float64},
 		}},
+		// func imag(c untyped_complex) untyped_float
 		// func imag(c complex64) float32
 		// func imag(c complex128) float64
 	}
@@ -342,6 +359,7 @@ func InitBuiltinFuncs(builtin *types.Package) {
 		fns := []types.Object{
 			newBFunc(builtin, overload.name, overload.fns[0]),
 			newBFunc(builtin, overload.name, overload.fns[1]),
+			newBFunc(builtin, overload.name, overload.fns[2]),
 		}
 		gbl.Insert(NewOverloadFunc(token.NoPos, builtin, overload.name, fns...))
 	}
@@ -406,6 +424,40 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 }
 
 // ----------------------------------------------------------------------------
+
+type builtinFn struct {
+	fn   interface{}
+	narg int
+}
+
+var (
+	builtinFns = map[string]builtinFn{
+		"complex": {makeComplex, 2},
+		"real":    {constant.Real, 1},
+		"imag":    {constant.Imag, 1},
+	}
+)
+
+func builtinCall(fn *Element, args []*Element) constant.Value {
+	if fn, ok := fn.Val.(*ast.Ident); ok {
+		if bfn, ok := builtinFns[fn.Name]; ok {
+			a := args[0].CVal
+			switch bfn.narg {
+			case 1:
+				return bfn.fn.(func(a constant.Value) constant.Value)(a)
+			case 2:
+				b := args[1].CVal
+				return bfn.fn.(func(a, b constant.Value) constant.Value)(a, b)
+			}
+		}
+		panic("builtinCall: expect constant")
+	}
+	return nil
+}
+
+func makeComplex(re, im constant.Value) constant.Value {
+	return constant.BinaryOp(re, token.ADD, constant.MakeImag(im))
+}
 
 type appendStringInstr struct {
 }
@@ -657,7 +709,7 @@ func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags,
 	checkArgsCount(pkg, "unsafe.Sizeof", 1, len(args), src)
 
 	typ := types.Default(realType(args[0].Type))
-	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Sizeof")}
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Sizeof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
@@ -674,7 +726,7 @@ func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags
 	checkArgsCount(pkg, "unsafe.Alignof", 1, len(args), src)
 
 	typ := types.Default(realType(args[0].Type))
-	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Alignof")}
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Alignof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
@@ -703,7 +755,7 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 
 	fields := pkg.cb.current.lastFields
 	offset := std.Offsetsof(fields)[len(fields)-1]
-	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Offsetof")}
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Offsetof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
@@ -731,7 +783,8 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags, sr
 		pos.Column += len("unsafe.Add")
 		pkg.cb.panicCodeErrorf(&pos, "cannot use %v (type %v) as type int", s, t)
 	}
-	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Add")}
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Sizeof")).(*ast.SelectorExpr)
+	fn.Sel.Name = "Add" // only in go v1.7+
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
 		Type: types.Typ[types.UnsafePointer],
@@ -756,7 +809,8 @@ func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, 
 		pos.Column += len("unsafe.Slice")
 		pkg.cb.panicCodeErrorf(&pos, "non-integer len argument in unsafe.Slice - %v", t)
 	}
-	fn := &ast.SelectorExpr{X: identUnsafe, Sel: ident("Slice")}
+	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Sizeof")).(*ast.SelectorExpr)
+	fn.Sel.Name = "Slice" // only in go v1.7+
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
 		Type: types.NewSlice(t0.Elem()),

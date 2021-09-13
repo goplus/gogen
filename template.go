@@ -20,7 +20,6 @@ import (
 	"go/token"
 	"go/types"
 	"log"
-	"math/big"
 
 	"github.com/goplus/gox/internal"
 )
@@ -67,14 +66,18 @@ const (
 type unboundFuncParam struct {
 	tBound types.Type
 	typ    *TemplateParamType
-	expr   *ast.Expr
+	parg   *internal.Elem
 }
 
-func (p *unboundFuncParam) boundTo(pkg *Package, t types.Type, expr *ast.Expr) {
+func (p *unboundFuncParam) boundTo(pkg *Package, t types.Type, parg *internal.Elem) {
 	if !p.typ.allowUntyped() {
+		var expr *ast.Expr
+		if parg != nil {
+			expr = &parg.Val
+		}
 		t = DefaultConv(pkg, t, expr)
 	}
-	p.tBound, p.expr = t, expr
+	p.tBound, p.parg = t, parg
 }
 
 func (p *unboundFuncParam) Underlying() types.Type {
@@ -97,10 +100,10 @@ func (p *unboundProxyParam) String() string {
 	return fmt.Sprintf("unboundProxyParam{typ: %v}", p.real)
 }
 
-func getElemType(t types.Type, parg *internal.Elem) types.Type {
-	if parg != nil {
-		if parg.CVal != nil && t == types.Typ[types.UntypedFloat] {
-			if v, ok := constant.Val(parg.CVal).(*big.Rat); ok && v.IsInt() {
+func getElemTypeIf(t types.Type, parg *internal.Elem) types.Type {
+	if parg != nil && parg.CVal != nil {
+		if tb, ok := t.(*types.Basic); ok && (tb.Info()&types.IsFloat) != 0 {
+			if constant.ToInt(parg.CVal).Kind() == constant.Int {
 				return types.Typ[types.UntypedInt]
 			}
 		}
@@ -113,13 +116,9 @@ func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 	case *unboundFuncParam: // template function param
 		if p.typ.contract.Match(pkg, arg) {
 			if p.tBound == nil {
-				var expr *ast.Expr
-				if parg != nil {
-					expr = &parg.Val
-				}
-				p.boundTo(pkg, arg, expr)
-			} else if !AssignableTo(pkg, getElemType(arg, parg), p.tBound) {
-				if isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.expr) {
+				p.boundTo(pkg, arg, parg)
+			} else if !AssignableTo(pkg, getElemTypeIf(arg, parg), p.tBound) {
+				if isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.parg) {
 					p.tBound = arg
 					return nil
 				}
@@ -220,7 +219,7 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 	return AssignableConv(pkg, V, T, nil)
 }
 
-func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
+func AssignableConv(pkg *Package, V, T types.Type, pv *internal.Elem) bool {
 	pkg.cb.ensureLoaded(V)
 	pkg.cb.ensureLoaded(T)
 	V, T = realType(V), realType(T)
@@ -230,6 +229,8 @@ func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
 		} else {
 			V = v.typ
 		}
+	} else {
+		V = getElemTypeIf(V, pv)
 	}
 	if types.AssignableTo(V, T) {
 		if t, ok := T.(*types.Basic); ok { // untyped type
@@ -254,9 +255,13 @@ func AssignableConv(pkg *Package, V, T types.Type, expr *ast.Expr) bool {
 		return true
 	}
 	if t, ok := T.(*types.Named); ok {
+		var expr *ast.Expr
+		if pv != nil {
+			expr = &pv.Val
+		}
 		ok = assignable(pkg, V, t, expr)
-		if debugMatch && expr != nil {
-			log.Println("==> AssignableConv", V, T)
+		if debugMatch && pv != nil {
+			log.Println("==> AssignableConv", V, T, ok)
 		}
 		return ok
 	}
@@ -285,30 +290,81 @@ func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool
 	return false
 }
 
-func ComparableTo(pkg *Package, V, T types.Type) bool {
+func ComparableTo(pkg *Package, varg, targ *Element) bool {
+	V, T := varg.Type, targ.Type
 	if V == T {
 		return true
 	}
-	if v, ok := V.(*types.Basic); ok && (v.Info()&types.IsUntyped) != 0 {
-		return checkComparable(pkg, v, T)
-	} else if t, ok := T.(*types.Basic); ok && (t.Info()&types.IsUntyped) != 0 {
-		return checkComparable(pkg, t, V)
+
+	switch v := V.(type) {
+	case *types.Basic:
+		if (v.Info() & types.IsUntyped) != 0 {
+			return untypedComparable(pkg, v, varg, T)
+		}
+	case *types.Interface:
+		return interfaceComparable(pkg, v, T)
+	case *types.Named:
+		if u, ok := v.Underlying().(*types.Interface); ok {
+			return interfaceComparable(pkg, u, T)
+		}
 	}
+
+	switch t := T.(type) {
+	case *types.Basic:
+		if (t.Info() & types.IsUntyped) != 0 {
+			return untypedComparable(pkg, t, targ, V)
+		}
+	case *types.Interface:
+		return interfaceComparable(pkg, t, V)
+	case *types.Named:
+		if u, ok := t.Underlying().(*types.Interface); ok {
+			return interfaceComparable(pkg, u, V)
+		}
+	}
+
 	if getUnderlying(pkg, V) != getUnderlying(pkg, T) {
 		return false
 	}
 	return types.Comparable(V)
 }
 
-func checkComparable(pkg *Package, v *types.Basic, t types.Type) bool {
-	if u, ok := getUnderlying(pkg, t).(*types.Basic); ok {
+func interfaceComparable(pkg *Package, v *types.Interface, t types.Type) bool {
+	if types.AssignableTo(t, v) {
+		return true
+	}
+	if tt, ok := t.(*types.Named); ok {
+		t = pkg.cb.getUnderlying(tt)
+	}
+	if tt, ok := t.(*types.Interface); ok {
+		return types.AssignableTo(v, tt)
+	}
+	return false
+}
+
+func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type) bool {
+	kind := v.Kind()
+	if kind == types.UntypedNil {
+	retry:
+		switch tt := t.(type) {
+		case *types.Interface, *types.Slice, *types.Pointer, *types.Map, *types.Chan:
+			return true
+		case *types.Named:
+			t = pkg.cb.getUnderlying(tt)
+			goto retry
+		case *types.Basic:
+			return tt.Kind() == types.UnsafePointer || tt.Kind() == types.UntypedNil
+		}
+	} else if u, ok := getUnderlying(pkg, t).(*types.Basic); ok {
 		switch v.Kind() {
 		case types.UntypedBool:
 			return (u.Info() & types.IsBoolean) != 0
+		case types.UntypedFloat:
+			if constant.ToInt(varg.CVal).Kind() != constant.Int {
+				return (u.Info() & (types.IsFloat | types.IsComplex)) != 0
+			}
+			fallthrough
 		case types.UntypedInt, types.UntypedRune:
 			return (u.Info() & types.IsNumeric) != 0
-		case types.UntypedFloat:
-			return (u.Info() & (types.IsFloat | types.IsComplex)) != 0
 		case types.UntypedComplex:
 			return (u.Info() & types.IsComplex) != 0
 		case types.UntypedString:

@@ -118,7 +118,7 @@ type CodeError struct {
 
 func (p *CodeError) Error() string {
 	if p.Pos != nil {
-		return fmt.Sprintf("%v %s", *p.Pos, p.Msg)
+		return fmt.Sprintf("%v: %s", *p.Pos, p.Msg)
 	}
 	return p.Msg
 }
@@ -275,7 +275,7 @@ func insertParams(scope *types.Scope, params *types.Tuple) {
 func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
 	p.current.checkLabels(p)
 	p.current.fn = old.fn
-	stmts, _ := p.endBlockStmt(old.codeBlockCtx)
+	stmts, _ := p.endBlockStmt(&old.codeBlockCtx)
 	return stmts
 }
 
@@ -285,14 +285,14 @@ func (p *CodeBuilder) startBlockStmt(current codeBlock, comment string, old *cod
 	return p
 }
 
-func (p *CodeBuilder) endBlockStmt(old codeBlockCtx) ([]ast.Stmt, int) {
+func (p *CodeBuilder) endBlockStmt(old *codeBlockCtx) ([]ast.Stmt, int) {
 	flows := p.current.flows
 	if p.current.label != nil {
 		p.emitStmt(&ast.EmptyStmt{})
 	}
 	stmts := p.current.stmts
 	p.stk.SetLen(p.current.base)
-	p.current.codeBlockCtx = old
+	p.current.codeBlockCtx = *old
 	return stmts, flows
 }
 
@@ -893,7 +893,8 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		n := arity >> 1
 		elts = make([]ast.Expr, n)
 		for i := 0; i < arity; i += 2 {
-			if !AssignableTo(pkg, args[i+1].Type, val) {
+			arg := args[i+1]
+			if !AssignableConv(pkg, arg.Type, val, arg) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
@@ -925,7 +926,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		for i, arg := range args {
 			elts[i] = arg.Val
 			if check {
-				if !AssignableTo(pkg, arg.Type, val) {
+				if !AssignableConv(pkg, arg.Type, val, arg) {
 					src, pos := p.loadExpr(arg.Src)
 					p.panicCodeErrorf(
 						&pos, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)
@@ -1196,7 +1197,7 @@ retry:
 			return []types.Type{tyInt, e.Elem()}, false
 		}
 	case *types.Basic:
-		if t.Kind() == types.String {
+		if (t.Info() & types.IsString) != 0 {
 			if ref {
 				src, pos := p.loadExpr(idxSrc)
 				p.panicCodeErrorf(&pos, "cannot assign to %s (strings are immutable)", src)
@@ -1217,13 +1218,14 @@ var (
 )
 
 // Typ func
-func (p *CodeBuilder) Typ(typ types.Type) *CodeBuilder {
+func (p *CodeBuilder) Typ(typ types.Type, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Typ", typ)
 	}
 	p.stk.Push(&internal.Elem{
 		Val:  toType(p.pkg, typ),
 		Type: NewTypeType(typ),
+		Src:  getSrc(src),
 	})
 	return p
 }
@@ -1309,12 +1311,16 @@ func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 	}
 	arg := p.stk.Get(-1)
 	ret := &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Src: getSrc(src)}
-	switch t := arg.Type.(type) {
+	argType := arg.Type
+retry:
+	switch t := argType.(type) {
 	case *TypeType:
-		t.typ = types.NewPointer(t.typ)
-		ret.Type = arg.Type
+		ret.Type = &TypeType{typ: types.NewPointer(t.typ)}
 	case *types.Pointer:
 		ret.Type = t.Elem()
+	case *types.Named:
+		argType = p.getUnderlying(t)
+		goto retry
 	default:
 		code, pos := p.loadExpr(arg.Src)
 		p.panicCodeErrorf(&pos, "invalid indirect of %s (type %v)", code, t)
@@ -1762,21 +1768,29 @@ func callOpFunc(pkg *Package, name string, args []*internal.Elem, flags InstrFla
 
 // BinaryOp func
 func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
-	name := p.pkg.prefix + binaryOps[op]
-	args := p.stk.GetArgs(2)
-	if args[1].Type == types.Typ[types.UntypedNil] { // arg1 is nil
-		p.stk.PopN(1)
-		return p.CompareNil(op)
-	} else if args[0].Type == types.Typ[types.UntypedNil] { // arg0 is nil
-		args[0] = args[1]
-		p.stk.PopN(1)
-		return p.CompareNil(op)
-	}
 	if debugInstr {
-		log.Println("BinaryOp", op, name)
+		log.Println("BinaryOp", op)
 	}
-	ret := callOpFunc(p.pkg, name, args, 0)
-	ret.Src = getSrc(src)
+	expr := getSrc(src)
+	args := p.stk.GetArgs(2)
+	var ret *internal.Elem
+	switch op {
+	case token.EQL, token.NEQ:
+		if !ComparableTo(p.pkg, args[0], args[1]) {
+			src, pos := p.loadExpr(expr)
+			p.panicCodeErrorf(
+				&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
+		}
+		ret = &internal.Elem{
+			Val:  &ast.BinaryExpr{X: args[0].Val, Op: op, Y: args[1].Val},
+			Type: types.Typ[types.Bool],
+			Src:  expr,
+		}
+	default:
+		name := p.pkg.prefix + binaryOps[op]
+		ret = callOpFunc(p.pkg, name, args, 0)
+		ret.Src = expr
+	}
 	p.stk.Ret(2, ret)
 	return p
 }
@@ -1809,21 +1823,8 @@ var (
 )
 
 // CompareNil func
-func (p *CodeBuilder) CompareNil(op token.Token) *CodeBuilder {
-	if op != token.EQL && op != token.NEQ {
-		panic("TODO: compare nil can only be == or !=")
-	}
-	if debugInstr {
-		log.Println("CompareNil", op)
-	}
-	arg := p.stk.Get(-1)
-	// TODO: type check
-	ret := &internal.Elem{
-		Val:  &ast.BinaryExpr{X: arg.Val, Op: op, Y: identNil},
-		Type: types.Typ[types.Bool],
-	}
-	p.stk.Ret(1, ret)
-	return p
+func (p *CodeBuilder) CompareNil(op token.Token, src ...ast.Node) *CodeBuilder {
+	return p.Val(nil).BinaryOp(op)
 }
 
 // UnaryOp func
@@ -1844,6 +1845,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 var (
 	unaryOps = [...]string{
 		token.SUB:   "Neg",
+		token.ADD:   "Pos",
 		token.XOR:   "Not",
 		token.NOT:   "LNot",
 		token.ARROW: "Recv",

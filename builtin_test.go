@@ -18,6 +18,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"math/big"
 	"reflect"
 	"testing"
 
@@ -96,9 +97,54 @@ func TestComparableTo(t *testing.T) {
 	}
 	pkg := NewPackage("", "foo", nil)
 	for _, a := range cases {
-		if ret := ComparableTo(pkg, a.v, a.t); ret != a.ret {
+		av := &Element{Type: a.v}
+		at := &Element{Type: a.t}
+		if ret := ComparableTo(pkg, av, at); ret != a.ret {
 			t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", a.v, a.t, ret)
 		}
+	}
+}
+
+func TestComparableTo2(t *testing.T) {
+	pkg := NewPackage("foo", "foo", nil)
+	methods := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+	}
+	methods2 := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "F", types.NewSignature(nil, nil, nil, false)),
+	}
+	tyInterf := types.NewInterfaceType(methods, nil).Complete()
+	tyInterfF := types.NewInterfaceType(methods2, nil).Complete()
+	bar1 := pkg.NewType("bar").InitType(pkg, tyInterf)
+	bar2 := pkg.NewType("bar2").InitType(pkg, tyInterf)
+	f1 := pkg.NewType("f1").InitType(pkg, tyInterfF)
+	tySlice := types.NewSlice(types.Typ[types.Int])
+	cases := []struct {
+		v, t types.Type
+		ret  bool
+	}{
+		{bar1, bar2, true},
+		{bar1, types.Typ[types.Int], false},
+		{types.Typ[types.Int], bar2, false},
+		{bar1, tySlice, false},
+		{tySlice, bar2, false},
+		{f1, bar2, false},
+		{types.Typ[types.UntypedNil], bar2, true},
+		{bar1, types.Typ[types.UntypedNil], true},
+		{tySlice, types.Typ[types.UntypedInt], false},
+		{types.Typ[types.UntypedInt], tySlice, false},
+	}
+	for _, a := range cases {
+		av := &Element{Type: a.v}
+		at := &Element{Type: a.t}
+		if ret := ComparableTo(pkg, av, at); ret != a.ret {
+			t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", av, at, ret)
+		}
+	}
+	av := &Element{Type: types.Typ[types.UntypedFloat], CVal: constant.MakeFromLiteral("1e1", token.FLOAT, 0)}
+	at := &Element{Type: types.Typ[types.Int]}
+	if !ComparableTo(pkg, av, at) {
+		t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", av, at, false)
 	}
 }
 
@@ -469,10 +515,24 @@ func TestGetIdxValTypes2(t *testing.T) {
 func TestGetElemType(t *testing.T) {
 	cval := constant.MakeFromLiteral("1.1e5", token.FLOAT, 0)
 	arg := types.Typ[types.UntypedFloat]
-	typ := getElemType(arg, &internal.Elem{CVal: cval, Type: arg})
+	typ := getElemTypeIf(arg, &internal.Elem{CVal: cval, Type: arg})
 	if typ != types.Typ[types.UntypedInt] {
-		t.Fatal("TestGetElemType failed")
+		t.Fatal("getElemTypeIf failed")
 	}
+	typ = getElemType(&internal.Elem{CVal: cval, Type: arg})
+	if typ != types.Typ[types.UntypedInt] {
+		t.Fatal("getElemType failed")
+	}
+}
+
+func getElemType(arg *internal.Elem) types.Type {
+	t := arg.Type
+	if arg.CVal != nil && t == types.Typ[types.UntypedFloat] {
+		if v, ok := constant.Val(arg.CVal).(*big.Rat); ok && v.IsInt() {
+			return types.Typ[types.UntypedInt]
+		}
+	}
+	return t
 }
 
 func TestBoundElementType(t *testing.T) {
@@ -484,6 +544,89 @@ func TestBoundElementType(t *testing.T) {
 	typ := boundElementType(pkg, elts, 0, len(elts), 1)
 	if typ != TyEmptyInterface {
 		t.Fatal("TestBoundElementType failed:", typ)
+	}
+}
+
+func TestBinaryOp(t *testing.T) {
+	a := constant.MakeFromLiteral("1e1", token.FLOAT, 0)
+	args := []*internal.Elem{
+		{CVal: a},
+		{CVal: constant.MakeInt64(3)},
+	}
+	if cval := binaryOp(token.SHR, args); constant.Val(cval) != int64(1) {
+		t.Fatal("binaryOp failed:", cval)
+	}
+	b := constant.MakeFromLiteral("1e100", token.FLOAT, 0)
+	args[1] = &internal.Elem{CVal: b}
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("binaryOp failed: no error?")
+		}
+	}()
+	binaryOp(token.SHR, args)
+}
+
+func TestBinaryOp2(t *testing.T) {
+	i2 := constant.MakeImag(constant.MakeInt64(2))
+	j2 := makeComplex(constant.MakeInt64(0), constant.MakeInt64(2))
+	ret := doBinaryOp(i2, token.EQL, j2)
+	if !constant.BoolVal(ret) {
+		t.Fatal("TestBinaryOp2 failed:", ret)
+	}
+}
+
+func TestPersistVal(t *testing.T) {
+	re := constant.MakeInt64(1)
+	im := constant.MakeImag(constant.MakeInt64(2))
+	val := constant.BinaryOp(re, token.ADD, im)
+	pval := toPersistVal(val)
+	val2 := fromPersistVal(pval)
+	if !constant.Compare(val, token.EQL, val2) {
+		t.Fatal("TestPersistVal failed")
+	}
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestPersistVal: no error?")
+		}
+	}()
+	toPersistVal(constant.MakeUnknown())
+}
+
+func TestBuiltinCall(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestBuiltinCall: no error?")
+		}
+	}()
+	builtinCall(&internal.Elem{Val: ident("undefined")}, nil)
+}
+
+func TestUnsafe(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	sizeof := pkg.unsafe().Ref("Sizeof")
+	expr := toObjectExpr(pkg, sizeof)
+	if v, ok := expr.(*ast.SelectorExpr); ok {
+		if id, ok := v.X.(*ast.Ident); !ok || id.Name != "unsafe" || v.Sel.Name != "Sizeof" {
+			t.Fatal("toObjectExpr failed:", v.X)
+		}
+	} else {
+		t.Fatal("TestUnsafe failed:", expr)
+	}
+}
+
+func TestDedupNamedType(t *testing.T) {
+	pkg := types.NewPackage("foo", "foo")
+	obj := types.NewTypeName(token.NoPos, pkg, "bar", types.Typ[types.Int])
+	pkg.Scope().Insert(obj)
+	imports := map[string]*PkgRef{
+		"foo": {Types: pkg},
+	}
+	pkg2 := types.NewPackage("foo", "foo")
+	obj2 := types.NewTypeName(token.NoPos, pkg2, "bar", types.Typ[types.Int])
+	typ2 := types.NewNamed(obj2, obj2.Type().Underlying(), nil)
+	typ3, dedup := dedupNamedType(imports, typ2)
+	if !dedup || typ3 != types.Typ[types.Int] {
+		t.Fatal("TestDedupNamedType failed:", typ3, dedup)
 	}
 }
 
