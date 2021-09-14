@@ -557,8 +557,12 @@ retry:
 		for i, v := range args { // TODO: type check
 			valArgs[i] = v.Val
 		}
+		fun := fn.Val
+		if _, ok := fun.(*ast.ChanType); ok {
+			fun = &ast.ParenExpr{X: fun}
+		}
 		ret = &internal.Elem{
-			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
+			Val:  &ast.CallExpr{Fun: fun, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 			Type: t.Type(),
 		}
 		if len(args) == 1 { // TODO: const value may changed by type-convert
