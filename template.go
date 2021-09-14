@@ -317,21 +317,26 @@ func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type
 		case *types.Basic:
 			return tt.Kind() == types.UnsafePointer // invalid: nil == nil
 		}
-	} else if u, ok := getUnderlying(pkg, t).(*types.Basic); ok {
-		switch v.Kind() {
-		case types.UntypedBool:
-			return (u.Info() & types.IsBoolean) != 0
-		case types.UntypedFloat:
-			if constant.ToInt(varg.CVal).Kind() != constant.Int {
-				return (u.Info() & (types.IsFloat | types.IsComplex)) != 0
+	} else {
+		switch u := getUnderlying(pkg, t).(type) {
+		case *types.Basic:
+			switch v.Kind() {
+			case types.UntypedBool:
+				return (u.Info() & types.IsBoolean) != 0
+			case types.UntypedFloat:
+				if constant.ToInt(varg.CVal).Kind() != constant.Int {
+					return (u.Info() & (types.IsFloat | types.IsComplex)) != 0
+				}
+				fallthrough
+			case types.UntypedInt, types.UntypedRune:
+				return (u.Info() & types.IsNumeric) != 0
+			case types.UntypedComplex:
+				return (u.Info() & types.IsComplex) != 0
+			case types.UntypedString:
+				return (u.Info() & types.IsString) != 0
 			}
-			fallthrough
-		case types.UntypedInt, types.UntypedRune:
-			return (u.Info() & types.IsNumeric) != 0
-		case types.UntypedComplex:
-			return (u.Info() & types.IsComplex) != 0
-		case types.UntypedString:
-			return (u.Info() & types.IsString) != 0
+		case *types.Interface:
+			return u.Empty()
 		}
 	}
 	return false

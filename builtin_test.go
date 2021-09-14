@@ -133,12 +133,14 @@ func TestComparableTo2(t *testing.T) {
 		{bar1, types.Typ[types.UntypedNil], true},
 		{tySlice, types.Typ[types.UntypedInt], false},
 		{types.Typ[types.UntypedInt], tySlice, false},
+		{TyEmptyInterface, types.Typ[types.UntypedInt], true},
+		{types.Typ[types.UntypedInt], TyEmptyInterface, true},
 	}
 	for _, a := range cases {
 		av := &Element{Type: a.v}
 		at := &Element{Type: a.t}
 		if ret := ComparableTo(pkg, av, at); ret != a.ret {
-			t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", av, at, ret)
+			t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", a.v, a.t, ret)
 		}
 	}
 	av := &Element{Type: types.Typ[types.UntypedFloat], CVal: constant.MakeFromLiteral("1e1", token.FLOAT, 0)}
