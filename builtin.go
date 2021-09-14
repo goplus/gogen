@@ -314,12 +314,13 @@ func InitBuiltinFuncs(builtin *types.Package) {
 			appendString := NewInstruction(token.NoPos, builtin, "append", appendStringInstr{})
 			tfn = NewOverloadFunc(token.NoPos, builtin, "append", appendString, tfn)
 		} else if fn.name == "copy" {
-			// func copy(dst []byte, src string) int
+			// func [S string] copy(dst []byte, src S) int
+			tparams := newTParams([]typeTParam{{"S", tstring}})
 			dst := types.NewParam(token.NoPos, builtin, "dst", types.NewSlice(types.Typ[types.Byte]))
-			src := types.NewParam(token.NoPos, builtin, "src", types.Typ[types.String])
+			src := types.NewParam(token.NoPos, builtin, "src", tparams[0])
 			ret := types.NewParam(token.NoPos, builtin, "", types.Typ[types.Int])
-			sig := types.NewSignature(nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
-			copyString := types.NewFunc(token.NoPos, builtin, "copy", sig)
+			tsig := NewTemplateSignature(tparams, nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
+			copyString := NewTemplateFunc(token.NoPos, builtin, "copy", tsig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, "copy", copyString, tfn)
 		}
 		gbl.Insert(tfn)
@@ -1106,6 +1107,7 @@ var (
 	makable    = makableT{}
 	cbool      = &basicContract{kindsBool, "bool"}
 	ninteger   = &basicContract{kindsInteger, "ninteger"}
+	tstring    = &basicContract{kindsString, "tstring"}
 	orderable  = orderableT{}
 	integer    = integerT{}
 	number     = numberT{}

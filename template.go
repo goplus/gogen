@@ -114,19 +114,18 @@ func getElemTypeIf(t types.Type, parg *internal.Elem) types.Type {
 func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 	switch p := param.(type) {
 	case *unboundFuncParam: // template function param
-		if p.typ.contract.Match(pkg, arg) {
-			if p.tBound == nil {
-				p.boundTo(pkg, arg, parg)
-			} else if !AssignableTo(pkg, getElemTypeIf(arg, parg), p.tBound) {
-				if isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.parg) {
-					p.tBound = arg
-					return nil
-				}
+		if p.tBound == nil {
+			if !p.typ.contract.Match(pkg, arg) {
+				return fmt.Errorf("TODO: contract.Match %v => %v failed", arg, p.typ.contract)
+			}
+			p.boundTo(pkg, arg, parg)
+		} else if !AssignableTo(pkg, getElemTypeIf(arg, parg), p.tBound) {
+			if !(isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.parg)) {
 				return fmt.Errorf("TODO: boundType %v => %v failed", arg, p.tBound)
 			}
-			return nil
+			p.tBound = arg
 		}
-		return fmt.Errorf("TODO: contract.Match %v => %v failed", arg, p.typ.contract)
+		return nil
 	case *unboundProxyParam:
 		switch param := p.real.(type) {
 		case *types.Pointer:
@@ -313,7 +312,7 @@ func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type
 	if kind == types.UntypedNil {
 	retry:
 		switch tt := t.(type) {
-		case *types.Interface, *types.Slice, *types.Pointer, *types.Map, *types.Chan:
+		case *types.Interface, *types.Slice, *types.Pointer, *types.Map, *types.Signature, *types.Chan:
 			return true
 		case *types.Basic:
 			return tt.Kind() == types.UnsafePointer // invalid: nil == nil
@@ -537,7 +536,7 @@ func toNormalizeSignature(
 
 const (
 	tokUnaryFlag      token.Token = 0x80000
-	tokFlagApproxType token.Token = 0x40000
+	tokFlagApproxType token.Token = 0x40000 // ~T
 	tokFlagAll                    = tokUnaryFlag | tokFlagApproxType
 )
 

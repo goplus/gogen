@@ -1770,10 +1770,10 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 				&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
 		}
 		ret = &internal.Elem{
-			Val:  &ast.BinaryExpr{X: args[0].Val, Op: op, Y: args[1].Val},
+			Val:  &ast.BinaryExpr{X: checkParenExpr(args[0].Val), Op: op, Y: checkParenExpr(args[1].Val)},
 			Type: types.Typ[types.UntypedBool],
 			Src:  expr,
-			CVal: binaryOp(op, args),
+			CVal: binaryOp(p, op, args),
 		}
 	default:
 		name := p.pkg.prefix + binaryOps[op]

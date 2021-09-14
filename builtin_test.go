@@ -549,13 +549,25 @@ func TestBoundElementType(t *testing.T) {
 	}
 }
 
+func TestUnaryOp(t *testing.T) {
+	a := constant.MakeFromLiteral("1e1", token.FLOAT, 0)
+	args := []*internal.Elem{
+		{CVal: a},
+	}
+	nega := unaryOp(token.SUB, args)
+	ret := doBinaryOp(nega, token.NEQ, constant.MakeInt64(-10))
+	if constant.BoolVal(ret) {
+		t.Fatal("TestUnaryOp failed:", nega)
+	}
+}
+
 func TestBinaryOp(t *testing.T) {
 	a := constant.MakeFromLiteral("1e1", token.FLOAT, 0)
 	args := []*internal.Elem{
 		{CVal: a},
 		{CVal: constant.MakeInt64(3)},
 	}
-	if cval := binaryOp(token.SHR, args); constant.Val(cval) != int64(1) {
+	if cval := binaryOp(nil, token.SHR, args); constant.Val(cval) != int64(1) {
 		t.Fatal("binaryOp failed:", cval)
 	}
 	b := constant.MakeFromLiteral("1e100", token.FLOAT, 0)
@@ -565,7 +577,7 @@ func TestBinaryOp(t *testing.T) {
 			t.Fatal("binaryOp failed: no error?")
 		}
 	}()
-	binaryOp(token.SHR, args)
+	binaryOp(nil, token.SHR, args)
 }
 
 func TestBinaryOp2(t *testing.T) {
@@ -574,6 +586,31 @@ func TestBinaryOp2(t *testing.T) {
 	ret := doBinaryOp(i2, token.EQL, j2)
 	if !constant.BoolVal(ret) {
 		t.Fatal("TestBinaryOp2 failed:", ret)
+	}
+}
+
+func TestBinaryOpIssue805(t *testing.T) {
+	a := constant.MakeInt64(5)
+	b := constant.MakeInt64(3)
+	c := constant.MakeInt64(1)
+	args := []*Element{
+		{CVal: a, Type: types.Typ[types.UntypedInt]},
+		{CVal: b, Type: types.Typ[types.UntypedInt]},
+	}
+	a_div_b := binaryOp(nil, token.QUO, args)
+	ret := doBinaryOp(a_div_b, token.NEQ, c)
+	if constant.BoolVal(ret) {
+		t.Fatal("TestBinaryOp failed:", a_div_b, c)
+	}
+	args2 := []*Element{
+		{CVal: a},
+		{CVal: b},
+	}
+	a_div_b2 := binaryOp(nil, token.QUO, args2)
+	a_div_b3 := constant.BinaryOp(a, token.QUO, b)
+	ret2 := doBinaryOp(a_div_b2, token.NEQ, a_div_b3)
+	if constant.BoolVal(ret2) {
+		t.Fatal("TestBinaryOp failed:", a_div_b, c)
 	}
 }
 
@@ -661,6 +698,12 @@ func TestUntypeBig(t *testing.T) {
 		}()
 		untypeBig(pkg, constant.MakeBool(true), pkg.utBigInt)
 	}()
+}
+
+func TestIsUnbound(t *testing.T) {
+	if !isUnboundTuple(types.NewTuple(types.NewParam(token.NoPos, nil, "", &unboundFuncParam{}))) {
+		t.Fatal("TestIsUnbound failed")
+	}
 }
 
 // ----------------------------------------------------------------------------

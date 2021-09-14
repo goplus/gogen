@@ -120,6 +120,25 @@ func newFunc(
 	return fn
 }
 
+func TestErrSwitch(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:2:5: cannot use 1 (type untyped int) as type string",
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Switch().Val(`"x"`, source("x", 1, 3)).Then(). // switch "x"
+				Val(1, source("1", 2, 5)).Val(2).Case(2).      // case 1, 2:
+				/**/ End().
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:5: cannot use 1 (type untyped int) as type bool",
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Switch().None().Then().                   // switch
+				Val(1, source("1", 2, 5)).Val(2).Case(2). // case 1, 2:
+				/**/ End().
+				End()
+		})
+}
+
 func TestErrTypeSwitch(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: impossible type switch case: v (type interface{Bar()}) cannot have dynamic type int (missing Bar method)",
 		func(pkg *gox.Package) {

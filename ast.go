@@ -434,13 +434,29 @@ func unaryOp(tok token.Token, args []*internal.Elem) constant.Value {
 	return nil
 }
 
-func binaryOp(tok token.Token, args []*internal.Elem) constant.Value {
+func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.Value {
 	if len(args) == 2 {
 		if a, b := args[0].CVal, args[1].CVal; a != nil && b != nil {
+			if tok == token.QUO && isNormalInt(cb, args[0]) && isNormalInt(cb, args[1]) {
+				tok = token.QUO_ASSIGN // issue #805
+			}
 			return doBinaryOp(a, tok, b)
 		}
 	}
 	return nil
+}
+
+func isNormalInt(cb *CodeBuilder, arg *internal.Elem) bool { // is integer but not bigint
+	argType := arg.Type
+retry:
+	switch t := argType.(type) {
+	case *types.Basic:
+		return (t.Info() & types.IsInteger) != 0
+	case *types.Named:
+		argType = cb.getUnderlying(t)
+		goto retry
+	}
+	return false
 }
 
 func doBinaryOp(a constant.Value, tok token.Token, b constant.Value) constant.Value {
@@ -479,8 +495,8 @@ var (
 		token.SHL:     binaryOpShift, // <<
 		token.SHR:     binaryOpShift, // >>
 
-		token.LAND: binaryOpCompare, // &&
-		token.LOR:  binaryOpCompare, // ||
+		token.LAND: 0, // &&
+		token.LOR:  0, // ||
 
 		token.LSS: binaryOpCompare,
 		token.LEQ: binaryOpCompare,
@@ -575,7 +591,7 @@ retry:
 		if t.isUnaryOp() {
 			cval = unaryOp(t.tok(), args)
 		} else if t.isOp() {
-			cval = binaryOp(t.tok(), args)
+			cval = binaryOp(&pkg.cb, t.tok(), args)
 		} else if t.hasApproxType() {
 			flags |= instrFlagApproxType
 		}
