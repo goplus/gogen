@@ -557,9 +557,14 @@ retry:
 		for i, v := range args { // TODO: type check
 			valArgs[i] = v.Val
 		}
+		fnVal := fn.Val
+		switch t.typ.(type) {
+		case *types.Pointer, *types.Chan:
+			fnVal = &ast.ParenExpr{X: fnVal}
+		}
 		ret = &internal.Elem{
-			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
-			Type: t.Type(),
+			Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
+			Type: t.typ,
 		}
 		if len(args) == 1 { // TODO: const value may changed by type-convert
 			ret.CVal = args[0].CVal
