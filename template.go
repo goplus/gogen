@@ -291,7 +291,7 @@ func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool
 }
 
 func ComparableTo(pkg *Package, varg, targ *Element) bool {
-	V, T := getUnderlying(pkg, varg.Type), getUnderlying(pkg, targ.Type)
+	V, T := varg.Type, targ.Type
 	if v, ok := V.(*types.Basic); ok {
 		if (v.Info() & types.IsUntyped) != 0 {
 			return untypedComparable(pkg, v, varg, T)
@@ -302,7 +302,7 @@ func ComparableTo(pkg *Package, varg, targ *Element) bool {
 			return untypedComparable(pkg, t, targ, V)
 		}
 	}
-	if V == T {
+	if getUnderlying(pkg, V) == getUnderlying(pkg, T) {
 		return true
 	}
 	return AssignableTo(pkg, V, T) || AssignableTo(pkg, T, V)
@@ -311,11 +311,15 @@ func ComparableTo(pkg *Package, varg, targ *Element) bool {
 func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type) bool {
 	kind := v.Kind()
 	if kind == types.UntypedNil {
+	retry:
 		switch tt := t.(type) {
 		case *types.Interface, *types.Slice, *types.Pointer, *types.Map, *types.Chan:
 			return true
 		case *types.Basic:
 			return tt.Kind() == types.UnsafePointer // invalid: nil == nil
+		case *types.Named:
+			t = pkg.cb.getUnderlying(tt)
+			goto retry
 		}
 	} else {
 		switch u := getUnderlying(pkg, t).(type) {
