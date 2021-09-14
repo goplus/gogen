@@ -291,68 +291,31 @@ func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool
 }
 
 func ComparableTo(pkg *Package, varg, targ *Element) bool {
-	V, T := varg.Type, targ.Type
-	if V == T {
-		return true
-	}
-
-	switch v := V.(type) {
-	case *types.Basic:
+	V, T := getUnderlying(pkg, varg.Type), getUnderlying(pkg, targ.Type)
+	if v, ok := V.(*types.Basic); ok {
 		if (v.Info() & types.IsUntyped) != 0 {
 			return untypedComparable(pkg, v, varg, T)
 		}
-	case *types.Interface:
-		return interfaceComparable(pkg, v, T)
-	case *types.Named:
-		if u, ok := v.Underlying().(*types.Interface); ok {
-			return interfaceComparable(pkg, u, T)
-		}
 	}
-
-	switch t := T.(type) {
-	case *types.Basic:
+	if t, ok := T.(*types.Basic); ok {
 		if (t.Info() & types.IsUntyped) != 0 {
 			return untypedComparable(pkg, t, targ, V)
 		}
-	case *types.Interface:
-		return interfaceComparable(pkg, t, V)
-	case *types.Named:
-		if u, ok := t.Underlying().(*types.Interface); ok {
-			return interfaceComparable(pkg, u, V)
-		}
 	}
-
-	if getUnderlying(pkg, V) != getUnderlying(pkg, T) {
-		return false
-	}
-	return types.Comparable(V)
-}
-
-func interfaceComparable(pkg *Package, v *types.Interface, t types.Type) bool {
-	if types.AssignableTo(t, v) {
+	if V == T {
 		return true
 	}
-	if tt, ok := t.(*types.Named); ok {
-		t = pkg.cb.getUnderlying(tt)
-	}
-	if tt, ok := t.(*types.Interface); ok {
-		return types.AssignableTo(v, tt)
-	}
-	return false
+	return AssignableTo(pkg, V, T) || AssignableTo(pkg, T, V)
 }
 
 func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type) bool {
 	kind := v.Kind()
 	if kind == types.UntypedNil {
-	retry:
 		switch tt := t.(type) {
 		case *types.Interface, *types.Slice, *types.Pointer, *types.Map, *types.Chan:
 			return true
-		case *types.Named:
-			t = pkg.cb.getUnderlying(tt)
-			goto retry
 		case *types.Basic:
-			return tt.Kind() == types.UnsafePointer || tt.Kind() == types.UntypedNil
+			return tt.Kind() == types.UnsafePointer // invalid: nil == nil
 		}
 	} else if u, ok := getUnderlying(pkg, t).(*types.Basic); ok {
 		switch v.Kind() {

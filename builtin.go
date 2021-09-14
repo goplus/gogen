@@ -90,22 +90,22 @@ func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 		// func Gop_Rsh[T integer, N ninteger](a T, n N) T
 
 		{"LT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_LT[T orderable](a, b T) bool
+		// func Gop_LT[T orderable](a, b T) untyped_bool
 
 		{"LE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_LE[T orderable](a, b T) bool
+		// func Gop_LE[T orderable](a, b T) untyped_bool
 
 		{"GT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_GT[T orderable](a, b T) bool
+		// func Gop_GT[T orderable](a, b T) untyped_bool
 
 		{"GE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_GE[T orderable](a, b T) bool
+		// func Gop_GE[T orderable](a, b T) untyped_bool
 
 		{"EQ", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_EQ[T comparable](a, b T) bool
+		// func Gop_EQ[T comparable](a, b T) untyped_bool
 
 		{"NE", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_NE[T comparable](a, b T) bool
+		// func Gop_NE[T comparable](a, b T) untyped_bool
 
 		{"LAnd", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_LAnd[T bool](a, b T) T
@@ -137,7 +137,7 @@ func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 		if op.result != -2 {
 			var ret types.Type
 			if op.result < 0 {
-				ret = types.Typ[types.Bool]
+				ret = types.Typ[types.UntypedBool]
 			} else {
 				ret = tparams[op.result]
 			}

@@ -680,7 +680,7 @@ func untypeBig(pkg *Package, cval constant.Value, tyRet types.Type) (*internal.E
 			panic("unexpected constant")
 		}
 		return pkg.cb.UntypedBigRat(val).stk.Pop(), true
-	case types.Typ[types.Bool]:
+	case types.Typ[types.UntypedBool], types.Typ[types.Bool]:
 		return &internal.Elem{
 			Val: boolean(constant.BoolVal(cval)), Type: tyRet, CVal: cval,
 		}, true

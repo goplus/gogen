@@ -630,4 +630,35 @@ func TestDedupNamedType(t *testing.T) {
 	}
 }
 
+func TestUntypeBig(t *testing.T) {
+	pkg := NewPackage("foo", "foo", nil)
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	big.EnsureImported()
+	pkg.utBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
+	pkg.utBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
+	if ret, ok := untypeBig(pkg, constant.MakeInt64(1), pkg.utBigRat); !ok || ret.Type != pkg.utBigRat {
+		t.Fatal("TestUntypeBig failed:", *ret)
+	}
+	val := constant.Shift(constant.MakeInt64(1), token.SHL, 256)
+	if ret, ok := untypeBig(pkg, val, pkg.utBigRat); !ok || ret.Type != pkg.utBigRat {
+		t.Fatal("TestUntypeBig failed:", *ret)
+	}
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("TestUntypeBig failed: no error?")
+			}
+		}()
+		untypeBig(pkg, constant.MakeBool(true), pkg.utBigRat)
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("TestUntypeBig failed: no error?")
+			}
+		}()
+		untypeBig(pkg, constant.MakeBool(true), pkg.utBigInt)
+	}()
+}
+
 // ----------------------------------------------------------------------------

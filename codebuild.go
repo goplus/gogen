@@ -1771,7 +1771,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 		}
 		ret = &internal.Elem{
 			Val:  &ast.BinaryExpr{X: args[0].Val, Op: op, Y: args[1].Val},
-			Type: types.Typ[types.Bool],
+			Type: types.Typ[types.UntypedBool],
 			Src:  expr,
 		}
 	default:
