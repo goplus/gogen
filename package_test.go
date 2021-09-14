@@ -265,6 +265,27 @@ func main() {
 `)
 }
 
+func TestChanType(t *testing.T) {
+	pkg := newMainPackage()
+	tyInt := types.Typ[types.Int]
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(nil, "c").Val(pkg.Builtin().Ref("make")).
+		Typ(types.NewChan(types.SendRecv, tyInt)).Call(1).EndInit(1).
+		NewVarStart(nil, "c1").Typ(types.NewChan(types.RecvOnly, tyInt)).
+		Val(ctxRef(pkg, "c")).Call(1).EndInit(1).
+		NewVarStart(nil, "c2").Typ(types.NewChan(types.SendOnly, tyInt)).
+		Val(ctxRef(pkg, "c")).Call(1).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var c = make(chan int)
+	var c1 = (<-chan int)(c)
+	var c2 = (chan<- int)(c)
+}
+`)
+}
+
 func TestNew(t *testing.T) {
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Int]
