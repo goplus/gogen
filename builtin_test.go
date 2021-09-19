@@ -708,4 +708,21 @@ func TestIsUnbound(t *testing.T) {
 	}
 }
 
+func TestCheckSignature(t *testing.T) {
+	if CheckSignature(nil) != nil {
+		t.Fatal("TestCheckSignature failed: CheckSignature(nil) != nil")
+	}
+	sig := types.NewSignature(nil, nil, nil, false)
+	if CheckSignature(sig) != sig {
+		t.Fatal("TestCheckSignature failed: CheckSignature(sig) != sig")
+	}
+	pkg := types.NewPackage("", "foo")
+	arg := types.NewParam(token.NoPos, pkg, "", types.Typ[types.Int])
+	sig2 := types.NewSignature(nil, types.NewTuple(arg, arg), nil, false)
+	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
+	if CheckSignature(&templateRecvMethodType{fn: o}) == nil {
+		t.Fatal("TestCheckSignature failed: CheckSignature == nil")
+	}
+}
+
 // ----------------------------------------------------------------------------

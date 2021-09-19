@@ -213,6 +213,24 @@ func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, 
 	return ofn
 }
 
+func CheckSignature(typ types.Type) *types.Signature {
+	switch t := typ.(type) {
+	case *types.Signature:
+		return t
+	case *templateRecvMethodType:
+		if sig, ok := t.fn.Type().(*types.Signature); ok {
+			params := sig.Params()
+			n := params.Len()
+			mparams := make([]*types.Var, n-1)
+			for i := range mparams {
+				mparams[i] = params.At(i + 1)
+			}
+			return types.NewSignature(nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
+		}
+	}
+	return nil
+}
+
 // ----------------------------------------------------------------------------
 
 type Element = internal.Elem
