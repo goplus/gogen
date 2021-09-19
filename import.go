@@ -246,8 +246,8 @@ func checkTemplateMethod(pkg *types.Package, name string, o types.Object) {
 		name = name[len(goptPrefix):]
 		if pos := strings.Index(name, "_"); pos > 0 {
 			tname, mname := name[:pos], name[pos+1:]
-			if o := pkg.Scope().Lookup(tname); o != nil {
-				if tn, ok := o.(*types.TypeName); ok {
+			if tobj := pkg.Scope().Lookup(tname); tobj != nil {
+				if tn, ok := tobj.(*types.TypeName); ok {
 					if t, ok := tn.Type().(*types.Named); ok {
 						if debugImport {
 							log.Println("==> NewTemplateRecvMethod", tname, mname)

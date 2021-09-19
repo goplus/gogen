@@ -607,6 +607,30 @@ retry:
 			restoreArgs(args, backup)
 		}
 		return
+	case *templateRecvMethodType:
+		if mth, ok := fn.Val.(*ast.SelectorExpr); ok {
+			if recv := denoteRecv(mth); recv != nil {
+				backup := backupArgs(args)
+				for i := 0; i < 2; i++ {
+					tfn := toObject(pkg, t.fn, nil)
+					targs := make([]*internal.Elem, len(args)+1)
+					targ0 := *recv
+					if i == 1 {
+						targ0.Val = &ast.UnaryExpr{Op: token.AND, X: targ0.Val}
+						targ0.Type = types.NewPointer(targ0.Type)
+					}
+					targs[0] = &targ0
+					for j, arg := range args {
+						targs[j+1] = arg
+					}
+					if ret, err = matchFuncCall(pkg, tfn, targs, flags); err == nil {
+						return
+					}
+					restoreArgs(args, backup)
+				}
+			}
+		}
+		panic("TODO: unmatched templateRecvMethodType")
 	case *instructionType:
 		return t.instr.Call(pkg, args, flags, fn.Src)
 	case *types.Named:

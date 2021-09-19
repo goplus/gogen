@@ -213,15 +213,6 @@ func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, 
 	return ofn
 }
 
-func CheckTemplateRecvMethod(sig *types.Signature) (fn types.Object, ok bool) {
-	if recv := sig.Recv(); recv != nil {
-		if trmt, ok := recv.Type().(*templateRecvMethodType); ok {
-			return trmt.fn, true
-		}
-	}
-	return nil, false
-}
-
 // ----------------------------------------------------------------------------
 
 type Element = internal.Elem

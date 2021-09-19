@@ -618,3 +618,23 @@ func bar(v *foo.Foo2) {
 }
 
 // ----------------------------------------------------------------------------
+
+func TestTemplateRecvMethod(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gox/internal/bar")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(bar.Ref("Game").Type(), "g").
+		Val(ctxRef(pkg, "g")).MemberVal("Run").Val("Hi").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import bar "github.com/goplus/gox/internal/bar"
+
+func main() {
+	var g bar.Game
+	bar.Gopt_Game_Run(&g, "Hi")
+}
+`)
+}
+
+// ----------------------------------------------------------------------------
