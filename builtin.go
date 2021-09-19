@@ -23,14 +23,10 @@ import (
 	"syscall"
 )
 
-var (
-	defaultNamePrefix = "Go_"
-)
-
-func newBuiltinDefault(pkg PkgImporter, prefix string, conf *Config) *types.Package {
+func newBuiltinDefault(pkg PkgImporter, conf *Config) *types.Package {
 	builtin := types.NewPackage("", "")
-	InitBuiltinOps(builtin, prefix, conf)
-	InitBuiltinAssignOps(builtin, prefix)
+	InitBuiltinOps(builtin, conf)
+	InitBuiltinAssignOps(builtin)
 	InitBuiltinFuncs(builtin)
 	return builtin
 }
@@ -48,7 +44,7 @@ type typeParam struct {
 }
 
 // InitBuiltinOps initializes operators of the builtin package.
-func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
+func InitBuiltinOps(builtin *types.Package, conf *Config) {
 	ops := [...]struct {
 		name    string
 		tparams []typeTParam
@@ -148,7 +144,7 @@ func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 		if n == 1 {
 			tokFlag |= tokUnaryFlag
 		}
-		name := pre + op.name
+		name := goxPrefix + op.name
 		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		if op.name == "Quo" { // func Gop_Quo(a, b untyped_bigint) untyped_bigrat
@@ -163,10 +159,10 @@ func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 	}
 
 	// Inc++, Dec--, Recv<-, Addr& are special cases
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Inc", incInstr{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Dec", decInstr{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Recv", recvInstr{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Addr", addrInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, goxPrefix+"Inc", incInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, goxPrefix+"Dec", decInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, goxPrefix+"Recv", recvInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, goxPrefix+"Addr", addrInstr{}))
 }
 
 func newTParams(params []typeTParam) []*TemplateParamType {
@@ -179,7 +175,7 @@ func newTParams(params []typeTParam) []*TemplateParamType {
 }
 
 // InitBuiltinAssignOps initializes assign operators of the builtin package.
-func InitBuiltinAssignOps(builtin *types.Package, pre string) {
+func InitBuiltinAssignOps(builtin *types.Package) {
 	ops := [...]struct {
 		name     string
 		t        Contract
@@ -228,7 +224,7 @@ func InitBuiltinAssignOps(builtin *types.Package, pre string) {
 		} else {
 			params[1] = types.NewParam(token.NoPos, builtin, "b", tparams[0])
 		}
-		name := pre + op.name
+		name := goxPrefix + op.name
 		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), nil, false, 0)
 		tfn := NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		gbl.Insert(tfn)

@@ -1612,7 +1612,7 @@ func (p *CodeBuilder) AssignOp(op token.Token, src ...ast.Node) *CodeBuilder {
 }
 
 func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem) ast.Stmt {
-	name := pkg.prefix + assignOps[tok]
+	name := goxPrefix + assignOps[tok]
 	if debugInstr {
 		log.Println("AssignOp", tok, name)
 	}
@@ -1776,7 +1776,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 			CVal: binaryOp(p, op, args),
 		}
 	default:
-		name := p.pkg.prefix + binaryOps[op]
+		name := goxPrefix + binaryOps[op]
 		ret = callOpFunc(p.pkg, name, args, 0)
 		ret.Src = expr
 	}
@@ -1822,7 +1822,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 	if twoValue != nil && twoValue[0] {
 		flags = InstrFlagTwoValue
 	}
-	name := p.pkg.prefix + unaryOps[op]
+	name := goxPrefix + unaryOps[op]
 	if debugInstr {
 		log.Println("UnaryOp", op, flags, name)
 	}
@@ -1849,7 +1849,7 @@ func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
 	}
 	pkg := p.pkg
 	args := p.stk.GetArgs(1)
-	name := pkg.prefix + incdecOps[op]
+	name := goxPrefix + incdecOps[op]
 	fn := pkg.builtin.Scope().Lookup(name)
 	if fn == nil {
 		panic("TODO: operator not matched")

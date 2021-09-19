@@ -380,9 +380,13 @@ type autoNames struct {
 	idx     int
 }
 
+const (
+	goxAutoPrefix = "_autoGo_"
+)
+
 func (p *Package) autoName() string {
 	p.autoIdx++
-	return p.autoPrefix + strconv.Itoa(p.autoIdx)
+	return goxAutoPrefix + strconv.Itoa(p.autoIdx)
 }
 
 func (p *Package) newAutoNames() *autoNames {

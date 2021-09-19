@@ -23,10 +23,6 @@ import (
 	"github.com/goplus/gox"
 )
 
-var (
-	gopNamePrefix = "Gop_"
-)
-
 func initGopBuiltin(pkg gox.PkgImporter, conf *gox.Config) {
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	big.EnsureImported()
@@ -35,10 +31,10 @@ func initGopBuiltin(pkg gox.PkgImporter, conf *gox.Config) {
 	conf.UntypedBigFloat = big.Ref("Gop_untyped_bigfloat").Type().(*types.Named)
 }
 
-func newGopBuiltinDefault(pkg gox.PkgImporter, prefix string, conf *gox.Config) *types.Package {
+func newGopBuiltinDefault(pkg gox.PkgImporter, conf *gox.Config) *types.Package {
 	builtin := types.NewPackage("", "")
 	initGopBuiltin(pkg, conf)
-	gox.InitBuiltinOps(builtin, prefix, conf)
+	gox.InitBuiltinOps(builtin, conf)
 	gox.InitBuiltinFuncs(builtin)
 	return builtin
 }
@@ -49,7 +45,6 @@ func newGopMainPackage() *gox.Package {
 		LoadPkgs:   gblLoadPkgs,
 		ModPath:    "github.com/goplus/gox",
 		NewBuiltin: newGopBuiltinDefault,
-		Prefix:     gopNamePrefix,
 	}
 	return gox.NewPackage("", "main", conf)
 }

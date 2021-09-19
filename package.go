@@ -135,11 +135,8 @@ type Config struct {
 	// LoadNamed is called to load a delay-loaded named type.
 	LoadNamed LoadNamedFunc
 
-	// Prefix is name prefix.
-	Prefix string
-
 	// NewBuiltin is to create the builin package.
-	NewBuiltin func(pkg PkgImporter, prefix string, conf *Config) *types.Package
+	NewBuiltin func(pkg PkgImporter, conf *Config) *types.Package
 
 	// untyped bigint, untyped bigrat, untyped bigfloat
 	UntypedBigInt, UntypedBigRat, UntypedBigFloat *types.Named
@@ -312,26 +309,24 @@ type Package struct {
 	files       [2]file
 	conf        *Config
 	modPath     string
-	prefix      string
 	Fset        *token.FileSet
 	builtin     *types.Package
 	utBigInt    *types.Named
 	utBigRat    *types.Named
 	utBigFlt    *types.Named
 	loadPkgs    LoadPkgsFunc
-	autoPrefix  string
 	autoIdx     int
 	testingFile int
 }
+
+const (
+	goxPrefix = "Gop_"
+)
 
 // NewPackage creates a new package.
 func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if conf == nil {
 		conf = &Config{}
-	}
-	prefix := conf.Prefix
-	if prefix == "" {
-		prefix = defaultNamePrefix
 	}
 	newBuiltin := conf.NewBuiltin
 	if newBuiltin == nil {
@@ -346,16 +341,14 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		{importPkgs: make(map[string]*PkgRef)},
 	}
 	pkg := &Package{
-		Fset:       conf.Fset,
-		files:      files,
-		conf:       conf,
-		modPath:    conf.ModPath,
-		prefix:     prefix,
-		loadPkgs:   loadPkgs,
-		autoPrefix: "_auto" + prefix,
+		Fset:     conf.Fset,
+		files:    files,
+		conf:     conf,
+		modPath:  conf.ModPath,
+		loadPkgs: loadPkgs,
 	}
 	pkg.Types = types.NewPackage(pkgPath, name)
-	pkg.builtin = newBuiltin(pkg, prefix, conf)
+	pkg.builtin = newBuiltin(pkg, conf)
 	pkg.utBigInt = conf.UntypedBigInt
 	pkg.utBigRat = conf.UntypedBigRat
 	pkg.utBigFlt = conf.UntypedBigFloat
