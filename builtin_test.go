@@ -380,6 +380,7 @@ func TestImported(t *testing.T) {
 	if _, ok := cached.imported("foo"); ok {
 		t.Fatal("TestImported failed")
 	}
+	NewLoadPkgsCached(nil)
 }
 
 func TestToFields(t *testing.T) {
@@ -412,6 +413,7 @@ func TestUnderlying(t *testing.T) {
 		&unboundType{},
 		&unboundMapElemType{},
 		&overloadFuncType{},
+		&templateRecvMethodType{},
 		&instructionType{},
 		&TypeType{},
 		&unboundFuncParam{},

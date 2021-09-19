@@ -186,8 +186,8 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 }
 
 func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
-	ofnt := &overloadFuncType{funcs}
-	recv := types.NewParam(token.NoPos, pkg, "", ofnt)
+	oft := &overloadFuncType{funcs}
+	recv := types.NewParam(token.NoPos, pkg, "", oft)
 	sig := types.NewSignature(recv, nil, nil, false)
 	ofn := types.NewFunc(pos, pkg, name, sig)
 	typ.AddMethod(ofn)
@@ -198,6 +198,25 @@ func CheckOverloadMethod(sig *types.Signature) (funcs []types.Object, ok bool) {
 	if recv := sig.Recv(); recv != nil {
 		if oft, ok := recv.Type().(*overloadFuncType); ok {
 			return oft.funcs, true
+		}
+	}
+	return nil, false
+}
+
+// NewTemplateRecvMethod - https://github.com/goplus/gop/issues/811
+func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, fn types.Object) *types.Func {
+	trmt := &templateRecvMethodType{fn}
+	recv := types.NewParam(token.NoPos, pkg, "", trmt)
+	sig := types.NewSignature(recv, nil, nil, false)
+	ofn := types.NewFunc(pos, pkg, name, sig)
+	typ.AddMethod(ofn)
+	return ofn
+}
+
+func CheckTemplateRecvMethod(sig *types.Signature) (fn types.Object, ok bool) {
+	if recv := sig.Recv(); recv != nil {
+		if trmt, ok := recv.Type().(*templateRecvMethodType); ok {
+			return trmt.fn, true
 		}
 	}
 	return nil, false

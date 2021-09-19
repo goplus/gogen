@@ -497,6 +497,23 @@ func (p *overloadFuncType) String() string {
 	return fmt.Sprintf("overloadFuncType{funcs: %v}", p.funcs)
 }
 
+// ----------------------------------------------------------------------------
+
+type templateRecvMethodType struct {
+	fn types.Object
+}
+
+func (p *templateRecvMethodType) Underlying() types.Type {
+	fatal("template recv method type")
+	return nil
+}
+
+func (p *templateRecvMethodType) String() string {
+	return fmt.Sprintf("templateRecvMethodType{fn: %v}", p.fn)
+}
+
+// ----------------------------------------------------------------------------
+
 type instructionType struct {
 	instr Instruction
 }
