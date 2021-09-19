@@ -709,6 +709,7 @@ func TestIsUnbound(t *testing.T) {
 }
 
 func TestCheckSignature(t *testing.T) {
+	denoteRecv(&ast.SelectorExpr{Sel: ident("x")})
 	if CheckSignature(nil) != nil {
 		t.Fatal("TestCheckSignature failed: CheckSignature(nil) != nil")
 	}
@@ -723,6 +724,17 @@ func TestCheckSignature(t *testing.T) {
 	if CheckSignature(&templateRecvMethodType{fn: o}) == nil {
 		t.Fatal("TestCheckSignature failed: CheckSignature == nil")
 	}
+}
+
+func TestErrWriteFile(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	pkg.Types = nil
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestErrWriteFile: no error?")
+		}
+	}()
+	WriteFile("_gop_autogen.go", pkg, false)
 }
 
 // ----------------------------------------------------------------------------

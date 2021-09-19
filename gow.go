@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"syscall"
 
 	"github.com/goplus/gox/internal/go/format"
 )
@@ -40,13 +41,19 @@ func WriteTo(dst io.Writer, pkg *Package, testingFile bool) (err error) {
 // WriteFile func
 func WriteFile(file string, pkg *Package, testingFile bool) (err error) {
 	if debugWriteFile {
-		log.Println("WriteFile", file, testingFile)
+		log.Println("WriteFile", file, "testing:", testingFile)
 	}
 	f, err := os.Create(file)
 	if err != nil {
 		return
 	}
-	defer f.Close()
+	err = syscall.EFAULT
+	defer func() {
+		f.Close()
+		if err != nil {
+			os.Remove(file)
+		}
+	}()
 	return WriteTo(f, pkg, testingFile)
 }
 
