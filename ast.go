@@ -626,11 +626,14 @@ retry:
 					if ret, err = matchFuncCall(pkg, tfn, targs, flags); err == nil {
 						return
 					}
+					if isPointer(targ0.Type) {
+						break
+					}
 					restoreArgs(args, backup)
 				}
 			}
 		}
-		panic("TODO: unmatched templateRecvMethodType")
+		fatal("TODO: unmatched templateRecvMethodType")
 	case *instructionType:
 		return t.instr.Call(pkg, args, flags, fn.Src)
 	case *types.Named:
@@ -674,6 +677,11 @@ retry:
 		Type: tyRet, CVal: cval,
 		Val: &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 	}, nil
+}
+
+func isPointer(typ types.Type) bool {
+	_, ok := typ.(*types.Pointer)
+	return ok
 }
 
 func checkParenExpr(x ast.Expr) ast.Expr {

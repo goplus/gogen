@@ -637,4 +637,18 @@ func main() {
 `)
 }
 
+func TestErrTemplateRecvMethod(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gox/internal/bar")
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestErrTemplateRecvMethod: no error?")
+		}
+	}()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.NewPointer(bar.Ref("Game").Type()), "g").
+		Val(ctxRef(pkg, "g")).MemberVal("Run").Call(0).EndStmt().
+		End()
+}
+
 // ----------------------------------------------------------------------------
