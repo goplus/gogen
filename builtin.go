@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"fmt"
 	"go/ast"
 	"go/constant"
 	"go/token"
@@ -751,8 +752,14 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 		pos.Column += len("unsafe.Offsetof")
 		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: argument is a method value", s)
 	}
-	fields := getFieldList(pkg, denoteRecv(sel).Type, sel.Sel.Name)
-	offset := std.Offsetsof(fields)[len(fields)-1]
+	typ := getStruct(pkg, denoteRecv(sel).Type)
+	_, index, _ := types.LookupFieldOrMethod(typ, false, pkg.Types, sel.Sel.Name)
+	offset, err := offsetof(typ, index)
+	if err != nil {
+		s, pos := pkg.cb.loadExpr(src)
+		pos.Column += len("unsafe.Offsetof")
+		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: %v", s, err)
+	}
 	//var offset int64
 	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Offsetof"))
 	ret = &Element{
@@ -779,25 +786,28 @@ retry:
 	return nil
 }
 
-func getFieldList(pkg *Package, typ types.Type, field string) (fields []*types.Var) {
-	t := getStruct(pkg, typ)
-	if t == nil {
-		return nil
+func offsetsof(T *types.Struct) []int64 {
+	var fields []*types.Var
+	for i := 0; i < T.NumFields(); i++ {
+		fields = append(fields, T.Field(i))
 	}
-	for i := 0; i < t.NumFields(); i++ {
-		f := t.Field(i)
-		if f.Embedded() {
-			if fs := getFieldList(pkg, f.Type(), field); fs != nil {
-				fields = append(fields, fs...)
-			}
-		} else {
-			fields = append(fields, f)
+	return std.Offsetsof(fields)
+}
+
+// offsetof returns the offset of the field specified via
+// the index sequence relative to typ. All embedded fields
+// must be structs (rather than pointer to structs).
+func offsetof(typ types.Type, index []int) (int64, error) {
+	var o int64
+	for _, i := range index {
+		if t, ok := typ.(*types.Pointer); ok {
+			return -1, fmt.Errorf("selector implies indirection of embedded %v", t.Elem())
 		}
-		if f.Name() == field {
-			break
-		}
+		s := typ.Underlying().(*types.Struct)
+		o += offsetsof(s)[i]
+		typ = s.Field(i).Type()
 	}
-	return fields
+	return o, nil
 }
 
 type unsafeAddInstr struct{}
