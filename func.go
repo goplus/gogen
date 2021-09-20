@@ -59,6 +59,18 @@ type Func struct {
 	old  funcBodyCtx
 }
 
+// Ancestor returns ancestor of a closure function.
+// It returns itself if the specified func is a normal function.
+func (p *Func) Ancestor() *Func {
+	for {
+		if fn := p.old.fn; fn != nil {
+			p = fn
+			continue
+		}
+		return p
+	}
+}
+
 // BodyStart func
 func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 	if debugInstr {
@@ -213,10 +225,21 @@ func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, 
 	return ofn
 }
 
-func CheckSignature(typ types.Type) *types.Signature {
+func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 	switch t := typ.(type) {
 	case *types.Signature:
-		return t
+		if funcs, ok := CheckOverloadMethod(t); ok {
+			for _, v := range funcs {
+				if sig, ok := v.Type().(*types.Signature); ok {
+					params := sig.Params()
+					if idx < params.Len() && checkSigParam(params.At(idx), nin) {
+						return sig
+					}
+				}
+			}
+		} else {
+			return t
+		}
 	case *templateRecvMethodType:
 		if sig, ok := t.fn.Type().(*types.Signature); ok {
 			params := sig.Params()
@@ -228,7 +251,24 @@ func CheckSignature(typ types.Type) *types.Signature {
 			return types.NewSignature(nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
 		}
 	}
+	log.Println("[ERROR] CheckSignature: not found -", typ)
 	return nil
+}
+
+func checkSigParam(v *types.Var, nin int) bool {
+	typ := v.Type()
+	if nin < 0 { // input is CompositeLit
+		if t, ok := typ.(*types.Pointer); ok {
+			typ = t.Elem()
+		}
+		switch typ.(type) {
+		case *types.Struct, *types.Named:
+			return true
+		}
+	} else if t, ok := typ.(*types.Signature); ok {
+		return t.Params().Len() == nin
+	}
+	return false
 }
 
 // ----------------------------------------------------------------------------
