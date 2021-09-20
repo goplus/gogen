@@ -229,17 +229,12 @@ func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 	switch t := typ.(type) {
 	case *types.Signature:
 		if funcs, ok := CheckOverloadMethod(t); ok {
-			for _, v := range funcs {
-				if sig, ok := v.Type().(*types.Signature); ok {
-					params := sig.Params()
-					if idx < params.Len() && checkSigParam(params.At(idx), nin) {
-						return sig
-					}
-				}
-			}
+			return checkOverloadFuncs(funcs, idx, nin)
 		} else {
 			return t
 		}
+	case *overloadFuncType:
+		return checkOverloadFuncs(t.funcs, idx, nin)
 	case *templateRecvMethodType:
 		if sig, ok := t.fn.Type().(*types.Signature); ok {
 			params := sig.Params()
@@ -251,12 +246,22 @@ func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 			return types.NewSignature(nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
 		}
 	}
-	log.Println("[ERROR] CheckSignature: not found -", typ)
 	return nil
 }
 
-func checkSigParam(v *types.Var, nin int) bool {
-	typ := v.Type()
+func checkOverloadFuncs(funcs []types.Object, idx, nin int) *types.Signature {
+	for _, v := range funcs {
+		if sig, ok := v.Type().(*types.Signature); ok {
+			params := sig.Params()
+			if idx < params.Len() && checkSigParam(params.At(idx).Type(), nin) {
+				return sig
+			}
+		}
+	}
+	return nil
+}
+
+func checkSigParam(typ types.Type, nin int) bool {
 	if nin < 0 { // input is CompositeLit
 		if t, ok := typ.(*types.Pointer); ok {
 			typ = t.Elem()

@@ -710,19 +710,45 @@ func TestIsUnbound(t *testing.T) {
 
 func TestCheckSignature(t *testing.T) {
 	denoteRecv(&ast.SelectorExpr{Sel: ident("x")})
-	if CheckSignature(nil) != nil {
+	if CheckSignature(nil, 0, 0) != nil {
 		t.Fatal("TestCheckSignature failed: CheckSignature(nil) != nil")
 	}
 	sig := types.NewSignature(nil, nil, nil, false)
-	if CheckSignature(sig) != sig {
+	if CheckSignature(sig, 0, 0) != sig {
 		t.Fatal("TestCheckSignature failed: CheckSignature(sig) != sig")
 	}
 	pkg := types.NewPackage("", "foo")
-	arg := types.NewParam(token.NoPos, pkg, "", types.Typ[types.Int])
+	arg := types.NewParam(token.NoPos, pkg, "", sig)
 	sig2 := types.NewSignature(nil, types.NewTuple(arg, arg), nil, false)
 	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
-	if CheckSignature(&templateRecvMethodType{fn: o}) == nil {
+	if CheckSignature(&templateRecvMethodType{fn: o}, 0, 0) == nil {
 		t.Fatal("TestCheckSignature failed: CheckSignature == nil")
+	}
+
+	of := NewOverloadFunc(token.NoPos, pkg, "bar", o)
+	if CheckSignature(of.Type(), 0, 0) == nil {
+		t.Fatal("TestCheckSignature failed: OverloadFunc CheckSignature == nil")
+	}
+
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "t", nil), types.Typ[types.Int], nil)
+	om := NewOverloadMethod(typ, token.NoPos, pkg, "bar", o)
+	if CheckSignature(om.Type(), 0, 1) != nil {
+		t.Fatal("TestCheckSignature failed: OverloadMethod CheckSignature != nil")
+	}
+}
+
+func TestCheckSigParam(t *testing.T) {
+	if checkSigParam(types.NewPointer(types.Typ[types.Int]), -1) {
+		t.Fatal("TestCheckSigParam failed: checkSigParam *int should return false")
+	}
+	pkg := types.NewPackage("", "foo")
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "t", nil), types.Typ[types.Int], nil)
+	if !checkSigParam(typ, -1) {
+		t.Fatal("TestCheckSigParam failed: checkSigParam *t should return true")
+	}
+	typ2 := types.NewStruct(nil, nil)
+	if !checkSigParam(typ2, -1) {
+		t.Fatal("TestCheckSigParam failed: checkSigParam *t should return true")
 	}
 }
 
