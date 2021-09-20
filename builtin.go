@@ -735,28 +735,69 @@ func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags
 
 type unsafeOffsetofInstr struct{}
 
-// TODO: unsafe.Offsetof should have CVal
 // func unsafe.Offsetof(x ArbitraryType) uintptr
 func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Offsetof", 1, len(args), src)
 
-	if _, ok := args[0].Val.(*ast.SelectorExpr); !ok {
+	var sel *ast.SelectorExpr
+	var ok bool
+	if sel, ok = args[0].Val.(*ast.SelectorExpr); !ok {
 		s, pos := pkg.cb.loadExpr(src)
 		pos.Column += len("unsafe.Offsetof")
 		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v", s)
 	}
-	if _, ok := args[0].Type.(*types.Signature); ok {
+	if _, ok = args[0].Type.(*types.Signature); ok {
 		s, pos := pkg.cb.loadExpr(src)
 		pos.Column += len("unsafe.Offsetof")
 		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: argument is a method value", s)
 	}
+	fields := getFieldList(pkg, denoteRecv(sel).Type, sel.Sel.Name)
+	offset := std.Offsetsof(fields)[len(fields)-1]
+	//var offset int64
 	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Offsetof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
+		CVal: constant.MakeInt64(offset),
 		Src:  src,
 	}
 	return
+}
+
+func getStruct(pkg *Package, typ types.Type) *types.Struct {
+retry:
+	switch t := typ.(type) {
+	case *types.Struct:
+		return t
+	case *types.Pointer:
+		typ = t.Elem()
+		goto retry
+	case *types.Named:
+		typ = pkg.cb.getUnderlying(t)
+		goto retry
+	}
+	return nil
+}
+
+func getFieldList(pkg *Package, typ types.Type, field string) (fields []*types.Var) {
+	t := getStruct(pkg, typ)
+	if t == nil {
+		return nil
+	}
+	for i := 0; i < t.NumFields(); i++ {
+		f := t.Field(i)
+		if f.Embedded() {
+			if fs := getFieldList(pkg, f.Type(), field); fs != nil {
+				fields = append(fields, fs...)
+			}
+		} else {
+			fields = append(fields, f)
+		}
+		if f.Name() == field {
+			break
+		}
+	}
+	return fields
 }
 
 type unsafeAddInstr struct{}

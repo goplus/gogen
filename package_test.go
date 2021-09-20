@@ -1447,6 +1447,10 @@ func TestUnsafeConst(t *testing.T) {
 		Val(builtin.Ref("Alignof")).Val("hello").Call(1).EndInit(1)
 	pkg.CB().NewConstStart(nil, "c4").
 		Val(builtin.Ref("Alignof")).Val(ctxRef(pkg, "t")).Call(1).EndInit(1)
+	pkg.CB().NewConstStart(nil, "c5").
+		Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("y").Call(1).EndInit(1)
+	pkg.CB().NewConstStart(nil, "c6").
+		Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("n").Call(1).EndInit(1)
 
 	domTest(t, pkg, `package main
 
@@ -1468,6 +1472,8 @@ const c1 = unsafe.Sizeof(100)
 const c2 = unsafe.Sizeof(t)
 const c3 = unsafe.Alignof("hello")
 const c4 = unsafe.Alignof(t)
+const c5 = unsafe.Offsetof(t.y)
+const c6 = unsafe.Offsetof(t.n)
 `)
 	c1 := pkg.CB().Val(builtin.Ref("Sizeof")).Val(ctxRef(pkg, "t")).Call(1).Get(-1)
 	if v, ok := constant.Int64Val(c1.CVal); !ok || uintptr(v) != (unsafe.Sizeof(int(0))*2+unsafe.Sizeof("")*2) {
@@ -1476,6 +1482,14 @@ const c4 = unsafe.Alignof(t)
 	c2 := pkg.CB().Val(builtin.Ref("Alignof")).Val(ctxRef(pkg, "t")).Call(1).Get(-1)
 	if v, ok := constant.Int64Val(c2.CVal); !ok || uintptr(v) != unsafe.Alignof("") {
 		t.Fatalf("unsafe.Alignof(t) %v", c2.CVal)
+	}
+	c3 := pkg.CB().Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("y").Call(1).Get(-1)
+	if v, ok := constant.Int64Val(c3.CVal); !ok || uintptr(v) != unsafe.Sizeof(int(0)) {
+		t.Fatalf("unsafe.Offsetof(t.y) %v", c3.CVal)
+	}
+	c4 := pkg.CB().Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("n").Call(1).Get(-1)
+	if v, ok := constant.Int64Val(c4.CVal); !ok || uintptr(v) != (unsafe.Sizeof(int(0))*2+unsafe.Sizeof("")) {
+		t.Fatalf("unsafe.Offsetof(t.n) %v", c4.CVal)
 	}
 }
 
