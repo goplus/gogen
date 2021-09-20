@@ -143,11 +143,14 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int) {
 		for i, arg := range cb.stk.GetArgs(n) {
 			if p.tag.Val != nil { // switch tag {...}
 				if !ComparableTo(cb.pkg, arg, p.tag) {
-					log.Panicf("TODO: case expr can't compare %v to %v\n", arg.Type, p.tag.Type)
+					src, pos := cb.loadExpr(arg.Src)
+					cb.panicCodeErrorf(
+						&pos, "cannot use %s (type %v) as type %v", src, arg.Type, types.Default(p.tag.Type))
 				}
 			} else { // switch {...}
-				if !types.AssignableTo(arg.Type, types.Typ[types.Bool]) {
-					log.Panicln("TODO: case expr is not a boolean expr")
+				if !types.AssignableTo(arg.Type, types.Typ[types.Bool]) && arg.Type != TyEmptyInterface {
+					src, pos := cb.loadExpr(arg.Src)
+					cb.panicCodeErrorf(&pos, "cannot use %s (type %v) as type bool", src, arg.Type)
 				}
 			}
 			list[i] = arg.Val

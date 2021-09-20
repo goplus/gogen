@@ -133,12 +133,14 @@ func TestComparableTo2(t *testing.T) {
 		{bar1, types.Typ[types.UntypedNil], true},
 		{tySlice, types.Typ[types.UntypedInt], false},
 		{types.Typ[types.UntypedInt], tySlice, false},
+		{TyEmptyInterface, types.Typ[types.UntypedInt], true},
+		{types.Typ[types.UntypedInt], TyEmptyInterface, true},
 	}
 	for _, a := range cases {
 		av := &Element{Type: a.v}
 		at := &Element{Type: a.t}
 		if ret := ComparableTo(pkg, av, at); ret != a.ret {
-			t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", av, at, ret)
+			t.Fatalf("Failed: ComparableTo %v => %v returns %v\n", a.v, a.t, ret)
 		}
 	}
 	av := &Element{Type: types.Typ[types.UntypedFloat], CVal: constant.MakeFromLiteral("1e1", token.FLOAT, 0)}
@@ -378,6 +380,7 @@ func TestImported(t *testing.T) {
 	if _, ok := cached.imported("foo"); ok {
 		t.Fatal("TestImported failed")
 	}
+	NewLoadPkgsCached(nil)
 }
 
 func TestToFields(t *testing.T) {
@@ -410,6 +413,7 @@ func TestUnderlying(t *testing.T) {
 		&unboundType{},
 		&unboundMapElemType{},
 		&overloadFuncType{},
+		&templateRecvMethodType{},
 		&instructionType{},
 		&TypeType{},
 		&unboundFuncParam{},
@@ -547,13 +551,25 @@ func TestBoundElementType(t *testing.T) {
 	}
 }
 
+func TestUnaryOp(t *testing.T) {
+	a := constant.MakeFromLiteral("1e1", token.FLOAT, 0)
+	args := []*internal.Elem{
+		{CVal: a},
+	}
+	nega := unaryOp(token.SUB, args)
+	ret := doBinaryOp(nega, token.NEQ, constant.MakeInt64(-10))
+	if constant.BoolVal(ret) {
+		t.Fatal("TestUnaryOp failed:", nega)
+	}
+}
+
 func TestBinaryOp(t *testing.T) {
 	a := constant.MakeFromLiteral("1e1", token.FLOAT, 0)
 	args := []*internal.Elem{
 		{CVal: a},
 		{CVal: constant.MakeInt64(3)},
 	}
-	if cval := binaryOp(token.SHR, args); constant.Val(cval) != int64(1) {
+	if cval := binaryOp(nil, token.SHR, args); constant.Val(cval) != int64(1) {
 		t.Fatal("binaryOp failed:", cval)
 	}
 	b := constant.MakeFromLiteral("1e100", token.FLOAT, 0)
@@ -563,7 +579,7 @@ func TestBinaryOp(t *testing.T) {
 			t.Fatal("binaryOp failed: no error?")
 		}
 	}()
-	binaryOp(token.SHR, args)
+	binaryOp(nil, token.SHR, args)
 }
 
 func TestBinaryOp2(t *testing.T) {
@@ -572,6 +588,31 @@ func TestBinaryOp2(t *testing.T) {
 	ret := doBinaryOp(i2, token.EQL, j2)
 	if !constant.BoolVal(ret) {
 		t.Fatal("TestBinaryOp2 failed:", ret)
+	}
+}
+
+func TestBinaryOpIssue805(t *testing.T) {
+	a := constant.MakeInt64(5)
+	b := constant.MakeInt64(3)
+	c := constant.MakeInt64(1)
+	args := []*Element{
+		{CVal: a, Type: types.Typ[types.UntypedInt]},
+		{CVal: b, Type: types.Typ[types.UntypedInt]},
+	}
+	a_div_b := binaryOp(nil, token.QUO, args)
+	ret := doBinaryOp(a_div_b, token.NEQ, c)
+	if constant.BoolVal(ret) {
+		t.Fatal("TestBinaryOp failed:", a_div_b, c)
+	}
+	args2 := []*Element{
+		{CVal: a},
+		{CVal: b},
+	}
+	a_div_b2 := binaryOp(nil, token.QUO, args2)
+	a_div_b3 := constant.BinaryOp(a, token.QUO, b)
+	ret2 := doBinaryOp(a_div_b2, token.NEQ, a_div_b3)
+	if constant.BoolVal(ret2) {
+		t.Fatal("TestBinaryOp failed:", a_div_b, c)
 	}
 }
 
@@ -628,6 +669,98 @@ func TestDedupNamedType(t *testing.T) {
 	if !dedup || typ3 != types.Typ[types.Int] {
 		t.Fatal("TestDedupNamedType failed:", typ3, dedup)
 	}
+}
+
+func TestUntypeBig(t *testing.T) {
+	pkg := NewPackage("foo", "foo", nil)
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	big.EnsureImported()
+	pkg.utBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
+	pkg.utBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
+	if ret, ok := untypeBig(pkg, constant.MakeInt64(1), pkg.utBigRat); !ok || ret.Type != pkg.utBigRat {
+		t.Fatal("TestUntypeBig failed:", *ret)
+	}
+	val := constant.Shift(constant.MakeInt64(1), token.SHL, 256)
+	if ret, ok := untypeBig(pkg, val, pkg.utBigRat); !ok || ret.Type != pkg.utBigRat {
+		t.Fatal("TestUntypeBig failed:", *ret)
+	}
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("TestUntypeBig failed: no error?")
+			}
+		}()
+		untypeBig(pkg, constant.MakeBool(true), pkg.utBigRat)
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("TestUntypeBig failed: no error?")
+			}
+		}()
+		untypeBig(pkg, constant.MakeBool(true), pkg.utBigInt)
+	}()
+}
+
+func TestIsUnbound(t *testing.T) {
+	if !isUnboundTuple(types.NewTuple(types.NewParam(token.NoPos, nil, "", &unboundFuncParam{}))) {
+		t.Fatal("TestIsUnbound failed")
+	}
+}
+
+func TestCheckSignature(t *testing.T) {
+	denoteRecv(&ast.SelectorExpr{Sel: ident("x")})
+	if CheckSignature(nil, 0, 0) != nil {
+		t.Fatal("TestCheckSignature failed: CheckSignature(nil) != nil")
+	}
+	sig := types.NewSignature(nil, nil, nil, false)
+	if CheckSignature(sig, 0, 0) != sig {
+		t.Fatal("TestCheckSignature failed: CheckSignature(sig) != sig")
+	}
+	pkg := types.NewPackage("", "foo")
+	arg := types.NewParam(token.NoPos, pkg, "", sig)
+	sig2 := types.NewSignature(nil, types.NewTuple(arg, arg), nil, false)
+	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
+	if CheckSignature(&templateRecvMethodType{fn: o}, 0, 0) == nil {
+		t.Fatal("TestCheckSignature failed: CheckSignature == nil")
+	}
+
+	of := NewOverloadFunc(token.NoPos, pkg, "bar", o)
+	if CheckSignature(of.Type(), 0, 0) == nil {
+		t.Fatal("TestCheckSignature failed: OverloadFunc CheckSignature == nil")
+	}
+
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "t", nil), types.Typ[types.Int], nil)
+	om := NewOverloadMethod(typ, token.NoPos, pkg, "bar", o)
+	if CheckSignature(om.Type(), 0, 1) != nil {
+		t.Fatal("TestCheckSignature failed: OverloadMethod CheckSignature != nil")
+	}
+}
+
+func TestCheckSigParam(t *testing.T) {
+	if checkSigParam(types.NewPointer(types.Typ[types.Int]), -1) {
+		t.Fatal("TestCheckSigParam failed: checkSigParam *int should return false")
+	}
+	pkg := types.NewPackage("", "foo")
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "t", nil), types.Typ[types.Int], nil)
+	if !checkSigParam(typ, -1) {
+		t.Fatal("TestCheckSigParam failed: checkSigParam *t should return true")
+	}
+	typ2 := types.NewStruct(nil, nil)
+	if !checkSigParam(typ2, -1) {
+		t.Fatal("TestCheckSigParam failed: checkSigParam *t should return true")
+	}
+}
+
+func TestErrWriteFile(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	pkg.Types = nil
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestErrWriteFile: no error?")
+		}
+	}()
+	WriteFile("_gop_autogen.go", pkg, false)
 }
 
 // ----------------------------------------------------------------------------

@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/tools/go/packages"
@@ -213,6 +214,8 @@ func initGopPkg(pkg *types.Package) {
 					moverloads[key] = append(moverloads[key], m)
 				}
 			}
+		} else {
+			checkTemplateMethod(pkg, name, o)
 		}
 	}
 	for key, items := range overloads {
@@ -221,7 +224,9 @@ func initGopPkg(pkg *types.Package) {
 		if debugImport {
 			log.Println("==> NewOverloadFunc", key)
 		}
-		scope.Insert(NewOverloadFunc(token.NoPos, pkg, key, fns...))
+		o := NewOverloadFunc(token.NoPos, pkg, key, fns...)
+		scope.Insert(o)
+		checkTemplateMethod(pkg, key, o)
 	}
 	for key, items := range moverloads {
 		off := len(key.mthd) + 2
@@ -230,6 +235,28 @@ func initGopPkg(pkg *types.Package) {
 			log.Println("==> NewOverloadMethod", key.named.Obj().Name(), key.mthd)
 		}
 		NewOverloadMethod(key.named, token.NoPos, pkg, key.mthd, fns...)
+	}
+}
+
+func checkTemplateMethod(pkg *types.Package, name string, o types.Object) {
+	const (
+		goptPrefix = "Gopt_"
+	)
+	if strings.HasPrefix(name, goptPrefix) {
+		name = name[len(goptPrefix):]
+		if pos := strings.Index(name, "_"); pos > 0 {
+			tname, mname := name[:pos], name[pos+1:]
+			if tobj := pkg.Scope().Lookup(tname); tobj != nil {
+				if tn, ok := tobj.(*types.TypeName); ok {
+					if t, ok := tn.Type().(*types.Named); ok {
+						if debugImport {
+							log.Println("==> NewTemplateRecvMethod", tname, mname)
+						}
+						NewTemplateRecvMethod(t, token.NoPos, pkg, mname, o)
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -380,9 +407,13 @@ type autoNames struct {
 	idx     int
 }
 
+const (
+	goxAutoPrefix = "_autoGo_"
+)
+
 func (p *Package) autoName() string {
 	p.autoIdx++
-	return p.autoPrefix + strconv.Itoa(p.autoIdx)
+	return goxAutoPrefix + strconv.Itoa(p.autoIdx)
 }
 
 func (p *Package) newAutoNames() *autoNames {

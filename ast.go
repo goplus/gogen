@@ -355,8 +355,8 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 		return ident(name)
 	}
 	if atPkg == pkg.builtin { // at builtin package
-		if strings.HasPrefix(name, pkg.prefix) {
-			opName := name[len(pkg.prefix):]
+		if strings.HasPrefix(name, goxPrefix) {
+			opName := name[len(goxPrefix):]
 			if op, ok := nameToOps[opName]; ok {
 				switch op.Arity {
 				case 2:
@@ -434,13 +434,29 @@ func unaryOp(tok token.Token, args []*internal.Elem) constant.Value {
 	return nil
 }
 
-func binaryOp(tok token.Token, args []*internal.Elem) constant.Value {
+func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.Value {
 	if len(args) == 2 {
 		if a, b := args[0].CVal, args[1].CVal; a != nil && b != nil {
+			if tok == token.QUO && isNormalInt(cb, args[0]) && isNormalInt(cb, args[1]) {
+				tok = token.QUO_ASSIGN // issue #805
+			}
 			return doBinaryOp(a, tok, b)
 		}
 	}
 	return nil
+}
+
+func isNormalInt(cb *CodeBuilder, arg *internal.Elem) bool { // is integer but not bigint
+	argType := arg.Type
+retry:
+	switch t := argType.(type) {
+	case *types.Basic:
+		return (t.Info() & types.IsInteger) != 0
+	case *types.Named:
+		argType = cb.getUnderlying(t)
+		goto retry
+	}
+	return false
 }
 
 func doBinaryOp(a constant.Value, tok token.Token, b constant.Value) constant.Value {
@@ -479,8 +495,8 @@ var (
 		token.SHL:     binaryOpShift, // <<
 		token.SHR:     binaryOpShift, // >>
 
-		token.LAND: binaryOpCompare, // &&
-		token.LOR:  binaryOpCompare, // ||
+		token.LAND: 0, // &&
+		token.LOR:  0, // ||
 
 		token.LSS: binaryOpCompare,
 		token.LEQ: binaryOpCompare,
@@ -557,9 +573,14 @@ retry:
 		for i, v := range args { // TODO: type check
 			valArgs[i] = v.Val
 		}
+		fnVal := fn.Val
+		switch t.typ.(type) {
+		case *types.Pointer, *types.Chan:
+			fnVal = &ast.ParenExpr{X: fnVal}
+		}
 		ret = &internal.Elem{
-			Val:  &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
-			Type: t.Type(),
+			Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
+			Type: t.typ,
 		}
 		if len(args) == 1 { // TODO: const value may changed by type-convert
 			ret.CVal = args[0].CVal
@@ -570,7 +591,7 @@ retry:
 		if t.isUnaryOp() {
 			cval = unaryOp(t.tok(), args)
 		} else if t.isOp() {
-			cval = binaryOp(t.tok(), args)
+			cval = binaryOp(&pkg.cb, t.tok(), args)
 		} else if t.hasApproxType() {
 			flags |= instrFlagApproxType
 		}
@@ -586,6 +607,33 @@ retry:
 			restoreArgs(args, backup)
 		}
 		return
+	case *templateRecvMethodType:
+		if mth, ok := fn.Val.(*ast.SelectorExpr); ok {
+			if recv := denoteRecv(mth); recv != nil {
+				backup := backupArgs(args)
+				for i := 0; i < 2; i++ {
+					tfn := toObject(pkg, t.fn, nil)
+					targs := make([]*internal.Elem, len(args)+1)
+					targ0 := *recv
+					if i == 1 {
+						targ0.Val = &ast.UnaryExpr{Op: token.AND, X: targ0.Val}
+						targ0.Type = types.NewPointer(targ0.Type)
+					}
+					targs[0] = &targ0
+					for j, arg := range args {
+						targs[j+1] = arg
+					}
+					if ret, err = matchFuncCall(pkg, tfn, targs, flags); err == nil {
+						return
+					}
+					if isPointer(targ0.Type) {
+						break
+					}
+					restoreArgs(args, backup)
+				}
+			}
+		}
+		fatal("TODO: unmatched templateRecvMethodType")
 	case *instructionType:
 		return t.instr.Call(pkg, args, flags, fn.Src)
 	case *types.Named:
@@ -629,6 +677,11 @@ retry:
 		Type: tyRet, CVal: cval,
 		Val: &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 	}, nil
+}
+
+func isPointer(typ types.Type) bool {
+	_, ok := typ.(*types.Pointer)
+	return ok
 }
 
 func checkParenExpr(x ast.Expr) ast.Expr {
@@ -680,7 +733,7 @@ func untypeBig(pkg *Package, cval constant.Value, tyRet types.Type) (*internal.E
 			panic("unexpected constant")
 		}
 		return pkg.cb.UntypedBigRat(val).stk.Pop(), true
-	case types.Typ[types.Bool]:
+	case types.Typ[types.UntypedBool], types.Typ[types.Bool]:
 		return &internal.Elem{
 			Val: boolean(constant.BoolVal(cval)), Type: tyRet, CVal: cval,
 		}, true

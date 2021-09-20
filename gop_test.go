@@ -23,10 +23,6 @@ import (
 	"github.com/goplus/gox"
 )
 
-var (
-	gopNamePrefix = "Gop_"
-)
-
 func initGopBuiltin(pkg gox.PkgImporter, conf *gox.Config) {
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	big.EnsureImported()
@@ -35,10 +31,10 @@ func initGopBuiltin(pkg gox.PkgImporter, conf *gox.Config) {
 	conf.UntypedBigFloat = big.Ref("Gop_untyped_bigfloat").Type().(*types.Named)
 }
 
-func newGopBuiltinDefault(pkg gox.PkgImporter, prefix string, conf *gox.Config) *types.Package {
+func newGopBuiltinDefault(pkg gox.PkgImporter, conf *gox.Config) *types.Package {
 	builtin := types.NewPackage("", "")
 	initGopBuiltin(pkg, conf)
-	gox.InitBuiltinOps(builtin, prefix, conf)
+	gox.InitBuiltinOps(builtin, conf)
 	gox.InitBuiltinFuncs(builtin)
 	return builtin
 }
@@ -49,7 +45,6 @@ func newGopMainPackage() *gox.Package {
 		LoadPkgs:   gblLoadPkgs,
 		ModPath:    "github.com/goplus/gox",
 		NewBuiltin: newGopBuiltinDefault,
-		Prefix:     gopNamePrefix,
 	}
 	return gox.NewPackage("", "main", conf)
 }
@@ -480,6 +475,180 @@ func main() {
 	}()))
 }
 `)
+}
+
+// ----------------------------------------------------------------------------
+
+func TestForRangeUDT(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	nodeSet := foo.Ref("NodeSet").Type()
+	v := pkg.NewParam(token.NoPos, "v", nodeSet)
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		ForRange("_", "val").Val(v).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	foo "github.com/goplus/gox/internal/foo"
+	fmt "fmt"
+)
+
+func bar(v foo.NodeSet) {
+	for _gop_it := v.Gop_Enum(); ; {
+		var _gop_ok bool
+		_, val, _gop_ok := _gop_it.Next()
+		if !_gop_ok {
+			break
+		}
+		fmt.Println(val)
+	}
+}
+`)
+}
+
+func TestForRangeUDT2(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	bar := foo.Ref("Bar").Type()
+	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		ForRange("_", "val").Val(v).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	foo "github.com/goplus/gox/internal/foo"
+	fmt "fmt"
+)
+
+func bar(v *foo.Bar) {
+	for _gop_it := v.Gop_Enum(); ; {
+		var _gop_ok bool
+		val, _gop_ok := _gop_it.Next()
+		if !_gop_ok {
+			break
+		}
+		fmt.Println(val)
+	}
+}
+`)
+}
+
+func TestForRangeUDT3(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	bar := foo.Ref("Bar").Type()
+	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.String], "val").
+		ForRange().VarRef(ctxRef(pkg, "val")).Val(v).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	foo "github.com/goplus/gox/internal/foo"
+	fmt "fmt"
+)
+
+func bar(v *foo.Bar) {
+	var val string
+	for _gop_it := v.Gop_Enum(); ; {
+		var _gop_ok bool
+		val, _gop_ok = _gop_it.Next()
+		if !_gop_ok {
+			break
+		}
+		fmt.Println(val)
+	}
+}
+`)
+}
+
+func TestForRangeUDT4(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	bar := foo.Ref("Foo").Type()
+	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		ForRange("elem").Val(v).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "elem")).Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	foo "github.com/goplus/gox/internal/foo"
+	fmt "fmt"
+)
+
+func bar(v *foo.Foo) {
+	v.Gop_Enum(func(elem string) {
+		fmt.Println(elem)
+	})
+}
+`)
+}
+
+func TestForRangeUDT5(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	bar := foo.Ref("Foo2").Type()
+	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		ForRange("key", "elem").Val(v).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "key")).Val(ctxRef(pkg, "elem")).
+		Call(2).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	foo "github.com/goplus/gox/internal/foo"
+	fmt "fmt"
+)
+
+func bar(v *foo.Foo2) {
+	v.Gop_Enum(func(key int, elem string) {
+		fmt.Println(key, elem)
+	})
+}
+`)
+}
+
+// ----------------------------------------------------------------------------
+
+func TestTemplateRecvMethod(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gox/internal/bar")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(bar.Ref("Game").Type(), "g").
+		Val(ctxRef(pkg, "g")).MemberVal("Run").Val("Hi").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import bar "github.com/goplus/gox/internal/bar"
+
+func main() {
+	var g bar.Game
+	bar.Gopt_Game_Run(&g, "Hi")
+}
+`)
+}
+
+func TestErrTemplateRecvMethod(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gox/internal/bar")
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestErrTemplateRecvMethod: no error?")
+		}
+	}()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.NewPointer(bar.Ref("Game").Type()), "g").
+		Val(ctxRef(pkg, "g")).MemberVal("Run").Call(0).EndStmt().
+		End()
 }
 
 // ----------------------------------------------------------------------------

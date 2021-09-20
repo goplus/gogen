@@ -61,10 +61,8 @@ const (
 
 type funcBodyCtx struct {
 	codeBlockCtx
-	fn          *Func
-	labels      map[string]*label
-	lastInEmbed bool
-	lastFields  []*types.Var
+	fn     *Func
+	labels map[string]*label
 }
 
 type label struct {
@@ -1444,31 +1442,32 @@ func (p *CodeBuilder) Member(name string, lhs bool, src ...ast.Node) (kind Membe
 	if debugInstr {
 		log.Println("Member", name, lhs, "//", arg.Type)
 	}
-	at, isType := arg.Type, false
-	if t, ok := at.(*TypeType); ok {
-		at, isType = t.typ, true
-	}
+	at := arg.Type
 	if lhs {
 		kind = p.refMember(at, name, arg.Val)
 	} else {
-		kind = p.findMember(at, name, arg.Val, srcExpr)
-	}
-	if isType {
-		if kind != MemberMethod {
-			code, pos := p.loadExpr(srcExpr)
-			return MemberInvalid, p.newCodeError(
-				&pos, fmt.Sprintf("%s undefined (type %v has no method %s)", code, at, name))
+		t, isType := at.(*TypeType)
+		if isType {
+			at = t.typ
 		}
-		e := p.Get(-1)
-		if sig, ok := e.Type.(*types.Signature); ok {
-			sp := sig.Params()
-			spLen := sp.Len()
-			vars := make([]*types.Var, spLen+1)
-			vars[0] = types.NewVar(token.NoPos, nil, "", at)
-			for i := 0; i < spLen; i++ {
-				vars[i+1] = sp.At(i)
+		kind = p.findMember(at, name, arg, srcExpr)
+		if isType {
+			if kind != MemberMethod {
+				code, pos := p.loadExpr(srcExpr)
+				return MemberInvalid, p.newCodeError(
+					&pos, fmt.Sprintf("%s undefined (type %v has no method %s)", code, at, name))
 			}
-			e.Type = types.NewSignature(nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+			e := p.Get(-1)
+			if sig, ok := e.Type.(*types.Signature); ok {
+				sp := sig.Params()
+				spLen := sp.Len()
+				vars := make([]*types.Var, spLen+1)
+				vars[0] = types.NewVar(token.NoPos, nil, "", at)
+				for i := 0; i < spLen; i++ {
+					vars[i+1] = sp.At(i)
+				}
+				e.Type = types.NewSignature(nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+			}
 		}
 	}
 	if kind != MemberInvalid {
@@ -1511,39 +1510,39 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 	return u
 }
 
-func (p *CodeBuilder) findMember(typ types.Type, name string, argVal ast.Expr, srcExpr ast.Node) MemberKind {
+func (p *CodeBuilder) findMember(typ types.Type, name string, arg *Element, srcExpr ast.Node) MemberKind {
 retry:
 	switch o := typ.(type) {
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
 		case *types.Named:
 			u := p.getUnderlying(t)
-			if p.method(t, name, argVal, srcExpr) {
+			if p.method(t, name, arg, srcExpr) {
 				return MemberMethod
 			}
 			if struc, ok := u.(*types.Struct); ok {
-				if kind := p.field(struc, name, argVal, srcExpr); kind != 0 {
+				if kind := p.field(struc, name, arg, srcExpr); kind != 0 {
 					return kind
 				}
 			}
 		case *types.Struct:
-			if kind := p.field(t, name, argVal, srcExpr); kind != 0 {
+			if kind := p.field(t, name, arg, srcExpr); kind != 0 {
 				return kind
 			}
 		}
 	case *types.Named:
 		typ = p.getUnderlying(o)
-		if p.method(o, name, argVal, srcExpr) {
+		if p.method(o, name, arg, srcExpr) {
 			return MemberMethod
 		}
 		goto retry
 	case *types.Struct:
-		if kind := p.field(o, name, argVal, srcExpr); kind != 0 {
+		if kind := p.field(o, name, arg, srcExpr); kind != 0 {
 			return kind
 		}
 	case *types.Interface:
 		o.Complete()
-		if p.method(o, name, argVal, srcExpr) {
+		if p.method(o, name, arg, srcExpr) {
 			return MemberMethod
 		}
 	}
@@ -1555,12 +1554,26 @@ type methodList interface {
 	Method(i int) *types.Func
 }
 
-func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, src ast.Node) bool {
+func selector(arg *Element, name string) *ast.SelectorExpr {
+	denoted := &ast.Object{Data: arg}
+	return &ast.SelectorExpr{X: arg.Val, Sel: &ast.Ident{Name: name, Obj: denoted}}
+}
+
+func denoteRecv(v *ast.SelectorExpr) *Element {
+	if o := v.Sel.Obj; o != nil {
+		if e, ok := o.Data.(*Element); ok {
+			return e
+		}
+	}
+	return nil
+}
+
+func (p *CodeBuilder) method(o methodList, name string, arg *Element, src ast.Node) bool {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		if method.Name() == name {
 			p.stk.Ret(1, &internal.Elem{
-				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
+				Val:  selector(arg, name),
 				Type: methodTypeOf(method.Type()),
 				Src:  src,
 			})
@@ -1570,28 +1583,18 @@ func (p *CodeBuilder) method(o methodList, name string, argVal ast.Expr, src ast
 	return false
 }
 
-func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src ast.Node) MemberKind {
-	if !p.current.lastInEmbed {
-		p.current.lastFields = nil
-	}
+func (p *CodeBuilder) field(o *types.Struct, name string, arg *Element, src ast.Node) MemberKind {
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
-		embed := fld.Embedded()
-		if !embed {
-			p.current.lastFields = append(p.current.lastFields, fld)
-		}
 		if fld.Name() == name {
 			p.stk.Ret(1, &internal.Elem{
-				Val:  &ast.SelectorExpr{X: argVal, Sel: ident(name)},
+				Val:  selector(arg, name),
 				Type: fld.Type(),
 				Src:  src,
 			})
 			return MemberField
-		} else if embed {
-			p.current.lastInEmbed = true
-			kind := p.findMember(fld.Type(), name, argVal, src)
-			p.current.lastInEmbed = false
-			if kind != 0 {
+		} else if fld.Embedded() {
+			if kind := p.findMember(fld.Type(), name, arg, src); kind != 0 {
 				return kind
 			}
 		}
@@ -1601,8 +1604,11 @@ func (p *CodeBuilder) field(o *types.Struct, name string, argVal ast.Expr, src a
 
 func methodTypeOf(typ types.Type) types.Type {
 	sig := typ.(*types.Signature)
-	if _, ok := sig.Recv().Type().(*overloadFuncType); ok { // is overload method
+	switch t := sig.Recv().Type(); t.(type) {
+	case *overloadFuncType: // is overload method
 		return typ
+	case *templateRecvMethodType: // is template recv method
+		return t
 	}
 	return types.NewSignature(nil, sig.Params(), sig.Results(), sig.Variadic())
 }
@@ -1624,7 +1630,7 @@ func (p *CodeBuilder) AssignOp(op token.Token, src ...ast.Node) *CodeBuilder {
 }
 
 func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem) ast.Stmt {
-	name := pkg.prefix + assignOps[tok]
+	name := goxPrefix + assignOps[tok]
 	if debugInstr {
 		log.Println("AssignOp", tok, name)
 	}
@@ -1782,12 +1788,13 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 				&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
 		}
 		ret = &internal.Elem{
-			Val:  &ast.BinaryExpr{X: args[0].Val, Op: op, Y: args[1].Val},
-			Type: types.Typ[types.Bool],
+			Val:  &ast.BinaryExpr{X: checkParenExpr(args[0].Val), Op: op, Y: checkParenExpr(args[1].Val)},
+			Type: types.Typ[types.UntypedBool],
 			Src:  expr,
+			CVal: binaryOp(p, op, args),
 		}
 	default:
-		name := p.pkg.prefix + binaryOps[op]
+		name := goxPrefix + binaryOps[op]
 		ret = callOpFunc(p.pkg, name, args, 0)
 		ret.Src = expr
 	}
@@ -1833,7 +1840,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 	if twoValue != nil && twoValue[0] {
 		flags = InstrFlagTwoValue
 	}
-	name := p.pkg.prefix + unaryOps[op]
+	name := goxPrefix + unaryOps[op]
 	if debugInstr {
 		log.Println("UnaryOp", op, flags, name)
 	}
@@ -1860,7 +1867,7 @@ func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
 	}
 	pkg := p.pkg
 	args := p.stk.GetArgs(1)
-	name := pkg.prefix + incdecOps[op]
+	name := goxPrefix + incdecOps[op]
 	fn := pkg.builtin.Scope().Lookup(name)
 	if fn == nil {
 		panic("TODO: operator not matched")

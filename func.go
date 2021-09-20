@@ -59,6 +59,18 @@ type Func struct {
 	old  funcBodyCtx
 }
 
+// Ancestor returns ancestor of a closure function.
+// It returns itself if the specified func is a normal function.
+func (p *Func) Ancestor() *Func {
+	for {
+		if fn := p.old.fn; fn != nil {
+			p = fn
+			continue
+		}
+		return p
+	}
+}
+
 // BodyStart func
 func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 	if debugInstr {
@@ -186,8 +198,8 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 }
 
 func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
-	ofnt := &overloadFuncType{funcs}
-	recv := types.NewParam(token.NoPos, pkg, "", ofnt)
+	oft := &overloadFuncType{funcs}
+	recv := types.NewParam(token.NoPos, pkg, "", oft)
 	sig := types.NewSignature(recv, nil, nil, false)
 	ofn := types.NewFunc(pos, pkg, name, sig)
 	typ.AddMethod(ofn)
@@ -201,6 +213,67 @@ func CheckOverloadMethod(sig *types.Signature) (funcs []types.Object, ok bool) {
 		}
 	}
 	return nil, false
+}
+
+// NewTemplateRecvMethod - https://github.com/goplus/gop/issues/811
+func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, fn types.Object) *types.Func {
+	trmt := &templateRecvMethodType{fn}
+	recv := types.NewParam(token.NoPos, pkg, "", trmt)
+	sig := types.NewSignature(recv, nil, nil, false)
+	ofn := types.NewFunc(pos, pkg, name, sig)
+	typ.AddMethod(ofn)
+	return ofn
+}
+
+func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
+	switch t := typ.(type) {
+	case *types.Signature:
+		if funcs, ok := CheckOverloadMethod(t); ok {
+			return checkOverloadFuncs(funcs, idx, nin)
+		} else {
+			return t
+		}
+	case *overloadFuncType:
+		return checkOverloadFuncs(t.funcs, idx, nin)
+	case *templateRecvMethodType:
+		if sig, ok := t.fn.Type().(*types.Signature); ok {
+			params := sig.Params()
+			n := params.Len()
+			mparams := make([]*types.Var, n-1)
+			for i := range mparams {
+				mparams[i] = params.At(i + 1)
+			}
+			return types.NewSignature(nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
+		}
+	}
+	return nil
+}
+
+func checkOverloadFuncs(funcs []types.Object, idx, nin int) *types.Signature {
+	for _, v := range funcs {
+		if sig, ok := v.Type().(*types.Signature); ok {
+			params := sig.Params()
+			if idx < params.Len() && checkSigParam(params.At(idx).Type(), nin) {
+				return sig
+			}
+		}
+	}
+	return nil
+}
+
+func checkSigParam(typ types.Type, nin int) bool {
+	if nin < 0 { // input is CompositeLit
+		if t, ok := typ.(*types.Pointer); ok {
+			typ = t.Elem()
+		}
+		switch typ.(type) {
+		case *types.Struct, *types.Named:
+			return true
+		}
+	} else if t, ok := typ.(*types.Signature); ok {
+		return t.Params().Len() == nin
+	}
+	return false
 }
 
 // ----------------------------------------------------------------------------

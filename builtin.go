@@ -23,14 +23,10 @@ import (
 	"syscall"
 )
 
-var (
-	defaultNamePrefix = "Go_"
-)
-
-func newBuiltinDefault(pkg PkgImporter, prefix string, conf *Config) *types.Package {
+func newBuiltinDefault(pkg PkgImporter, conf *Config) *types.Package {
 	builtin := types.NewPackage("", "")
-	InitBuiltinOps(builtin, prefix, conf)
-	InitBuiltinAssignOps(builtin, prefix)
+	InitBuiltinOps(builtin, conf)
+	InitBuiltinAssignOps(builtin)
 	InitBuiltinFuncs(builtin)
 	return builtin
 }
@@ -48,7 +44,7 @@ type typeParam struct {
 }
 
 // InitBuiltinOps initializes operators of the builtin package.
-func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
+func InitBuiltinOps(builtin *types.Package, conf *Config) {
 	ops := [...]struct {
 		name    string
 		tparams []typeTParam
@@ -90,22 +86,22 @@ func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 		// func Gop_Rsh[T integer, N ninteger](a T, n N) T
 
 		{"LT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_LT[T orderable](a, b T) bool
+		// func Gop_LT[T orderable](a, b T) untyped_bool
 
 		{"LE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_LE[T orderable](a, b T) bool
+		// func Gop_LE[T orderable](a, b T) untyped_bool
 
 		{"GT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_GT[T orderable](a, b T) bool
+		// func Gop_GT[T orderable](a, b T) untyped_bool
 
 		{"GE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_GE[T orderable](a, b T) bool
+		// func Gop_GE[T orderable](a, b T) untyped_bool
 
 		{"EQ", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_EQ[T comparable](a, b T) bool
+		// func Gop_EQ[T comparable](a, b T) untyped_bool
 
 		{"NE", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_NE[T comparable](a, b T) bool
+		// func Gop_NE[T comparable](a, b T) untyped_bool
 
 		{"LAnd", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 		// func Gop_LAnd[T bool](a, b T) T
@@ -137,7 +133,7 @@ func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 		if op.result != -2 {
 			var ret types.Type
 			if op.result < 0 {
-				ret = types.Typ[types.Bool]
+				ret = types.Typ[types.UntypedBool]
 			} else {
 				ret = tparams[op.result]
 			}
@@ -148,7 +144,7 @@ func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 		if n == 1 {
 			tokFlag |= tokUnaryFlag
 		}
-		name := pre + op.name
+		name := goxPrefix + op.name
 		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		if op.name == "Quo" { // func Gop_Quo(a, b untyped_bigint) untyped_bigrat
@@ -163,10 +159,10 @@ func InitBuiltinOps(builtin *types.Package, pre string, conf *Config) {
 	}
 
 	// Inc++, Dec--, Recv<-, Addr& are special cases
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Inc", incInstr{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Dec", decInstr{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Recv", recvInstr{}))
-	gbl.Insert(NewInstruction(token.NoPos, builtin, pre+"Addr", addrInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, goxPrefix+"Inc", incInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, goxPrefix+"Dec", decInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, goxPrefix+"Recv", recvInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, builtin, goxPrefix+"Addr", addrInstr{}))
 }
 
 func newTParams(params []typeTParam) []*TemplateParamType {
@@ -179,7 +175,7 @@ func newTParams(params []typeTParam) []*TemplateParamType {
 }
 
 // InitBuiltinAssignOps initializes assign operators of the builtin package.
-func InitBuiltinAssignOps(builtin *types.Package, pre string) {
+func InitBuiltinAssignOps(builtin *types.Package) {
 	ops := [...]struct {
 		name     string
 		t        Contract
@@ -228,7 +224,7 @@ func InitBuiltinAssignOps(builtin *types.Package, pre string) {
 		} else {
 			params[1] = types.NewParam(token.NoPos, builtin, "b", tparams[0])
 		}
-		name := pre + op.name
+		name := goxPrefix + op.name
 		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), nil, false, 0)
 		tfn := NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		gbl.Insert(tfn)
@@ -314,12 +310,13 @@ func InitBuiltinFuncs(builtin *types.Package) {
 			appendString := NewInstruction(token.NoPos, builtin, "append", appendStringInstr{})
 			tfn = NewOverloadFunc(token.NoPos, builtin, "append", appendString, tfn)
 		} else if fn.name == "copy" {
-			// func copy(dst []byte, src string) int
+			// func [S string] copy(dst []byte, src S) int
+			tparams := newTParams([]typeTParam{{"S", tstring}})
 			dst := types.NewParam(token.NoPos, builtin, "dst", types.NewSlice(types.Typ[types.Byte]))
-			src := types.NewParam(token.NoPos, builtin, "src", types.Typ[types.String])
+			src := types.NewParam(token.NoPos, builtin, "src", tparams[0])
 			ret := types.NewParam(token.NoPos, builtin, "", types.Typ[types.Int])
-			sig := types.NewSignature(nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
-			copyString := types.NewFunc(token.NoPos, builtin, "copy", sig)
+			tsig := NewTemplateSignature(tparams, nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
+			copyString := NewTemplateFunc(token.NoPos, builtin, "copy", tsig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, "copy", copyString, tfn)
 		}
 		gbl.Insert(tfn)
@@ -742,19 +739,21 @@ type unsafeOffsetofInstr struct{}
 func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Offsetof", 1, len(args), src)
 
-	if _, ok := args[0].Val.(*ast.SelectorExpr); !ok {
+	var sel *ast.SelectorExpr
+	var ok bool
+	if sel, ok = args[0].Val.(*ast.SelectorExpr); !ok {
 		s, pos := pkg.cb.loadExpr(src)
 		pos.Column += len("unsafe.Offsetof")
 		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v", s)
 	}
-	if _, ok := args[0].Type.(*types.Signature); ok {
+	if _, ok = args[0].Type.(*types.Signature); ok {
 		s, pos := pkg.cb.loadExpr(src)
 		pos.Column += len("unsafe.Offsetof")
 		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: argument is a method value", s)
 	}
-
-	fields := pkg.cb.current.lastFields
+	fields := getFieldList(pkg, denoteRecv(sel).Type, sel.Sel.Name)
 	offset := std.Offsetsof(fields)[len(fields)-1]
+	//var offset int64
 	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Offsetof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
@@ -763,6 +762,42 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 		Src:  src,
 	}
 	return
+}
+
+func getStruct(pkg *Package, typ types.Type) *types.Struct {
+retry:
+	switch t := typ.(type) {
+	case *types.Struct:
+		return t
+	case *types.Pointer:
+		typ = t.Elem()
+		goto retry
+	case *types.Named:
+		typ = pkg.cb.getUnderlying(t)
+		goto retry
+	}
+	return nil
+}
+
+func getFieldList(pkg *Package, typ types.Type, field string) (fields []*types.Var) {
+	t := getStruct(pkg, typ)
+	if t == nil {
+		return nil
+	}
+	for i := 0; i < t.NumFields(); i++ {
+		f := t.Field(i)
+		if f.Embedded() {
+			if fs := getFieldList(pkg, f.Type(), field); fs != nil {
+				fields = append(fields, fs...)
+			}
+		} else {
+			fields = append(fields, f)
+		}
+		if f.Name() == field {
+			break
+		}
+	}
+	return fields
 }
 
 type unsafeAddInstr struct{}
@@ -1109,6 +1144,7 @@ var (
 	makable    = makableT{}
 	cbool      = &basicContract{kindsBool, "bool"}
 	ninteger   = &basicContract{kindsInteger, "ninteger"}
+	tstring    = &basicContract{kindsString, "tstring"}
 	orderable  = orderableT{}
 	integer    = integerT{}
 	number     = numberT{}

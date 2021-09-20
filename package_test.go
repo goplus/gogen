@@ -1485,11 +1485,11 @@ const c6 = unsafe.Offsetof(t.n)
 	}
 	c3 := pkg.CB().Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("y").Call(1).Get(-1)
 	if v, ok := constant.Int64Val(c3.CVal); !ok || uintptr(v) != unsafe.Sizeof(int(0)) {
-		t.Fatalf("unsafe.Offsetof(t.m) %v", c3.CVal)
+		t.Fatalf("unsafe.Offsetof(t.y) %v", c3.CVal)
 	}
 	c4 := pkg.CB().Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("n").Call(1).Get(-1)
 	if v, ok := constant.Int64Val(c4.CVal); !ok || uintptr(v) != (unsafe.Sizeof(int(0))*2+unsafe.Sizeof("")) {
-		t.Fatalf("unsafe.Offsetof(t.m) %v", c4.CVal)
+		t.Fatalf("unsafe.Offsetof(t.n) %v", c4.CVal)
 	}
 }
 
@@ -1940,144 +1940,6 @@ func TestForRange3(t *testing.T) {
 func main() {
 	for range "Hi" {
 	}
-}
-`)
-}
-
-func TestForRangeUDT(t *testing.T) {
-	pkg := newMainPackage()
-	foo := pkg.Import("github.com/goplus/gox/internal/foo")
-	nodeSet := foo.Ref("NodeSet").Type()
-	v := pkg.NewParam(token.NoPos, "v", nodeSet)
-	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		ForRange("_", "val").Val(v).RangeAssignThen(token.NoPos).
-		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
-		End().End()
-	domTest(t, pkg, `package main
-
-import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
-)
-
-func bar(v foo.NodeSet) {
-	for _gop_it := v.Gop_Enum(); ; {
-		var _gop_ok bool
-		_, val, _gop_ok := _gop_it.Next()
-		if !_gop_ok {
-			break
-		}
-		fmt.Println(val)
-	}
-}
-`)
-}
-
-func TestForRangeUDT2(t *testing.T) {
-	pkg := newMainPackage()
-	foo := pkg.Import("github.com/goplus/gox/internal/foo")
-	bar := foo.Ref("Bar").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
-	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		ForRange("_", "val").Val(v).RangeAssignThen(token.NoPos).
-		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
-		End().End()
-	domTest(t, pkg, `package main
-
-import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
-)
-
-func bar(v *foo.Bar) {
-	for _gop_it := v.Gop_Enum(); ; {
-		var _gop_ok bool
-		val, _gop_ok := _gop_it.Next()
-		if !_gop_ok {
-			break
-		}
-		fmt.Println(val)
-	}
-}
-`)
-}
-
-func TestForRangeUDT3(t *testing.T) {
-	pkg := newMainPackage()
-	foo := pkg.Import("github.com/goplus/gox/internal/foo")
-	bar := foo.Ref("Bar").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
-	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		NewVar(types.Typ[types.String], "val").
-		ForRange().VarRef(ctxRef(pkg, "val")).Val(v).RangeAssignThen(token.NoPos).
-		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
-		End().End()
-	domTest(t, pkg, `package main
-
-import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
-)
-
-func bar(v *foo.Bar) {
-	var val string
-	for _gop_it := v.Gop_Enum(); ; {
-		var _gop_ok bool
-		val, _gop_ok = _gop_it.Next()
-		if !_gop_ok {
-			break
-		}
-		fmt.Println(val)
-	}
-}
-`)
-}
-
-func TestForRangeUDT4(t *testing.T) {
-	pkg := newMainPackage()
-	foo := pkg.Import("github.com/goplus/gox/internal/foo")
-	bar := foo.Ref("Foo").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
-	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		ForRange("elem").Val(v).RangeAssignThen(token.NoPos).
-		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "elem")).Call(1).EndStmt().
-		End().End()
-	domTest(t, pkg, `package main
-
-import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
-)
-
-func bar(v *foo.Foo) {
-	v.Gop_Enum(func(elem string) {
-		fmt.Println(elem)
-	})
-}
-`)
-}
-
-func TestForRangeUDT5(t *testing.T) {
-	pkg := newMainPackage()
-	foo := pkg.Import("github.com/goplus/gox/internal/foo")
-	bar := foo.Ref("Foo2").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
-	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		ForRange("key", "elem").Val(v).RangeAssignThen(token.NoPos).
-		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "key")).Val(ctxRef(pkg, "elem")).
-		Call(2).EndStmt().
-		End().End()
-	domTest(t, pkg, `package main
-
-import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
-)
-
-func bar(v *foo.Foo2) {
-	v.Gop_Enum(func(key int, elem string) {
-		fmt.Println(key, elem)
-	})
 }
 `)
 }

@@ -64,13 +64,13 @@ func [T integer] (a T) &^ (b T) T   // func Gop_AndNot[T integer](a, b T) T
 func [T integer, N ninteger] (a T) << (n N) T // func Gop_Lsh[T integer, N ninteger](a T, n N) T
 func [T integer, N ninteger] (a T) >> (n N) T // func Gop_Rsh[T integer, N ninteger](a T, n N) T
 
-func [T orderable] (a T) < (b T) bool   // func Gop_LT[T orderable](a, b T) bool
-func [T orderable] (a T) <= (b T) bool  // func Gop_LE[T orderable](a, b T) bool
-func [T orderable] (a T) > (b T) bool   // func Gop_GT[T orderable](a, b T) bool
-func [T orderable] (a T) >= (b T) bool  // func Gop_GE[T orderable](a, b T) bool
+func [T orderable] (a T) < (b T) untyped_bool   // func Gop_LT[T orderable](a, b T) untyped_bool
+func [T orderable] (a T) <= (b T) untyped_bool  // func Gop_LE[T orderable](a, b T) untyped_bool
+func [T orderable] (a T) > (b T) untyped_bool   // func Gop_GT[T orderable](a, b T) untyped_bool
+func [T orderable] (a T) >= (b T) untyped_bool  // func Gop_GE[T orderable](a, b T) untyped_bool
 
-func [T comparable] (a T) == (b T) bool // func Gop_EQ[T comparable](a, b T) bool
-func [T comparable] (a T) != (b T) bool // func Gop_NE[T comparable](a, b T) bool
+func [T comparable] (a T) == (b T) untyped_bool // func Gop_EQ[T comparable](a, b T) untyped_bool
+func [T comparable] (a T) != (b T) untyped_bool // func Gop_NE[T comparable](a, b T) untyped_bool
 
 func [T bool] (a T) || (b T) T // func Gop_LOr[T bool](a, b T) T
 func [T bool] (a T) && (b T) T // func Gop_LAnd[T bool](a, b T) T

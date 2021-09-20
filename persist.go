@@ -116,7 +116,7 @@ func toPersistSignature(sig *types.Signature) interface{} {
 			if _, ok := t.Underlying().(*types.Interface); ok {
 				recv = nil
 			}
-		case *overloadFuncType:
+		case *overloadFuncType, *templateRecvMethodType:
 			return nil
 		case *types.Interface:
 			recv = nil

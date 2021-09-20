@@ -114,19 +114,18 @@ func getElemTypeIf(t types.Type, parg *internal.Elem) types.Type {
 func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 	switch p := param.(type) {
 	case *unboundFuncParam: // template function param
-		if p.typ.contract.Match(pkg, arg) {
-			if p.tBound == nil {
-				p.boundTo(pkg, arg, parg)
-			} else if !AssignableTo(pkg, getElemTypeIf(arg, parg), p.tBound) {
-				if isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.parg) {
-					p.tBound = arg
-					return nil
-				}
+		if p.tBound == nil {
+			if !p.typ.contract.Match(pkg, arg) {
+				return fmt.Errorf("TODO: contract.Match %v => %v failed", arg, p.typ.contract)
+			}
+			p.boundTo(pkg, arg, parg)
+		} else if !AssignableTo(pkg, getElemTypeIf(arg, parg), p.tBound) {
+			if !(isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.parg)) {
 				return fmt.Errorf("TODO: boundType %v => %v failed", arg, p.tBound)
 			}
-			return nil
+			p.tBound = arg
 		}
-		return fmt.Errorf("TODO: contract.Match %v => %v failed", arg, p.typ.contract)
+		return nil
 	case *unboundProxyParam:
 		switch param := p.real.(type) {
 		case *types.Pointer:
@@ -292,53 +291,20 @@ func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool
 
 func ComparableTo(pkg *Package, varg, targ *Element) bool {
 	V, T := varg.Type, targ.Type
-	if V == T {
-		return true
-	}
-
-	switch v := V.(type) {
-	case *types.Basic:
+	if v, ok := V.(*types.Basic); ok {
 		if (v.Info() & types.IsUntyped) != 0 {
 			return untypedComparable(pkg, v, varg, T)
 		}
-	case *types.Interface:
-		return interfaceComparable(pkg, v, T)
-	case *types.Named:
-		if u, ok := v.Underlying().(*types.Interface); ok {
-			return interfaceComparable(pkg, u, T)
-		}
 	}
-
-	switch t := T.(type) {
-	case *types.Basic:
+	if t, ok := T.(*types.Basic); ok {
 		if (t.Info() & types.IsUntyped) != 0 {
 			return untypedComparable(pkg, t, targ, V)
 		}
-	case *types.Interface:
-		return interfaceComparable(pkg, t, V)
-	case *types.Named:
-		if u, ok := t.Underlying().(*types.Interface); ok {
-			return interfaceComparable(pkg, u, V)
-		}
 	}
-
-	if getUnderlying(pkg, V) != getUnderlying(pkg, T) {
-		return false
-	}
-	return types.Comparable(V)
-}
-
-func interfaceComparable(pkg *Package, v *types.Interface, t types.Type) bool {
-	if types.AssignableTo(t, v) {
+	if getUnderlying(pkg, V) == getUnderlying(pkg, T) {
 		return true
 	}
-	if tt, ok := t.(*types.Named); ok {
-		t = pkg.cb.getUnderlying(tt)
-	}
-	if tt, ok := t.(*types.Interface); ok {
-		return types.AssignableTo(v, tt)
-	}
-	return false
+	return AssignableTo(pkg, V, T) || AssignableTo(pkg, T, V)
 }
 
 func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type) bool {
@@ -346,29 +312,34 @@ func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type
 	if kind == types.UntypedNil {
 	retry:
 		switch tt := t.(type) {
-		case *types.Interface, *types.Slice, *types.Pointer, *types.Map, *types.Chan:
+		case *types.Interface, *types.Slice, *types.Pointer, *types.Map, *types.Signature, *types.Chan:
 			return true
+		case *types.Basic:
+			return tt.Kind() == types.UnsafePointer // invalid: nil == nil
 		case *types.Named:
 			t = pkg.cb.getUnderlying(tt)
 			goto retry
-		case *types.Basic:
-			return tt.Kind() == types.UnsafePointer || tt.Kind() == types.UntypedNil
 		}
-	} else if u, ok := getUnderlying(pkg, t).(*types.Basic); ok {
-		switch v.Kind() {
-		case types.UntypedBool:
-			return (u.Info() & types.IsBoolean) != 0
-		case types.UntypedFloat:
-			if constant.ToInt(varg.CVal).Kind() != constant.Int {
-				return (u.Info() & (types.IsFloat | types.IsComplex)) != 0
+	} else {
+		switch u := getUnderlying(pkg, t).(type) {
+		case *types.Basic:
+			switch v.Kind() {
+			case types.UntypedBool:
+				return (u.Info() & types.IsBoolean) != 0
+			case types.UntypedFloat:
+				if constant.ToInt(varg.CVal).Kind() != constant.Int {
+					return (u.Info() & (types.IsFloat | types.IsComplex)) != 0
+				}
+				fallthrough
+			case types.UntypedInt, types.UntypedRune:
+				return (u.Info() & types.IsNumeric) != 0
+			case types.UntypedComplex:
+				return (u.Info() & types.IsComplex) != 0
+			case types.UntypedString:
+				return (u.Info() & types.IsString) != 0
 			}
-			fallthrough
-		case types.UntypedInt, types.UntypedRune:
-			return (u.Info() & types.IsNumeric) != 0
-		case types.UntypedComplex:
-			return (u.Info() & types.IsComplex) != 0
-		case types.UntypedString:
-			return (u.Info() & types.IsString) != 0
+		case *types.Interface:
+			return u.Empty()
 		}
 	}
 	return false
@@ -565,7 +536,7 @@ func toNormalizeSignature(
 
 const (
 	tokUnaryFlag      token.Token = 0x80000
-	tokFlagApproxType token.Token = 0x40000
+	tokFlagApproxType token.Token = 0x40000 // ~T
 	tokFlagAll                    = tokUnaryFlag | tokFlagApproxType
 )
 
