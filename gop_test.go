@@ -14,6 +14,7 @@
 package gox_test
 
 import (
+	"go/ast"
 	"go/constant"
 	"go/token"
 	"go/types"
@@ -576,6 +577,9 @@ func TestForRangeUDT4(t *testing.T) {
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("elem").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "elem")).Call(1).EndStmt().
+		SetBodyHandler(func(body *ast.BlockStmt, kind int) {
+			gox.InsertStmtFront(body, &ast.ExprStmt{X: ast.NewIdent("__sched__")})
+		}).
 		End().End()
 	domTest(t, pkg, `package main
 
@@ -586,6 +590,7 @@ import (
 
 func bar(v *foo.Foo) {
 	v.Gop_Enum(func(elem string) {
+		__sched__
 		fmt.Println(elem)
 	})
 }

@@ -126,10 +126,6 @@ type Config struct {
 	// HandleErr is called to handle errors.
 	HandleErr func(err error)
 
-	// HandleLoopBody is called to handle for loop body statements.
-	// kind = 0 (normal for loop), 1 (for range loop), etc.
-	HandleLoopBody func(body *ast.BlockStmt, kind int) *ast.BlockStmt
-
 	// NodeInterpreter is to interpret an ast.Node.
 	NodeInterpreter NodeInterpreter
 

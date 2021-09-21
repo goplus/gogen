@@ -330,6 +330,30 @@ func (p *typeCaseStmt) End(cb *CodeBuilder) {
 }
 
 // ----------------------------------------------------------------------------
+
+type loopBodyHandler struct {
+	handle func(body *ast.BlockStmt, kind int)
+}
+
+func (p *loopBodyHandler) SetBodyHandler(handle func(body *ast.BlockStmt, kind int)) {
+	p.handle = handle
+}
+
+func (p *loopBodyHandler) handleFor(body *ast.BlockStmt, kind int) *ast.BlockStmt {
+	if p.handle != nil {
+		p.handle(body, kind)
+	}
+	return body
+}
+
+func InsertStmtFront(body *ast.BlockStmt, stmt ast.Stmt) {
+	list := append(body.List, nil)
+	copy(list[1:], list)
+	list[0] = stmt
+	body.List = list
+}
+
+// ----------------------------------------------------------------------------
 //
 // for init; cond then
 //   body
@@ -342,6 +366,7 @@ type forStmt struct {
 	body *ast.BlockStmt
 	old  codeBlockCtx
 	old2 codeBlockCtx
+	loopBodyHandler
 }
 
 func (p *forStmt) Then(cb *CodeBuilder) {
@@ -384,7 +409,7 @@ func (p *forStmt) End(cb *CodeBuilder) {
 		cb.endBlockStmt(&p.old)
 	}
 	cb.emitStmt(&ast.ForStmt{
-		Init: p.init, Cond: p.cond, Post: post, Body: cb.handleFor(p.body, 0),
+		Init: p.init, Cond: p.cond, Post: post, Body: p.handleFor(p.body, 0),
 	})
 }
 
@@ -404,6 +429,7 @@ type forRangeStmt struct {
 	old   codeBlockCtx
 	kvt   []types.Type
 	udt   int // 0: non-udt, 2: (elem,ok), 3: (key,elem,ok)
+	loopBodyHandler
 }
 
 func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
@@ -593,7 +619,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
 
 	if n := p.udt; n == 0 {
-		p.stmt.Body = cb.handleFor(&ast.BlockStmt{List: stmts}, 1)
+		p.stmt.Body = p.handleFor(&ast.BlockStmt{List: stmts}, 1)
 		cb.emitStmt(p.stmt)
 	} else if n > 0 {
 		/*
@@ -625,7 +651,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 					},
 				},
 			},
-			Body: cb.handleFor(&ast.BlockStmt{List: body}, 2),
+			Body: p.handleFor(&ast.BlockStmt{List: body}, 2),
 		}
 		cb.emitStmt(stmt)
 	} else {
@@ -660,7 +686,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 				Args: []ast.Expr{
 					&ast.FuncLit{
 						Type: &ast.FuncType{Params: &ast.FieldList{List: args}},
-						Body: cb.handleFor(&ast.BlockStmt{List: stmts}, -1),
+						Body: p.handleFor(&ast.BlockStmt{List: stmts}, -1),
 					},
 				},
 			},

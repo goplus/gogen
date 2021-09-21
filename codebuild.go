@@ -131,7 +131,6 @@ type CodeBuilder struct {
 	interp    NodeInterpreter
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
-	handleFor func(body *ast.BlockStmt, kind int) *ast.BlockStmt
 	closureParamInsts
 	iotav       int
 	commentOnce bool
@@ -143,10 +142,6 @@ func (p *CodeBuilder) init(pkg *Package) {
 	p.handleErr = conf.HandleErr
 	if p.handleErr == nil {
 		p.handleErr = defaultHandleErr
-	}
-	p.handleFor = conf.HandleLoopBody
-	if p.handleFor == nil {
-		p.handleFor = defaultHandleFor
 	}
 	p.interp = conf.NodeInterpreter
 	if p.interp == nil {
@@ -167,10 +162,6 @@ func defaultLoadNamed(at *Package, t *types.Named) {
 
 func defaultHandleErr(err error) {
 	panic(err)
-}
-
-func defaultHandleFor(body *ast.BlockStmt, kind int) *ast.BlockStmt {
-	return body
 }
 
 type nodeInterp struct{}
@@ -2261,6 +2252,15 @@ func (p *CodeBuilder) End() *CodeBuilder {
 		}
 	}
 	p.current.End(p)
+	return p
+}
+
+func (p *CodeBuilder) SetBodyHandler(handle func(body *ast.BlockStmt, kind int)) *CodeBuilder {
+	if ini, ok := p.current.codeBlock.(interface {
+		SetBodyHandler(func(body *ast.BlockStmt, kind int))
+	}); ok {
+		ini.SetBodyHandler(handle)
+	}
 	return p
 }
 
