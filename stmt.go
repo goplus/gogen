@@ -383,7 +383,9 @@ func (p *forStmt) End(cb *CodeBuilder) {
 		p.body = &ast.BlockStmt{List: stmts}
 		cb.endBlockStmt(&p.old)
 	}
-	cb.emitStmt(&ast.ForStmt{Init: p.init, Cond: p.cond, Post: post, Body: p.body})
+	cb.emitStmt(&ast.ForStmt{
+		Init: p.init, Cond: p.cond, Post: post, Body: cb.handleFor(p.body, 0),
+	})
 }
 
 // ----------------------------------------------------------------------------
@@ -591,7 +593,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
 
 	if n := p.udt; n == 0 {
-		p.stmt.Body = &ast.BlockStmt{List: stmts}
+		p.stmt.Body = cb.handleFor(&ast.BlockStmt{List: stmts}, 1)
 		cb.emitStmt(p.stmt)
 	} else if n > 0 {
 		/*
@@ -623,7 +625,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 					},
 				},
 			},
-			Body: &ast.BlockStmt{List: body},
+			Body: cb.handleFor(&ast.BlockStmt{List: body}, 2),
 		}
 		cb.emitStmt(stmt)
 	} else {
@@ -658,7 +660,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 				Args: []ast.Expr{
 					&ast.FuncLit{
 						Type: &ast.FuncType{Params: &ast.FieldList{List: args}},
-						Body: &ast.BlockStmt{List: stmts},
+						Body: cb.handleFor(&ast.BlockStmt{List: stmts}, -1),
 					},
 				},
 			},

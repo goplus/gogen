@@ -763,4 +763,11 @@ func TestErrWriteFile(t *testing.T) {
 	WriteFile("_gop_autogen.go", pkg, false)
 }
 
+func TestLoadExpr(t *testing.T) {
+	var cb CodeBuilder
+	if src, pos := cb.loadExpr(nil); src != "" || pos.Filename != "" {
+		t.Fatal("TestLoadExpr failed")
+	}
+}
+
 // ----------------------------------------------------------------------------
