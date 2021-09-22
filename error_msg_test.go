@@ -1056,6 +1056,26 @@ func TestErrUnsafe(t *testing.T) {
 				EndStmt().
 				End()
 		})
+	codeErrorTest(t, `./foo.gop:17:26: invalid expression unsafe.Offsetof(t.M.m): selector implies indirection of embedded t.M`,
+		func(pkg *gox.Package) {
+			builtin := pkg.Builtin()
+			fieldsM := []*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "m", types.Typ[types.Int], false),
+				types.NewField(token.NoPos, pkg.Types, "n", types.Typ[types.String], false),
+			}
+			typM := types.NewStruct(fieldsM, nil)
+			tyM := pkg.NewType("M").InitType(pkg, typM)
+			fieldsT := []*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+				types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+				types.NewField(token.NoPos, pkg.Types, "", types.NewPointer(tyM), true),
+			}
+			typT := types.NewStruct(fieldsT, nil)
+			tyT := pkg.NewType("T").InitType(pkg, typT)
+			pkg.CB().NewVar(tyT, "t")
+			pkg.CB().NewConstStart(nil, "c").
+				Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t"), source("t", 17, 27)).MemberVal("m").CallWith(1, false, source("unsafe.Offsetof(t.m)", 17, 11)).EndInit(1)
+		})
 	codeErrorTest(t,
 		`./foo.gop:7:12: cannot use a (type int) as type unsafe.Pointer in argument to unsafe.Add`,
 		func(pkg *gox.Package) {
