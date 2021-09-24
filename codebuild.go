@@ -1754,7 +1754,7 @@ func lookupMethod(t *types.Named, name string) types.Object {
 	return nil
 }
 
-func callOpFunc(pkg *Package, name string, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem) {
+func callOpFunc(pkg *Package, name string, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
 	if t, ok := args[0].Type.(*types.Named); ok {
 		op := lookupMethod(t, name)
 		if op != nil {
@@ -1762,14 +1762,14 @@ func callOpFunc(pkg *Package, name string, args []*internal.Elem, flags InstrFla
 				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
 				Type: realType(op.Type()),
 			}
-			return toFuncCall(pkg, fn, args, flags)
+			return matchFuncCall(pkg, fn, args, flags)
 		}
 	}
 	op := pkg.builtin.Scope().Lookup(name)
 	if op == nil {
 		panic("TODO: operator not matched")
 	}
-	return toFuncCall(pkg, toObject(pkg, op, nil), args, flags)
+	return matchFuncCall(pkg, toObject(pkg, op, nil), args, flags)
 }
 
 // BinaryOp func
@@ -1780,6 +1780,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	expr := getSrc(src)
 	args := p.stk.GetArgs(2)
 	var ret *internal.Elem
+	var err error
 	switch op {
 	case token.EQL, token.NEQ:
 		if !ComparableTo(p.pkg, args[0], args[1]) {
@@ -1795,7 +1796,11 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 		}
 	default:
 		name := goxPrefix + binaryOps[op]
-		ret = callOpFunc(p.pkg, name, args, 0)
+		if ret, err = callOpFunc(p.pkg, name, args, 0); err != nil {
+			src, pos := p.loadExpr(expr)
+			p.panicCodeErrorf(
+				&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
+		}
 		ret.Src = expr
 	}
 	p.stk.Ret(2, ret)
@@ -1844,7 +1849,10 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 	if debugInstr {
 		log.Println("UnaryOp", op, flags, name)
 	}
-	ret := callOpFunc(p.pkg, name, p.stk.GetArgs(1), flags)
+	ret, err := callOpFunc(p.pkg, name, p.stk.GetArgs(1), flags)
+	if err != nil {
+		panic(err)
+	}
 	p.stk.Ret(1, ret)
 	return p
 }
