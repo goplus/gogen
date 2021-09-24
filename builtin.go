@@ -21,6 +21,7 @@ import (
 	"go/types"
 	"log"
 	"runtime"
+	"strings"
 	"syscall"
 )
 
@@ -752,13 +753,14 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 		pos.Column += len("unsafe.Offsetof")
 		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: argument is a method value", s)
 	}
-	typ := getStruct(pkg, denoteRecv(sel).Type)
+	recv := denoteRecv(sel)
+	typ := getStruct(pkg, recv.Type)
 	_, index, _ := types.LookupFieldOrMethod(typ, false, pkg.Types, sel.Sel.Name)
-	offset, err := offsetof(typ, index)
+	offset, err := offsetof(pkg, typ, index, recv.Src, sel.Sel.Name)
 	if err != nil {
-		s, pos := pkg.cb.loadExpr(src)
+		_, pos := pkg.cb.loadExpr(src)
 		pos.Column += len("unsafe.Offsetof")
-		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: %v", s, err)
+		pkg.cb.panicCodeErrorf(&pos, "%v", err)
 	}
 	//var offset int64
 	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Offsetof"))
@@ -797,15 +799,30 @@ func offsetsof(T *types.Struct) []int64 {
 // offsetof returns the offset of the field specified via
 // the index sequence relative to typ. All embedded fields
 // must be structs (rather than pointer to structs).
-func offsetof(typ types.Type, index []int) (int64, error) {
+func offsetof(pkg *Package, typ types.Type, index []int, recv ast.Node, sel string) (int64, error) {
 	var o int64
-	for _, i := range index {
-		if t, ok := typ.(*types.Pointer); ok {
-			return -1, fmt.Errorf("selector implies indirection of embedded %v", t.Elem())
+	var typList []string
+	var indirectType int
+	for n, i := range index {
+		if n > 0 {
+			if t, ok := typ.(*types.Pointer); ok {
+				typ = t.Elem()
+				indirectType = n
+			}
+			if t, ok := typ.(*types.Named); ok {
+				typList = append(typList, t.Obj().Name())
+				typ = t.Underlying()
+			}
 		}
-		s := typ.Underlying().(*types.Struct)
+		s := typ.(*types.Struct)
 		o += offsetsof(s)[i]
 		typ = s.Field(i).Type()
+	}
+	if indirectType > 0 {
+		s, _ := pkg.cb.loadExpr(recv)
+		return -1, fmt.Errorf("invalid expression unsafe.Offsetof(%v.%v.%v): selector implies indirection of embedded %v.%v",
+			s, strings.Join(typList, "."), sel,
+			s, strings.Join(typList[:indirectType], "."))
 	}
 	return o, nil
 }
