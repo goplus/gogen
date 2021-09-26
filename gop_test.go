@@ -24,19 +24,17 @@ import (
 	"github.com/goplus/gox"
 )
 
-func initGopBuiltin(pkg gox.PkgImporter, conf *gox.Config) {
-	big := pkg.Import("github.com/goplus/gox/internal/builtin")
-	big.EnsureImported()
+func initGopBuiltin(big *gox.PkgRef, conf *gox.Config) {
 	conf.UntypedBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
 	conf.UntypedBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
 	conf.UntypedBigFloat = big.Ref("Gop_untyped_bigfloat").Type().(*types.Named)
 }
 
 func newGopBuiltinDefault(pkg gox.PkgImporter, conf *gox.Config) *types.Package {
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	builtin := types.NewPackage("", "")
-	initGopBuiltin(pkg, conf)
-	gox.InitBuiltinOps(builtin, conf)
-	gox.InitBuiltinFuncs(builtin)
+	gox.InitBuiltin(pkg, builtin, conf)
+	initGopBuiltin(big, conf)
 	return builtin
 }
 

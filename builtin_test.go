@@ -770,4 +770,20 @@ func TestLoadExpr(t *testing.T) {
 	}
 }
 
+func TestGetBuiltinTI(t *testing.T) {
+	if getBuiltinTI(types.NewPointer(types.Typ[0])) != nil {
+		t.Fatal("TestGetBuiltinTI failed")
+	}
+}
+
+func TestRef(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestRef: no error?")
+		}
+	}()
+	pkg := &PkgRef{Types: types.NewPackage("foo", "foo")}
+	pkg.Ref("bar")
+}
+
 // ----------------------------------------------------------------------------

@@ -23,14 +23,21 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+
+	"golang.org/x/tools/go/types/typeutil"
 )
 
 func newBuiltinDefault(pkg PkgImporter, conf *Config) *types.Package {
 	builtin := types.NewPackage("", "")
-	InitBuiltinOps(builtin, conf)
-	InitBuiltinAssignOps(builtin)
-	InitBuiltinFuncs(builtin)
+	InitBuiltin(pkg, builtin, conf)
 	return builtin
+}
+
+func InitBuiltin(pkg PkgImporter, builtin *types.Package, conf *Config) {
+	initBuiltinOps(builtin, conf)
+	initBuiltinAssignOps(builtin)
+	initBuiltinFuncs(builtin)
+	initBuiltinTIs(pkg)
 }
 
 // ----------------------------------------------------------------------------
@@ -45,8 +52,8 @@ type typeParam struct {
 	tidx int
 }
 
-// InitBuiltinOps initializes operators of the builtin package.
-func InitBuiltinOps(builtin *types.Package, conf *Config) {
+// initBuiltinOps initializes operators of the builtin package.
+func initBuiltinOps(builtin *types.Package, conf *Config) {
 	ops := [...]struct {
 		name    string
 		tparams []typeTParam
@@ -176,8 +183,8 @@ func newTParams(params []typeTParam) []*TemplateParamType {
 	return tparams
 }
 
-// InitBuiltinAssignOps initializes assign operators of the builtin package.
-func InitBuiltinAssignOps(builtin *types.Package) {
+// initBuiltinAssignOps initializes assign operators of the builtin package.
+func initBuiltinAssignOps(builtin *types.Package) {
 	ops := [...]struct {
 		name     string
 		t        Contract
@@ -268,8 +275,8 @@ const (
 	xtChanIn
 )
 
-// InitBuiltinFuncs initializes builtin functions of the builtin package.
-func InitBuiltinFuncs(builtin *types.Package) {
+// initBuiltinFuncs initializes builtin functions of the builtin package.
+func initBuiltinFuncs(builtin *types.Package) {
 	fns := [...]struct {
 		name    string
 		tparams []typeTParam
@@ -1178,5 +1185,105 @@ var (
 	addable    = addableT{}
 	comparable = comparableT{}
 )
+
+// ----------------------------------------------------------------------------
+
+type bmExargs = []interface{}
+
+type builtinMethod struct {
+	name  string
+	fn    types.Object
+	eargs bmExargs
+}
+
+type builtinTI struct {
+	typ     types.Type
+	methods []*builtinMethod
+}
+
+func (p *builtinTI) NumMethods() int {
+	return len(p.methods)
+}
+
+func (p *builtinTI) Method(i int) *builtinMethod {
+	return p.methods[i]
+}
+
+var (
+	btiMap  *typeutil.Map
+	tyMap   types.Type = types.NewMap(types.Typ[types.Invalid], types.Typ[types.Invalid])
+	tyChan  types.Type = types.NewChan(0, types.Typ[types.Invalid])
+	tySlice types.Type = types.NewSlice(types.Typ[types.Invalid])
+)
+
+func initBuiltinTIs(pkg PkgImporter) {
+	strconv := pkg.Import("strconv")
+	strings := pkg.Import("strings")
+	btiMap = new(typeutil.Map)
+	btoLen := types.Universe.Lookup("len")
+	tis := []*builtinTI{
+		{
+			typ: types.Typ[types.String],
+			methods: []*builtinMethod{
+				{"len", btoLen, nil},
+				{"int", strconv.Ref("Atoi"), nil},
+				{"uint", strconv.Ref("ParseUint"), bmExargs{10, 64}},
+				{"float", strconv.Ref("ParseFloat"), bmExargs{64}},
+				{"quote", strconv.Ref("Quote"), nil},
+				{"unquote", strconv.Ref("Unquote"), nil},
+				{"fields", strings.Ref("Fields"), nil},
+				{"split", strings.Ref("Split"), nil},
+				{"contains", strings.Ref("Contains"), nil},
+			},
+		},
+		{
+			typ: types.NewSlice(types.Typ[types.String]),
+			methods: []*builtinMethod{
+				{"len", btoLen, nil},
+				{"join", strings.Ref("Join"), nil},
+			},
+		},
+		{
+			typ: tySlice,
+			methods: []*builtinMethod{
+				{"len", btoLen, nil},
+			},
+		},
+		{
+			typ: tyMap,
+			methods: []*builtinMethod{
+				{"len", btoLen, nil},
+			},
+		},
+		{
+			typ: tyChan,
+			methods: []*builtinMethod{
+				{"len", btoLen, nil},
+			},
+		},
+	}
+	for _, ti := range tis {
+		btiMap.Set(ti.typ, ti)
+	}
+}
+
+func getBuiltinTI(typ types.Type) *builtinTI {
+	switch t := typ.(type) {
+	case *types.Basic:
+		typ = types.Default(typ)
+	case *types.Slice:
+		if t.Elem() != types.Typ[types.String] {
+			typ = tySlice
+		}
+	case *types.Map:
+		typ = tyMap
+	case *types.Chan:
+		typ = tyChan
+	}
+	if bti := btiMap.At(typ); bti != nil {
+		return bti.(*builtinTI)
+	}
+	return nil
+}
 
 // ----------------------------------------------------------------------------

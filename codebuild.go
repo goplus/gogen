@@ -441,21 +441,31 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 
 // CallWith func
 func (p *CodeBuilder) CallWith(n int, ellipsis bool, src ...ast.Node) *CodeBuilder {
+	fn := p.stk.Get(-(n + 1))
+	if t, ok := fn.Type.(*btiMethodType); ok {
+		n++
+		fn.Type = t.Type
+		fn = p.stk.Get(-(n + 1))
+		if t.eargs != nil {
+			for _, arg := range t.eargs {
+				p.Val(arg)
+			}
+			n += len(t.eargs)
+		}
+	}
 	args := p.stk.GetArgs(n)
-	n++
-	fn := p.stk.Get(-n)
 	var flags InstrFlags
 	if ellipsis {
 		flags = InstrFlagEllipsis
 	}
 	if debugInstr {
-		log.Println("Call", n-1, int(flags))
+		log.Println("Call", n, int(flags))
 	}
 	s := getSrc(src)
 	fn.Src = s
 	ret := toFuncCall(p.pkg, fn, args, flags)
 	ret.Src = s
-	p.stk.Ret(n, ret)
+	p.stk.Ret(n+1, ret)
 	return p
 }
 
@@ -1452,22 +1462,23 @@ func (p *CodeBuilder) Member(name string, lhs bool, src ...ast.Node) (kind Membe
 		}
 		kind = p.findMember(at, name, arg, srcExpr)
 		if isType {
-			if kind != MemberMethod {
-				code, pos := p.loadExpr(srcExpr)
-				return MemberInvalid, p.newCodeError(
-					&pos, fmt.Sprintf("%s undefined (type %v has no method %s)", code, at, name))
-			}
-			e := p.Get(-1)
-			if sig, ok := e.Type.(*types.Signature); ok {
-				sp := sig.Params()
-				spLen := sp.Len()
-				vars := make([]*types.Var, spLen+1)
-				vars[0] = types.NewVar(token.NoPos, nil, "", at)
-				for i := 0; i < spLen; i++ {
-					vars[i+1] = sp.At(i)
+			if kind == MemberMethod {
+				e := p.Get(-1)
+				if sig, ok := e.Type.(*types.Signature); ok {
+					sp := sig.Params()
+					spLen := sp.Len()
+					vars := make([]*types.Var, spLen+1)
+					vars[0] = types.NewVar(token.NoPos, nil, "", at)
+					for i := 0; i < spLen; i++ {
+						vars[i+1] = sp.At(i)
+					}
+					e.Type = types.NewSignature(nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+					return
 				}
-				e.Type = types.NewSignature(nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
 			}
+			code, pos := p.loadExpr(srcExpr)
+			return MemberInvalid, p.newCodeError(
+				&pos, fmt.Sprintf("%s undefined (type %v has no method %s)", code, at, name))
 		}
 	}
 	if kind != MemberInvalid {
@@ -1545,6 +1556,10 @@ retry:
 		if p.method(o, name, arg, srcExpr) {
 			return MemberMethod
 		}
+	case *types.Basic, *types.Slice, *types.Map, *types.Chan:
+		if p.btiMethod(getBuiltinTI(o), name, arg, srcExpr) {
+			return MemberMethod
+		}
 	}
 	return MemberInvalid
 }
@@ -1578,6 +1593,22 @@ func (p *CodeBuilder) method(o methodList, name string, arg *Element, src ast.No
 				Src:  src,
 			})
 			return true
+		}
+	}
+	return false
+}
+
+func (p *CodeBuilder) btiMethod(o *builtinTI, name string, arg *Element, src ast.Node) bool {
+	if o != nil {
+		for i, n := 0, o.NumMethods(); i < n; i++ {
+			method := o.Method(i)
+			if method.name == name {
+				this := p.stk.Pop()
+				this.Type = &btiMethodType{Type: this.Type, eargs: method.eargs}
+				p.Val(method.fn, src)
+				p.stk.Push(this)
+				return true
+			}
 		}
 	}
 	return false

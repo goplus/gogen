@@ -291,7 +291,6 @@ func TestErrNewVar(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:6: foo redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
 		func(pkg *gox.Package) {
 			var x *types.Var
-			pkg.Fset.AddFile("./foo.gop", 1, 100).AddLine(10)
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewAutoVar(position(1, 5), "foo", &x).
 				NewAutoVar(position(2, 6), "foo", &x).

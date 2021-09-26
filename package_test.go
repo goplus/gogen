@@ -63,7 +63,18 @@ func newMainPackage(noCache ...bool) *gox.Package {
 	if noCache != nil {
 		conf = nil
 	}
-	return gox.NewPackage("", "main", conf)
+	pkg := gox.NewPackage("", "main", conf)
+	pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.Import("github.com/goplus/gox/internal/foo")
+	pkg.Import("github.com/goplus/gox/internal/bar")
+	pkg.Import("strconv")
+	pkg.Import("strings")
+	pkg.Import("fmt")
+	pkg.Import("context")
+	pkg.Import("time")
+	pkg.Import("flag")
+	pkg.Import("testing")
+	return pkg
 }
 
 func domTest(t *testing.T, pkg *gox.Package, expected string) {
@@ -106,6 +117,48 @@ import (
 
 func main() {
 	context.WithTimeout(context.Background(), time.Minute)
+}
+`)
+}
+
+func TestBTIMethod(t *testing.T) {
+	pkg := newMainPackage(false)
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.NewChan(0, types.Typ[types.Int]), "a").
+		NewVar(types.NewSlice(types.Typ[types.Int]), "b").
+		NewVar(types.NewSlice(types.Typ[types.String]), "c").
+		NewVar(types.NewMap(types.Typ[types.String], types.Typ[types.Int]), "d").
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "a")).MemberVal("len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "b")).MemberVal("len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "c")).MemberVal("len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "d")).MemberVal("len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "c")).MemberVal("join").Val(",").Call(1).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val("Hi").MemberVal("len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val("100").MemberVal("int").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val("100").MemberVal("uint").Call(0).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import (
+	strconv "strconv"
+	strings "strings"
+	fmt "fmt"
+)
+
+func main() {
+	var a chan int
+	var b []int
+	var c []string
+	var d map[string]int
+	fmt.Println(len(a))
+	fmt.Println(len(b))
+	fmt.Println(len(c))
+	fmt.Println(len(d))
+	fmt.Println(strings.Join(c, ","))
+	fmt.Println(len("Hi"))
+	fmt.Println(strconv.Atoi("100"))
+	fmt.Println(strconv.ParseUint("100", 10, 64))
 }
 `)
 }

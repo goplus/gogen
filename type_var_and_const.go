@@ -499,6 +499,11 @@ func (p *overloadFuncType) String() string {
 
 // ----------------------------------------------------------------------------
 
+type btiMethodType struct {
+	types.Type
+	eargs []interface{}
+}
+
 type templateRecvMethodType struct {
 	fn types.Object
 }

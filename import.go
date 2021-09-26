@@ -97,9 +97,18 @@ func (p *PkgRef) markUsed(v *ast.Ident) {
 	}
 }
 
-// Ref returns the object in scope s with the given name if such an
-// object exists; otherwise the result is nil.
+// Ref returns the object in this package with the given name if such an
+// object exists; otherwise it panics.
 func (p *PkgRef) Ref(name string) Ref {
+	if o := p.TryRef(name); o != nil {
+		return o
+	}
+	panic(p.Types.Path() + "." + name + " not found")
+}
+
+// TryRef returns the object in this package with the given name if such an
+// object exists; otherwise it returns nil.
+func (p *PkgRef) TryRef(name string) Ref {
 	p.EnsureImported()
 	return p.Types.Scope().Lookup(name)
 }
