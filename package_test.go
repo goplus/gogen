@@ -130,17 +130,17 @@ func TestBTIMethod(t *testing.T) {
 		NewVar(types.NewSlice(types.Typ[types.String]), "c").
 		NewVar(types.NewMap(types.Typ[types.String], types.Typ[types.Int]), "d").
 		NewVar(types.Typ[types.Int64], "e").
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "a")).MemberVal("len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "b")).MemberVal("len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "c")).MemberVal("len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "d")).MemberVal("len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "c")).MemberVal("join").Val(",").Call(1).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val("Hi").MemberVal("len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val("100").MemberVal("int").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val("100").MemberVal("uint").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(100).MemberVal("string").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(1.34).MemberVal("string").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "e")).MemberVal("string").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "a")).MemberVal("Len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "b")).MemberVal("Len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "c")).MemberVal("Len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "d")).MemberVal("Len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "c")).MemberVal("Join").Val(",").Call(1).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val("Hi").MemberVal("Len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val("100").MemberVal("Int").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val("100").MemberVal("Uint").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(100).MemberVal("String").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(1.34).MemberVal("String").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "e")).MemberVal("String").Call(0).Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 

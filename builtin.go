@@ -1225,64 +1225,64 @@ func initBuiltinTIs(pkg PkgImporter) {
 		{
 			typ: types.Typ[types.Float64],
 			methods: []*builtinMethod{
-				{"string", strconv.Ref("FormatFloat"), bmExargs{'g', -1, 64}},
+				{"String", strconv.Ref("FormatFloat"), bmExargs{'g', -1, 64}},
 			},
 		},
 		{
 			typ: types.Typ[types.Int],
 			methods: []*builtinMethod{
-				{"string", strconv.Ref("Itoa"), nil},
+				{"String", strconv.Ref("Itoa"), nil},
 			},
 		},
 		{
 			typ: types.Typ[types.Int64],
 			methods: []*builtinMethod{
-				{"string", strconv.Ref("FormatInt"), bmExargs{10}},
+				{"String", strconv.Ref("FormatInt"), bmExargs{10}},
 			},
 		},
 		{
 			typ: types.Typ[types.Uint64],
 			methods: []*builtinMethod{
-				{"string", strconv.Ref("FormatUint"), bmExargs{10}},
+				{"String", strconv.Ref("FormatUint"), bmExargs{10}},
 			},
 		},
 		{
 			typ: types.Typ[types.String],
 			methods: []*builtinMethod{
-				{"len", btoLen, nil},
-				{"int", strconv.Ref("Atoi"), nil},
-				{"uint", strconv.Ref("ParseUint"), bmExargs{10, 64}},
-				{"float", strconv.Ref("ParseFloat"), bmExargs{64}},
-				{"quote", strconv.Ref("Quote"), nil},
-				{"unquote", strconv.Ref("Unquote"), nil},
-				{"fields", strings.Ref("Fields"), nil},
-				{"split", strings.Ref("Split"), nil},
-				{"contains", strings.Ref("Contains"), nil},
+				{"Len", btoLen, nil},
+				{"Int", strconv.Ref("Atoi"), nil},
+				{"Uint", strconv.Ref("ParseUint"), bmExargs{10, 64}},
+				{"Float", strconv.Ref("ParseFloat"), bmExargs{64}},
+				{"Quote", strconv.Ref("Quote"), nil},
+				{"Unquote", strconv.Ref("Unquote"), nil},
+				{"Fields", strings.Ref("Fields"), nil},
+				{"Split", strings.Ref("Split"), nil},
+				{"Contains", strings.Ref("Contains"), nil},
 			},
 		},
 		{
 			typ: types.NewSlice(types.Typ[types.String]),
 			methods: []*builtinMethod{
-				{"len", btoLen, nil},
-				{"join", strings.Ref("Join"), nil},
+				{"Len", btoLen, nil},
+				{"Join", strings.Ref("Join"), nil},
 			},
 		},
 		{
 			typ: tySlice,
 			methods: []*builtinMethod{
-				{"len", btoLen, nil},
+				{"Len", btoLen, nil},
 			},
 		},
 		{
 			typ: tyMap,
 			methods: []*builtinMethod{
-				{"len", btoLen, nil},
+				{"Len", btoLen, nil},
 			},
 		},
 		{
 			typ: tyChan,
 			methods: []*builtinMethod{
-				{"len", btoLen, nil},
+				{"Len", btoLen, nil},
 			},
 		},
 	}
