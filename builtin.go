@@ -1223,6 +1223,30 @@ func initBuiltinTIs(pkg PkgImporter) {
 	btoLen := types.Universe.Lookup("len")
 	tis := []*builtinTI{
 		{
+			typ: types.Typ[types.Float64],
+			methods: []*builtinMethod{
+				{"string", strconv.Ref("FormatFloat"), bmExargs{'g', -1, 64}},
+			},
+		},
+		{
+			typ: types.Typ[types.Int],
+			methods: []*builtinMethod{
+				{"string", strconv.Ref("Itoa"), nil},
+			},
+		},
+		{
+			typ: types.Typ[types.Int64],
+			methods: []*builtinMethod{
+				{"string", strconv.Ref("FormatInt"), bmExargs{10}},
+			},
+		},
+		{
+			typ: types.Typ[types.Uint64],
+			methods: []*builtinMethod{
+				{"string", strconv.Ref("FormatUint"), bmExargs{10}},
+			},
+		},
+		{
 			typ: types.Typ[types.String],
 			methods: []*builtinMethod{
 				{"len", btoLen, nil},

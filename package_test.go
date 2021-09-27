@@ -129,6 +129,7 @@ func TestBTIMethod(t *testing.T) {
 		NewVar(types.NewSlice(types.Typ[types.Int]), "b").
 		NewVar(types.NewSlice(types.Typ[types.String]), "c").
 		NewVar(types.NewMap(types.Typ[types.String], types.Typ[types.Int]), "d").
+		NewVar(types.Typ[types.Int64], "e").
 		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "a")).MemberVal("len").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "b")).MemberVal("len").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "c")).MemberVal("len").Call(0).Call(1).EndStmt().
@@ -137,6 +138,9 @@ func TestBTIMethod(t *testing.T) {
 		Val(fmt.Ref("Println")).Val("Hi").MemberVal("len").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val("100").MemberVal("int").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val("100").MemberVal("uint").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(100).MemberVal("string").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(1.34).MemberVal("string").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "e")).MemberVal("string").Call(0).Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -151,6 +155,7 @@ func main() {
 	var b []int
 	var c []string
 	var d map[string]int
+	var e int64
 	fmt.Println(len(a))
 	fmt.Println(len(b))
 	fmt.Println(len(c))
@@ -159,6 +164,9 @@ func main() {
 	fmt.Println(len("Hi"))
 	fmt.Println(strconv.Atoi("100"))
 	fmt.Println(strconv.ParseUint("100", 10, 64))
+	fmt.Println(strconv.Itoa(100))
+	fmt.Println(strconv.FormatFloat(1.34, 'g', -1, 64))
+	fmt.Println(strconv.FormatInt(e, 10))
 }
 `)
 }
