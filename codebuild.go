@@ -2153,7 +2153,7 @@ func (p *CodeBuilder) Label(l *Label) *CodeBuilder {
 }
 
 // Goto func
-func (p *CodeBuilder) Goto(l *Label, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) Goto(l *Label) *CodeBuilder {
 	name := l.Name()
 	if debugInstr {
 		log.Println("Goto", name)
@@ -2175,7 +2175,7 @@ func (p *CodeBuilder) labelFlow(flow int, l *Label) (string, *ast.Ident) {
 }
 
 // Break func
-func (p *CodeBuilder) Break(l *Label, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) Break(l *Label) *CodeBuilder {
 	name, label := p.labelFlow(flowFlagBreak, l)
 	if debugInstr {
 		log.Println("Break", name)
@@ -2185,7 +2185,7 @@ func (p *CodeBuilder) Break(l *Label, src ...ast.Node) *CodeBuilder {
 }
 
 // Continue func
-func (p *CodeBuilder) Continue(l *Label, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) Continue(l *Label) *CodeBuilder {
 	name, label := p.labelFlow(flowFlagContinue, l)
 	if debugInstr {
 		log.Println("Continue", name)
