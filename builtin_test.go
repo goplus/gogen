@@ -786,4 +786,11 @@ func TestRef(t *testing.T) {
 	pkg.Ref("bar")
 }
 
+func TestLookupLabel(t *testing.T) {
+	var cb CodeBuilder
+	if _, ok := cb.LookupLabel("foo"); ok {
+		t.Fatal("TestLookupLabel failed")
+	}
+}
+
 // ----------------------------------------------------------------------------

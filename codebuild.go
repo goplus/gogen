@@ -2124,16 +2124,22 @@ func (p *CodeBuilder) NewLabel(pos token.Pos, name string) *Label {
 	if p.current.fn == nil {
 		panic(p.newCodePosError(pos, "syntax error: non-declaration statement outside function body"))
 	}
-	if p.current.labels == nil {
-		p.current.labels = make(map[string]*Label)
-	}
 	if old, ok := p.current.labels[name]; ok {
 		oldPos := p.position(old.Pos())
 		panic(p.newCodePosErrorf(pos, "label %s already defined at %v", name, oldPos))
 	}
+	if p.current.labels == nil {
+		p.current.labels = make(map[string]*Label)
+	}
 	l := &Label{Label: *types.NewLabel(pos, p.pkg.Types, name)}
 	p.current.labels[name] = l
 	return l
+}
+
+// LookupLabel func
+func (p *CodeBuilder) LookupLabel(name string) (l *Label, ok bool) {
+	l, ok = p.current.labels[name]
+	return
 }
 
 // Label func
