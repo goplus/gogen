@@ -59,52 +59,23 @@ const (
 	flowFlagWithLabel
 )
 
+type Label struct {
+	types.Label
+	used bool
+}
+
 type funcBodyCtx struct {
 	codeBlockCtx
 	fn     *Func
-	labels map[string]*label
-}
-
-type label struct {
-	at   *token.Position
-	refs []*token.Position
+	labels map[string]*Label
 }
 
 func (p *funcBodyCtx) checkLabels(cb *CodeBuilder) {
 	for name, l := range p.labels {
-		if l.at == nil {
-			for _, ref := range l.refs {
-				cb.handleErr(cb.newCodeError(ref, fmt.Sprintf("label %s is not defined", name)))
-			}
-		} else if l.refs == nil {
-			cb.handleErr(cb.newCodeError(l.at, fmt.Sprintf("label %s defined and not used", name)))
+		if !l.used {
+			cb.handleErr(cb.newCodePosErrorf(l.Pos(), "label %s defined and not used", name))
 		}
 	}
-}
-
-func (p *funcBodyCtx) getLabel(name string) *label {
-	if p.labels == nil {
-		p.labels = make(map[string]*label)
-	}
-	l, ok := p.labels[name]
-	if !ok {
-		l = new(label)
-		p.labels[name] = l
-	}
-	return l
-}
-
-func (p *funcBodyCtx) useLabel(cb *CodeBuilder, name string, pos token.Position) {
-	l := p.getLabel(name)
-	l.refs = append(l.refs, &pos)
-}
-
-func (p *funcBodyCtx) defineLabel(cb *CodeBuilder, name string, pos token.Position) {
-	l := p.getLabel(name)
-	if l.at != nil {
-		cb.panicCodeErrorf(&pos, "label %s already defined at %v", name, *l.at)
-	}
-	l.at = &pos
 }
 
 type CodeError struct {
@@ -482,22 +453,22 @@ func (p *closureParamInsts) init() {
 	p.paramInsts = make(map[closureParamInst]*types.Var)
 }
 
-func (p *CodeBuilder) getEndingLabel(fn *Func) string {
+func (p *CodeBuilder) getEndingLabel(fn *Func) *Label {
 	key := closureParamInst{fn, nil}
 	if v, ok := p.paramInsts[key]; ok {
-		return v.Name()
+		return p.current.labels[v.Name()]
 	}
 	ending := p.pkg.autoName()
 	p.paramInsts[key] = types.NewParam(token.NoPos, nil, ending, nil)
-	return ending
+	return p.NewLabel(token.NoPos, ending)
 }
 
-func (p *CodeBuilder) needEndingLabel(fn *Func) (string, bool) {
+func (p *CodeBuilder) needEndingLabel(fn *Func) (*Label, bool) {
 	key := closureParamInst{fn, nil}
 	if v, ok := p.paramInsts[key]; ok {
-		return v.Name(), true
+		return p.current.labels[v.Name()], true
 	}
-	return "", false
+	return nil, false
 }
 
 func (p *Func) inlineClosureEnd(cb *CodeBuilder) {
@@ -2149,54 +2120,71 @@ func (p *CodeBuilder) Case(n int) *CodeBuilder { // n=0 means default case
 	panic("use switch..case please")
 }
 
+func (p *CodeBuilder) NewLabel(pos token.Pos, name string) *Label {
+	if p.current.fn == nil {
+		panic(p.newCodePosError(pos, "syntax error: non-declaration statement outside function body"))
+	}
+	if p.current.labels == nil {
+		p.current.labels = make(map[string]*Label)
+	}
+	if old, ok := p.current.labels[name]; ok {
+		oldPos := p.position(old.Pos())
+		panic(p.newCodePosErrorf(pos, "label %s already defined at %v", name, oldPos))
+	}
+	l := &Label{Label: *types.NewLabel(pos, p.pkg.Types, name)}
+	p.current.labels[name] = l
+	return l
+}
+
 // Label func
-func (p *CodeBuilder) Label(name string, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) Label(l *Label) *CodeBuilder {
+	name := l.Name()
 	if debugInstr {
 		log.Println("Label", name)
 	}
-	p.current.defineLabel(p, name, p.nodePosition(getSrc(src)))
 	p.current.label = &ast.LabeledStmt{Label: ident(name)}
 	return p
 }
 
 // Goto func
-func (p *CodeBuilder) Goto(name string, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) Goto(l *Label, src ...ast.Node) *CodeBuilder {
+	name := l.Name()
 	if debugInstr {
 		log.Println("Goto", name)
 	}
+	l.used = true
 	p.current.flows |= flowFlagGoto
-	p.current.useLabel(p, name, p.nodePosition(getSrc(src)))
 	p.emitStmt(&ast.BranchStmt{Tok: token.GOTO, Label: ident(name)})
 	return p
 }
 
+func (p *CodeBuilder) labelFlow(flow int, l *Label) (string, *ast.Ident) {
+	if l != nil {
+		l.used = true
+		p.current.flows |= (flow | flowFlagWithLabel)
+		return l.Name(), ident(l.Name())
+	}
+	p.current.flows |= flow
+	return "", nil
+}
+
 // Break func
-func (p *CodeBuilder) Break(name string, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) Break(l *Label, src ...ast.Node) *CodeBuilder {
+	name, label := p.labelFlow(flowFlagBreak, l)
 	if debugInstr {
 		log.Println("Break", name)
 	}
-	if name != "" {
-		p.current.flows |= (flowFlagBreak | flowFlagWithLabel)
-		p.current.useLabel(p, name, p.nodePosition(getSrc(src)))
-	} else {
-		p.current.flows |= flowFlagBreak
-	}
-	p.emitStmt(&ast.BranchStmt{Tok: token.BREAK, Label: ident(name)})
+	p.emitStmt(&ast.BranchStmt{Tok: token.BREAK, Label: label})
 	return p
 }
 
 // Continue func
-func (p *CodeBuilder) Continue(name string, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) Continue(l *Label, src ...ast.Node) *CodeBuilder {
+	name, label := p.labelFlow(flowFlagContinue, l)
 	if debugInstr {
 		log.Println("Continue", name)
 	}
-	if name != "" {
-		p.current.flows |= (flowFlagContinue | flowFlagWithLabel)
-		p.current.useLabel(p, name, p.nodePosition(getSrc(src)))
-	} else {
-		p.current.flows |= flowFlagContinue
-	}
-	p.emitStmt(&ast.BranchStmt{Tok: token.CONTINUE, Label: ident(name)})
+	p.emitStmt(&ast.BranchStmt{Tok: token.CONTINUE, Label: label})
 	return p
 }
 

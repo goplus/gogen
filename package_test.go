@@ -1761,8 +1761,9 @@ func main() {
 
 func TestGoto(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Label("retry").Goto("retry").
+	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+	l := cb.NewLabel(token.NoPos, "retry")
+	cb.Label(l).Goto(l).
 		End()
 	domTest(t, pkg, `package main
 
@@ -1775,9 +1776,10 @@ retry:
 
 func TestBreakContinue(t *testing.T) { // TODO: check invalid syntax
 	pkg := newMainPackage()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Label("retry").Break("").Continue("").
-		Break("retry").Continue("retry").
+	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+	l := cb.NewLabel(token.NoPos, "retry")
+	cb.Label(l).Break(nil).Continue(nil).
+		Break(l).Continue(l).
 		End()
 	domTest(t, pkg, `package main
 
@@ -1922,12 +1924,13 @@ func main() {
 
 func TestLabeledFor(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Label("label").
+	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+	l := cb.NewLabel(token.NoPos, "label")
+	cb.Label(l).
 		/**/ For().DefineVarStart(0, "i").Val(0).EndInit(1). // for i := 0; i < 10; i=i+1 {
 		/******/ Val(ctxRef(pkg, "i")).Val(10).BinaryOp(token.LSS).Then().
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
-		/******/ Break("label").
+		/******/ Break(l).
 		/******/ Post().
 		/******/ VarRef(ctxRef(pkg, "i")).Val(ctxRef(pkg, "i")).Val(1).BinaryOp(token.ADD).Assign(1).EndStmt().
 		/**/ End().

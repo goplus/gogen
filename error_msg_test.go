@@ -587,21 +587,26 @@ func TestErrRecv(t *testing.T) {
 
 func TestErrLabel(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:1: label foo already defined at ./foo.gop:1:1", func(pkg *gox.Package) {
-		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-			Label("foo", source("foo:", 1, 1)).
-			Label("foo", source("foo:", 2, 1)).
-			End()
-	})
-	codeErrorTest(t, "./foo.gop:1:1: label foo is not defined", func(pkg *gox.Package) {
-		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-			Goto("foo", source("goto foo", 1, 1)).
-			End()
+		cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+		l := cb.NewLabel(position(1, 1), "foo")
+		cb.NewLabel(position(2, 1), "foo")
+		cb.Goto(l)
+		cb.End()
 	})
 	codeErrorTest(t, "./foo.gop:1:1: label foo defined and not used", func(pkg *gox.Package) {
-		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-			Label("foo", source("foo:", 1, 1)).
-			End()
+		cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+		cb.NewLabel(position(1, 1), "foo")
+		cb.End()
 	})
+	codeErrorTest(t, "./foo.gop:1:1: syntax error: non-declaration statement outside function body", func(pkg *gox.Package) {
+		pkg.CB().NewLabel(position(1, 1), "foo")
+	})
+	/*	codeErrorTest(t, "./foo.gop:1:1: label foo is not defined", func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Goto("foo", source("goto foo", 1, 1)).
+				End()
+		})
+	*/
 }
 
 func TestErrStructLit(t *testing.T) {
