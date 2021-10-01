@@ -2126,7 +2126,8 @@ func (p *CodeBuilder) NewLabel(pos token.Pos, name string) *Label {
 	}
 	if old, ok := p.current.labels[name]; ok {
 		oldPos := p.position(old.Pos())
-		panic(p.newCodePosErrorf(pos, "label %s already defined at %v", name, oldPos))
+		p.handleErr(p.newCodePosErrorf(pos, "label %s already defined at %v", name, oldPos))
+		return nil
 	}
 	if p.current.labels == nil {
 		p.current.labels = make(map[string]*Label)
