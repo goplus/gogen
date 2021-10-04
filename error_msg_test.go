@@ -465,6 +465,13 @@ func TestErrFuncCall(t *testing.T) {
 				Val(ctxRef(pkg, "a")).CallWith(0, false, source("a()", 2, 10)).
 				End()
 		})
+	codeErrorTest(t, `./foo.gop:2:10: invalid use of ... in call to foo(a...)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "foo", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				Val(ctxRef(pkg, "foo"), source("foo", 2, 2)).Val(ctxRef(pkg, "a")).CallWith(1, true, source("foo(a...)", 2, 10)).
+				End()
+		})
 	codeErrorTest(t, `./foo.gop:3:5: cannot use a (type bool) as type int in argument to foo(a)`,
 		func(pkg *gox.Package) {
 			retInt := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])

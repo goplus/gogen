@@ -515,7 +515,7 @@ func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, el
 	if ellipsis {
 		flags = InstrFlagEllipsis
 	}
-	if err := matchFuncType(pkg, args, flags, sig, "closure argument"); err != nil {
+	if err := matchFuncType(pkg, args, flags, sig, nil); err != nil {
 		panic(err)
 	}
 	n1 := getParamLen(sig) - 1

@@ -643,11 +643,7 @@ retry:
 		src, pos := pkg.cb.loadExpr(fn.Src)
 		pkg.cb.panicCodeErrorf(&pos, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
-	at := func() string {
-		src, _ := pkg.cb.loadExpr(fn.Src)
-		return "argument to " + src
-	}
-	if err = matchFuncType(pkg, args, flags, sig, at); err != nil {
+	if err = matchFuncType(pkg, args, flags, sig, fn); err != nil {
 		return
 	}
 	tyRet := toRetType(sig.Results(), it)
@@ -751,7 +747,7 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 }
 
 func matchFuncType(
-	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, at interface{}) error {
+	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, fn *internal.Elem) error {
 	var t *types.Tuple
 	n := len(args)
 	if len(args) == 1 && checkTuple(&t, args[0].Type) {
@@ -766,6 +762,15 @@ func matchFuncType(
 			case *types.Slice, *types.Map, *types.Chan:
 				args[0].Type = t
 			}
+		}
+	}
+	var at interface{}
+	if fn == nil {
+		at = "closure argument" // fn = nil means it is a closure
+	} else {
+		at = func() string {
+			src, _ := pkg.cb.loadExpr(fn.Src)
+			return "argument to " + src
 		}
 	}
 	if sig.Variadic() {
@@ -784,10 +789,25 @@ func matchFuncType(
 			return matchElemType(pkg, args[n1:], tyVariadic.Elem(), at)
 		}
 	} else if (flags & InstrFlagEllipsis) != 0 {
-		return errors.New("TODO: call with ... to non variadic function")
+		var caller string
+		var pos token.Position
+		if fn != nil {
+			caller, pos = pkg.cb.loadExpr(fn.Src)
+		}
+		return pkg.cb.newCodeError(&pos, fmt.Sprintf("invalid use of ... in call to %v", caller))
 	}
 	if nreq := getParamLen(sig); nreq != n {
-		return fmt.Errorf("TODO: unmatched function parameters count, requires %v but got %v", nreq, n)
+		fewOrMany := "few"
+		if n > nreq {
+			fewOrMany = "many"
+		}
+		var caller string
+		var pos token.Position
+		if fn != nil {
+			caller, pos = pkg.cb.loadExpr(fn.Src)
+		}
+		return pkg.cb.newCodeError(&pos, fmt.Sprintf(
+			"too %s arguments in call to %s\n\thave (%v)\n\twant %v", fewOrMany, caller, getTypes(args), sig.Params()))
 	}
 	return matchFuncArgs(pkg, args, sig, at)
 }
