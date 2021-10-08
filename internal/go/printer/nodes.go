@@ -1233,6 +1233,12 @@ func (p *printer) indentList(list []ast.Expr) bool {
 func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 	p.print(stmt.Pos())
 
+	if p.commentedStmts != nil { // by Go+
+		if comments, ok := p.commentedStmts[stmt]; ok {
+			p.setComment(comments)
+		}
+	}
+
 	switch s := stmt.(type) {
 	case *ast.BadStmt:
 		p.print("BadStmt")
@@ -1410,19 +1416,9 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		p.print(blank)
 		p.block(s.Body, 1)
 
-	case *CommentedStmt:
-		p.setComment(s.Comments)
-		p.stmt(s.Stmt, nextIsRBrace)
-
 	default:
 		panic("unreachable")
 	}
-}
-
-// CommentedStmt represents a statement with comments.
-type CommentedStmt struct {
-	Comments *ast.CommentGroup
-	ast.Stmt
 }
 
 // ----------------------------------------------------------------------------

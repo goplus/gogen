@@ -305,18 +305,19 @@ func (p *file) unsafe(this *Package, testingFile bool) *PkgRef {
 // Package type
 type Package struct {
 	PkgRef
-	cb          CodeBuilder
-	files       [2]file
-	conf        *Config
-	modPath     string
-	Fset        *token.FileSet
-	builtin     *types.Package
-	utBigInt    *types.Named
-	utBigRat    *types.Named
-	utBigFlt    *types.Named
-	loadPkgs    LoadPkgsFunc
-	autoIdx     int
-	testingFile int
+	cb             CodeBuilder
+	files          [2]file
+	conf           *Config
+	modPath        string
+	Fset           *token.FileSet
+	builtin        *types.Package
+	utBigInt       *types.Named
+	utBigRat       *types.Named
+	utBigFlt       *types.Named
+	loadPkgs       LoadPkgsFunc
+	autoIdx        int
+	testingFile    int
+	commentedStmts map[ast.Stmt]*ast.CommentGroup
 }
 
 const (
@@ -354,6 +355,13 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	pkg.utBigFlt = conf.UntypedBigFloat
 	pkg.cb.init(pkg)
 	return pkg
+}
+
+func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {
+	if p.commentedStmts == nil {
+		p.commentedStmts = make(map[ast.Stmt]*ast.CommentGroup)
+	}
+	p.commentedStmts[stmt] = comments
 }
 
 // Builtin returns the buitlin package.

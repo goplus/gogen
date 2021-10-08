@@ -89,6 +89,9 @@ type printer struct {
 	// Cache of most recently computed line position.
 	cachedPos  token.Pos
 	cachedLine int // line corresponding to cachedPos
+
+	// by Go+
+	commentedStmts map[ast.Stmt]*ast.CommentGroup
 }
 
 func (p *printer) init(cfg *Config, fset *token.FileSet, nodeSizes map[ast.Node]int) {
@@ -1073,7 +1076,10 @@ func getLastComment(n ast.Node) *ast.CommentGroup {
 func (p *printer) printNode(node interface{}) error {
 	// unpack *CommentedNode, if any
 	var comments []*ast.CommentGroup
-	if cnode, ok := node.(*CommentedNode); ok {
+	if cnodes, ok := node.(*CommentedNodes); ok {
+		node = cnodes.Node
+		p.commentedStmts = cnodes.CommentedStmts
+	} else if cnode, ok := node.(*CommentedNode); ok {
 		node = cnode.Node
 		comments = cnode.Comments
 	}
@@ -1356,6 +1362,12 @@ func (cfg *Config) fprint(output io.Writer, fset *token.FileSet, node interface{
 type CommentedNode struct {
 	Node     interface{} // *ast.File, or ast.Expr, ast.Decl, ast.Spec, or ast.Stmt
 	Comments []*ast.CommentGroup
+}
+
+// by Go+
+type CommentedNodes struct {
+	Node           interface{}
+	CommentedStmts map[ast.Stmt]*ast.CommentGroup
 }
 
 // Fprint "pretty-prints" an AST node to output for a given configuration cfg.

@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
-	"github.com/goplus/gox/internal/go/printer"
 )
 
 func getSrc(node []ast.Node) ast.Node {
@@ -301,7 +300,7 @@ func (p *CodeBuilder) commitStmt(idx int) {
 
 func (p *CodeBuilder) emitStmt(stmt ast.Stmt) {
 	if p.comments != nil {
-		stmt = &printer.CommentedStmt{Comments: p.comments, Stmt: stmt}
+		p.pkg.setStmtComments(stmt, p.comments)
 		if p.commentOnce {
 			p.comments = nil
 		}

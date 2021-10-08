@@ -22,6 +22,7 @@ import (
 	"syscall"
 
 	"github.com/goplus/gox/internal/go/format"
+	"github.com/goplus/gox/internal/go/printer"
 )
 
 // ----------------------------------------------------------------------------
@@ -32,10 +33,18 @@ func ASTFile(pkg *Package, testingFile bool) *ast.File {
 	return &ast.File{Name: ident(pkg.Types.Name()), Decls: pkg.files[idx].getDecls(pkg)}
 }
 
+// CommentedASTFile func
+func CommentedASTFile(pkg *Package, testingFile bool) *printer.CommentedNodes {
+	return &printer.CommentedNodes{
+		Node:           ASTFile(pkg, testingFile),
+		CommentedStmts: pkg.commentedStmts,
+	}
+}
+
 // WriteTo func
 func WriteTo(dst io.Writer, pkg *Package, testingFile bool) (err error) {
 	fset := token.NewFileSet()
-	return format.Node(dst, fset, ASTFile(pkg, testingFile))
+	return format.Node(dst, fset, CommentedASTFile(pkg, testingFile))
 }
 
 // WriteFile func
