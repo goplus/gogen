@@ -1,15 +1,3 @@
-gox - Code generator for the Go language
-========
-
-[![Build Status](https://github.com/goplus/gox/actions/workflows/go.yml/badge.svg)](https://github.com/goplus/gox/actions/workflows/go.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/goplus/gox)](https://goreportcard.com/report/github.com/goplus/gox)
-[![GitHub release](https://img.shields.io/github/v/tag/goplus/gox.svg?label=release)](https://github.com/goplus/gox/releases)
-[![Coverage Status](https://codecov.io/gh/goplus/gox/branch/main/graph/badge.svg)](https://codecov.io/gh/goplus/gox)
-[![GoDoc](https://pkg.go.dev/badge/github.com/goplus/gox.svg)](https://pkg.go.dev/mod/github.com/goplus/gox)
-
-## Tutorials
-
-```go
 package main
 
 import (
@@ -44,23 +32,3 @@ func main() {
 
 	gox.WriteTo(os.Stdout, pkg, false)
 }
-```
-
-This will dump Go source code to `stdout`. The following is the output content:
-
-```go
-package main
-
-import fmt "fmt"
-
-func main() {
-	a, b := "Hi", 3
-	var c = b
-	var x, y interface {
-	}
-	fmt.Println(a, b, c)
-	func(v string) {
-		fmt.Println(v)
-	}("Hello")
-}
-```
