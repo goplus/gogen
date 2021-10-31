@@ -7,7 +7,9 @@ gox - Code generator for the Go language
 [![Coverage Status](https://codecov.io/gh/goplus/gox/branch/main/graph/badge.svg)](https://codecov.io/gh/goplus/gox)
 [![GoDoc](https://pkg.go.dev/badge/github.com/goplus/gox.svg)](https://pkg.go.dev/mod/github.com/goplus/gox)
 
-## Tutorials
+## Quick start
+
+Create a file named `hellogen.go`, like below:
 
 ```go
 package main
@@ -44,6 +46,14 @@ func main() {
 
 	gox.WriteTo(os.Stdout, pkg, false)
 }
+```
+
+Try it like:
+
+```shell
+go mod init hello
+go mod tidy
+go run hellogen.go
 ```
 
 This will dump Go source code to `stdout`. The following is the output content:
