@@ -1782,28 +1782,26 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	args := p.stk.GetArgs(2)
 	var ret *internal.Elem
 	var err error
-	switch op {
-	case token.EQL, token.NEQ:
-		if !ComparableTo(p.pkg, args[0], args[1]) {
+	name := goxPrefix + binaryOps[op]
+	if ret, err = callOpFunc(p.pkg, name, args, 0); err != nil {
+		if op == token.EQL || op == token.NEQ {
+			if !ComparableTo(p.pkg, args[0], args[1]) {
+				src, pos := p.loadExpr(expr)
+				p.panicCodeErrorf(
+					&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
+			}
+			ret = &internal.Elem{
+				Val:  &ast.BinaryExpr{X: checkParenExpr(args[0].Val), Op: op, Y: checkParenExpr(args[1].Val)},
+				Type: types.Typ[types.UntypedBool],
+				CVal: binaryOp(p, op, args),
+			}
+		} else {
 			src, pos := p.loadExpr(expr)
 			p.panicCodeErrorf(
 				&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
 		}
-		ret = &internal.Elem{
-			Val:  &ast.BinaryExpr{X: checkParenExpr(args[0].Val), Op: op, Y: checkParenExpr(args[1].Val)},
-			Type: types.Typ[types.UntypedBool],
-			Src:  expr,
-			CVal: binaryOp(p, op, args),
-		}
-	default:
-		name := goxPrefix + binaryOps[op]
-		if ret, err = callOpFunc(p.pkg, name, args, 0); err != nil {
-			src, pos := p.loadExpr(expr)
-			p.panicCodeErrorf(
-				&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
-		}
-		ret.Src = expr
 	}
+	ret.Src = expr
 	p.stk.Ret(2, ret)
 	return p
 }
