@@ -1211,10 +1211,10 @@ func (p *CodeBuilder) Typ(typ types.Type, src ...ast.Node) *CodeBuilder {
 // UntypedBigInt func
 func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 	pkg := p.pkg
-	big := pkg.big()
+	bigPkg := pkg.big()
 	if v.IsInt64() {
 		val := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(v.Int64(), 10)}
-		p.Val(big.Ref("NewInt")).Val(val).Call(1)
+		p.Val(bigPkg.Ref("NewInt")).Val(val).Call(1)
 	} else {
 		/*
 			func() *typ {
@@ -1222,7 +1222,7 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 				return v
 			}()
 		*/
-		typ := big.Ref("Int").Type()
+		typ := bigPkg.Ref("Int").Type()
 		retTyp := types.NewPointer(typ)
 		ret := pkg.NewParam(token.NoPos, "", retTyp)
 		p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
@@ -1240,15 +1240,15 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 // UntypedBigRat func
 func (p *CodeBuilder) UntypedBigRat(v *big.Rat, src ...ast.Node) *CodeBuilder {
 	pkg := p.pkg
-	big := pkg.big()
+	bigPkg := pkg.big()
 	a, b := v.Num(), v.Denom()
 	if a.IsInt64() && b.IsInt64() {
 		va := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(a.Int64(), 10)}
 		vb := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(b.Int64(), 10)}
-		p.Val(big.Ref("NewRat")).Val(va).Val(vb).Call(2)
+		p.Val(bigPkg.Ref("NewRat")).Val(va).Val(vb).Call(2)
 	} else {
 		// new(big.Rat).SetFrac(a, b)
-		p.Val(p.pkg.builtin.Scope().Lookup("new")).Typ(big.Ref("Rat").Type()).Call(1).
+		p.Val(p.pkg.builtin.Scope().Lookup("new")).Typ(bigPkg.Ref("Rat").Type()).Call(1).
 			MemberVal("SetFrac").UntypedBigInt(a).UntypedBigInt(b).Call(2)
 	}
 	ret := p.stk.Get(-1)
