@@ -916,6 +916,82 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 	return p
 }
 
+func (p *CodeBuilder) SliceStep(typ types.Type) *CodeBuilder {
+	var pkg = p.pkg
+	var args = p.stk.GetArgs(3)
+
+	val := boundElementType(pkg, []*internal.Elem{args[2]}, 0, 1, 1)
+	elemTyp := Default(pkg, val)
+	t := types.NewSlice(elemTyp)
+	typ = t
+
+	f, ok := p.current.codeBlock.(*forRangeStmt)
+	if ok {
+		p.current.codeBlockCtx, f.old = f.old, p.current.codeBlockCtx
+		defer func() {
+			p.current.codeBlockCtx, f.old = f.old, p.current.codeBlockCtx
+		}()
+	}
+
+	stmtDefine := &ast.DeclStmt{
+		Decl: &ast.GenDecl{
+			Tok: token.VAR,
+			Specs: []ast.Spec{
+				&ast.ValueSpec{
+					Names: []*ast.Ident{
+						ident("gox_var_a"),
+					},
+					Type: &ast.ArrayType{
+						Elt: ident(elemTyp.String()),
+					},
+				},
+			},
+		},
+	}
+	stmtFor := &ast.ForStmt{
+		Init: &ast.AssignStmt{
+			Lhs: []ast.Expr{ident("i")},
+			Tok: token.DEFINE,
+			Rhs: []ast.Expr{args[0].Val},
+		},
+		Cond: &ast.BinaryExpr{
+			X:  ident("i"),
+			Op: token.LSS,
+			Y:  args[1].Val,
+		},
+		Post: &ast.AssignStmt{
+			Lhs: []ast.Expr{ident("i")},
+			Tok: token.ASSIGN,
+			Rhs: []ast.Expr{&ast.BinaryExpr{
+				X:  ident("i"),
+				Op: token.ADD,
+				Y:  args[2].Val,
+			}},
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.AssignStmt{
+					Lhs: []ast.Expr{ident("gox_var_a")},
+					Tok: token.ASSIGN,
+					Rhs: []ast.Expr{
+						&ast.CallExpr{
+							Fun: ident("append"),
+							Args: []ast.Expr{
+								ident("gox_var_a"),
+								ident("i"),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	p.emitStmt(stmtDefine)
+	p.emitStmt(stmtFor)
+	p.stk.Ret(3, &internal.Elem{Type: typ, Val: ident("gox_var_a")})
+	return p
+}
+
 // ArrayLit func
 func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeBuilder {
 	var elts []ast.Expr
