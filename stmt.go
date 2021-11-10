@@ -634,6 +634,12 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 		*/
 		lhs := make([]ast.Expr, n)
 		lhs[0] = p.stmt.Key
+		if lhs[0] == nil { // bugfix: for range udt { ... }
+			lhs[0] = underscore
+			if p.stmt.Tok == 0 {
+				p.stmt.Tok = token.ASSIGN
+			}
+		}
 		lhs[1] = p.stmt.Value
 		lhs[n-1] = identGopOk
 		body := make([]ast.Stmt, len(stmts)+3)
