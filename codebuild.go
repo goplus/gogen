@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/constant"
@@ -1211,10 +1212,10 @@ func (p *CodeBuilder) Typ(typ types.Type, src ...ast.Node) *CodeBuilder {
 // UntypedBigInt func
 func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 	pkg := p.pkg
-	big := pkg.big()
+	bigPkg := pkg.big()
 	if v.IsInt64() {
 		val := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(v.Int64(), 10)}
-		p.Val(big.Ref("NewInt")).Val(val).Call(1)
+		p.Val(bigPkg.Ref("NewInt")).Val(val).Call(1)
 	} else {
 		/*
 			func() *typ {
@@ -1222,7 +1223,7 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 				return v
 			}()
 		*/
-		typ := big.Ref("Int").Type()
+		typ := bigPkg.Ref("Int").Type()
 		retTyp := types.NewPointer(typ)
 		ret := pkg.NewParam(token.NoPos, "", retTyp)
 		p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
@@ -1240,15 +1241,15 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 // UntypedBigRat func
 func (p *CodeBuilder) UntypedBigRat(v *big.Rat, src ...ast.Node) *CodeBuilder {
 	pkg := p.pkg
-	big := pkg.big()
+	bigPkg := pkg.big()
 	a, b := v.Num(), v.Denom()
 	if a.IsInt64() && b.IsInt64() {
 		va := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(a.Int64(), 10)}
 		vb := &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(b.Int64(), 10)}
-		p.Val(big.Ref("NewRat")).Val(va).Val(vb).Call(2)
+		p.Val(bigPkg.Ref("NewRat")).Val(va).Val(vb).Call(2)
 	} else {
 		// new(big.Rat).SetFrac(a, b)
-		p.Val(p.pkg.builtin.Scope().Lookup("new")).Typ(big.Ref("Rat").Type()).Call(1).
+		p.Val(p.pkg.builtin.Scope().Lookup("new")).Typ(bigPkg.Ref("Rat").Type()).Call(1).
 			MemberVal("SetFrac").UntypedBigInt(a).UntypedBigInt(b).Call(2)
 	}
 	ret := p.stk.Get(-1)
@@ -1755,22 +1756,34 @@ func lookupMethod(t *types.Named, name string) types.Object {
 	return nil
 }
 
-func callOpFunc(pkg *Package, name string, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+func callOpFunc(cb *CodeBuilder, op token.Token, tokenOps []string, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+	name := goxPrefix + tokenOps[op]
 	if t, ok := args[0].Type.(*types.Named); ok {
-		op := lookupMethod(t, name)
-		if op != nil {
+		lm := lookupMethod(t, name)
+		if lm != nil {
 			fn := &internal.Elem{
 				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
-				Type: realType(op.Type()),
+				Type: realType(lm.Type()),
 			}
-			return matchFuncCall(pkg, fn, args, flags)
+			return matchFuncCall(cb.pkg, fn, args, flags)
 		}
 	}
-	op := pkg.builtin.Scope().Lookup(name)
-	if op == nil {
+	if op == token.EQL || op == token.NEQ {
+		if !ComparableTo(cb.pkg, args[0], args[1]) {
+			return nil, errors.New("mismatched types")
+		}
+		ret = &internal.Elem{
+			Val:  &ast.BinaryExpr{X: checkParenExpr(args[0].Val), Op: op, Y: checkParenExpr(args[1].Val)},
+			Type: types.Typ[types.UntypedBool],
+			CVal: binaryOp(cb, op, args),
+		}
+		return
+	}
+	lm := cb.pkg.builtin.Scope().Lookup(name)
+	if lm == nil {
 		panic("TODO: operator not matched")
 	}
-	return matchFuncCall(pkg, toObject(pkg, op, nil), args, flags)
+	return matchFuncCall(cb.pkg, toObject(cb.pkg, lm, nil), args, flags)
 }
 
 // BinaryOp func
@@ -1782,33 +1795,25 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	args := p.stk.GetArgs(2)
 	var ret *internal.Elem
 	var err error
-	switch op {
-	case token.EQL, token.NEQ:
-		if !ComparableTo(p.pkg, args[0], args[1]) {
-			src, pos := p.loadExpr(expr)
-			p.panicCodeErrorf(
-				&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
-		}
-		ret = &internal.Elem{
-			Val:  &ast.BinaryExpr{X: checkParenExpr(args[0].Val), Op: op, Y: checkParenExpr(args[1].Val)},
-			Type: types.Typ[types.UntypedBool],
-			Src:  expr,
-			CVal: binaryOp(p, op, args),
-		}
-	default:
-		name := goxPrefix + binaryOps[op]
-		if ret, err = callOpFunc(p.pkg, name, args, 0); err != nil {
-			src, pos := p.loadExpr(expr)
-			p.panicCodeErrorf(
-				&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
-		}
-		ret.Src = expr
+	if ret, err = callOpFunc(p, op, binaryOps[0:], args, 0); err != nil {
+		src, pos := p.loadExpr(expr)
+		p.panicCodeErrorf(
+			&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
 	}
+	ret.Src = expr
 	p.stk.Ret(2, ret)
 	return p
 }
 
 var (
+	unaryOps = [...]string{
+		token.SUB:   "Neg",
+		token.ADD:   "Pos",
+		token.XOR:   "Not",
+		token.NOT:   "LNot",
+		token.ARROW: "Recv",
+		token.AND:   "Addr",
+	}
 	binaryOps = [...]string{
 		token.ADD: "Add", // +
 		token.SUB: "Sub", // -
@@ -1846,28 +1851,16 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 	if twoValue != nil && twoValue[0] {
 		flags = InstrFlagTwoValue
 	}
-	name := goxPrefix + unaryOps[op]
 	if debugInstr {
-		log.Println("UnaryOp", op, flags, name)
+		log.Println("UnaryOp", op, flags)
 	}
-	ret, err := callOpFunc(p.pkg, name, p.stk.GetArgs(1), flags)
+	ret, err := callOpFunc(p, op, unaryOps[0:], p.stk.GetArgs(1), flags)
 	if err != nil {
 		panic(err)
 	}
 	p.stk.Ret(1, ret)
 	return p
 }
-
-var (
-	unaryOps = [...]string{
-		token.SUB:   "Neg",
-		token.ADD:   "Pos",
-		token.XOR:   "Not",
-		token.NOT:   "LNot",
-		token.ARROW: "Recv",
-		token.AND:   "Addr",
-	}
-)
 
 // IncDec func
 func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
