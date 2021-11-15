@@ -1206,6 +1206,18 @@ func main() {
 `)
 }
 
+func TestFuncDoc(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).SetComments(comment("\n//go:noinline")).
+		BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+//go:noinline
+func main() {
+}
+`)
+}
+
 func TestFuncBasic(t *testing.T) {
 	pkg := newMainPackage()
 	v := pkg.NewParam(token.NoPos, "v", gox.TyByte)

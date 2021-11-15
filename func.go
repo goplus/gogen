@@ -59,6 +59,12 @@ type Func struct {
 	old  funcBodyCtx
 }
 
+// SetComments sets associated documentation.
+func (p *Func) SetComments(doc *ast.CommentGroup) *Func {
+	p.decl.Doc = doc
+	return p
+}
+
 // Ancestor returns ancestor of a closure function.
 // It returns itself if the specified func is a normal function.
 func (p *Func) Ancestor() *Func {
