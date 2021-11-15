@@ -98,7 +98,7 @@ type CodeBuilder struct {
 	current   funcBodyCtx
 	comments  *ast.CommentGroup
 	pkg       *Package
-	varDecl   *ValueDecl
+	varDecl   *VarDecl
 	interp    NodeInterpreter
 	loadNamed LoadNamedFunc
 	handleErr func(err error)

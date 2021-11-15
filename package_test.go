@@ -555,6 +555,18 @@ func main() {
 `)
 }
 
+func TestTypeDoc(t *testing.T) {
+	pkg := newMainPackage()
+	typ := types.NewStruct(nil, nil)
+	pkg.NewType("foo").SetComments(comment("\n//go:notinheap")).InitType(pkg, typ)
+	domTest(t, pkg, `package main
+
+//go:notinheap
+type foo struct {
+}
+`)
+}
+
 func TestTypeDecl(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{

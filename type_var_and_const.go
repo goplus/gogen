@@ -39,8 +39,14 @@ func (p *CodeBuilder) EndConst() *Element {
 
 // TypeDecl type
 type TypeDecl struct {
-	typ     *types.Named
-	typExpr *ast.Expr
+	typ  *types.Named
+	decl *ast.GenDecl
+}
+
+// SetComments sets associated documentation.
+func (p *TypeDecl) SetComments(doc *ast.CommentGroup) *TypeDecl {
+	p.decl.Doc = doc
+	return p
 }
 
 // Type returns the type.
@@ -58,7 +64,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 	} else {
 		p.typ.SetUnderlying(typ)
 	}
-	*p.typExpr = toType(pkg, typ)
+	p.decl.Specs[0].(*ast.TypeSpec).Type = toType(pkg, typ)
 	return p.typ
 }
 
@@ -105,17 +111,17 @@ func (p *Package) doNewType(
 		typ = typ.Underlying() // typ.Underlying() may delay load and can be nil, it's reasonable
 	}
 	named := types.NewNamed(typName, typ, nil)
-	return &TypeDecl{typ: named, typExpr: &spec.Type}
+	return &TypeDecl{typ: named, decl: decl}
 }
 
 // ----------------------------------------------------------------------------
 
-// ValueDecl type
-type ValueDecl struct {
+// VarDecl type
+type VarDecl struct {
 	names []string
 	typ   types.Type
 	old   codeBlock
-	oldv  *ValueDecl
+	oldv  *VarDecl
 	scope *types.Scope
 	vals  *[]ast.Expr
 	tok   token.Token
@@ -123,17 +129,17 @@ type ValueDecl struct {
 	at    int // commitStmt(at)
 }
 
-func (p *ValueDecl) InitStart(pkg *Package) *CodeBuilder {
+func (p *VarDecl) InitStart(pkg *Package) *CodeBuilder {
 	p.oldv, pkg.cb.varDecl = pkg.cb.varDecl, p
 	p.old = pkg.cb.startInitExpr(p)
 	return &pkg.cb
 }
 
-func (p *ValueDecl) End(cb *CodeBuilder) {
+func (p *VarDecl) End(cb *CodeBuilder) {
 	fatal("don't call End(), please use EndInit() instead")
 }
 
-func (p *ValueDecl) resetInit(cb *CodeBuilder) *ValueDecl {
+func (p *VarDecl) resetInit(cb *CodeBuilder) *VarDecl {
 	cb.endInitExpr(p.old)
 	if p.at >= 0 {
 		cb.commitStmt(p.at) // to support inline call, we must emitStmt at ResetInit stage
@@ -146,7 +152,7 @@ func checkTuple(t **types.Tuple, typ types.Type) (ok bool) {
 	return
 }
 
-func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
+func (p *VarDecl) endInit(cb *CodeBuilder, arity int) *VarDecl {
 	var t *types.Tuple
 	var expr *ast.Expr
 	var values []ast.Expr
@@ -234,6 +240,11 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	return p.oldv
 }
 
+// ValueDecl type (only for internal use).
+//
+// Deprecated: Use VarDecl instead.
+type ValueDecl = VarDecl
+
 func (p *Package) newValueDecl(
 	cdecl *ConstDecl, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
 	n := len(names)
@@ -313,14 +324,14 @@ func (p *Package) NewConstDecl(scope *types.Scope) *ConstDecl {
 	return &ConstDecl{pkg: p, scope: scope, decl: decl}
 }
 
-func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *ValueDecl {
+func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
 	return p.newValueDecl(nil, p.Types.Scope(), pos, token.VAR, typ, names...)
 }
 
-func (p *Package) NewVarEx(scope *types.Scope, pos token.Pos, typ types.Type, names ...string) *ValueDecl {
+func (p *Package) NewVarEx(scope *types.Scope, pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
