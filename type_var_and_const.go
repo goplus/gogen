@@ -41,6 +41,7 @@ func (p *CodeBuilder) EndConst() *Element {
 type TypeDecl struct {
 	typ  *types.Named
 	decl *ast.GenDecl
+	spec *ast.TypeSpec
 }
 
 // SetComments sets associated documentation.
@@ -64,7 +65,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 	} else {
 		p.typ.SetUnderlying(typ)
 	}
-	p.decl.Specs[0].(*ast.TypeSpec).Type = toType(pkg, typ)
+	p.spec.Type = toType(pkg, typ)
 	return p.typ
 }
 
@@ -111,7 +112,7 @@ func (p *Package) doNewType(
 		typ = typ.Underlying() // typ.Underlying() may delay load and can be nil, it's reasonable
 	}
 	named := types.NewNamed(typName, typ, nil)
-	return &TypeDecl{typ: named, decl: decl}
+	return &TypeDecl{typ: named, decl: decl, spec: spec}
 }
 
 // ----------------------------------------------------------------------------
