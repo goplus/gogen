@@ -793,4 +793,14 @@ func TestLookupLabel(t *testing.T) {
 	}
 }
 
+func TestImportPkg(t *testing.T) {
+	pkg := NewPackage("foo/bar", "bar", nil)
+	f := &file{importPkgs: make(map[string]*PkgRef)}
+	f.endImport(pkg, false)
+	a := f.importPkg(pkg, "./internal/a", false)
+	if f.importPkgs["foo/bar/internal/a"] != a {
+		t.Fatal("TestImportPkg failed")
+	}
+}
+
 // ----------------------------------------------------------------------------
