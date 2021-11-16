@@ -6,8 +6,10 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"path"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
@@ -164,7 +166,9 @@ func pkgPathNotFound(allPkgPaths []string, pkgPath string) bool {
 }
 
 func (p *file) importPkg(this *Package, pkgPath string, testingFile bool) *PkgRef {
-	// TODO: canonical pkgPath
+	if strings.HasPrefix(pkgPath, ".") { // canonical pkgPath
+		pkgPath = path.Join(this.Types.Path(), pkgPath)
+	}
 	pkgImport, ok := p.importPkgs[pkgPath]
 	if !ok {
 		pkgImport = &PkgRef{pkg: this, file: p, inTestingFile: testingFile}
