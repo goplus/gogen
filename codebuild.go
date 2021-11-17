@@ -1758,7 +1758,10 @@ func lookupMethod(t *types.Named, name string) types.Object {
 
 func callOpFunc(cb *CodeBuilder, op token.Token, tokenOps []string, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
 	name := goxPrefix + tokenOps[op]
-	if t, ok := args[0].Type.(*types.Named); ok {
+	typ := args[0].Type
+retry:
+	switch t := typ.(type) {
+	case *types.Named:
 		lm := lookupMethod(t, name)
 		if lm != nil {
 			fn := &internal.Elem{
@@ -1767,6 +1770,9 @@ func callOpFunc(cb *CodeBuilder, op token.Token, tokenOps []string, args []*inte
 			}
 			return matchFuncCall(cb.pkg, fn, args, flags)
 		}
+	case *types.Pointer:
+		typ = t.Elem()
+		goto retry
 	}
 	if op == token.EQL || op == token.NEQ {
 		if !ComparableTo(cb.pkg, args[0], args[1]) {
