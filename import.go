@@ -18,6 +18,8 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"golang.org/x/mod/modfile"
+	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -61,10 +63,11 @@ type PkgRef struct {
 }
 
 type pkgFingerp struct {
-	files   []string // files to generate fingerprint
-	fingerp string   // package code fingerprint, or empty (delay calc)
-	updated bool     // dirty flag is valid
-	dirty   bool
+	isVersion bool     // local file or not
+	files     []string // files to generate fingerprint,when isVersion==true
+	fingerp   string   // package code fingerprint, or empty (delay calc)
+	updated   bool     // dirty flag is valid
+	dirty     bool
 }
 
 func (p *pkgFingerp) getFingerp() string {
@@ -74,9 +77,14 @@ func (p *pkgFingerp) getFingerp() string {
 	return p.fingerp
 }
 
-func (p *pkgFingerp) changed() bool {
+func (p *pkgFingerp) changed(pfp pkgFingerp) bool {
 	if p == nil {
 		return false
+	}
+	if pfp.isVersion {
+		p.dirty = p.fingerp != pfp.fingerp
+		p.updated = true
+		return p.dirty
 	}
 	if !p.updated {
 		p.dirty = (calcFingerp(p.files) != p.fingerp)
@@ -176,6 +184,10 @@ func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Packag
 	}
 	if loadPkg.Module != nil {
 		pkg.pkgf = &pkgFingerp{files: fileList(loadPkg), updated: true}
+		if r, ok := getModPkgs(at.conf.ModRootDir + "/go.mod")[loadPkg.PkgPath]; ok {
+			pkg.pkgf.isVersion = r.isVersion
+			pkg.pkgf.fingerp = r.fingerp
+		}
 	}
 }
 
@@ -300,9 +312,9 @@ type LoadPkgsCached struct {
 	cacheFile string
 }
 
-func (p *LoadPkgsCached) imported(pkgPath string) (pkg *PkgRef, ok bool) {
+func (p *LoadPkgsCached) imported(pkgPath string, m map[string]pkgFingerp) (pkg *PkgRef, ok bool) {
 	if pkg, ok = p.imports[pkgPath]; ok {
-		if pkg.pkgf.changed() {
+		if pkg.pkgf.changed(m[pkgPath]) {
 			delete(p.imports, pkgPath)
 			return nil, false
 		}
@@ -317,11 +329,41 @@ func (p *LoadPkgsCached) Save() error {
 	return savePkgsCache(p.cacheFile, p.imports)
 }
 
+func getModPkgs(file string) (m map[string]pkgFingerp) {
+	src, err := ioutil.ReadFile(file)
+	if err != nil {
+		return m
+	}
+	f, err := modfile.Parse(file, src, nil)
+	if err != nil {
+		return
+	}
+	m = map[string]pkgFingerp{}
+	for _, v := range f.Require {
+		m[v.Mod.Path] = pkgFingerp{
+			fingerp:   v.Mod.Version,
+			isVersion: true,
+		}
+	}
+	for _, v := range f.Replace {
+		delete(m, v.Old.Path)
+		// if replace not local file,update the pkg finger
+		if v.New.Version != "" {
+			m[v.Old.Path] = pkgFingerp{
+				fingerp:   v.New.Path + v.New.Version,
+				isVersion: true,
+			}
+		}
+	}
+	return
+}
+
 func (p *LoadPkgsCached) Load(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int {
+	modPkgs := getModPkgs(at.conf.ModRootDir + "/go.mod")
 	var unimportedPaths []string
 retry:
 	for _, pkgPath := range pkgPaths {
-		if loadPkg, ok := p.imported(pkgPath); ok {
+		if loadPkg, ok := p.imported(pkgPath, modPkgs); ok {
 			if pkg, ok := importPkgs[pkgPath]; ok {
 				typs := *loadPkg.Types
 				pkg.ID = loadPkg.ID
