@@ -347,7 +347,7 @@ func getModPkgs(file string) (m map[string]pkgFingerp) {
 	}
 	for _, v := range f.Replace {
 		delete(m, v.Old.Path)
-		// if replace not local file,update the pkg finger
+		// if replacement-path  not a local directory ,update the pkg finger
 		if v.New.Version != "" {
 			m[v.Old.Path] = pkgFingerp{
 				fingerp:   v.New.Path + v.New.Version,
