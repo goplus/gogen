@@ -61,10 +61,17 @@ type PkgRef struct {
 }
 
 type pkgFingerp struct {
-	fingerp     string // package code fingerprint, or empty (delay calc)
-	updated     bool   // dirty flag is valid
-	dirty       bool
-	createdTime *time.Time
+	files   []string // files to generate fingerprint
+	fingerp string   // package code fingerprint, or empty (delay calc)
+	updated bool     // dirty flag is valid
+	dirty   bool
+}
+
+func (p *pkgFingerp) getFingerp() string {
+	if p.fingerp == "" {
+		p.fingerp = calcFingerp(p.files)
+	}
+	return p.fingerp
 }
 
 func (p *pkgFingerp) changed() bool {
@@ -72,14 +79,10 @@ func (p *pkgFingerp) changed() bool {
 		return false
 	}
 	if !p.updated {
-		p.dirty = p.calcFingerp() != p.fingerp
+		p.dirty = (calcFingerp(p.files) != p.fingerp)
 		p.updated = true
 	}
 	return p.dirty
-}
-
-func (p *pkgFingerp) calcFingerp() string {
-	return strconv.FormatInt(p.createdTime.UnixNano()/1000, 36)
 }
 
 func (p *PkgRef) markUsed(v *ast.Ident) {
@@ -172,19 +175,15 @@ func LoadGoPkg(at *Package, imports map[string]*PkgRef, loadPkg *packages.Packag
 		initGopPkg(dedupPkg(imports, pkg))
 	}
 	if loadPkg.Module != nil {
-		if loadPkg.Module.Path == at.modPath {
-			pkg.pkgf = &pkgFingerp{createdTime: getLatestTime(loadPkg.GoFiles), updated: true}
-		} else {
-			createdTime := loadPkg.Module.Time
-			if loadPkg.Module.Replace != nil {
-				createdTime = loadPkg.Module.Replace.Time
-			}
-			pkg.pkgf = &pkgFingerp{updated: true, createdTime: createdTime}
-		}
+		pkg.pkgf = &pkgFingerp{files: fileList(loadPkg), updated: true}
 	}
 }
 
-func getLatestTime(files []string) *time.Time {
+func fileList(loadPkg *packages.Package) []string {
+	return loadPkg.GoFiles
+}
+
+func calcFingerp(files []string) string {
 	var gopTime time.Time
 	for _, file := range files {
 		if fi, err := os.Stat(file); err == nil {
@@ -194,7 +193,7 @@ func getLatestTime(files []string) *time.Time {
 			}
 		}
 	}
-	return &gopTime
+	return strconv.FormatInt(gopTime.UnixNano()/1000, 36)
 }
 
 func initGopPkg(pkg *types.Package) {
@@ -304,11 +303,9 @@ type LoadPkgsCached struct {
 func (p *LoadPkgsCached) imported(pkgPath string) (pkg *PkgRef, ok bool) {
 	if pkg, ok = p.imports[pkgPath]; ok {
 		if pkg.pkgf.changed() {
-			fmt.Println(pkgPath, "changed")
 			delete(p.imports, pkgPath)
 			return nil, false
 		}
-		fmt.Println(pkgPath, "un----changed")
 	}
 	return
 }

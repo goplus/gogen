@@ -545,7 +545,8 @@ func toPersistPkg(pkg *PkgRef) *persistPkgRef {
 		Consts:  consts,
 	}
 	if pkg.pkgf != nil {
-		ret.Fingerp = pkg.pkgf.calcFingerp()
+		ret.Fingerp = pkg.pkgf.getFingerp()
+		ret.Files = pkg.pkgf.files
 	}
 	return ret
 }
@@ -557,7 +558,7 @@ func fromPersistPkg(ctx *persistPkgCtx, pkg *persistPkgRef) *PkgRef {
 	ctx.intfs = nil
 	var pkgf *pkgFingerp
 	if pkg.Fingerp != "" {
-		pkgf = &pkgFingerp{createdTime: getLatestTime(pkg.Files), fingerp: pkg.Fingerp}
+		pkgf = &pkgFingerp{files: pkg.Files, fingerp: pkg.Fingerp}
 	}
 	ret := &PkgRef{ID: pkg.ID, Types: ctx.pkg, pkgf: pkgf}
 	ctx.imports[pkg.PkgPath] = ret
