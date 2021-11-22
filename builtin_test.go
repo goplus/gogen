@@ -372,12 +372,12 @@ func TestImported(t *testing.T) {
 	pkg := &PkgRef{
 		pkgf: &pkgFingerp{fingerp: "abc"},
 	}
-	imports := map[string]*PkgRef{"foo": pkg}
+	imports := map[string]*PkgRef{"foo": pkg, "golang.org/x/mod": {pkgf: &pkgFingerp{fingerp: "v0.5.1"}}}
 	cached := &LoadPkgsCached{imports: imports}
 	if cached.Save() != nil {
 		t.Fatal("cached.Save failed")
 	}
-	if _, ok := cached.imported("foo", getModPkgs("./go.mod")); ok {
+	if _, ok := cached.imported("foo", getModPkgs("./testdata/go_mod.txt")); ok {
 		t.Fatal("TestImported failed")
 	}
 	NewLoadPkgsCached(nil)
