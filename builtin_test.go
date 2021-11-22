@@ -377,7 +377,7 @@ func TestImported(t *testing.T) {
 	if cached.Save() != nil {
 		t.Fatal("cached.Save failed")
 	}
-	if _, ok := cached.imported("foo", map[string]pkgFingerp{}); ok {
+	if _, ok := cached.imported("foo", getModPkgs("./go.mod")); ok {
 		t.Fatal("TestImported failed")
 	}
 	NewLoadPkgsCached(nil)

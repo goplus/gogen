@@ -81,13 +81,12 @@ func (p *pkgFingerp) changed(pfp pkgFingerp) bool {
 	if p == nil {
 		return false
 	}
-	if pfp.isVersion {
-		p.dirty = p.fingerp != pfp.fingerp
-		p.updated = true
-		return p.dirty
-	}
 	if !p.updated {
-		p.dirty = (calcFingerp(p.files) != p.fingerp)
+		if pfp.isVersion {
+			p.dirty = p.fingerp != pfp.fingerp
+		} else {
+			p.dirty = calcFingerp(p.files) != p.fingerp
+		}
 		p.updated = true
 	}
 	return p.dirty
@@ -332,7 +331,7 @@ func (p *LoadPkgsCached) Save() error {
 func getModPkgs(file string) (m map[string]pkgFingerp) {
 	src, err := ioutil.ReadFile(file)
 	if err != nil {
-		return m
+		return
 	}
 	f, err := modfile.Parse(file, src, nil)
 	if err != nil {
