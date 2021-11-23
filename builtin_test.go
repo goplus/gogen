@@ -23,6 +23,10 @@ import (
 	"testing"
 
 	"github.com/goplus/gox/internal"
+	"golang.org/x/mod/modfile"
+	"golang.org/x/tools/go/packages"
+
+	gomod "golang.org/x/mod/module"
 )
 
 func TestContractName(t *testing.T) {
@@ -368,19 +372,165 @@ func TestFromPersistType(t *testing.T) {
 	fromPersistType(nil, 0)
 }
 
-func TestImported(t *testing.T) {
-	pkg := &PkgRef{
-		pkgf: &pkgFingerp{fingerp: "abc"},
+func TestLoadModFile(t *testing.T) {
+	if _, err := loadModFile("./testdata/not-found"); err == nil {
+		t.Fatal("TestLoadModFile: no error?")
 	}
-	imports := map[string]*PkgRef{"foo": pkg, "golang.org/x/mod": {pkgf: &pkgFingerp{fingerp: "v0.5.1"}}}
+	if mod, err := loadModFile("./testdata/go_mod.txt"); err != nil {
+		t.Fatal("TestLoadModFile:", err)
+	} else if dep := mod.deps["golang.org/x/tools"]; dep == nil || dep.replace != "/local/dir" {
+		t.Fatal("TestLoadModFile: golang.org/x/tools =>", dep.replace)
+	}
+}
+
+func TestPkgFingerp(t *testing.T) {
+	pkg := new(Package)
+	pkg.mod = &module{}
+	if newPkgFingerp(pkg, &packages.Package{}) != nil {
+		t.Fatal("newPkgFingerp not nil")
+	}
+
+	pkg.mod = &module{
+		Module: &modfile.Module{},
+	}
+	if pkgf := newPkgFingerp(pkg, &packages.Package{
+		Module: &packages.Module{
+			Path:    "github.com/goplus/gop",
+			Version: "v1.0.0",
+		},
+	}); pkgf == nil || !pkgf.versioned || pkgf.fingerp != "v1.0.0" {
+		t.Fatal("newPkgFingerp not v1.0.0")
+	} else if pkgf.localRepChanged("") != true {
+		t.Fatal("localRepChanged failed")
+	}
+
+	if pkgf := newPkgFingerp(pkg, &packages.Package{
+		Module: &packages.Module{
+			Path: "foo",
+			Replace: &packages.Module{
+				Path:    "github.com/goplus/gop",
+				Version: "v1.0.0",
+			},
+		},
+	}); pkgf == nil || !pkgf.versioned || pkgf.fingerp != "github.com/goplus/gop@v1.0.0" {
+		t.Fatal("newPkgFingerp not github.com/goplus/gop@v1.0.0")
+	}
+}
+
+func TestImported1(t *testing.T) {
+	pkg := new(Package)
+	pkg.mod = &module{
+		Module: &modfile.Module{},
+		deps: map[string]*pkgdep{
+			"foo.com":          {replace: "./internal/foo"},
+			"golang.org/x/mod": {ver: "v0.4.1"},
+		},
+	}
+	pkgf := newPkgFingerp(pkg, &packages.Package{
+		GoFiles: []string{
+			"./internal/foo/foo.go",
+		},
+		Module: &packages.Module{
+			Path: "foo.com",
+			Replace: &packages.Module{
+				Path: "./internal/foo",
+			},
+		},
+	})
+	pkgf.getFingerp()
+	pkgf.updated = false
+	foo := &PkgRef{
+		pkgf: pkgf,
+	}
+	imports := map[string]*PkgRef{
+		"foo.com": foo,
+		"golang.org/x/mod": {
+			pkgf: &pkgFingerp{fingerp: "v0.5.1", versioned: true},
+		},
+	}
 	cached := &LoadPkgsCached{imports: imports}
 	if cached.Save() != nil {
 		t.Fatal("cached.Save failed")
 	}
-	if _, ok := cached.imported("foo", getModPkgs("./testdata/go_mod.txt")); ok {
-		t.Fatal("TestImported failed")
+	if _, ok := cached.imported(pkg, "golang.org/x/mod"); ok {
+		t.Fatal("TestImported golang.org/x/mod failed")
+	}
+	if ret, ok := cached.imported(pkg, "foo.com"); !ok || ret != foo {
+		t.Fatal("TestImported foo: not found?")
 	}
 	NewLoadPkgsCached(nil)
+}
+
+func TestImported2(t *testing.T) {
+	pkg := new(Package)
+	pkg.mod = &module{
+		Module: &modfile.Module{
+			Mod: gomod.Version{
+				Path: "github.com/goplus/gox",
+			},
+		},
+		deps: map[string]*pkgdep{
+			"foo.com": {replace: "./internal/foo"},
+		},
+	}
+	if pkg.mod.getPkgType("") != ptInvalidPkg {
+		t.Fatal("getPkgType != ptInvalidPkg")
+	}
+	if pkg.mod.getPkgType("./foo") != ptLocalPkg {
+		t.Fatal("getPkgType != ptLocalPkg")
+	}
+	pkgf := newPkgFingerp(pkg, &packages.Package{
+		GoFiles: []string{
+			"./internal/foo/foo.go",
+		},
+		Module: &packages.Module{
+			Path: "foo.com",
+			Replace: &packages.Module{
+				Path: "./internal/foo",
+			},
+		},
+	})
+	if pkgf.versionChanged("") != true {
+		t.Fatal("versionChanged failed")
+	}
+	if pkgf.localRepChanged("./internal/bar") != true {
+		t.Fatal("localRepChanged failed")
+	}
+	pkgf.updated = false
+	ipkgf := newPkgFingerp(pkg, &packages.Package{
+		GoFiles: []string{
+			"./internal/foo/foo.go",
+		},
+		Module: &packages.Module{
+			Path: "github.com/goplus/gox",
+		},
+	})
+	ipkgf.getFingerp()
+	ipkgf.updated = false
+	foo := &PkgRef{
+		pkgf: pkgf,
+	}
+	ifoo := &PkgRef{
+		pkgf: ipkgf,
+	}
+	imports := map[string]*PkgRef{
+		"foo":                                foo,
+		"github.com/goplus/gox/internal/foo": ifoo,
+	}
+	cached := &LoadPkgsCached{imports: imports}
+	if cached.Save() != nil {
+		t.Fatal("cached.Save failed")
+	}
+	if _, ok := cached.imported(pkg, "foo.com"); ok {
+		t.Fatal("TestImported foo failed")
+	}
+	if ret, ok := cached.imported(pkg, "github.com/goplus/gox/internal/foo"); !ok || ret != ifoo {
+		t.Fatal("TestImported github.com/goplus/gox/internal/foo: not found?")
+	}
+	pkgf = nil
+	if pkgf.localChanged() != true {
+		t.Fatal("localChanged failed")
+	}
 }
 
 func TestToFields(t *testing.T) {

@@ -489,15 +489,17 @@ func fromPersistTypeName(ctx *persistPkgCtx, v persistNamed) {
 // ----------------------------------------------------------------------------
 
 type persistPkgRef struct {
-	ID      string         `json:"id"`
-	PkgPath string         `json:"pkgPath"`
-	Name    string         `json:"name,omitempty"`
-	Vars    []persistVar   `json:"vars,omitempty"`
-	Consts  []persistConst `json:"consts,omitempty"`
-	Types   []persistNamed `json:"types,omitempty"`
-	Funcs   []persistFunc  `json:"funcs,omitempty"`
-	Files   []string       `json:"files,omitempty"`
-	Fingerp string         `json:"fingerp,omitempty"`
+	ID        string         `json:"id"`
+	PkgPath   string         `json:"pkgPath"`
+	Name      string         `json:"name,omitempty"`
+	Vars      []persistVar   `json:"vars,omitempty"`
+	Consts    []persistConst `json:"consts,omitempty"`
+	Types     []persistNamed `json:"types,omitempty"`
+	Funcs     []persistFunc  `json:"funcs,omitempty"`
+	Files     []string       `json:"files,omitempty"`
+	Fingerp   string         `json:"fingerp,omitempty"`
+	Versioned bool           `json:"versioned,omitempty"`
+	LocalRep  bool           `json:"localrep,omitempty"`
 }
 
 func toPersistPkg(pkg *PkgRef) *persistPkgRef {
@@ -544,9 +546,11 @@ func toPersistPkg(pkg *PkgRef) *persistPkgRef {
 		Funcs:   funcs,
 		Consts:  consts,
 	}
-	if pkg.pkgf != nil {
-		ret.Fingerp = pkg.pkgf.getFingerp()
-		ret.Files = pkg.pkgf.files
+	if pkgf := pkg.pkgf; pkgf != nil {
+		ret.Fingerp = pkgf.getFingerp()
+		ret.Files = pkgf.files
+		ret.Versioned = pkgf.versioned
+		ret.LocalRep = pkgf.localrep
 	}
 	return ret
 }
@@ -558,7 +562,10 @@ func fromPersistPkg(ctx *persistPkgCtx, pkg *persistPkgRef) *PkgRef {
 	ctx.intfs = nil
 	var pkgf *pkgFingerp
 	if pkg.Fingerp != "" {
-		pkgf = &pkgFingerp{files: pkg.Files, fingerp: pkg.Fingerp}
+		pkgf = &pkgFingerp{
+			files: pkg.Files, fingerp: pkg.Fingerp,
+			versioned: pkg.Versioned, localrep: pkg.LocalRep,
+		}
 	}
 	ret := &PkgRef{ID: pkg.ID, Types: ctx.pkg, pkgf: pkgf}
 	ctx.imports[pkg.PkgPath] = ret
