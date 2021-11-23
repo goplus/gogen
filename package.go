@@ -410,7 +410,8 @@ func (p *Package) loadMod() *module {
 		// TODO: auto detect ModRootDir if empty
 		mod, err := loadModFile(filepath.Join(p.conf.ModRootDir, "go.mod"))
 		if err != nil {
-			panic(err)
+			log.Println("Modfile not found in", p.conf.ModRootDir)
+			mod = &module{deps: map[string]*pkgdep{}}
 		}
 		p.mod = mod
 	}
