@@ -18,7 +18,6 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"golang.org/x/mod/modfile"
 	"io/ioutil"
 	"log"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -63,11 +63,11 @@ type PkgRef struct {
 }
 
 type pkgFingerp struct {
-	isVersion bool     // local file or not
 	files     []string // files to generate fingerprint,when isVersion==true
 	fingerp   string   // package code fingerprint, or empty (delay calc)
 	updated   bool     // dirty flag is valid
 	dirty     bool
+	isVersion bool // local file or not
 }
 
 func (p *pkgFingerp) getFingerp() string {
