@@ -373,19 +373,27 @@ func TestFromPersistType(t *testing.T) {
 }
 
 func TestLoadModFile(t *testing.T) {
-	if _, err := loadModFile("./testdata/not-found"); err == nil {
+	if mod := loadModFile("./testdata/not-found"); mod != nil {
 		t.Fatal("TestLoadModFile: no error?")
 	}
-	if mod, err := loadModFile("./testdata/go_mod.txt"); err != nil {
-		t.Fatal("TestLoadModFile:", err)
+	if mod := loadModFile("./internal/foo/foo.go"); mod != nil {
+		t.Fatal("TestLoadModFile: valid?")
+	}
+	if mod := loadModFile("./testdata/go_mod.txt"); mod == nil {
+		t.Fatal("TestLoadModFile failed")
 	} else if dep := mod.deps["golang.org/x/tools"]; dep == nil || dep.replace != "/local/dir" {
 		t.Fatal("TestLoadModFile: golang.org/x/tools =>", dep.replace)
 	}
 }
 
 func TestPkgFingerp(t *testing.T) {
-	pkg := new(Package)
-	pkg.mod = &module{}
+	dep := &pkgdep{replace: "abc"}
+	if dep.calcFingerp() != "abc" {
+		t.Fatal("dep.calcFingerp failed")
+	}
+
+	pkg := &Package{conf: &Config{ModRootDir: "not-found"}}
+	pkg.loadMod()
 	if newPkgFingerp(pkg, &packages.Package{}) != nil {
 		t.Fatal("newPkgFingerp not nil")
 	}

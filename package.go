@@ -407,13 +407,13 @@ func (p *Package) HasTestingFile() bool {
 
 func (p *Package) loadMod() *module {
 	if p.mod == nil {
-		// TODO: auto detect ModRootDir if empty
-		mod, err := loadModFile(filepath.Join(p.conf.ModRootDir, "go.mod"))
-		if err != nil {
-			log.Println("Modfile not found in", p.conf.ModRootDir)
-			mod = &module{deps: map[string]*pkgdep{}}
+		modRootDir := p.conf.ModRootDir
+		if modRootDir != "" {
+			p.mod = loadModFile(filepath.Join(modRootDir, "go.mod"))
 		}
-		p.mod = mod
+		if p.mod == nil {
+			p.mod = &module{deps: map[string]*pkgdep{}}
+		}
 	}
 	return p.mod
 }
@@ -471,13 +471,15 @@ func (p *module) getPkgType(pkgPath string) pkgType {
 	return ptStandardPkg
 }
 
-func loadModFile(file string) (m *module, err error) {
+func loadModFile(file string) (m *module) {
 	src, err := ioutil.ReadFile(file)
 	if err != nil {
+		log.Println("Modfile not found:", file)
 		return
 	}
 	f, err := modfile.Parse(file, src, nil)
 	if err != nil {
+		log.Println("modfile.Parse failed:", err)
 		return
 	}
 	deps := map[string]*pkgdep{}
@@ -491,7 +493,7 @@ func loadModFile(file string) (m *module, err error) {
 			dep.replace = v.New.String()
 		}
 	}
-	return &module{deps: deps, Module: f.Module}, nil
+	return &module{deps: deps, Module: f.Module}
 }
 
 func isLocalRepPkg(replace string) bool {
