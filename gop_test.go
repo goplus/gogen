@@ -42,7 +42,6 @@ func newGopMainPackage() *gox.Package {
 	conf := &gox.Config{
 		Fset:       gblFset,
 		LoadPkgs:   gblLoadPkgs,
-		ModPath:    "github.com/goplus/gox",
 		NewBuiltin: newGopBuiltinDefault,
 	}
 	return gox.NewPackage("", "main", conf)
