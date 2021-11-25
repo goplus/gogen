@@ -421,7 +421,7 @@ func (p *Package) loadMod() *module {
 // ----------------------------------------------------------------------------
 
 type pkgdep struct {
-	ver     string
+	path    string
 	replace string
 }
 
@@ -429,12 +429,29 @@ func (p *pkgdep) calcFingerp() string {
 	if p.replace != "" {
 		return p.replace
 	}
-	return p.ver
+	return p.path
 }
 
 type module struct {
 	*modfile.Module
 	deps map[string]*pkgdep
+}
+
+func (p *module) lookupDep(pkgPath string) (dep *pkgdep, ok bool) {
+	for modPath, dep := range p.deps {
+		if isPkgInModule(pkgPath, modPath) {
+			return dep, true
+		}
+	}
+	return
+}
+
+func isPkgInModule(pkgPath, modPath string) bool {
+	if strings.HasPrefix(pkgPath, modPath) {
+		suffix := pkgPath[len(modPath):]
+		return suffix == "" || suffix[0] == '/'
+	}
+	return false
 }
 
 type pkgType int
@@ -452,8 +469,7 @@ func (p *module) getPkgType(pkgPath string) pkgType {
 		return ptInvalidPkg
 	}
 	if p.Module != nil {
-		modPath := p.Module.Mod.Path
-		if pkgPath == modPath || strings.HasPrefix(pkgPath, modPath+"/") {
+		if isPkgInModule(pkgPath, p.Module.Mod.Path) {
 			return ptModulePkg
 		}
 	}
@@ -479,13 +495,13 @@ func loadModFile(file string) (m *module) {
 	}
 	f, err := modfile.Parse(file, src, nil)
 	if err != nil {
-		log.Println("modfile.Parse failed:", err)
+		log.Println("modfile.Parse:", err)
 		return
 	}
 	deps := map[string]*pkgdep{}
 	for _, v := range f.Require {
 		deps[v.Mod.Path] = &pkgdep{
-			ver: v.Mod.Version,
+			path: v.Mod.String(),
 		}
 	}
 	for _, v := range f.Replace {
