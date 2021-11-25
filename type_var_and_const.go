@@ -430,6 +430,10 @@ type refType struct {
 	typ types.Type
 }
 
+func (p *refType) Elem() types.Type {
+	return p.typ
+}
+
 func (p *refType) Underlying() types.Type {
 	fatal("ref type")
 	return nil
