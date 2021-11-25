@@ -431,7 +431,7 @@ func TestImported1(t *testing.T) {
 		Module: &modfile.Module{},
 		deps: map[string]*pkgdep{
 			"foo.com":          {replace: "./internal/foo"},
-			"golang.org/x/mod": {ver: "v0.4.1"},
+			"golang.org/x/mod": {path: "golang.org/x/mod@v0.4.1"},
 		},
 	}
 	pkgf := newPkgFingerp(pkg, &packages.Package{

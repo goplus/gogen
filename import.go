@@ -368,7 +368,7 @@ func (p *LoadPkgsCached) changed(at *Package, pkg *PkgRef, pkgPath string) bool 
 	case ptModulePkg:
 		return pkgf.localChanged()
 	}
-	dep, ok := m.deps[pkgPath]
+	dep, ok := m.lookupDep(pkgPath)
 	if !ok {
 		log.Println("[WARN] Imported package is not in modfile:", pkgPath)
 		return false
