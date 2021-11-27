@@ -406,8 +406,8 @@ func TestPkgFingerp(t *testing.T) {
 			Path:    "github.com/goplus/gop",
 			Version: "v1.0.0",
 		},
-	}); pkgf == nil || !pkgf.versioned || pkgf.fingerp != "v1.0.0" {
-		t.Fatal("newPkgFingerp not v1.0.0")
+	}); pkgf == nil || !pkgf.versioned || pkgf.fingerp != "github.com/goplus/gop@v1.0.0" {
+		t.Fatal("newPkgFingerp not github.com/goplus/gop@v1.0.0")
 	} else if pkgf.localRepChanged("") != true {
 		t.Fatal("localRepChanged failed")
 	}

@@ -93,10 +93,10 @@ func newPkgFingerp(at *Package, loadPkg *packages.Package) *pkgFingerp {
 			return &pkgFingerp{files: files, updated: true, localrep: true}
 		}
 		// Replaced packages with versioned packages
-		return &pkgFingerp{fingerp: rep.Path + "@" + rep.Version, versioned: true}
+		loadMod = rep
 	}
 	// External versioned packages
-	return &pkgFingerp{fingerp: loadMod.Version, versioned: true}
+	return &pkgFingerp{fingerp: loadMod.Path + "@" + loadMod.Version, versioned: true}
 }
 
 func (p *pkgFingerp) getFingerp() string {
