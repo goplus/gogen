@@ -705,8 +705,12 @@ func checkArgsCount(pkg *Package, fn string, n int, args int, src ast.Node) {
 }
 
 var (
-	std = types.SizesFor(runtime.Compiler, runtime.GOARCH).(*types.StdSizes)
+	std = types.SizesFor(runtime.Compiler, runtime.GOARCH)
 )
+
+func SetSizes(sizes types.Sizes) {
+	std = sizes
+}
 
 type unsafeSizeofInstr struct{}
 
