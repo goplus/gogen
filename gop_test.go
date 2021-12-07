@@ -598,7 +598,7 @@ func bar(v *foo.Bar) {
 
 // bugfix: for _ = range udt { ... }
 // bugfix: [" " for _ <- :10]
-func TestForRangeUDT3_UNDERLINE(t *testing.T) {
+func TestForRangeUDT_UNDERLINE(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gox/internal/foo")
 	bar := foo.Ref("Bar").Type()
@@ -626,6 +626,38 @@ func bar(v *foo.Bar) {
 }
 `)
 }
+
+// bugfix: for _,_ = range udt { ... }
+func TestForRangeUDT_UNDERLINE2(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	nodeSet := foo.Ref("NodeSet").Type()
+	v := pkg.NewParam(token.NoPos, "v", nodeSet)
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		ForRange("_", "_").Val(v).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	foo "github.com/goplus/gox/internal/foo"
+	fmt "fmt"
+)
+
+func bar(v foo.NodeSet) {
+	for _gop_it := v.Gop_Enum(); ; {
+		var _gop_ok bool
+		_, _, _gop_ok = _gop_it.Next()
+		if !_gop_ok {
+			break
+		}
+		fmt.Println("Hi")
+	}
+}
+`)
+}
+
+
 func TestForRangeUDT4(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gox/internal/foo")
