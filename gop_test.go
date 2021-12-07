@@ -605,7 +605,7 @@ func TestForRangeUDT3_UNDERLINE(t *testing.T) {
 	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange().VarRef(ctxRef(pkg, "_")).Val(v).RangeAssignThen(token.NoPos).
-		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
+		Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
 		End().End()
 	domTest(t, pkg, `package main
 
