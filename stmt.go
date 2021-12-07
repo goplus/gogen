@@ -14,7 +14,7 @@
 package gox
 
 import (
-	"go/ast"
+		"go/ast"
 	"go/token"
 	"go/types"
 	"log"
@@ -636,7 +636,12 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 		lhs[0] = p.stmt.Key
 		if lhs[0] == nil { // bugfix: for range udt { ... }
 			lhs[0] = underscore
-			if p.stmt.Tok == 0 {
+			if p.stmt.Tok == token.ILLEGAL {
+				p.stmt.Tok = token.ASSIGN
+			}
+		} else {
+			// for _ = range udt { ... }
+			if v, ok := lhs[0].(*ast.Ident); ok && v.Name == "_" {
 				p.stmt.Tok = token.ASSIGN
 			}
 		}
