@@ -22,6 +22,7 @@ import (
 	"go/types"
 	"log"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 	"unsafe"
@@ -1574,6 +1575,36 @@ const c6 = unsafe.Offsetof(t.n)
 	c4 := pkg.CB().Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("n").Call(1).Get(-1)
 	if v, ok := constant.Int64Val(c4.CVal); !ok || uintptr(v) != (unsafe.Sizeof(int(0))*2+unsafe.Sizeof("")) {
 		t.Fatalf("unsafe.Offsetof(t.n) %v", c4.CVal)
+	}
+}
+
+func TestStdSizes(t *testing.T) {
+	defer func() {
+		gox.SetSizes(types.SizesFor(runtime.Compiler, runtime.GOARCH))
+	}()
+	gox.SetSizes(&types.StdSizes{4, 4})
+
+	pkg := newMainPackage()
+	builtin := pkg.Builtin()
+	pkg.CB().NewConstStart(nil, "c1").
+		Val(builtin.Ref("Sizeof")).Val(100).Call(1).EndInit(1)
+	pkg.CB().NewConstStart(nil, "c2").
+		Val(builtin.Ref("Alignof")).Val(100).Call(1).EndInit(1)
+
+	domTest(t, pkg, `package main
+
+import unsafe "unsafe"
+
+const c1 = unsafe.Sizeof(100)
+const c2 = unsafe.Alignof(100)
+`)
+	c1 := pkg.CB().Val(builtin.Ref("Sizeof")).Val(ctxRef(pkg, "c1")).Call(1).Get(-1)
+	if v, ok := constant.Int64Val(c1.CVal); !ok || v != 4 {
+		t.Fatalf("unsafe.Sizeof(100) %v", c1.CVal)
+	}
+	c2 := pkg.CB().Val(builtin.Ref("Alignof")).Val(ctxRef(pkg, "c2")).Call(1).Get(-1)
+	if v, ok := constant.Int64Val(c2.CVal); !ok || v != 4 {
+		t.Fatalf("unsafe.Alignof(100) %v", c2.CVal)
 	}
 }
 
