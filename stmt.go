@@ -14,7 +14,7 @@
 package gox
 
 import (
-		"go/ast"
+	"go/ast"
 	"go/token"
 	"go/types"
 	"log"
