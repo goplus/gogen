@@ -634,14 +634,26 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 		*/
 		lhs := make([]ast.Expr, n)
 		lhs[0] = p.stmt.Key
-		if lhs[0] == nil { // bugfix: for range udt { ... }
-			lhs[0] = underscore
-			if p.stmt.Tok == 0 {
-				p.stmt.Tok = token.ASSIGN
-			}
-		}
 		lhs[1] = p.stmt.Value
 		lhs[n-1] = identGopOk
+		if lhs[0] == nil { // bugfix: for range udt { ... }
+			lhs[0] = underscore
+			if p.stmt.Tok == token.ILLEGAL {
+				p.stmt.Tok = token.ASSIGN
+			}
+		} else {
+			// for _ = range udt { ... }
+			if ki, ok := lhs[0].(*ast.Ident); ok && ki.Name == "_" {
+				if n == 2 {
+					p.stmt.Tok = token.ASSIGN
+				} else {
+					// for _ , _ = range udt { ... }
+					if vi, ok := lhs[1].(*ast.Ident); ok && vi.Name == "_" {
+						p.stmt.Tok = token.ASSIGN
+					}
+				}
+			}
+		}
 		body := make([]ast.Stmt, len(stmts)+3)
 		body[0] = stmtGopOkDecl
 		body[1] = &ast.AssignStmt{Lhs: lhs, Tok: p.stmt.Tok, Rhs: exprIterNext}
