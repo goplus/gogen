@@ -705,8 +705,16 @@ func checkArgsCount(pkg *Package, fn string, n int, args int, src ast.Node) {
 }
 
 var (
-	std = types.SizesFor(runtime.Compiler, runtime.GOARCH).(*types.StdSizes)
+	std *types.StdSizes
 )
+
+func init() {
+	if runtime.Compiler == "gopherjs" {
+		std = &types.StdSizes{WordSize: 4, MaxAlign: 4}
+	} else {
+		std = types.SizesFor(runtime.Compiler, runtime.GOARCH).(*types.StdSizes)
+	}
+}
 
 type unsafeSizeofInstr struct{}
 
