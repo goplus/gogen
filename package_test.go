@@ -139,7 +139,10 @@ func TestBTIMethod(t *testing.T) {
 		Val(fmt.Ref("Println")).Val("100").MemberVal("Uint").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(100).MemberVal("String").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(1.34).MemberVal("String").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "e")).MemberVal("String").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "e")).Debug(
+		func(cb *gox.CodeBuilder) {
+			cb.Member("string", gox.MemberFlagAutoProperty)
+		}).Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 

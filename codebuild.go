@@ -1554,9 +1554,7 @@ retry:
 			return kind
 		}
 	case *types.Basic, *types.Slice, *types.Map, *types.Chan:
-		if p.btiMethod(getBuiltinTI(o), name, arg, srcExpr) {
-			return MemberMethod
-		}
+		return p.btiMethod(getBuiltinTI(o), name, aliasName, flag, arg, srcExpr)
 	}
 	return MemberInvalid
 }
@@ -1605,20 +1603,26 @@ func (p *CodeBuilder) method(
 	return MemberInvalid
 }
 
-func (p *CodeBuilder) btiMethod(o *builtinTI, name string, arg *Element, src ast.Node) bool {
+func (p *CodeBuilder) btiMethod(
+	o *builtinTI, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
 	if o != nil {
 		for i, n := 0, o.NumMethods(); i < n; i++ {
 			method := o.Method(i)
-			if method.name == name {
+			v := method.name
+			if v == name || (flag > 0 && v == aliasName) {
 				this := p.stk.Pop()
 				this.Type = &btiMethodType{Type: this.Type, eargs: method.eargs}
 				p.Val(method.fn, src)
 				p.stk.Push(this)
-				return true
+				if flag == MemberFlagAutoProperty {
+					p.Call(0)
+					return MemberAutoProperty
+				}
+				return MemberMethod
 			}
 		}
 	}
-	return false
+	return MemberInvalid
 }
 
 func (p *CodeBuilder) field(
