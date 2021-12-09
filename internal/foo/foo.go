@@ -35,6 +35,10 @@ func (p NodeSet) Gop_Enum() *nodeSetIt {
 	return &nodeSetIt{}
 }
 
+func (p NodeSet) Len__0() int {
+	return 0
+}
+
 func (p NodeSet) Attr__0(k string, exactlyOne ...bool) (text string, err error) {
 	return
 }
