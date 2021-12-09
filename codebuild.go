@@ -1418,7 +1418,7 @@ const (
 	MemberMethod
 	MemberAutoProperty
 	MemberField
-	MemberBad MemberKind = -1
+	memberBad MemberKind = -1
 )
 
 const (
@@ -1434,7 +1434,7 @@ func aliasNameOf(name string, flag MemberFlag) string {
 			return string(rune(c)+('A'-'a')) + name[1:]
 		}
 	}
-	return ""
+	return name
 }
 
 // Member func
@@ -1476,7 +1476,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 				&pos, fmt.Sprintf("%s undefined (type %v has no method %s)", code, at, name))
 		}
 	}
-	if kind != MemberInvalid {
+	if kind > 0 {
 		return
 	}
 	code, pos := p.loadExpr(srcExpr)
@@ -1587,10 +1587,10 @@ func (p *CodeBuilder) method(
 		if v == name || (flag > 0 && v == aliasName) {
 			typ := method.Type()
 			if flag == MemberFlagAutoProperty && !canAutoProperty(typ) {
-				return MemberBad
+				return memberBad
 			}
 			p.stk.Ret(1, &internal.Elem{
-				Val:  selector(arg, name),
+				Val:  selector(arg, aliasName),
 				Type: methodTypeOf(typ),
 				Src:  src,
 			})
