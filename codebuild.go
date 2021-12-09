@@ -1434,7 +1434,7 @@ func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
 			return string(rune(c)+('A'-'a')) + name[1:], flag
 		}
 	}
-	return name, MemberFlagVal
+	return "", MemberFlagVal
 }
 
 // Member func
@@ -1584,16 +1584,17 @@ func (p *CodeBuilder) method(
 		method := o.Method(i)
 		v := method.Name()
 		if v == name || (flag > 0 && v == aliasName) {
+			autoprop := flag == MemberFlagAutoProperty && v == aliasName
 			typ := method.Type()
-			if flag == MemberFlagAutoProperty && !canAutoProperty(typ) {
+			if autoprop && !canAutoProperty(typ) {
 				return memberBad
 			}
 			p.stk.Ret(1, &internal.Elem{
-				Val:  selector(arg, aliasName),
+				Val:  selector(arg, v),
 				Type: methodTypeOf(typ),
 				Src:  src,
 			})
-			if flag == MemberFlagAutoProperty {
+			if autoprop {
 				p.Call(0)
 				return MemberAutoProperty
 			}
@@ -1610,11 +1611,12 @@ func (p *CodeBuilder) btiMethod(
 			method := o.Method(i)
 			v := method.name
 			if v == name || (flag > 0 && v == aliasName) {
+				autoprop := flag == MemberFlagAutoProperty && v == aliasName
 				this := p.stk.Pop()
 				this.Type = &btiMethodType{Type: this.Type, eargs: method.eargs}
 				p.Val(method.fn, src)
 				p.stk.Push(this)
-				if flag == MemberFlagAutoProperty {
+				if autoprop {
 					p.Call(0)
 					return MemberAutoProperty
 				}
