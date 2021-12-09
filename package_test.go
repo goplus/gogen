@@ -139,7 +139,10 @@ func TestBTIMethod(t *testing.T) {
 		Val(fmt.Ref("Println")).Val("100").MemberVal("Uint").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(100).MemberVal("String").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(1.34).MemberVal("String").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "e")).MemberVal("String").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "e")).Debug(
+		func(cb *gox.CodeBuilder) {
+			cb.Member("string", gox.MemberFlagAutoProperty)
+		}).Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -2330,7 +2333,17 @@ func TestOverloadMethod(t *testing.T) {
 	v := pkg.NewParam(token.NoPos, "v", nodeSet)
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "val", "err").Val(v).
-		MemberVal("Attr").Val("key").Call(1).EndInit(1).EndStmt().
+		Debug(func(cb *gox.CodeBuilder) {
+			if kind, err := cb.Member("attr", gox.MemberFlagAutoProperty); err == nil {
+				t.Fatal("cb.Member v.attr no error?", kind)
+			}
+			cb.Member("attr", gox.MemberFlagMethodAlias)
+		}).
+		Val("key").Call(1).EndInit(1).EndStmt().
+		Val(v).
+		Debug(func(cb *gox.CodeBuilder) {
+			cb.Member("len", gox.MemberFlagAutoProperty)
+		}).EndStmt().
 		VarRef(v).Val(v).MemberVal("Attr").Val("key").Val("val").Call(2).Assign(1).
 		End()
 	domTest(t, pkg, `package main
@@ -2339,6 +2352,7 @@ import foo "github.com/goplus/gox/internal/foo"
 
 func bar(v foo.NodeSet) {
 	val, err := v.Attr__0("key")
+	v.Len__0()
 	v = v.Attr__1("key", "val")
 }
 `)
@@ -2380,6 +2394,30 @@ func foo(t *testing.T) {
 `)
 }
 
+func TestMemberAutoProperty(t *testing.T) {
+	pkg := newMainPackage()
+	test := pkg.Import("testing")
+	typ := pkg.NewParam(token.NoPos, "t", types.NewPointer(test.Ref("T").Type()))
+	pkg.NewFunc(nil, "foo", types.NewTuple(typ), nil, false).BodyStart(pkg).
+		Val(ctxRef(pkg, "t")).
+		Debug(func(cb *gox.CodeBuilder) {
+			if kind, err := cb.Member("fatal", gox.MemberFlagAutoProperty); err == nil {
+				t.Fatal("cb.Member t.fatal no error?", kind)
+			}
+			cb.Member("name", gox.MemberFlagAutoProperty)
+		}).
+		EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import testing "testing"
+
+func foo(t *testing.T) {
+	t.Name()
+}
+`)
+}
+
 func TestStructMember(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{
@@ -2394,7 +2432,7 @@ func TestStructMember(t *testing.T) {
 	pkg.CB().NewVarStart(nil, "b").
 		Val(ctxRef(pkg, "a")).
 		Debug(func(cb *gox.CodeBuilder) {
-			kind, err := cb.Member("unknown", false, source("a.unknown", 1, 5))
+			kind, err := cb.Member("unknown", gox.MemberFlagVal, source("a.unknown", 1, 5))
 			if kind != gox.MemberInvalid ||
 				err.Error() != "./foo.gop:1:5: a.unknown undefined (type struct{x int; y string} has no field or method unknown)" {
 				t.Fatal("Member unknown:", kind, err)
@@ -2721,6 +2759,11 @@ func TestClosure(t *testing.T) {
 	paramV := pkg.NewParam(token.NoPos, "v", types.Typ[types.String]) // v string
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewClosure(gox.NewTuple(paramV), nil, false).BodyStart(pkg).
+		/**/ Debug(func(cb *gox.CodeBuilder) {
+			if cb.Func().Ancestor().Name() != "main" {
+				t.Fatal("closure.Ancestor != main")
+			}
+		}).
 		/**/ Val(fmt.Ref("Println")).Val(paramV).Call(1).EndStmt().
 		/**/ End().
 		Val("Hello").Call(1).EndStmt(). // func(v string) { fmt.Println(v) } ("Hello")

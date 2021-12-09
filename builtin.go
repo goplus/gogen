@@ -1098,7 +1098,7 @@ func (p addableT) Match(pkg *Package, typ types.Type) bool {
 			// TODO: refactor
 			cb := pkg.cb
 			cb.stk.Push(elemNone)
-			kind := cb.findMember(typ, "Gop_Add", nil, nil)
+			kind := cb.findMember(typ, "Gop_Add", "", MemberFlagVal, nil, nil)
 			if kind != 0 {
 				cb.stk.PopN(1)
 				if kind == MemberMethod {

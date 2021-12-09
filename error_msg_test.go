@@ -934,7 +934,7 @@ func TestErrMember(t *testing.T) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(ctxRef(pkg, "T")).
 				Debug(func(cb *gox.CodeBuilder) {
-					_, err := cb.Member("x", false, source("T.x", 1, 5))
+					_, err := cb.Member("x", gox.MemberFlagVal, source("T.x", 1, 5))
 					if err != nil {
 						panic(err)
 					}
@@ -949,7 +949,7 @@ func TestErrMember(t *testing.T) {
 				NewVar(types.Typ[types.String], "x").
 				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
 				Debug(func(cb *gox.CodeBuilder) {
-					_, err := cb.Member("y", false, source("x.y", 1, 7))
+					_, err := cb.Member("y", gox.MemberFlagVal, source("x.y", 1, 7))
 					if err != nil {
 						panic(err)
 					}
@@ -964,7 +964,7 @@ func TestErrMember(t *testing.T) {
 				NewVar(types.Typ[types.String], "x").
 				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
 				Debug(func(cb *gox.CodeBuilder) {
-					_, err := cb.Member("y", false, source("x.y", 1, 5))
+					_, err := cb.Member("y", gox.MemberFlagVal, source("x.y", 1, 5))
 					if err != nil {
 						panic(err)
 					}
