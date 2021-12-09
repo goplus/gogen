@@ -1342,7 +1342,7 @@ func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 
 // MemberVal func
 func (p *CodeBuilder) MemberVal(name string, src ...ast.Node) *CodeBuilder {
-	_, err := p.Member(name, false, src...)
+	_, err := p.Member(name, MemberFlagVal, src...)
 	if err != nil {
 		panic(err)
 	}
@@ -1351,7 +1351,7 @@ func (p *CodeBuilder) MemberVal(name string, src ...ast.Node) *CodeBuilder {
 
 // MemberRef func
 func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
-	_, err := p.Member(name, true, src...)
+	_, err := p.Member(name, MemberFlagRef, src...)
 	if err != nil {
 		panic(err)
 	}
@@ -1408,30 +1408,54 @@ func (p *CodeBuilder) structFieldType(o *types.Struct, name string) types.Type {
 	return nil
 }
 
-type MemberKind int
+type (
+	MemberKind int
+	MemberFlag int
+)
 
 const (
 	MemberInvalid MemberKind = iota
 	MemberMethod
+	MemberAutoProperty
 	MemberField
+	MemberBad MemberKind = -1
 )
 
+const (
+	MemberFlagVal MemberFlag = iota
+	MemberFlagMethodAlias
+	MemberFlagAutoProperty
+	MemberFlagRef MemberFlag = -1
+)
+
+func aliasNameOf(name string, flag MemberFlag) string {
+	if flag > 0 && name != "" {
+		if c := name[0]; c >= 'a' && c <= 'z' {
+			return string(rune(c)+('A'-'a')) + name[1:]
+		}
+	}
+	return ""
+}
+
 // Member func
-func (p *CodeBuilder) Member(name string, lhs bool, src ...ast.Node) (kind MemberKind, err error) {
+func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kind MemberKind, err error) {
 	srcExpr := getSrc(src)
 	arg := p.stk.Get(-1)
 	if debugInstr {
-		log.Println("Member", name, lhs, "//", arg.Type)
+		log.Println("Member", name, flag, "//", arg.Type)
 	}
 	at := arg.Type
-	if lhs {
+	if flag == MemberFlagRef {
 		kind = p.refMember(at, name, arg.Val)
 	} else {
 		t, isType := at.(*TypeType)
 		if isType {
 			at = t.typ
+			if flag == MemberFlagAutoProperty {
+				flag = MemberFlagVal // can't use auto property to type
+			}
 		}
-		kind = p.findMember(at, name, arg, srcExpr)
+		kind = p.findMember(at, name, aliasNameOf(name, flag), flag, arg, srcExpr)
 		if isType {
 			if kind == MemberMethod {
 				e := p.Get(-1)
@@ -1492,40 +1516,41 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 	return u
 }
 
-func (p *CodeBuilder) findMember(typ types.Type, name string, arg *Element, srcExpr ast.Node) MemberKind {
+func (p *CodeBuilder) findMember(
+	typ types.Type, name, aliasName string, flag MemberFlag, arg *Element, srcExpr ast.Node) MemberKind {
 retry:
 	switch o := typ.(type) {
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
 		case *types.Named:
 			u := p.getUnderlying(t)
-			if p.method(t, name, arg, srcExpr) {
-				return MemberMethod
+			if kind := p.method(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+				return kind
 			}
 			if struc, ok := u.(*types.Struct); ok {
-				if kind := p.field(struc, name, arg, srcExpr); kind != 0 {
+				if kind := p.field(struc, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 					return kind
 				}
 			}
 		case *types.Struct:
-			if kind := p.field(t, name, arg, srcExpr); kind != 0 {
+			if kind := p.field(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 				return kind
 			}
 		}
 	case *types.Named:
 		typ = p.getUnderlying(o)
-		if p.method(o, name, arg, srcExpr) {
-			return MemberMethod
+		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+			return kind
 		}
 		goto retry
 	case *types.Struct:
-		if kind := p.field(o, name, arg, srcExpr); kind != 0 {
+		if kind := p.field(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
 		}
 	case *types.Interface:
 		o.Complete()
-		if p.method(o, name, arg, srcExpr) {
-			return MemberMethod
+		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+			return kind
 		}
 	case *types.Basic, *types.Slice, *types.Map, *types.Chan:
 		if p.btiMethod(getBuiltinTI(o), name, arg, srcExpr) {
@@ -1554,19 +1579,29 @@ func denoteRecv(v *ast.SelectorExpr) *Element {
 	return nil
 }
 
-func (p *CodeBuilder) method(o methodList, name string, arg *Element, src ast.Node) bool {
+func (p *CodeBuilder) method(
+	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
-		if method.Name() == name {
+		v := method.Name()
+		if v == name || (flag > 0 && v == aliasName) {
+			typ := method.Type()
+			if flag == MemberFlagAutoProperty && !canAutoProperty(typ) {
+				return MemberBad
+			}
 			p.stk.Ret(1, &internal.Elem{
 				Val:  selector(arg, name),
-				Type: methodTypeOf(method.Type()),
+				Type: methodTypeOf(typ),
 				Src:  src,
 			})
-			return true
+			if flag == MemberFlagAutoProperty {
+				p.Call(0)
+				return MemberAutoProperty
+			}
+			return MemberMethod
 		}
 	}
-	return false
+	return MemberInvalid
 }
 
 func (p *CodeBuilder) btiMethod(o *builtinTI, name string, arg *Element, src ast.Node) bool {
@@ -1585,7 +1620,8 @@ func (p *CodeBuilder) btiMethod(o *builtinTI, name string, arg *Element, src ast
 	return false
 }
 
-func (p *CodeBuilder) field(o *types.Struct, name string, arg *Element, src ast.Node) MemberKind {
+func (p *CodeBuilder) field(
+	o *types.Struct, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		if fld.Name() == name {
@@ -1596,23 +1632,43 @@ func (p *CodeBuilder) field(o *types.Struct, name string, arg *Element, src ast.
 			})
 			return MemberField
 		} else if fld.Embedded() {
-			if kind := p.findMember(fld.Type(), name, arg, src); kind != 0 {
+			if kind := p.findMember(fld.Type(), name, aliasName, flag, arg, src); kind != MemberInvalid {
 				return kind
 			}
 		}
 	}
-	return 0
+	return MemberInvalid
 }
 
 func methodTypeOf(typ types.Type) types.Type {
 	sig := typ.(*types.Signature)
 	switch t := sig.Recv().Type(); t.(type) {
-	case *overloadFuncType: // is overload method
+	case *overloadFuncType:
+		// is overload method
 		return typ
-	case *templateRecvMethodType: // is template recv method
+	case *templateRecvMethodType:
+		// is template recv method
 		return t
 	}
 	return types.NewSignature(nil, sig.Params(), sig.Results(), sig.Variadic())
+}
+
+func canAutoProperty(typ types.Type) bool {
+	sig := typ.(*types.Signature)
+	switch t := sig.Recv().Type(); v := t.(type) {
+	case *overloadFuncType:
+		// is overload method
+		for _, fn := range v.funcs {
+			if canAutoProperty(fn.Type()) {
+				return true
+			}
+		}
+	case *templateRecvMethodType:
+		// is template recv method
+	default:
+		return sig.Params().Len() == 0
+	}
+	return false
 }
 
 func indirect(typ types.Type) types.Type {
