@@ -1428,13 +1428,13 @@ const (
 	MemberFlagRef MemberFlag = -1
 )
 
-func aliasNameOf(name string, flag MemberFlag) string {
+func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
 	if flag > 0 && name != "" {
 		if c := name[0]; c >= 'a' && c <= 'z' {
-			return string(rune(c)+('A'-'a')) + name[1:]
+			return string(rune(c)+('A'-'a')) + name[1:], flag
 		}
 	}
-	return name
+	return name, MemberFlagVal
 }
 
 // Member func
@@ -1455,7 +1455,8 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 				flag = MemberFlagVal // can't use auto property to type
 			}
 		}
-		kind = p.findMember(at, name, aliasNameOf(name, flag), flag, arg, srcExpr)
+		aliasName, flag := aliasNameOf(name, flag)
+		kind = p.findMember(at, name, aliasName, flag, arg, srcExpr)
 		if isType {
 			if kind == MemberMethod {
 				e := p.Get(-1)
