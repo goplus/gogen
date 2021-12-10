@@ -660,7 +660,8 @@ func (p *CodeBuilder) doVarRef(ref interface{}, src ast.Node, allowDebug bool) *
 				Val: toObjectExpr(p.pkg, v), Type: &refType{typ: v.Type()}, Src: src,
 			})
 		default:
-			log.Panicln("TODO: VarRef", reflect.TypeOf(ref))
+			code, pos := p.loadExpr(src)
+			p.panicCodeErrorf(&pos, "%s is not a variable", code)
 		}
 	}
 	return p
