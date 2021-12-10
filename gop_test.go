@@ -31,8 +31,12 @@ func initGopBuiltin(big *gox.PkgRef, conf *gox.Config) {
 }
 
 func newGopBuiltinDefault(pkg gox.PkgImporter, conf *gox.Config) *types.Package {
+	fmt := pkg.Import("fmt")
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	builtin := types.NewPackage("", "")
+	if builtin.Scope().Insert(gox.NewOverloadFunc(token.NoPos, builtin, "println", fmt.Ref("Println"))) != nil {
+		panic("println exists")
+	}
 	gox.InitBuiltin(pkg, builtin, conf)
 	initGopBuiltin(big, conf)
 	return builtin
@@ -48,6 +52,23 @@ func newGopMainPackage() *gox.Package {
 }
 
 // ----------------------------------------------------------------------------
+
+func TestFmtPrintln(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "p").Val(ctxRef(pkg, "println")).EndInit(1).
+		VarRef(ctxRef(pkg, "p")).Val(ctxRef(pkg, "println")).Assign(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import fmt "fmt"
+
+func main() {
+	p := fmt.Println
+	p = fmt.Println
+}
+`)
+}
 
 func TestBigRatConstant(t *testing.T) {
 	a := constant.Make(new(big.Rat).SetInt64(1))
@@ -656,7 +677,6 @@ func bar(v foo.NodeSet) {
 }
 `)
 }
-
 
 func TestForRangeUDT4(t *testing.T) {
 	pkg := newMainPackage()
