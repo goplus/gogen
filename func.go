@@ -199,6 +199,47 @@ func (p *Func) isInline() bool {
 
 // ----------------------------------------------------------------------------
 
+func methodHasAutoProperty(typ types.Type) bool {
+	sig := typ.(*types.Signature)
+	switch t := sig.Recv().Type(); v := t.(type) {
+	case *overloadFuncType:
+		// is overload method
+		for _, fn := range v.funcs {
+			if methodHasAutoProperty(fn.Type()) {
+				return true
+			}
+		}
+	case *templateRecvMethodType:
+		// is template recv method
+	default:
+		return sig.Params().Len() == 0
+	}
+	return false
+}
+
+func HasAutoProperty(typ types.Type) bool {
+	switch sig := typ.(type) {
+	case *types.Signature:
+		return sig.Params().Len() == 0
+	case *overloadFuncType:
+		// is overload func
+		for _, fn := range sig.funcs {
+			if HasAutoProperty(fn.Type()) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func IsFunc(typ types.Type) bool {
+	switch typ.(type) {
+	case *types.Signature, *overloadFuncType:
+		return true
+	}
+	return false
+}
+
 func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.TypeName {
 	return types.NewTypeName(pos, pkg, name, &overloadFuncType{funcs})
 }
