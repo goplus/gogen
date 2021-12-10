@@ -1587,7 +1587,7 @@ func (p *CodeBuilder) method(
 		if v == name || (flag > 0 && v == aliasName) {
 			autoprop := flag == MemberFlagAutoProperty && v == aliasName
 			typ := method.Type()
-			if autoprop && !canAutoProperty(typ) {
+			if autoprop && !methodHasAutoProperty(typ) {
 				return memberBad
 			}
 			p.stk.Ret(1, &internal.Elem{
@@ -1659,24 +1659,6 @@ func methodTypeOf(typ types.Type) types.Type {
 		return t
 	}
 	return types.NewSignature(nil, sig.Params(), sig.Results(), sig.Variadic())
-}
-
-func canAutoProperty(typ types.Type) bool {
-	sig := typ.(*types.Signature)
-	switch t := sig.Recv().Type(); v := t.(type) {
-	case *overloadFuncType:
-		// is overload method
-		for _, fn := range v.funcs {
-			if canAutoProperty(fn.Type()) {
-				return true
-			}
-		}
-	case *templateRecvMethodType:
-		// is template recv method
-	default:
-		return sig.Params().Len() == 0
-	}
-	return false
 }
 
 func indirect(typ types.Type) types.Type {

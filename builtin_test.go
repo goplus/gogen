@@ -202,6 +202,21 @@ func TestCheckOverloadMethod(t *testing.T) {
 	}
 }
 
+func TestIsFunc(t *testing.T) {
+	if IsFunc(nil) {
+		t.Fatal("nil is func?")
+	}
+	if !IsFunc(types.NewSignature(nil, nil, nil, false)) {
+		t.Fatal("func() is not func?")
+	}
+	if HasAutoProperty(nil) {
+		t.Fatal("nil has autoprop?")
+	}
+	if !HasAutoProperty(types.NewSignature(nil, nil, nil, false)) {
+		t.Fatal("func() has not autoprop?")
+	}
+}
+
 func TestCheckUdt(t *testing.T) {
 	o := types.NewNamed(types.NewTypeName(token.NoPos, nil, "foo", nil), types.Typ[types.Int], nil)
 	var frs forRangeStmt
@@ -886,6 +901,15 @@ func TestCheckSignature(t *testing.T) {
 	of := NewOverloadFunc(token.NoPos, pkg, "bar", o)
 	if CheckSignature(of.Type(), 0, 0) == nil {
 		t.Fatal("TestCheckSignature failed: OverloadFunc CheckSignature == nil")
+	}
+	if HasAutoProperty(of.Type()) {
+		t.Fatal("func bar has autoprop?")
+	}
+
+	o2 := types.NewFunc(token.NoPos, pkg, "bar2", sig)
+	of2 := NewOverloadFunc(token.NoPos, pkg, "bar3", o2)
+	if !HasAutoProperty(of2.Type()) {
+		t.Fatal("func bar3 has autoprop?")
 	}
 
 	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "t", nil), types.Typ[types.Int], nil)
