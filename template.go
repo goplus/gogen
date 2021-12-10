@@ -250,10 +250,11 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *internal.Elem) bool {
 	case *overloadFuncType:
 		if len(v.funcs) == 1 {
 			o := v.funcs[0]
+			V = o.Type()
 			if pv != nil {
 				pv.Val = toObjectExpr(pkg, o)
+				pv.Type = V
 			}
-			V = o.Type()
 		}
 	default:
 		V = getElemTypeIf(V, pv)
