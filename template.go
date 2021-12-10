@@ -196,27 +196,37 @@ func Default(pkg *Package, t types.Type) types.Type {
 }
 
 func DefaultConv(pkg *Package, t types.Type, expr *ast.Expr) types.Type {
-	named, ok := t.(*types.Named)
-	if !ok {
-		return types.Default(t)
-	}
-	o := named.Obj()
-	if at := o.Pkg(); at != nil {
-		name := o.Name() + "_Default"
-		if typName := at.Scope().Lookup(name); typName != nil {
-			if tn, ok := typName.(*types.TypeName); ok && tn.IsAlias() {
-				typ := tn.Type()
-				if expr != nil {
-					if ok = assignable(pkg, t, typ.(*types.Named), expr); !ok {
-						log.Panicln("==> DefaultConv failed:", t, typ)
+	switch typ := t.(type) {
+	case *types.Named:
+		o := typ.Obj()
+		if at := o.Pkg(); at != nil {
+			name := o.Name() + "_Default"
+			if typName := at.Scope().Lookup(name); typName != nil {
+				if tn, ok := typName.(*types.TypeName); ok && tn.IsAlias() {
+					typ := tn.Type()
+					if expr != nil {
+						if ok = assignable(pkg, t, typ.(*types.Named), expr); !ok {
+							log.Panicln("==> DefaultConv failed:", t, typ)
+						}
+						if debugMatch {
+							log.Println("==> DefaultConv", t, typ)
+						}
 					}
-					if debugMatch {
-						log.Println("==> DefaultConv", t, typ)
-					}
+					return typ
 				}
-				return typ
 			}
 		}
+	case *overloadFuncType:
+		if len(typ.funcs) == 1 {
+			o := typ.funcs[0]
+			if expr != nil {
+				*expr = toObjectExpr(pkg, o)
+			}
+			return o.Type()
+		}
+		log.Panicln("==> DefaultConv failed: overload functions have no default type")
+	default:
+		return types.Default(t)
 	}
 	return t
 }
@@ -230,13 +240,23 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *internal.Elem) bool {
 	pkg.cb.ensureLoaded(V)
 	pkg.cb.ensureLoaded(T)
 	V, T = realType(V), realType(T)
-	if v, ok := V.(*refType); ok { // ref type
+	switch v := V.(type) {
+	case *refType: // ref type
 		if t, ok := T.(*types.Pointer); ok {
 			V, T = v.typ, t.Elem()
 		} else {
 			V = v.typ
 		}
-	} else {
+	case *overloadFuncType:
+		if len(v.funcs) == 1 {
+			o := v.funcs[0]
+			V = o.Type()
+			if pv != nil {
+				pv.Val = toObjectExpr(pkg, o)
+				pv.Type = V
+			}
+		}
+	default:
 		V = getElemTypeIf(V, pv)
 	}
 	if types.AssignableTo(V, T) {
