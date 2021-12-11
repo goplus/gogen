@@ -199,20 +199,32 @@ func (p *Func) isInline() bool {
 
 // ----------------------------------------------------------------------------
 
-func methodHasAutoProperty(typ types.Type) bool {
-	sig := typ.(*types.Signature)
-	switch t := sig.Recv().Type(); v := t.(type) {
-	case *overloadFuncType:
-		// is overload method
-		for _, fn := range v.funcs {
-			if methodHasAutoProperty(fn.Type()) {
-				return true
+func overloadFnHasAutoProperty(v *overloadFuncType, n int) bool {
+	for _, fn := range v.funcs {
+		if methodHasAutoProperty(fn.Type(), n) {
+			return true
+		}
+	}
+	return false
+}
+
+func methodHasAutoProperty(typ types.Type, n int) bool {
+	switch sig := typ.(type) {
+	case *types.Signature:
+		recv := sig.Recv()
+		if recv != nil {
+			switch t := recv.Type(); v := t.(type) {
+			case *overloadFuncType:
+				// is overload method
+				return overloadFnHasAutoProperty(v, n)
+			case *templateRecvMethodType:
+				// is template recv method
+				return methodHasAutoProperty(v.fn.Type(), 1)
 			}
 		}
-	case *templateRecvMethodType:
-		// is template recv method
-	default:
-		return sig.Params().Len() == 0
+		return sig.Params().Len() == n
+	case *overloadFuncType:
+		return overloadFnHasAutoProperty(sig, n)
 	}
 	return false
 }
