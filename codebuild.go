@@ -1587,7 +1587,7 @@ func (p *CodeBuilder) method(
 		if v == name || (flag > 0 && v == aliasName) {
 			autoprop := flag == MemberFlagAutoProperty && v == aliasName
 			typ := method.Type()
-			if autoprop && !methodHasAutoProperty(typ) {
+			if autoprop && !methodHasAutoProperty(typ, 0) {
 				return memberBad
 			}
 			p.stk.Ret(1, &internal.Elem{
