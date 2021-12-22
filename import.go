@@ -353,9 +353,10 @@ func toIndex(c byte) int {
 }
 
 type LoadPkgsCached struct {
-	imports   map[string]*PkgRef
-	pkgsLoad  func(cfg *packages.Config, patterns ...string) ([]*packages.Package, error)
-	cacheFile string
+	imports        map[string]*PkgRef
+	pkgsLoad       func(cfg *packages.Config, patterns ...string) ([]*packages.Package, error)
+	cacheFile      string
+	importsChanged bool // if imports are not changed,we don't need to save to cache file
 }
 
 func (p *LoadPkgsCached) changed(at *Package, pkg *PkgRef, pkgPath string) bool {
@@ -380,17 +381,24 @@ func (p *LoadPkgsCached) changed(at *Package, pkg *PkgRef, pkgPath string) bool 
 }
 
 func (p *LoadPkgsCached) imported(at *Package, pkgPath string) (pkg *PkgRef, ok bool) {
+	defer func() {
+		// no matter if pkgPath is changed or not imported ,we should regard as a change
+		if !ok {
+			p.importsChanged = true
+		}
+	}()
 	if pkg, ok = p.imports[pkgPath]; ok {
 		if p.changed(at, pkg, pkgPath) {
 			delete(p.imports, pkgPath)
 			return nil, false
 		}
+		return pkg, true
 	}
 	return
 }
 
 func (p *LoadPkgsCached) Save() error {
-	if p.cacheFile == "" {
+	if p.cacheFile == "" || !p.importsChanged {
 		return nil
 	}
 	return savePkgsCache(p.cacheFile, p.imports)
