@@ -30,7 +30,22 @@ import (
 // ASTFile func
 func ASTFile(pkg *Package, testingFile bool) *ast.File {
 	idx := getInTestingFile(testingFile)
-	return &ast.File{Name: ident(pkg.Types.Name()), Decls: pkg.files[idx].getDecls(pkg)}
+	decls := pkg.files[idx].getDecls(pkg)
+	return &ast.File{Name: ident(pkg.Types.Name()), Decls: decls, Imports: getImports(decls)}
+}
+
+func getImports(decls []ast.Decl) []*ast.ImportSpec {
+	if len(decls) > 0 {
+		if decl, ok := decls[0].(*ast.GenDecl); ok && decl.Tok == token.IMPORT {
+			n := len(decl.Specs)
+			ret := make([]*ast.ImportSpec, n)
+			for i, spec := range decl.Specs {
+				ret[i] = spec.(*ast.ImportSpec)
+			}
+			return ret
+		}
+	}
+	return nil
 }
 
 // CommentedASTFile func
