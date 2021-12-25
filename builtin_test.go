@@ -85,6 +85,7 @@ func TestContract(t *testing.T) {
 		{comparable, types.NewChan(0, tyInt), true},
 		{comparable, types.NewSignature(nil, nil, nil, false), false},
 		{comparable, NewTemplateSignature(nil, nil, nil, nil, false), false},
+		{addable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil), false},
 	}
 	for _, c := range testcases {
 		if c.Match(pkg, c.typ) != c.result {
