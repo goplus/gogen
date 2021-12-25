@@ -71,18 +71,7 @@ func newMainPackage() *gox.Package {
 		conf.HandleErr = handleErr
 		handleErr = nil
 	}
-	pkg := gox.NewPackage("", "main", conf)
-	pkg.Import("github.com/goplus/gox/internal/builtin")
-	pkg.Import("github.com/goplus/gox/internal/foo")
-	pkg.Import("github.com/goplus/gox/internal/bar")
-	pkg.Import("strconv")
-	pkg.Import("strings")
-	pkg.Import("fmt")
-	pkg.Import("context")
-	pkg.Import("time")
-	pkg.Import("flag")
-	pkg.Import("testing")
-	return pkg
+	return gox.NewPackage("", "main", conf)
 }
 
 func domTest(t *testing.T, pkg *gox.Package, expected string) {
