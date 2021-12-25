@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -31,7 +32,7 @@ func loadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, er
 		if napp := getProgramList(err.Error(), pkgPaths); napp > 0 {
 			if pkgs, err = tryLoadDeps(tempDir, pkgPaths[napp:]...); err == nil {
 				for _, appPath := range pkgPaths[:napp] {
-					if err = loadDepPkgs(pkgs, appPath, appPath); err != nil {
+					if err = loadDepPkgs(pkgs, appPath); err != nil {
 						break
 					}
 				}
@@ -70,8 +71,13 @@ func addProgram(pkgPaths []string, napp int, appPath string) int {
 	return napp
 }
 
+var (
+	gid = 0
+)
+
 func tryLoadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, err error) {
-	file := tempDir + "/dummy.go"
+	gid++
+	file := tempDir + "/dummy-" + strconv.Itoa(gid) + ".go"
 	os.MkdirAll(tempDir, 0777)
 
 	var buf bytes.Buffer
@@ -96,11 +102,11 @@ func main() {
 		os.Remove(tempDir)
 	}()
 	pkgs = make(map[string]pkgExport)
-	err = loadDepPkgs(pkgs, file, "")
+	err = loadDepPkgs(pkgs, file)
 	return
 }
 
-func loadDepPkgs(pkgs map[string]pkgExport, src, excludePath string) (err error) {
+func loadDepPkgs(pkgs map[string]pkgExport, src string) (err error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("go", "run", "-n", "-x", src)
 	cmd.Stdout = &stdout
@@ -109,20 +115,20 @@ func loadDepPkgs(pkgs map[string]pkgExport, src, excludePath string) (err error)
 	if err != nil {
 		return &ExecCmdError{Err: err, Stderr: stderr.Bytes()}
 	}
-	err = loadDepPkgsFrom(pkgs, stderr.String(), excludePath)
+	err = loadDepPkgsFrom(pkgs, stderr.String())
 	return
 }
 
-func loadDepPkgsFrom(pkgs map[string]pkgExport, data, excludePath string) (err error) {
+func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (err error) {
 	const packagefile = "packagefile "
 	for data != "" {
 		pos := strings.IndexByte(data, '\n')
 		if strings.HasPrefix(data, packagefile) {
 			line := data[len(packagefile):pos]
 			if t := strings.Index(line, "="); t > 0 {
-				pkgPath := line[:t]
-				if pkgPath != "command-line-arguments" && pkgPath != excludePath {
-					pkgs[pkgPath] = pkgExport(line[t+1:])
+				if expfile := pkgExport(line[t+1:]); !strings.HasPrefix(expfile, "$") {
+					pkgPath := line[:t]
+					pkgs[pkgPath] = expfile
 				}
 			}
 		}
