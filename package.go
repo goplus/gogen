@@ -298,9 +298,6 @@ const (
 
 // NewPackage creates a new package.
 func NewPackage(pkgPath, name string, conf *Config) *Package {
-	if conf == nil {
-		conf = &Config{}
-	}
 	newBuiltin := conf.NewBuiltin
 	if newBuiltin == nil {
 		newBuiltin = newBuiltinDefault

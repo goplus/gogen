@@ -22,7 +22,26 @@ import (
 	"testing"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/packages"
 )
+
+var (
+	gblConf = getConf()
+)
+
+func getConf() *Config {
+	fset := token.NewFileSet()
+	conf := &packages.Config{
+		ModPath: "github.com/goplus/gox",
+		Loaded:  make(map[string]*types.Package),
+		Fset:    fset,
+	}
+	imp, _, err := packages.NewImporter(conf, ".", "github.com/goplus/gox/internal/builtin")
+	if err != nil {
+		panic(err)
+	}
+	return &Config{Fset: fset, Importer: imp}
+}
 
 func TestContractName(t *testing.T) {
 	testcases := []struct {
@@ -94,7 +113,7 @@ func TestComparableTo(t *testing.T) {
 		{types.Typ[types.UntypedInt], types.Typ[types.Int64], true},
 		{types.Typ[types.Int64], types.Typ[types.UntypedInt], true},
 	}
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	for _, a := range cases {
 		av := &Element{Type: a.v}
 		at := &Element{Type: a.t}
@@ -105,7 +124,7 @@ func TestComparableTo(t *testing.T) {
 }
 
 func TestComparableTo2(t *testing.T) {
-	pkg := NewPackage("foo", "foo", nil)
+	pkg := NewPackage("foo", "foo", gblConf)
 	methods := []*types.Func{
 		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
 	}
@@ -167,7 +186,7 @@ func TestAssignableTo(t *testing.T) {
 		{types.Typ[types.UntypedRune], types.Typ[types.UntypedInt], true},
 		{types.Typ[types.UntypedRune], types.Typ[types.UntypedFloat], true},
 	}
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	for _, a := range cases {
 		if ret := AssignableTo(pkg, a.v, a.t); ret != a.ret {
 			t.Fatalf("Failed: AssignableTo %v => %v returns %v\n", a.v, a.t, ret)
@@ -437,7 +456,7 @@ func TestNoFuncName(t *testing.T) {
 }
 
 func TestGetIdxValTypes(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	cb := pkg.CB()
 	intArr := types.NewArray(types.Typ[types.Int], 10)
 	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "intArr", nil), intArr, nil)
@@ -448,7 +467,7 @@ func TestGetIdxValTypes(t *testing.T) {
 }
 
 func TestGetIdxValTypes2(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	cb := pkg.CB()
 	intArr := types.NewArray(types.Typ[types.Int], 10)
 	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "intArr", nil), intArr, nil)
@@ -482,7 +501,7 @@ func getElemType(arg *internal.Elem) types.Type {
 }
 
 func TestBoundElementType(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	elts := []*internal.Elem{
 		{Type: types.Typ[types.String]},
 		{Type: types.Typ[types.Int]},
@@ -568,7 +587,7 @@ func TestBuiltinCall(t *testing.T) {
 }
 
 func TestUnsafe(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	sizeof := pkg.unsafe().Ref("Sizeof")
 	expr := toObjectExpr(pkg, sizeof)
 	if v, ok := expr.(*ast.SelectorExpr); ok {
@@ -581,7 +600,7 @@ func TestUnsafe(t *testing.T) {
 }
 
 func TestUntypeBig(t *testing.T) {
-	pkg := NewPackage("foo", "foo", nil)
+	pkg := NewPackage("foo", "foo", gblConf)
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	big.EnsureImported()
 	pkg.utBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
@@ -671,7 +690,7 @@ func TestCheckSigParam(t *testing.T) {
 }
 
 func TestErrWriteFile(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	pkg.Types = nil
 	defer func() {
 		if e := recover(); e == nil {
@@ -712,7 +731,7 @@ func TestLookupLabel(t *testing.T) {
 }
 
 func TestImportPkg(t *testing.T) {
-	pkg := NewPackage("foo/bar", "bar", nil)
+	pkg := NewPackage("foo/bar", "bar", gblConf)
 	f := &file{importPkgs: make(map[string]*PkgRef)}
 	a := f.importPkg(pkg, "./internal/a")
 	if f.importPkgs["foo/bar/internal/a"] != a {
