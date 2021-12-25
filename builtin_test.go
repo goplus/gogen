@@ -490,6 +490,12 @@ func TestGetIdxValTypes2(t *testing.T) {
 	}
 }
 
+func TestGetStruct(t *testing.T) {
+	if getStruct(nil, types.NewPointer(tyInt)) != nil {
+		t.Fatal("getStruct failed: not nil?")
+	}
+}
+
 func TestGetElemType(t *testing.T) {
 	cval := constant.MakeFromLiteral("1.1e5", token.FLOAT, 0)
 	arg := types.Typ[types.UntypedFloat]
