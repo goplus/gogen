@@ -73,7 +73,7 @@ func (p *PkgRef) Ref(name string) Ref {
 	if o := p.TryRef(name); o != nil {
 		return o
 	}
-	panic(p.Types.Path() + "." + name + " not found")
+	panic(p.Path() + "." + name + " not found")
 }
 
 // TryRef returns the object in this package with the given name if such an

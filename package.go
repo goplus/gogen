@@ -155,7 +155,7 @@ type file struct {
 
 func (p *file) importPkg(this *Package, pkgPath string) *PkgRef {
 	if strings.HasPrefix(pkgPath, ".") { // canonical pkgPath
-		pkgPath = path.Join(this.Types.Path(), pkgPath)
+		pkgPath = path.Join(this.Path(), pkgPath)
 	}
 	pkgImport, ok := p.importPkgs[pkgPath]
 	if !ok {
@@ -312,6 +312,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		conf:  conf,
 	}
 	pkg.imp = conf.Importer
+	pkg.pkgPath = pkgPath
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.builtin = newBuiltin(pkg, conf)
 	pkg.utBigInt = conf.UntypedBigInt
