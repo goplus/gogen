@@ -49,8 +49,12 @@ func init() {
 		Loaded:  make(map[string]*types.Package),
 		Fset:    gblFset,
 	}
+	const (
+		pkgfoo = "github.com/goplus/gox/internal/foo"
+		pkgbar = "github.com/goplus/gox/internal/bar"
+	)
 	imp, _, err := packages.NewImporter(
-		conf, ".", "flag", "testing", "github.com/goplus/gox/internal/foo", "github.com/goplus/gox/internal/builtin")
+		conf, ".", "flag", "testing", pkgfoo, pkgbar, "github.com/goplus/gox/internal/builtin")
 	if err != nil {
 		panic(err)
 	}
