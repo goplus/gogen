@@ -23,10 +23,10 @@ import (
 	"log"
 	"os"
 	"testing"
-	"time"
 	"unsafe"
 
 	"github.com/goplus/gox"
+	"github.com/goplus/gox/packages"
 	"golang.org/x/tools/go/gcexportdata"
 )
 
@@ -35,32 +35,41 @@ const (
 )
 
 var (
-	gblFset     *token.FileSet
-	gblCached   *gox.LoadPkgsCached
-	gblLoadPkgs gox.LoadPkgsFunc
-	handleErr   func(err error)
+	gblFset   *token.FileSet
+	gblImp    types.Importer
+	handleErr func(err error)
 )
 
 func init() {
 	gox.SetDebug(gox.DbgFlagAll)
 	os.Remove(cachefile)
-	gblCached = gox.OpenLoadPkgsCached(cachefile, nil)
 	gblFset = token.NewFileSet()
-	gblLoadPkgs = gblCached.Load
+	conf := &packages.Config{
+		ModPath: "github.com/goplus/gox",
+		Loaded:  make(map[string]*types.Package),
+		Fset:    gblFset,
+	}
+	const (
+		pkgfoo = "github.com/goplus/gox/internal/foo"
+		pkgbar = "github.com/goplus/gox/internal/bar"
+	)
+	imp, _, err := packages.NewImporter(
+		conf, ".", "flag", "testing", pkgfoo, pkgbar, "github.com/goplus/gox/internal/builtin")
+	if err != nil {
+		panic(err)
+	}
+	gblImp = imp
 }
 
-func newMainPackage(noCache ...bool) *gox.Package {
+func newMainPackage() *gox.Package {
 	conf := &gox.Config{
 		Fset:            gblFset,
-		LoadPkgs:        gblLoadPkgs,
+		Importer:        gblImp,
 		NodeInterpreter: nodeInterp{},
 	}
 	if handleErr != nil {
 		conf.HandleErr = handleErr
 		handleErr = nil
-	}
-	if noCache != nil {
-		conf = nil
 	}
 	pkg := gox.NewPackage("", "main", conf)
 	pkg.Import("github.com/goplus/gox/internal/builtin")
@@ -98,7 +107,7 @@ type goxVar = types.Var
 // ----------------------------------------------------------------------------
 
 func TestRedupPkgIssue796(t *testing.T) {
-	pkg := newMainPackage(false)
+	pkg := newMainPackage()
 	builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
 	builtin.EnsureImported()
 	context := pkg.Import("context")
@@ -121,7 +130,7 @@ func main() {
 }
 
 func TestBTIMethod(t *testing.T) {
-	pkg := newMainPackage(false)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewChan(0, types.Typ[types.Int]), "a").
@@ -174,7 +183,7 @@ func main() {
 }
 
 func TestPrintlnPrintln(t *testing.T) {
-	pkg := newMainPackage(false)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).Val(fmt.Ref("Println")).Call(0).Call(1).EndStmt().
@@ -190,7 +199,7 @@ func main() {
 }
 
 func TestImportGopPkg(t *testing.T) {
-	pkg := newMainPackage(false)
+	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gox/internal/foo")
 	foo.EnsureImported()
 	nodeSet := foo.Ref("NodeSet")
@@ -2238,7 +2247,7 @@ func main() {
 }
 
 func TestImport(t *testing.T) {
-	pkg := newMainPackage(true)
+	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 
 	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(gox.TyByte))
@@ -2969,42 +2978,6 @@ func main() {
 }
 
 // ----------------------------------------------------------------------------
-
-func TestSaveAndLoadPkgsCache(t *testing.T) {
-	defer os.Remove(cachefile)
-	pkg := gox.NewPackage("", "main", &gox.Config{})
-	cached := gblCached
-	imports := map[string]*gox.PkgRef{}
-	if cached.Load(pkg, imports, "fmt") != 0 {
-		t.Fatal("TestSaveAndLoadPkgsCache: Load failed")
-	}
-	if err := cached.Save(); err != nil {
-		t.Fatal("TestSaveAndLoadPkgsCache: Save filed:", err)
-	}
-	conf := &gox.Config{
-		Fset:            token.NewFileSet(),
-		LoadPkgs:        gox.OpenLoadPkgsCached(cachefile, nil).Load,
-		NodeInterpreter: nodeInterp{},
-	}
-	start := time.Now()
-	pkg = gox.NewPackage("", "main", conf)
-	fmt := pkg.Import("fmt")
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
-		End()
-	domTest(t, pkg, `package main
-
-import fmt "fmt"
-
-func main() {
-	fmt.Println("Hello")
-}
-`)
-	duration := time.Since(start)
-	if duration > time.Second/100 {
-		t.Fatal("TestSaveAndLoadPkgsCache duration:", duration)
-	}
-}
 
 func TestInterfaceMethodVarCall(t *testing.T) {
 	pkg := newMainPackage()

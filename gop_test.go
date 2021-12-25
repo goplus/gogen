@@ -45,7 +45,7 @@ func newGopBuiltinDefault(pkg gox.PkgImporter, conf *gox.Config) *types.Package 
 func newGopMainPackage() *gox.Package {
 	conf := &gox.Config{
 		Fset:       gblFset,
-		LoadPkgs:   gblLoadPkgs,
+		Importer:   gblImp,
 		NewBuiltin: newGopBuiltinDefault,
 	}
 	return gox.NewPackage("", "main", conf)

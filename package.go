@@ -5,18 +5,13 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"io/ioutil"
 	"log"
 	"path"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
-
-	"golang.org/x/mod/modfile"
 )
 
-type LoadPkgsFunc = func(at *Package, importPkgs map[string]*PkgRef, pkgPaths ...string) int
 type LoadNamedFunc = func(at *Package, typ *types.Named)
 
 const (
@@ -32,12 +27,11 @@ const (
 )
 
 var (
-	debugInstr        bool
-	debugMatch        bool
-	debugImport       bool
-	debugComments     bool
-	debugWriteFile    bool
-	debugPersistCache bool
+	debugInstr     bool
+	debugMatch     bool
+	debugImport    bool
+	debugComments  bool
+	debugWriteFile bool
 )
 
 func SetDebug(dbgFlags int) {
@@ -46,7 +40,6 @@ func SetDebug(dbgFlags int) {
 	debugMatch = (dbgFlags & DbgFlagMatch) != 0
 	debugComments = (dbgFlags & DbgFlagComments) != 0
 	debugWriteFile = (dbgFlags & DbgFlagWriteFile) != 0
-	debugPersistCache = (dbgFlags & DbgFlagPersistCache) != 0
 	if (dbgFlags & DbgFlagSetDebug) != 0 {
 		log.Printf("SetDebug: import=%v, match=%v, instr=%v\n", debugImport, debugMatch, debugInstr)
 	}
@@ -136,11 +129,11 @@ type Config struct {
 	// NodeInterpreter is to interpret an ast.Node.
 	NodeInterpreter NodeInterpreter
 
-	// LoadPkgs is called to load all import packages.
-	LoadPkgs LoadPkgsFunc
-
 	// LoadNamed is called to load a delay-loaded named type.
 	LoadNamed LoadNamedFunc
+
+	// An Importer resolves import paths to Packages.
+	Importer types.Importer
 
 	// NewBuiltin is to create the builin package.
 	NewBuiltin func(pkg PkgImporter, conf *Config) *types.Package
@@ -152,52 +145,25 @@ type Config struct {
 // ----------------------------------------------------------------------------
 
 type file struct {
-	decls         []ast.Decl
-	importPkgs    map[string]*PkgRef
-	allPkgPaths   []string // all import pkgPaths
-	delayPkgPaths []string // all delay-load pkgPaths
-	pkgBig        *PkgRef
-	pkgUnsafe     *PkgRef
-	removedExprs  bool
+	decls        []ast.Decl
+	allPkgPaths  []string
+	importPkgs   map[string]*PkgRef
+	pkgBig       *PkgRef
+	pkgUnsafe    *PkgRef
+	removedExprs bool
 }
 
-func pkgPathNotFound(allPkgPaths []string, pkgPath string) bool {
-	for _, path := range allPkgPaths {
-		if path == pkgPath {
-			return false
-		}
-	}
-	return true
-}
-
-func (p *file) importPkg(this *Package, pkgPath string, testingFile bool) *PkgRef {
+func (p *file) importPkg(this *Package, pkgPath string) *PkgRef {
 	if strings.HasPrefix(pkgPath, ".") { // canonical pkgPath
-		pkgPath = path.Join(this.Types.Path(), pkgPath)
+		pkgPath = path.Join(this.Path(), pkgPath)
 	}
 	pkgImport, ok := p.importPkgs[pkgPath]
 	if !ok {
-		pkgImport = &PkgRef{pkg: this, file: p, inTestingFile: testingFile}
+		pkgImport = &PkgRef{imp: this.imp, pkgPath: pkgPath}
 		p.importPkgs[pkgPath] = pkgImport
-	}
-	if !ok || pkgPathNotFound(p.allPkgPaths, pkgPath) {
 		p.allPkgPaths = append(p.allPkgPaths, pkgPath)
-		p.delayPkgPaths = append(p.delayPkgPaths, pkgPath)
 	}
 	return pkgImport
-}
-
-func (p *file) endImport(this *Package, testingFile bool) {
-	pkgPaths := p.delayPkgPaths
-	if len(pkgPaths) == 0 {
-		return
-	}
-	if debugImport {
-		log.Println("==> LoadPkgs", pkgPaths, testingFile)
-	}
-	if n := this.loadPkgs(this, p.importPkgs, pkgPaths...); n > 0 {
-		log.Panicf("total %d errors\n", n) // TODO: error message
-	}
-	p.delayPkgPaths = pkgPaths[:0]
 }
 
 func (p *file) markUsed(this *Package) {
@@ -276,7 +242,6 @@ func (p *file) getDecls(this *Package) (decls []ast.Decl) {
 		}
 		pkgName, renamed := names.RequireName(pkgImport.Types.Name())
 		if renamed {
-			pkgImport.Types.SetName(pkgName)
 			for _, nameRef := range pkgImport.nameRefs {
 				nameRef.Name = pkgName
 			}
@@ -295,16 +260,16 @@ func (p *file) getDecls(this *Package) (decls []ast.Decl) {
 	return
 }
 
-func (p *file) big(this *Package, testingFile bool) *PkgRef {
+func (p *file) big(this *Package) *PkgRef {
 	if p.pkgBig == nil {
-		p.pkgBig = p.importPkg(this, "math/big", testingFile)
+		p.pkgBig = p.importPkg(this, "math/big")
 	}
 	return p.pkgBig
 }
 
-func (p *file) unsafe(this *Package, testingFile bool) *PkgRef {
+func (p *file) unsafe(this *Package) *PkgRef {
 	if p.pkgUnsafe == nil {
-		p.pkgUnsafe = p.importPkg(this, "unsafe", testingFile)
+		p.pkgUnsafe = p.importPkg(this, "unsafe")
 	}
 	return p.pkgUnsafe
 }
@@ -317,13 +282,11 @@ type Package struct {
 	cb             CodeBuilder
 	files          [2]file
 	conf           *Config
-	mod            *module
 	Fset           *token.FileSet
 	builtin        *types.Package
 	utBigInt       *types.Named
 	utBigRat       *types.Named
 	utBigFlt       *types.Named
-	loadPkgs       LoadPkgsFunc
 	autoIdx        int
 	testingFile    int
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
@@ -335,27 +298,21 @@ const (
 
 // NewPackage creates a new package.
 func NewPackage(pkgPath, name string, conf *Config) *Package {
-	if conf == nil {
-		conf = &Config{}
-	}
 	newBuiltin := conf.NewBuiltin
 	if newBuiltin == nil {
 		newBuiltin = newBuiltinDefault
-	}
-	loadPkgs := conf.LoadPkgs
-	if loadPkgs == nil {
-		loadPkgs = LoadGoPkgs
 	}
 	files := [2]file{
 		{importPkgs: make(map[string]*PkgRef)},
 		{importPkgs: make(map[string]*PkgRef)},
 	}
 	pkg := &Package{
-		Fset:     conf.Fset,
-		files:    files,
-		conf:     conf,
-		loadPkgs: loadPkgs,
+		Fset:  conf.Fset,
+		files: files,
+		conf:  conf,
 	}
+	pkg.imp = conf.Importer
+	pkg.pkgPath = pkgPath
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.builtin = newBuiltin(pkg, conf)
 	pkg.utBigInt = conf.UntypedBigInt
@@ -374,7 +331,7 @@ func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {
 
 // Builtin returns the buitlin package.
 func (p *Package) Builtin() *PkgRef {
-	return &PkgRef{Types: p.builtin, pkg: p}
+	return &PkgRef{Types: p.builtin}
 }
 
 // CB returns the code builder.
@@ -403,121 +360,6 @@ func getInTestingFile(inTestingFile bool) int {
 // HasTestingFile returns true if this package has testing files.
 func (p *Package) HasTestingFile() bool {
 	return len(p.files[1].decls) != 0
-}
-
-func (p *Package) loadMod() *module {
-	if p.mod == nil {
-		modRootDir := p.conf.ModRootDir
-		if modRootDir != "" {
-			p.mod = loadModFile(filepath.Join(modRootDir, "go.mod"))
-		}
-		if p.mod == nil {
-			p.mod = &module{deps: map[string]*pkgdep{}}
-		}
-	}
-	return p.mod
-}
-
-// ----------------------------------------------------------------------------
-
-type pkgdep struct {
-	path    string
-	replace string
-}
-
-func (p *pkgdep) calcFingerp() string {
-	if p.replace != "" {
-		return p.replace
-	}
-	return p.path
-}
-
-type module struct {
-	*modfile.Module
-	deps map[string]*pkgdep
-}
-
-func (p *module) lookupDep(pkgPath string) (dep *pkgdep, ok bool) {
-	for modPath, dep := range p.deps {
-		if isPkgInModule(pkgPath, modPath) {
-			return dep, true
-		}
-	}
-	return
-}
-
-func isPkgInModule(pkgPath, modPath string) bool {
-	if strings.HasPrefix(pkgPath, modPath) {
-		suffix := pkgPath[len(modPath):]
-		return suffix == "" || suffix[0] == '/'
-	}
-	return false
-}
-
-type pkgType int
-
-const (
-	ptStandardPkg pkgType = iota
-	ptModulePkg
-	ptLocalPkg
-	ptExternPkg
-	ptInvalidPkg = -1
-)
-
-func (p *module) getPkgType(pkgPath string) pkgType {
-	if pkgPath == "" {
-		return ptInvalidPkg
-	}
-	if p.Module != nil {
-		if isPkgInModule(pkgPath, p.Module.Mod.Path) {
-			return ptModulePkg
-		}
-	}
-	c := pkgPath[0]
-	if c == '/' || c == '.' {
-		return ptLocalPkg
-	}
-	pos := strings.Index(pkgPath, "/")
-	if pos > 0 {
-		pkgPath = pkgPath[:pos]
-	}
-	if strings.Contains(pkgPath, ".") {
-		return ptExternPkg
-	}
-	return ptStandardPkg
-}
-
-func loadModFile(file string) (m *module) {
-	src, err := ioutil.ReadFile(file)
-	if err != nil {
-		log.Println("Modfile not found:", file)
-		return
-	}
-	f, err := modfile.Parse(file, src, nil)
-	if err != nil {
-		log.Println("modfile.Parse:", err)
-		return
-	}
-	deps := map[string]*pkgdep{}
-	for _, v := range f.Require {
-		deps[v.Mod.Path] = &pkgdep{
-			path: v.Mod.String(),
-		}
-	}
-	for _, v := range f.Replace {
-		if dep, ok := deps[v.Old.Path]; ok {
-			dep.replace = v.New.String()
-		}
-	}
-	return &module{deps: deps, Module: f.Module}
-}
-
-func isLocalRepPkg(replace string) bool {
-	if replace == "" {
-		return false
-	}
-	c := replace[0]
-	return c == '/' || c == '.'
 }
 
 // ----------------------------------------------------------------------------

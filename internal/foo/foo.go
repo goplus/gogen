@@ -71,6 +71,10 @@ type Foo struct {
 func (p *Foo) Gop_Enum(c func(v string)) {
 }
 
+func (a Foo) Gop_Add(b Foo) Foo {
+	return Foo{}
+}
+
 // -----------------------------------------------------------------------------
 
 type Foo2 struct {

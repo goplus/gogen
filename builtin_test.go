@@ -19,15 +19,30 @@ import (
 	"go/token"
 	"go/types"
 	"math/big"
-	"reflect"
 	"testing"
 
 	"github.com/goplus/gox/internal"
-	"golang.org/x/mod/modfile"
-	"golang.org/x/tools/go/packages"
-
-	gomod "golang.org/x/mod/module"
+	"github.com/goplus/gox/packages"
 )
+
+var (
+	gblConf = getConf()
+)
+
+func getConf() *Config {
+	fset := token.NewFileSet()
+	conf := &packages.Config{
+		ModPath: "github.com/goplus/gox",
+		Loaded:  make(map[string]*types.Package),
+		Fset:    fset,
+	}
+	imp, _, err := packages.NewImporter(
+		conf, ".", "github.com/goplus/gox/internal/builtin", "github.com/goplus/gox/internal/foo")
+	if err != nil {
+		panic(err)
+	}
+	return &Config{Fset: fset, Importer: imp}
+}
 
 func TestContractName(t *testing.T) {
 	testcases := []struct {
@@ -54,14 +69,24 @@ func TestContractName(t *testing.T) {
 }
 
 func TestContract(t *testing.T) {
-	pkg := &Package{}
+	pkg := NewPackage("", "foo", gblConf)
 	at := types.NewPackage("foo", "foo")
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	tfoo := foo.Ref("Foo").Type()
+	tarr := types.NewArray(tyInt, 10)
 	testcases := []struct {
 		Contract
 		typ    types.Type
 		result bool
 	}{
 		{integer, tyInt, true},
+		{capable, types.Typ[types.String], false},
+		{capable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), tarr, nil), true},
+		{capable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.NewPointer(tarr), nil), true},
+		{capable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.String], nil), false},
+		{lenable, types.Typ[types.String], true},
+		{lenable, types.NewMap(tyInt, tyInt), true},
+		{lenable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.String], nil), true},
 		{makable, types.NewMap(tyInt, tyInt), true},
 		{makable, types.NewChan(0, tyInt), true},
 		{makable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), tyInt, nil), false},
@@ -71,6 +96,8 @@ func TestContract(t *testing.T) {
 		{comparable, types.NewChan(0, tyInt), true},
 		{comparable, types.NewSignature(nil, nil, nil, false), false},
 		{comparable, NewTemplateSignature(nil, nil, nil, nil, false), false},
+		{addable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil), false},
+		{addable, tfoo, true},
 	}
 	for _, c := range testcases {
 		if c.Match(pkg, c.typ) != c.result {
@@ -99,7 +126,7 @@ func TestComparableTo(t *testing.T) {
 		{types.Typ[types.UntypedInt], types.Typ[types.Int64], true},
 		{types.Typ[types.Int64], types.Typ[types.UntypedInt], true},
 	}
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	for _, a := range cases {
 		av := &Element{Type: a.v}
 		at := &Element{Type: a.t}
@@ -110,7 +137,7 @@ func TestComparableTo(t *testing.T) {
 }
 
 func TestComparableTo2(t *testing.T) {
-	pkg := NewPackage("foo", "foo", nil)
+	pkg := NewPackage("foo", "foo", gblConf)
 	methods := []*types.Func{
 		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
 	}
@@ -172,7 +199,7 @@ func TestAssignableTo(t *testing.T) {
 		{types.Typ[types.UntypedRune], types.Typ[types.UntypedInt], true},
 		{types.Typ[types.UntypedRune], types.Typ[types.UntypedFloat], true},
 	}
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	for _, a := range cases {
 		if ret := AssignableTo(pkg, a.v, a.t); ret != a.ret {
 			t.Fatalf("Failed: AssignableTo %v => %v returns %v\n", a.v, a.t, ret)
@@ -330,232 +357,6 @@ func TestScopeHasName(t *testing.T) {
 	}
 }
 
-func TestToPersistNamedType(t *testing.T) {
-	pkg := types.NewPackage("", "foo")
-	o := types.NewTypeName(token.NoPos, pkg, "bar", types.Typ[types.Int])
-	typ := types.NewNamed(o, types.Typ[types.Int], nil)
-	val := toPersistNamedType(typ)
-	if val != "int" {
-		t.Fatal("TestToPersistNamedType:", val)
-	}
-}
-
-func TestFromPersistStruct(t *testing.T) {
-	pkg := types.NewPackage("", "foo")
-	ctx := &persistPkgCtx{}
-	ctx.pkg = pkg
-	val := fromPersistStruct(ctx, pobj{"type": "struct", "fields": []interface{}{
-		pobj{"name": "foo", "type": "int", "tag": "hello"},
-	}})
-	if val.NumFields() != 1 || val.Tag(0) != "hello" {
-		t.Fatal("TestFromPersistStruct:", val)
-	}
-}
-
-func TestPersistSignature(t *testing.T) {
-	pkg := types.NewPackage("", "foo")
-	recv := types.NewParam(token.NoPos, pkg, "bar", TyEmptyInterface)
-	sig := types.NewSignature(recv, nil, nil, false)
-	val := toPersistSignature(sig)
-	empty := []persistVar{}
-	if !reflect.DeepEqual(val, pobj{"type": "sig", "params": empty, "results": empty}) {
-		t.Fatal("TestPersistSignature:", val)
-	}
-	defer func() {
-		if e := recover(); e != "unexpected signature" {
-			t.Fatal("TestPersistSignature:", e)
-		}
-	}()
-	fromPersistSignature(nil, pobj{"type": "foo"})
-}
-
-func TestToPersistType(t *testing.T) {
-	defer func() {
-		if e := recover(); e != "unsupported type - overloadFuncType{funcs: []}" {
-			t.Fatal("TestToPersistType:", e)
-		}
-	}()
-	toPersistType(&overloadFuncType{})
-}
-
-func TestFromPersistType(t *testing.T) {
-	defer func() {
-		if e := recover(); e != "unexpected type" {
-			t.Fatal("TestFromPersistType:", e)
-		}
-	}()
-	fromPersistType(nil, 0)
-}
-
-func TestLoadModFile(t *testing.T) {
-	if mod := loadModFile("./testdata/not-found"); mod != nil {
-		t.Fatal("TestLoadModFile: no error?")
-	}
-	if mod := loadModFile("./internal/foo/foo.go"); mod != nil {
-		t.Fatal("TestLoadModFile: valid?")
-	}
-	if mod := loadModFile("./testdata/go_mod.txt"); mod == nil {
-		t.Fatal("TestLoadModFile failed")
-	} else if dep := mod.deps["golang.org/x/tools"]; dep == nil || dep.replace != "/local/dir" {
-		t.Fatal("TestLoadModFile: golang.org/x/tools =>", dep.replace)
-	}
-}
-
-func TestPkgFingerp(t *testing.T) {
-	dep := &pkgdep{replace: "abc"}
-	if dep.calcFingerp() != "abc" {
-		t.Fatal("dep.calcFingerp failed")
-	}
-
-	pkg := &Package{conf: &Config{ModRootDir: "not-found"}}
-	pkg.loadMod()
-	if newPkgFingerp(pkg, &packages.Package{}) != nil {
-		t.Fatal("newPkgFingerp not nil")
-	}
-
-	pkg.mod = &module{
-		Module: &modfile.Module{},
-	}
-	if pkgf := newPkgFingerp(pkg, &packages.Package{
-		Module: &packages.Module{
-			Path:    "github.com/goplus/gop",
-			Version: "v1.0.0",
-		},
-	}); pkgf == nil || !pkgf.versioned || pkgf.fingerp != "github.com/goplus/gop@v1.0.0" {
-		t.Fatal("newPkgFingerp not github.com/goplus/gop@v1.0.0")
-	} else if pkgf.localRepChanged("") != true {
-		t.Fatal("localRepChanged failed")
-	}
-
-	if pkgf := newPkgFingerp(pkg, &packages.Package{
-		Module: &packages.Module{
-			Path: "foo",
-			Replace: &packages.Module{
-				Path:    "github.com/goplus/gop",
-				Version: "v1.0.0",
-			},
-		},
-	}); pkgf == nil || !pkgf.versioned || pkgf.fingerp != "github.com/goplus/gop@v1.0.0" {
-		t.Fatal("newPkgFingerp not github.com/goplus/gop@v1.0.0")
-	}
-}
-
-func TestImported1(t *testing.T) {
-	pkg := new(Package)
-	pkg.mod = &module{
-		Module: &modfile.Module{},
-		deps: map[string]*pkgdep{
-			"foo.com":          {replace: "./internal/foo"},
-			"golang.org/x/mod": {path: "golang.org/x/mod@v0.4.1"},
-		},
-	}
-	pkgf := newPkgFingerp(pkg, &packages.Package{
-		GoFiles: []string{
-			"./internal/foo/foo.go",
-		},
-		Module: &packages.Module{
-			Path: "foo.com",
-			Replace: &packages.Module{
-				Path: "./internal/foo",
-			},
-		},
-	})
-	pkgf.getFingerp()
-	pkgf.updated = false
-	foo := &PkgRef{
-		pkgf: pkgf,
-	}
-	imports := map[string]*PkgRef{
-		"foo.com": foo,
-		"golang.org/x/mod": {
-			pkgf: &pkgFingerp{fingerp: "v0.5.1", versioned: true},
-		},
-	}
-	cached := &LoadPkgsCached{imports: imports}
-	if cached.Save() != nil {
-		t.Fatal("cached.Save failed")
-	}
-	if _, ok := cached.imported(pkg, "golang.org/x/mod"); ok {
-		t.Fatal("TestImported golang.org/x/mod failed")
-	}
-	if ret, ok := cached.imported(pkg, "foo.com"); !ok || ret != foo {
-		t.Fatal("TestImported foo: not found?")
-	}
-	NewLoadPkgsCached(nil)
-}
-
-func TestImported2(t *testing.T) {
-	pkg := new(Package)
-	pkg.mod = &module{
-		Module: &modfile.Module{
-			Mod: gomod.Version{
-				Path: "github.com/goplus/gox",
-			},
-		},
-		deps: map[string]*pkgdep{
-			"foo.com": {replace: "./internal/foo"},
-		},
-	}
-	if pkg.mod.getPkgType("") != ptInvalidPkg {
-		t.Fatal("getPkgType != ptInvalidPkg")
-	}
-	if pkg.mod.getPkgType("./foo") != ptLocalPkg {
-		t.Fatal("getPkgType != ptLocalPkg")
-	}
-	pkgf := newPkgFingerp(pkg, &packages.Package{
-		GoFiles: []string{
-			"./internal/foo/foo.go",
-		},
-		Module: &packages.Module{
-			Path: "foo.com",
-			Replace: &packages.Module{
-				Path: "./internal/foo",
-			},
-		},
-	})
-	if pkgf.versionChanged("") != true {
-		t.Fatal("versionChanged failed")
-	}
-	if pkgf.localRepChanged("./internal/bar") != true {
-		t.Fatal("localRepChanged failed")
-	}
-	pkgf.updated = false
-	ipkgf := newPkgFingerp(pkg, &packages.Package{
-		GoFiles: []string{
-			"./internal/foo/foo.go",
-		},
-		Module: &packages.Module{
-			Path: "github.com/goplus/gox",
-		},
-	})
-	ipkgf.getFingerp()
-	ipkgf.updated = false
-	foo := &PkgRef{
-		pkgf: pkgf,
-	}
-	ifoo := &PkgRef{
-		pkgf: ipkgf,
-	}
-	imports := map[string]*PkgRef{
-		"foo":                                foo,
-		"github.com/goplus/gox/internal/foo": ifoo,
-	}
-	cached := &LoadPkgsCached{imports: imports}
-	if cached.Save() != nil {
-		t.Fatal("cached.Save failed")
-	}
-	if _, ok := cached.imported(pkg, "foo.com"); ok {
-		t.Fatal("TestImported foo failed")
-	}
-	if ret, ok := cached.imported(pkg, "github.com/goplus/gox/internal/foo"); !ok || ret != ifoo {
-		t.Fatal("TestImported github.com/goplus/gox/internal/foo: not found?")
-	}
-	pkgf = nil
-	if pkgf.localChanged() != true {
-		t.Fatal("localChanged failed")
-	}
-}
-
 func TestToFields(t *testing.T) {
 	pkg := new(Package)
 	pkg.Types = types.NewPackage("", "foo")
@@ -668,7 +469,7 @@ func TestNoFuncName(t *testing.T) {
 }
 
 func TestGetIdxValTypes(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	cb := pkg.CB()
 	intArr := types.NewArray(types.Typ[types.Int], 10)
 	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "intArr", nil), intArr, nil)
@@ -679,13 +480,19 @@ func TestGetIdxValTypes(t *testing.T) {
 }
 
 func TestGetIdxValTypes2(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	cb := pkg.CB()
 	intArr := types.NewArray(types.Typ[types.Int], 10)
 	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "intArr", nil), intArr, nil)
 	kv, allowTwoValue := cb.getIdxValTypes(types.NewPointer(typ), false, nil)
 	if allowTwoValue || kv[0] != types.Typ[types.Int] || kv[1] != types.Typ[types.Int] {
 		t.Fatal("TestGetIdxValTypes2 failed:", kv, allowTwoValue)
+	}
+}
+
+func TestGetStruct(t *testing.T) {
+	if getStruct(nil, types.NewPointer(tyInt)) != nil {
+		t.Fatal("getStruct failed: not nil?")
 	}
 }
 
@@ -713,7 +520,7 @@ func getElemType(arg *internal.Elem) types.Type {
 }
 
 func TestBoundElementType(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	elts := []*internal.Elem{
 		{Type: types.Typ[types.String]},
 		{Type: types.Typ[types.Int]},
@@ -789,23 +596,6 @@ func TestBinaryOpIssue805(t *testing.T) {
 	}
 }
 
-func TestPersistVal(t *testing.T) {
-	re := constant.MakeInt64(1)
-	im := constant.MakeImag(constant.MakeInt64(2))
-	val := constant.BinaryOp(re, token.ADD, im)
-	pval := toPersistVal(val)
-	val2 := fromPersistVal(pval)
-	if !constant.Compare(val, token.EQL, val2) {
-		t.Fatal("TestPersistVal failed")
-	}
-	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("TestPersistVal: no error?")
-		}
-	}()
-	toPersistVal(constant.MakeUnknown())
-}
-
 func TestBuiltinCall(t *testing.T) {
 	defer func() {
 		if e := recover(); e == nil {
@@ -816,7 +606,7 @@ func TestBuiltinCall(t *testing.T) {
 }
 
 func TestUnsafe(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	sizeof := pkg.unsafe().Ref("Sizeof")
 	expr := toObjectExpr(pkg, sizeof)
 	if v, ok := expr.(*ast.SelectorExpr); ok {
@@ -828,24 +618,8 @@ func TestUnsafe(t *testing.T) {
 	}
 }
 
-func TestDedupNamedType(t *testing.T) {
-	pkg := types.NewPackage("foo", "foo")
-	obj := types.NewTypeName(token.NoPos, pkg, "bar", types.Typ[types.Int])
-	pkg.Scope().Insert(obj)
-	imports := map[string]*PkgRef{
-		"foo": {Types: pkg},
-	}
-	pkg2 := types.NewPackage("foo", "foo")
-	obj2 := types.NewTypeName(token.NoPos, pkg2, "bar", types.Typ[types.Int])
-	typ2 := types.NewNamed(obj2, obj2.Type().Underlying(), nil)
-	typ3, dedup := dedupNamedType(imports, typ2)
-	if !dedup || typ3 != types.Typ[types.Int] {
-		t.Fatal("TestDedupNamedType failed:", typ3, dedup)
-	}
-}
-
 func TestUntypeBig(t *testing.T) {
-	pkg := NewPackage("foo", "foo", nil)
+	pkg := NewPackage("foo", "foo", gblConf)
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	big.EnsureImported()
 	pkg.utBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
@@ -872,6 +646,14 @@ func TestUntypeBig(t *testing.T) {
 			}
 		}()
 		untypeBig(pkg, constant.MakeBool(true), pkg.utBigInt)
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("pkg.Import not-found: no error?")
+			}
+		}()
+		pkg.Import("not-found").EnsureImported()
 	}()
 }
 
@@ -935,7 +717,7 @@ func TestCheckSigParam(t *testing.T) {
 }
 
 func TestErrWriteFile(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
+	pkg := NewPackage("", "foo", gblConf)
 	pkg.Types = nil
 	defer func() {
 		if e := recover(); e == nil {
@@ -976,10 +758,9 @@ func TestLookupLabel(t *testing.T) {
 }
 
 func TestImportPkg(t *testing.T) {
-	pkg := NewPackage("foo/bar", "bar", nil)
+	pkg := NewPackage("foo/bar", "bar", gblConf)
 	f := &file{importPkgs: make(map[string]*PkgRef)}
-	f.endImport(pkg, false)
-	a := f.importPkg(pkg, "./internal/a", false)
+	a := f.importPkg(pkg, "./internal/a")
 	if f.importPkgs["foo/bar/internal/a"] != a {
 		t.Fatal("TestImportPkg failed")
 	}
