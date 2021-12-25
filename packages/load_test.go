@@ -29,6 +29,12 @@ func TestList(t *testing.T) {
 	}
 }
 
+func TestGetProgramList(t *testing.T) {
+	if getProgramList(": import \"", nil) != 0 {
+		t.Fatal("getProgramList failed")
+	}
+}
+
 // ----------------------------------------------------------------------------
 
 func TestLoadDep(t *testing.T) {
@@ -40,7 +46,7 @@ func TestLoadDep(t *testing.T) {
 		t.Fatal("LoadDeps failed:", pkgs)
 	}
 
-	err = loadDepPkgsFrom(nil, " ")
+	err = loadDepPkgsFrom(nil, " ", "")
 	if err != nil {
 		t.Fatal("LoadDeps: error?", err)
 	}
@@ -183,15 +189,15 @@ func TestImporterRecursive(t *testing.T) {
 		ModRoot: "..",
 		ModPath: "github.com/goplus/gox",
 	}
-	p, pkgPaths, err := NewImporter(conf, "../internal/go/...")
+	p, pkgPaths, err := NewImporter(conf, "../internal/foo/...")
 	if err != nil {
 		t.Fatal("NewImporter failed:", err)
 	}
 	if len(pkgPaths) != 2 {
 		t.Fatal("NewImporter pkgPaths:", pkgPaths)
 	}
-	pkg, err := p.Import(pkgPaths[0])
-	if err != nil || pkg.Path() != pkgPaths[0] {
+	pkg, err := p.Import("github.com/goplus/gox/internal/foo")
+	if err != nil {
 		t.Fatal("Import failed:", pkg, pkgPaths, err)
 	}
 }
