@@ -46,7 +46,7 @@ func TestLoadDep(t *testing.T) {
 		t.Fatal("LoadDeps failed:", pkgs)
 	}
 
-	err = loadDepPkgsFrom(nil, " ", "")
+	err = loadDepPkgsFrom(nil, " ")
 	if err != nil {
 		t.Fatal("LoadDeps: error?", err)
 	}
