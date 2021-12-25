@@ -242,7 +242,6 @@ func (p *file) getDecls(this *Package) (decls []ast.Decl) {
 		}
 		pkgName, renamed := names.RequireName(pkgImport.Types.Name())
 		if renamed {
-			pkgImport.Types.SetName(pkgName)
 			for _, nameRef := range pkgImport.nameRefs {
 				nameRef.Name = pkgName
 			}
