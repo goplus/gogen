@@ -19,7 +19,7 @@ func main() {
 		ModRoot: "../..",
 		ModPath: "github.com/goplus/gox",
 	}
-	imp, _, err := packages.NewImporter(conf, "../...", "fmt", "strings", "strconv")
+	imp, _, err := packages.NewImporter(conf, ".", "fmt", "strings", "strconv")
 	if err != nil {
 		log.Fatal("\n", err)
 	}
