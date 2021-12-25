@@ -70,14 +70,14 @@ func loadDepPkgs(dir, src string) (pkgs map[string]pkgExport, err error) {
 
 func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (err error) {
 	const packagefile = "packagefile "
-	const vendor = "vendor/"
+	// const vendor = "vendor/"
 	for data != "" {
 		pos := strings.IndexByte(data, '\n')
 		if strings.HasPrefix(data, packagefile) {
 			line := data[len(packagefile):pos]
 			if t := strings.Index(line, "="); t > 0 {
 				if pkgPath := line[:t]; pkgPath != "command-line-arguments" {
-					pkgPath = strings.TrimPrefix(pkgPath, vendor)
+					// pkgPath = strings.TrimPrefix(pkgPath, vendor)
 					pkgs[pkgPath] = pkgExport(line[t+1:])
 				}
 			}
