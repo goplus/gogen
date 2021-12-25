@@ -168,20 +168,23 @@ func (p *Importer) Import(pkgPath string) (*types.Package, error) {
 		return ret, nil
 	}
 	if ret, ok := p.pkgs[pkgPath]; ok {
-		expfile := ret.Export
-		f, err := os.Open(expfile)
-		if err != nil {
-			return nil, err
-		}
-		defer f.Close()
-
-		r, err := gcexportdata.NewReader(f)
-		if err != nil {
-			return nil, err
-		}
-		return gcexportdata.Read(r, p.fset, p.loaded, pkgPath)
+		return p.loadPkgExport(ret.Export, pkgPath)
 	}
 	return nil, syscall.ENOENT
+}
+
+func (p *Importer) loadPkgExport(expfile string, pkgPath string) (*types.Package, error) {
+	f, err := os.Open(expfile)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	r, err := gcexportdata.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+	return gcexportdata.Read(r, p.fset, p.loaded, pkgPath)
 }
 
 // ----------------------------------------------------------------------------

@@ -98,15 +98,20 @@ func TestLoadErr(t *testing.T) {
 		t.Fatal("Load:", pkgs, err)
 	}
 
-	/*	_, err = loadPkgExport("/not-found", nil, make(map[string]*types.Package), "fmt")
-		if err == nil {
-			t.Fatal("loadPkgExport no error?")
-		}
-		_, err = loadPkgExport("load.go", nil, make(map[string]*types.Package), "fmt")
-		if err == nil {
-			t.Fatal("loadPkgExport no error?")
-		}
-	*/
+	var imp Importer
+	_, err = imp.loadPkgExport("/not-found", "fmt")
+	if err == nil {
+		t.Fatal("loadPkgExport no error?")
+	}
+	_, err = imp.loadPkgExport("load.go", "fmt")
+	if err == nil {
+		t.Fatal("loadPkgExport no error?")
+	}
+
+	_, err = doListPkgs(nil, "", "/not-found", nil, false)
+	if err == nil {
+		t.Fatal("doListPkgs no error?")
+	}
 }
 
 func TestLoadNoConf(t *testing.T) {
