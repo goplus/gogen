@@ -73,12 +73,20 @@ func TestContract(t *testing.T) {
 	at := types.NewPackage("foo", "foo")
 	foo := pkg.Import("github.com/goplus/gox/internal/foo")
 	tfoo := foo.Ref("Foo").Type()
+	tarr := types.NewArray(tyInt, 10)
 	testcases := []struct {
 		Contract
 		typ    types.Type
 		result bool
 	}{
 		{integer, tyInt, true},
+		{capable, types.Typ[types.String], false},
+		{capable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), tarr, nil), true},
+		{capable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.NewPointer(tarr), nil), true},
+		{capable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.String], nil), false},
+		{lenable, types.Typ[types.String], true},
+		{lenable, types.NewMap(tyInt, tyInt), true},
+		{lenable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.String], nil), true},
 		{makable, types.NewMap(tyInt, tyInt), true},
 		{makable, types.NewChan(0, tyInt), true},
 		{makable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), tyInt, nil), false},
