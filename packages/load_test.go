@@ -22,6 +22,15 @@ import (
 
 // ----------------------------------------------------------------------------
 
+func TestList(t *testing.T) {
+	pkgPaths, err := List(nil, ".")
+	if err != nil || len(pkgPaths) != 1 {
+		t.Fatal("List failed:", pkgPaths, err)
+	}
+}
+
+// ----------------------------------------------------------------------------
+
 func TestLoadDep(t *testing.T) {
 	pkgs, err := loadDeps("./.gop", "fmt")
 	if err != nil {
@@ -70,7 +79,7 @@ func TestLoadPkgsErr(t *testing.T) {
 	}
 	pkgs, err := LoadPkgs("", "?")
 	if err == nil || err.Error() != `malformed import path "?": invalid char '?'
-exit status 1` {
+` {
 		t.Fatal("loadPkgs:", pkgs, err)
 	}
 }
@@ -94,7 +103,8 @@ func TestLoadPkgsFromErr(t *testing.T) {
 
 func TestLoadErr(t *testing.T) {
 	pkgs, err := Load(nil, "?")
-	if err == nil || err.Error() != `exit status 1` {
+	if err == nil || err.Error() != `.gop/_dummy/dummy.go:4:4: invalid import path: "?"
+` {
 		t.Fatal("Load:", pkgs, err)
 	}
 

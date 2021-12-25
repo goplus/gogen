@@ -61,7 +61,7 @@ func loadDepPkgs(dir, src string) (pkgs map[string]pkgExport, err error) {
 	cmd.Dir = dir
 	err = cmd.Run()
 	if err != nil {
-		return nil, &ExecCmdError{Err: err}
+		return nil, &ExecCmdError{Err: err, Stderr: stderr.Bytes()}
 	}
 	pkgs = make(map[string]pkgExport)
 	err = loadDepPkgsFrom(pkgs, stderr.String())
