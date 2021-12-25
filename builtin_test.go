@@ -36,7 +36,8 @@ func getConf() *Config {
 		Loaded:  make(map[string]*types.Package),
 		Fset:    fset,
 	}
-	imp, _, err := packages.NewImporter(conf, ".", "github.com/goplus/gox/internal/builtin")
+	imp, _, err := packages.NewImporter(
+		conf, ".", "github.com/goplus/gox/internal/builtin", "github.com/goplus/gox/internal/foo")
 	if err != nil {
 		panic(err)
 	}
@@ -68,8 +69,10 @@ func TestContractName(t *testing.T) {
 }
 
 func TestContract(t *testing.T) {
-	pkg := &Package{}
+	pkg := NewPackage("", "foo", gblConf)
 	at := types.NewPackage("foo", "foo")
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	tfoo := foo.Ref("Foo").Type()
 	testcases := []struct {
 		Contract
 		typ    types.Type
@@ -86,6 +89,7 @@ func TestContract(t *testing.T) {
 		{comparable, types.NewSignature(nil, nil, nil, false), false},
 		{comparable, NewTemplateSignature(nil, nil, nil, nil, false), false},
 		{addable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil), false},
+		{addable, tfoo, true},
 	}
 	for _, c := range testcases {
 		if c.Match(pkg, c.typ) != c.result {
