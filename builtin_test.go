@@ -628,6 +628,14 @@ func TestUntypeBig(t *testing.T) {
 		}()
 		untypeBig(pkg, constant.MakeBool(true), pkg.utBigInt)
 	}()
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("pkg.Import not-found: no error?")
+			}
+		}()
+		pkg.Import("not-found").EnsureImported()
+	}()
 }
 
 func TestIsUnbound(t *testing.T) {
