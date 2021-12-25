@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/goplus/gox"
+	"github.com/goplus/gox/packages"
 )
 
 func ctxRef(pkg *gox.Package, name string) gox.Ref {
@@ -13,7 +14,8 @@ func ctxRef(pkg *gox.Package, name string) gox.Ref {
 }
 
 func main() {
-	pkg := gox.NewPackage("", "main", nil)
+	imp, _, _ := packages.NewImporter(nil, "fmt", "strings", "strconv")
+	pkg := gox.NewPackage("", "main", &gox.Config{Importer: imp})
 	fmt := pkg.Import("fmt")
 	v := pkg.NewParam(token.NoPos, "v", types.Typ[types.String]) // v string
 
