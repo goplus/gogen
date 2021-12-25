@@ -16,13 +16,14 @@ package packages
 import (
 	"errors"
 	"go/types"
+	"syscall"
 	"testing"
 )
 
 // ----------------------------------------------------------------------------
-/*
+
 func TestLoadDep(t *testing.T) {
-	pkgs, err := loadDeps("..", "fmt")
+	pkgs, err := loadDeps("./.gop", "fmt")
 	if err != nil {
 		t.Fatal("LoadDeps failed:", pkgs, err)
 	}
@@ -37,17 +38,16 @@ func TestLoadDep(t *testing.T) {
 }
 
 func TestLoadDepErr(t *testing.T) {
-	_, err := loadDeps("/.", "fmt")
+	_, err := loadDeps("/.gop", "fmt")
 	if err == nil {
 		t.Fatal("LoadDeps: no error")
 	}
 }
-*/
 
 // ----------------------------------------------------------------------------
 
 func TestLoadPkgs(t *testing.T) {
-	pkgs, err := loadPkgs("", "fmt", "strings")
+	pkgs, err := LoadPkgs("", "fmt", "strings")
 	if err != nil {
 		t.Fatal("Load failed:", err)
 	}
@@ -68,7 +68,7 @@ func TestLoadPkgsErr(t *testing.T) {
 			t.Fatal("ExecCmdError failed:", err)
 		}
 	}
-	pkgs, err := loadPkgs("", "?")
+	pkgs, err := LoadPkgs("", "?")
 	if err == nil || err.Error() != `malformed import path "?": invalid char '?'
 exit status 1` {
 		t.Fatal("loadPkgs:", pkgs, err)
@@ -94,18 +94,23 @@ func TestLoadPkgsFromErr(t *testing.T) {
 
 func TestLoadErr(t *testing.T) {
 	pkgs, err := Load(nil, "?")
-	if err == nil || err.Error() != `malformed import path "?": invalid char '?'
-exit status 1` {
+	if err == nil || err.Error() != `exit status 1` {
 		t.Fatal("Load:", pkgs, err)
 	}
 
-	_, err = loadPkgExport("/not-found", nil, make(map[string]*types.Package), "fmt")
+	var imp Importer
+	_, err = imp.loadPkgExport("/not-found", "fmt")
 	if err == nil {
 		t.Fatal("loadPkgExport no error?")
 	}
-	_, err = loadPkgExport("load.go", nil, make(map[string]*types.Package), "fmt")
+	_, err = imp.loadPkgExport("load.go", "fmt")
 	if err == nil {
 		t.Fatal("loadPkgExport no error?")
+	}
+
+	_, err = doListPkgs(nil, "", "/not-found", nil, false)
+	if err == nil {
+		t.Fatal("doListPkgs no error?")
 	}
 }
 
@@ -141,6 +146,54 @@ func TestLoadConf(t *testing.T) {
 
 	if pkgs1[0] != pkgs2[0] {
 		t.Fatal("Load failed: unmatched `fmt` pkg")
+	}
+}
+
+func TestImporterNormal(t *testing.T) {
+	conf := &Config{
+		Loaded:  make(map[string]*types.Package),
+		ModPath: "github.com/goplus/gox/packages",
+	}
+	p, _, err := NewImporter(conf, ".")
+	if err != nil {
+		t.Fatal("NewImporter failed:", err)
+	}
+	pkg, err := p.Import("fmt")
+	if err != nil || pkg.Path() != "fmt" {
+		t.Fatal("Import failed:", pkg, err)
+	}
+	if _, err = p.Import("not-found"); err != syscall.ENOENT {
+		t.Fatal("Import not-found:", err)
+	}
+}
+
+func TestImporterRecursive(t *testing.T) {
+	conf := &Config{
+		Loaded:  make(map[string]*types.Package),
+		ModRoot: "..",
+		ModPath: "github.com/goplus/gox",
+	}
+	p, pkgPaths, err := NewImporter(conf, "../internal/go/...")
+	if err != nil {
+		t.Fatal("NewImporter failed:", err)
+	}
+	if len(pkgPaths) != 2 {
+		t.Fatal("NewImporter pkgPaths:", pkgPaths)
+	}
+	pkg, err := p.Import(pkgPaths[0])
+	if err != nil || pkg.Path() != pkgPaths[0] {
+		t.Fatal("Import failed:", pkg, pkgPaths, err)
+	}
+}
+
+func TestImporterRecursiveErr(t *testing.T) {
+	conf := &Config{
+		Loaded:  make(map[string]*types.Package),
+		ModPath: "github.com/goplus/gox/packages",
+	}
+	p, pkgPaths, err := NewImporter(conf, "/...")
+	if err == nil || err.Error() != "directory `/` outside available modules" {
+		t.Fatal("NewImporter failed:", p, pkgPaths, err)
 	}
 }
 

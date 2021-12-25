@@ -22,7 +22,7 @@ import (
 
 // ----------------------------------------------------------------------------
 
-type pkgToLoad struct {
+type PkgToLoad struct {
 	ImportPath     string
 	Root           string
 	Export         string
@@ -48,7 +48,7 @@ func (p *ExecCmdError) Error() string {
 	return string(err)
 }
 
-func loadPkgs(dir string, pattern ...string) (pkgs []*pkgToLoad, err error) {
+func LoadPkgs(dir string, pattern ...string) (pkgs []*PkgToLoad, err error) {
 	args := make([]string, len(pattern)+3)
 	args[0], args[1], args[2] = "list", "-export", "-json"
 	copy(args[3:], pattern)
@@ -62,10 +62,10 @@ func loadPkgs(dir string, pattern ...string) (pkgs []*pkgToLoad, err error) {
 	if err != nil || stderr.Len() != 0 {
 		return nil, &ExecCmdError{Err: err, Stderr: stderr.Bytes()}
 	}
-	return loadPkgsFrom(make([]*pkgToLoad, 0, len(pattern)), stdout.Bytes())
+	return loadPkgsFrom(make([]*PkgToLoad, 0, len(pattern)), stdout.Bytes())
 }
 
-func loadPkgsFrom(pkgs []*pkgToLoad, data []byte) (out []*pkgToLoad, err error) {
+func loadPkgsFrom(pkgs []*PkgToLoad, data []byte) (out []*PkgToLoad, err error) {
 	prefixStart := []byte{'{', '\n'}
 	prefixEnd := []byte{'}', '\n'}
 	for bytes.HasPrefix(data, prefixStart) {
@@ -78,7 +78,7 @@ func loadPkgsFrom(pkgs []*pkgToLoad, data []byte) (out []*pkgToLoad, err error) 
 			}
 		}
 		end += 2
-		pkg := new(pkgToLoad)
+		pkg := new(PkgToLoad)
 		if err = json.Unmarshal(data[:end], pkg); err != nil {
 			return
 		}

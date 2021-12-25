@@ -13,7 +13,6 @@
 
 package packages
 
-/*
 import (
 	"bytes"
 	"fmt"
@@ -28,10 +27,9 @@ type pkgRef struct {
 	Export string
 }
 
-func loadDeps(modRoot string, pkgPaths ...string) (pkgs map[string]*pkgRef, err error) {
-	dir := modRoot + "/.gop"
-	file := dir + "/dummy.go"
-	os.MkdirAll(dir, 0777)
+func loadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]*pkgRef, err error) {
+	file := tempDir + "/dummy.go"
+	os.MkdirAll(tempDir, 0777)
 
 	var buf bytes.Buffer
 	buf.WriteString(`package main
@@ -50,7 +48,10 @@ func main() {
 	if err != nil {
 		return
 	}
-	defer os.Remove(file)
+	defer func() {
+		os.Remove(file)
+		os.Remove(tempDir)
+	}()
 	return loadDepPkgs("", file)
 }
 
@@ -90,5 +91,5 @@ func loadDepPkgsFrom(pkgs map[string]*pkgRef, data string) (err error) {
 	}
 	return
 }
-*/
+
 // ----------------------------------------------------------------------------
