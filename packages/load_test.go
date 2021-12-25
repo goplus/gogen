@@ -110,7 +110,7 @@ func TestLoadPkgsFromErr(t *testing.T) {
 
 func TestLoadErr(t *testing.T) {
 	pkgs, err := Load(nil, "?")
-	if err == nil || !strings.Contains(err.Error(), `invalid import path: "?"
+	if err == nil || !strings.Contains(err.Error(), `: invalid import path: "?"
 `) {
 		t.Fatal("Load:", pkgs, err)
 	}
