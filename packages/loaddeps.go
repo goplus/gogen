@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -70,8 +71,13 @@ func addProgram(pkgPaths []string, napp int, appPath string) int {
 	return napp
 }
 
+var (
+	gid = 0
+)
+
 func tryLoadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, err error) {
-	file := tempDir + "/dummy.go"
+	gid++
+	file := tempDir + "/dummy-" + strconv.Itoa(gid) + ".go"
 	os.MkdirAll(tempDir, 0777)
 
 	var buf bytes.Buffer
