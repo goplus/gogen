@@ -18,7 +18,6 @@ import (
 	"go/token"
 	"go/types"
 	"log"
-	"path"
 	"strconv"
 	"strings"
 )
@@ -94,9 +93,7 @@ func (p *PkgRef) EnsureImported() {
 	if p.Types == nil {
 		var err error
 		if p.Types, err = p.imp.Import(p.pkgPath); err != nil {
-			p.Types = types.NewPackage(p.pkgPath, path.Base(p.pkgPath))
-			p.IllTyped = true
-			log.Panicln("Import", p.pkgPath, "failed:", err)
+			log.Panicln("Import package not found:", p.pkgPath)
 		} else {
 			initGopPkg(p.Types)
 		}

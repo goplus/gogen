@@ -159,6 +159,7 @@ func NewImporter(conf *Config, pattern ...string) (p *Importer, pkgPaths []strin
 	if loaded == nil {
 		loaded = make(map[string]*types.Package)
 	}
+	loaded["unsafe"] = types.Unsafe
 	p = &Importer{pkgs: pkgs, loaded: loaded, fset: fset}
 	return
 }
