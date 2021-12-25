@@ -54,7 +54,7 @@ func (p *Config) getTempDir() string {
 	return filepath.Join(p.ModRoot, ".gop/_dummy")
 }
 
-func (p *Config) listPkgs(pkgPaths []string, pat string) ([]string, error) {
+func (p *Config) listPkgs(pkgPaths []string, pat, modRoot string) ([]string, error) {
 	const multi = "/..."
 	recursive := strings.HasSuffix(pat, multi)
 	if recursive {
@@ -64,8 +64,9 @@ func (p *Config) listPkgs(pkgPaths []string, pat string) ([]string, error) {
 		}
 	}
 	if strings.HasPrefix(pat, ".") || strings.HasPrefix(pat, "/") {
-		patRel, err := filepath.Rel(p.ModRoot, pat)
-		if err != nil || strings.HasPrefix(patRel, "..") {
+		patAbs, err1 := filepath.Abs(pat)
+		patRel, err2 := filepath.Rel(modRoot, patAbs)
+		if err1 != nil || err2 != nil || strings.HasPrefix(patRel, "..") {
 			return nil, fmt.Errorf("directory `%s` outside available modules", pat)
 		}
 		exts := p.SupportedExts
@@ -109,8 +110,12 @@ func doListPkgs(pkgPaths []string, pkgPathBase, pat string, exts map[string]stru
 }
 
 func List(conf *Config, pattern ...string) (pkgPaths []string, err error) {
+	if conf == nil {
+		conf = new(Config)
+	}
+	modRoot, _ := filepath.Abs(conf.ModRoot)
 	for _, pat := range pattern {
-		if pkgPaths, err = conf.listPkgs(pkgPaths, pat); err != nil {
+		if pkgPaths, err = conf.listPkgs(pkgPaths, pat, modRoot); err != nil {
 			return
 		}
 	}

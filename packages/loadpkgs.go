@@ -38,14 +38,10 @@ type ExecCmdError struct {
 }
 
 func (p *ExecCmdError) Error() string {
-	err := p.Stderr
-	if e := p.Err; e != nil {
-		if len(err) == 0 {
-			return e.Error()
-		}
-		err = append(err, e.Error()...)
+	if e := p.Stderr; e != nil {
+		return string(e)
 	}
-	return string(err)
+	return p.Err.Error()
 }
 
 func LoadPkgs(dir string, pattern ...string) (pkgs []*PkgToLoad, err error) {

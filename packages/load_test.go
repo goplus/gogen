@@ -22,6 +22,21 @@ import (
 
 // ----------------------------------------------------------------------------
 
+func TestList(t *testing.T) {
+	pkgPaths, err := List(nil, ".")
+	if err != nil || len(pkgPaths) != 1 {
+		t.Fatal("List failed:", pkgPaths, err)
+	}
+}
+
+func TestGetProgramList(t *testing.T) {
+	if getProgramList(": import \"", nil) != 0 {
+		t.Fatal("getProgramList failed")
+	}
+}
+
+// ----------------------------------------------------------------------------
+
 func TestLoadDep(t *testing.T) {
 	pkgs, err := loadDeps("./.gop", "fmt")
 	if err != nil {
@@ -31,7 +46,7 @@ func TestLoadDep(t *testing.T) {
 		t.Fatal("LoadDeps failed:", pkgs)
 	}
 
-	err = loadDepPkgsFrom(nil, " ")
+	err = loadDepPkgsFrom(nil, " ", "")
 	if err != nil {
 		t.Fatal("LoadDeps: error?", err)
 	}
@@ -70,7 +85,7 @@ func TestLoadPkgsErr(t *testing.T) {
 	}
 	pkgs, err := LoadPkgs("", "?")
 	if err == nil || err.Error() != `malformed import path "?": invalid char '?'
-exit status 1` {
+` {
 		t.Fatal("loadPkgs:", pkgs, err)
 	}
 }
@@ -94,7 +109,8 @@ func TestLoadPkgsFromErr(t *testing.T) {
 
 func TestLoadErr(t *testing.T) {
 	pkgs, err := Load(nil, "?")
-	if err == nil || err.Error() != `exit status 1` {
+	if err == nil || err.Error() != `.gop/_dummy/dummy.go:4:4: invalid import path: "?"
+` {
 		t.Fatal("Load:", pkgs, err)
 	}
 
@@ -173,15 +189,15 @@ func TestImporterRecursive(t *testing.T) {
 		ModRoot: "..",
 		ModPath: "github.com/goplus/gox",
 	}
-	p, pkgPaths, err := NewImporter(conf, "../internal/go/...")
+	p, pkgPaths, err := NewImporter(conf, "../internal/foo/...")
 	if err != nil {
 		t.Fatal("NewImporter failed:", err)
 	}
 	if len(pkgPaths) != 2 {
 		t.Fatal("NewImporter pkgPaths:", pkgPaths)
 	}
-	pkg, err := p.Import(pkgPaths[0])
-	if err != nil || pkg.Path() != pkgPaths[0] {
+	pkg, err := p.Import("github.com/goplus/gox/internal/foo")
+	if err != nil {
 		t.Fatal("Import failed:", pkg, pkgPaths, err)
 	}
 }

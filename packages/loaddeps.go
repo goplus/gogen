@@ -26,6 +26,51 @@ import (
 type pkgExport = string
 
 func loadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, err error) {
+	pkgs, err = tryLoadDeps(tempDir, pkgPaths...)
+	if err != nil {
+		if napp := getProgramList(err.Error(), pkgPaths); napp > 0 {
+			if pkgs, err = tryLoadDeps(tempDir, pkgPaths[napp:]...); err == nil {
+				for _, appPath := range pkgPaths[:napp] {
+					if err = loadDepPkgs(pkgs, appPath, appPath); err != nil {
+						break
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
+func getProgramList(msg string, pkgPaths []string) (napp int) {
+	const prefixImp = `: import "`
+	const suffixImp = `" is a program,`
+	for {
+		pos := strings.Index(msg, prefixImp)
+		if pos < 0 {
+			return
+		}
+		msg = msg[pos+len(prefixImp):]
+		pos = strings.Index(msg, suffixImp)
+		if pos < 0 {
+			return 0
+		}
+		napp = addProgram(pkgPaths, napp, msg[:pos])
+		msg = msg[pos+len(suffixImp):]
+	}
+}
+
+func addProgram(pkgPaths []string, napp int, appPath string) int {
+	for i := napp; i < len(pkgPaths); i++ {
+		if pkgPaths[i] == appPath {
+			pkgPaths[napp], pkgPaths[i] = pkgPaths[i], pkgPaths[napp]
+			napp++
+			break
+		}
+	}
+	return napp
+}
+
+func tryLoadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, err error) {
 	file := tempDir + "/dummy.go"
 	os.MkdirAll(tempDir, 0777)
 
@@ -50,34 +95,33 @@ func main() {
 		os.Remove(file)
 		os.Remove(tempDir)
 	}()
-	return loadDepPkgs("", file)
+	pkgs = make(map[string]pkgExport)
+	err = loadDepPkgs(pkgs, file, "")
+	return
 }
 
-func loadDepPkgs(dir, src string) (pkgs map[string]pkgExport, err error) {
+func loadDepPkgs(pkgs map[string]pkgExport, src, excludePath string) (err error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("go", "run", "-n", "-x", src)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	cmd.Dir = dir
 	err = cmd.Run()
 	if err != nil {
-		return nil, &ExecCmdError{Err: err}
+		return &ExecCmdError{Err: err, Stderr: stderr.Bytes()}
 	}
-	pkgs = make(map[string]pkgExport)
-	err = loadDepPkgsFrom(pkgs, stderr.String())
+	err = loadDepPkgsFrom(pkgs, stderr.String(), excludePath)
 	return
 }
 
-func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (err error) {
+func loadDepPkgsFrom(pkgs map[string]pkgExport, data, excludePath string) (err error) {
 	const packagefile = "packagefile "
-	// const vendor = "vendor/"
 	for data != "" {
 		pos := strings.IndexByte(data, '\n')
 		if strings.HasPrefix(data, packagefile) {
 			line := data[len(packagefile):pos]
 			if t := strings.Index(line, "="); t > 0 {
-				if pkgPath := line[:t]; pkgPath != "command-line-arguments" {
-					// pkgPath = strings.TrimPrefix(pkgPath, vendor)
+				pkgPath := line[:t]
+				if pkgPath != "command-line-arguments" && pkgPath != excludePath {
 					pkgs[pkgPath] = pkgExport(line[t+1:])
 				}
 			}
