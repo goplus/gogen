@@ -23,7 +23,6 @@ import (
 	"log"
 	"os"
 	"testing"
-	"time"
 	"unsafe"
 
 	"github.com/goplus/gox"
@@ -35,24 +34,19 @@ const (
 )
 
 var (
-	gblFset     *token.FileSet
-	gblCached   *gox.LoadPkgsCached
-	gblLoadPkgs gox.LoadPkgsFunc
-	handleErr   func(err error)
+	gblFset   *token.FileSet
+	handleErr func(err error)
 )
 
 func init() {
 	gox.SetDebug(gox.DbgFlagAll)
 	os.Remove(cachefile)
-	gblCached = gox.OpenLoadPkgsCached(cachefile, nil)
 	gblFset = token.NewFileSet()
-	gblLoadPkgs = gblCached.Load
 }
 
 func newMainPackage(noCache ...bool) *gox.Package {
 	conf := &gox.Config{
 		Fset:            gblFset,
-		LoadPkgs:        gblLoadPkgs,
 		NodeInterpreter: nodeInterp{},
 	}
 	if handleErr != nil {
@@ -2969,42 +2963,6 @@ func main() {
 }
 
 // ----------------------------------------------------------------------------
-
-func TestSaveAndLoadPkgsCache(t *testing.T) {
-	defer os.Remove(cachefile)
-	pkg := gox.NewPackage("", "main", &gox.Config{})
-	cached := gblCached
-	imports := map[string]*gox.PkgRef{}
-	if cached.Load(pkg, imports, "fmt") != 0 {
-		t.Fatal("TestSaveAndLoadPkgsCache: Load failed")
-	}
-	if err := cached.Save(); err != nil {
-		t.Fatal("TestSaveAndLoadPkgsCache: Save filed:", err)
-	}
-	conf := &gox.Config{
-		Fset:            token.NewFileSet(),
-		LoadPkgs:        gox.OpenLoadPkgsCached(cachefile, nil).Load,
-		NodeInterpreter: nodeInterp{},
-	}
-	start := time.Now()
-	pkg = gox.NewPackage("", "main", conf)
-	fmt := pkg.Import("fmt")
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
-		End()
-	domTest(t, pkg, `package main
-
-import fmt "fmt"
-
-func main() {
-	fmt.Println("Hello")
-}
-`)
-	duration := time.Since(start)
-	if duration > time.Second/100 {
-		t.Fatal("TestSaveAndLoadPkgsCache duration:", duration)
-	}
-}
 
 func TestInterfaceMethodVarCall(t *testing.T) {
 	pkg := newMainPackage()
