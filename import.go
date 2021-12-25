@@ -96,6 +96,7 @@ func (p *PkgRef) EnsureImported() {
 		if p.Types, err = p.imp.Import(p.pkgPath); err != nil {
 			p.Types = types.NewPackage(p.pkgPath, path.Base(p.pkgPath))
 			p.IllTyped = true
+			log.Panicln("Import", p.pkgPath, "failed:", err)
 		} else {
 			initGopPkg(p.Types)
 		}
