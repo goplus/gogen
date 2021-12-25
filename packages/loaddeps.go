@@ -23,11 +23,9 @@ import (
 
 // ----------------------------------------------------------------------------
 
-type pkgRef struct {
-	Export string
-}
+type pkgExport = string
 
-func loadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]*pkgRef, err error) {
+func loadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, err error) {
 	file := tempDir + "/dummy.go"
 	os.MkdirAll(tempDir, 0777)
 
@@ -55,7 +53,7 @@ func main() {
 	return loadDepPkgs("", file)
 }
 
-func loadDepPkgs(dir, src string) (pkgs map[string]*pkgRef, err error) {
+func loadDepPkgs(dir, src string) (pkgs map[string]pkgExport, err error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("go", "run", "-n", "-x", src)
 	cmd.Stdout = &stdout
@@ -65,12 +63,12 @@ func loadDepPkgs(dir, src string) (pkgs map[string]*pkgRef, err error) {
 	if err != nil {
 		return nil, &ExecCmdError{Err: err}
 	}
-	pkgs = make(map[string]*pkgRef)
+	pkgs = make(map[string]pkgExport)
 	err = loadDepPkgsFrom(pkgs, stderr.String())
 	return
 }
 
-func loadDepPkgsFrom(pkgs map[string]*pkgRef, data string) (err error) {
+func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (err error) {
 	const packagefile = "packagefile "
 	const vendor = "vendor/"
 	for data != "" {
@@ -80,7 +78,7 @@ func loadDepPkgsFrom(pkgs map[string]*pkgRef, data string) (err error) {
 			if t := strings.Index(line, "="); t > 0 {
 				if pkgPath := line[:t]; pkgPath != "command-line-arguments" {
 					pkgPath = strings.TrimPrefix(pkgPath, vendor)
-					pkgs[pkgPath] = &pkgRef{Export: line[t+1:]}
+					pkgs[pkgPath] = pkgExport(line[t+1:])
 				}
 			}
 		}

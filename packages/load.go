@@ -134,7 +134,7 @@ func Load(conf *Config, pattern ...string) (pkgs []*types.Package, err error) {
 // ----------------------------------------------------------------------------
 
 type Importer struct {
-	pkgs   map[string]*pkgRef
+	pkgs   map[string]pkgExport
 	loaded map[string]*types.Package
 	fset   *token.FileSet
 }
@@ -167,8 +167,8 @@ func (p *Importer) Import(pkgPath string) (*types.Package, error) {
 	if ret, ok := p.loaded[pkgPath]; ok && ret.Complete() {
 		return ret, nil
 	}
-	if ret, ok := p.pkgs[pkgPath]; ok {
-		return p.loadPkgExport(ret.Export, pkgPath)
+	if expfile, ok := p.pkgs[pkgPath]; ok {
+		return p.loadPkgExport(expfile, pkgPath)
 	}
 	return nil, syscall.ENOENT
 }
