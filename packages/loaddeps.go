@@ -78,7 +78,7 @@ var (
 func tryLoadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, err error) {
 	gid++
 	file := tempDir + "/dummy-" + strconv.Itoa(gid) + ".go"
-	os.MkdirAll(tempDir, 0777)
+	os.MkdirAll(tempDir, 0755)
 
 	var buf bytes.Buffer
 	buf.WriteString(`package main
@@ -93,7 +93,7 @@ import (
 func main() {
 }
 `)
-	err = os.WriteFile(file, buf.Bytes(), 0666)
+	err = os.WriteFile(file, buf.Bytes(), 0644)
 	if err != nil {
 		return
 	}

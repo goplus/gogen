@@ -1,4 +1,5 @@
 go.json
+.gop/
 
 # Binaries for programs and plugins
 *.exe
