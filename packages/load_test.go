@@ -23,6 +23,10 @@ import (
 
 // ----------------------------------------------------------------------------
 
+func init() {
+	SetDebug(0)
+}
+
 func TestList(t *testing.T) {
 	pkgPaths, err := List(nil, ".")
 	if err != nil || len(pkgPaths) != 1 {
@@ -47,9 +51,17 @@ func TestLoadDep(t *testing.T) {
 		t.Fatal("LoadDeps failed:", pkgs)
 	}
 
-	err = loadDepPkgsFrom(nil, " ")
+	_, err = loadDepPkgsFrom(nil, " ")
+	if err != ErrWorkDirNotFound {
+		t.Fatal("LoadDeps:", err)
+	}
+	_, err = loadDepPkgsFrom(nil, "WORK=")
+	if err != ErrWorkDirNotFound {
+		t.Fatal("LoadDeps:", err)
+	}
+	_, err = loadDepPkgsFrom(nil, "WORK=a\n ")
 	if err != nil {
-		t.Fatal("LoadDeps: error?", err)
+		t.Fatal("LoadDeps:", err)
 	}
 }
 
@@ -194,7 +206,7 @@ func TestImporterRecursive(t *testing.T) {
 	if err != nil {
 		t.Fatal("NewImporter failed:", err)
 	}
-	if len(pkgPaths) != 2 {
+	if len(pkgPaths) == 0 {
 		t.Fatal("NewImporter pkgPaths:", pkgPaths)
 	}
 	pkg, err := p.Import("github.com/goplus/gox/internal/foo")
