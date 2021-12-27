@@ -15,6 +15,7 @@ package packages
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -97,10 +98,12 @@ func main() {
 	if err != nil {
 		return
 	}
-	defer func() {
-		os.Remove(file)
-		os.Remove(tempDir)
-	}()
+	if debugRemoveTempFile {
+		defer func() {
+			os.Remove(file)
+			os.Remove(tempDir)
+		}()
+	}
 	pkgs = make(map[string]pkgExport)
 	err = loadDepPkgs(pkgs, file)
 	return
@@ -108,32 +111,49 @@ func main() {
 
 func loadDepPkgs(pkgs map[string]pkgExport, src string) (err error) {
 	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("go", "run", "-n", "-x", src)
+	cmd := exec.Command("go", "run", "-work", "-x", src)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err = cmd.Run()
 	if err != nil {
 		return &ExecCmdError{Err: err, Stderr: stderr.Bytes()}
 	}
-	err = loadDepPkgsFrom(pkgs, stderr.String())
+	wd, err := loadDepPkgsFrom(pkgs, stderr.String())
+	if err == nil {
+		os.RemoveAll(wd)
+	}
 	return
 }
 
-func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (err error) {
+var (
+	ErrWorkDirNotFound = errors.New("WorkDir not found")
+)
+
+func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (wd string, err error) {
 	const packagefile = "packagefile "
+	const workdir = "WORK="
+	if !strings.HasPrefix(data, workdir) {
+		return "", ErrWorkDirNotFound
+	}
+	data = data[len(workdir):]
+	pos := strings.IndexByte(data, '\n')
+	if pos < 0 {
+		return "", ErrWorkDirNotFound
+	}
+	wd, data = data[:pos], data[pos+1:]
 	for data != "" {
 		pos := strings.IndexByte(data, '\n')
+		if pos < 0 {
+			break
+		}
 		if strings.HasPrefix(data, packagefile) {
 			line := data[len(packagefile):pos]
 			if t := strings.Index(line, "="); t > 0 {
+				pkgPath := line[:t]
 				if expfile := pkgExport(line[t+1:]); !strings.HasPrefix(expfile, "$") {
-					pkgPath := line[:t]
 					pkgs[pkgPath] = expfile
 				}
 			}
-		}
-		if pos < 0 {
-			break
 		}
 		data = data[pos+1:]
 	}

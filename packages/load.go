@@ -26,6 +26,20 @@ import (
 	"golang.org/x/tools/go/gcexportdata"
 )
 
+const (
+	DbgNoRemoveTempFile = 1 << iota
+)
+
+var (
+	debugRemoveTempFile = true
+)
+
+func SetDebug(dbgFlags int) {
+	debugRemoveTempFile = (dbgFlags & DbgNoRemoveTempFile) == 0
+}
+
+// ----------------------------------------------------------------------------
+
 type Config struct {
 	// ModRoot specifies module root directory (required).
 	ModRoot string

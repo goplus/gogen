@@ -41,6 +41,7 @@ var (
 )
 
 func init() {
+	packages.SetDebug(0)
 	gox.SetDebug(gox.DbgFlagAll)
 	os.Remove(cachefile)
 	gblFset = token.NewFileSet()
