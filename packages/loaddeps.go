@@ -17,10 +17,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ----------------------------------------------------------------------------
@@ -76,6 +78,10 @@ var (
 	gid = 0
 )
 
+func initLoadDeps() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func tryLoadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, err error) {
 	gid++
 	file := tempDir + "/dummy-" + strconv.Itoa(gid) + ".go"
@@ -89,11 +95,12 @@ import (
 	for _, pkgPath := range pkgPaths {
 		fmt.Fprintf(&buf, "\t_ \"%s\"\n", pkgPath)
 	}
-	buf.WriteString(`)
+	fmt.Fprintf(&buf, `)
 
+// %x, %x
 func main() {
 }
-`)
+`, time.Now().UnixNano(), rand.Int63())
 	err = os.WriteFile(file, buf.Bytes(), 0644)
 	if err != nil {
 		return
@@ -111,7 +118,7 @@ func main() {
 
 func loadDepPkgs(pkgs map[string]pkgExport, src string) (err error) {
 	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("go", "run", "-work", "-x", src)
+	cmd := exec.Command("go", "install", "-work", "-x", src)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err = cmd.Run()

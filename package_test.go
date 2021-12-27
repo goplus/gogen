@@ -30,10 +30,6 @@ import (
 	"golang.org/x/tools/go/gcexportdata"
 )
 
-const (
-	cachefile = "_gox_pkgs.cache"
-)
-
 var (
 	gblFset   *token.FileSet
 	gblImp    types.Importer
@@ -43,7 +39,6 @@ var (
 func init() {
 	packages.SetDebug(0)
 	gox.SetDebug(gox.DbgFlagAll)
-	os.Remove(cachefile)
 	gblFset = token.NewFileSet()
 	conf := &packages.Config{
 		ModPath: "github.com/goplus/gox",

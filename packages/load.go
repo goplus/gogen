@@ -159,6 +159,7 @@ type Importer struct {
 }
 
 func NewImporter(conf *Config, pattern ...string) (p *Importer, pkgPaths []string, err error) {
+	initLoadDeps()
 	if conf == nil {
 		conf = new(Config)
 	}
