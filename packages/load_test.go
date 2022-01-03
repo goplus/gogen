@@ -40,6 +40,21 @@ func TestGetProgramList(t *testing.T) {
 	}
 }
 
+func TestIsLocal(t *testing.T) {
+	if !IsLocal(".") || !IsLocal("/") {
+		t.Fatal(`IsLocal(".") || IsLocal("/")`)
+	}
+	if !IsLocal("c:/foo") {
+		t.Fatal(`IsLocal("c:/foo")`)
+	}
+	if !IsLocal("C:/foo") {
+		t.Fatal(`IsLocal("C:/foo")`)
+	}
+	if IsLocal("") {
+		t.Fatal(`IsLocal("")`)
+	}
+}
+
 // ----------------------------------------------------------------------------
 
 func TestLoadDep(t *testing.T) {
@@ -137,7 +152,7 @@ func TestLoadErr(t *testing.T) {
 		t.Fatal("loadPkgExport no error?")
 	}
 
-	_, err = doListPkgs(nil, "", "/not-found", nil, false)
+	_, err = doListPkgs(nil, "", "/not-found", false)
 	if err == nil {
 		t.Fatal("doListPkgs no error?")
 	}
