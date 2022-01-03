@@ -38,6 +38,18 @@ func SetDebug(dbgFlags int) {
 	debugRemoveTempFile = (dbgFlags & DbgNoRemoveTempFile) == 0
 }
 
+func IsLocal(ns string) bool {
+	if len(ns) > 0 {
+		switch c := ns[0]; c {
+		case '/', '\\', '.':
+			return true
+		default:
+			return len(ns) >= 2 && ns[1] == ':' && ('A' <= c && c <= 'Z' || 'a' <= c && c <= 'z')
+		}
+	}
+	return false
+}
+
 // ----------------------------------------------------------------------------
 
 type Config struct {
@@ -70,14 +82,14 @@ func (p *Config) getTempDir() string {
 
 func (p *Config) listPkgs(pkgPaths []string, pat, modRoot string) ([]string, error) {
 	const multi = "/..."
-	recursive := strings.HasSuffix(pat, multi)
-	if recursive {
-		pat = pat[:len(pat)-len(multi)]
-		if pat == "" {
-			pat = "/"
+	if IsLocal(pat) {
+		recursive := strings.HasSuffix(pat, multi)
+		if recursive {
+			pat = pat[:len(pat)-len(multi)]
+			if pat == "" {
+				pat = "/"
+			}
 		}
-	}
-	if strings.HasPrefix(pat, ".") || strings.HasPrefix(pat, "/") {
 		patAbs, err1 := filepath.Abs(pat)
 		patRel, err2 := filepath.Rel(modRoot, patAbs)
 		if err1 != nil || err2 != nil || strings.HasPrefix(patRel, "..") {
