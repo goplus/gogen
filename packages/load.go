@@ -38,6 +38,18 @@ func SetDebug(dbgFlags int) {
 	debugRemoveTempFile = (dbgFlags & DbgNoRemoveTempFile) == 0
 }
 
+func IsLocal(ns string) bool {
+	if len(ns) > 0 {
+		switch c := ns[0]; c {
+		case '/', '\\', '.':
+			return true
+		default:
+			return len(ns) >= 2 && ns[1] == ':' && ('A' <= c && c <= 'Z' || 'a' <= c && c <= 'z')
+		}
+	}
+	return false
+}
+
 // ----------------------------------------------------------------------------
 
 type Config struct {
@@ -47,9 +59,6 @@ type Config struct {
 	// ModPath specifies module path (required).
 	ModPath string
 
-	// SupportedExts specifies all supported file extensions (optional).
-	SupportedExts map[string]struct{}
-
 	// Loaded specifies all loaded packages (optional).
 	Loaded map[string]*types.Package
 
@@ -58,44 +67,34 @@ type Config struct {
 	Fset *token.FileSet
 }
 
-var (
-	defaultSupportedExts = map[string]struct{}{
-		".go": {},
-	}
-)
-
 func (p *Config) getTempDir() string {
 	return filepath.Join(p.ModRoot, ".gop/_dummy")
 }
 
 func (p *Config) listPkgs(pkgPaths []string, pat, modRoot string) ([]string, error) {
 	const multi = "/..."
-	recursive := strings.HasSuffix(pat, multi)
-	if recursive {
-		pat = pat[:len(pat)-len(multi)]
-		if pat == "" {
-			pat = "/"
+	if IsLocal(pat) {
+		recursive := strings.HasSuffix(pat, multi)
+		if recursive {
+			pat = pat[:len(pat)-len(multi)]
+			if pat == "" {
+				pat = "/"
+			}
 		}
-	}
-	if strings.HasPrefix(pat, ".") || strings.HasPrefix(pat, "/") {
 		patAbs, err1 := filepath.Abs(pat)
 		patRel, err2 := filepath.Rel(modRoot, patAbs)
 		if err1 != nil || err2 != nil || strings.HasPrefix(patRel, "..") {
 			return nil, fmt.Errorf("directory `%s` outside available modules", pat)
 		}
-		exts := p.SupportedExts
-		if exts == nil {
-			exts = defaultSupportedExts
-		}
 		pkgPathBase := path.Join(p.ModPath, filepath.ToSlash(patRel))
-		return doListPkgs(pkgPaths, pkgPathBase, pat, exts, recursive)
+		return doListPkgs(pkgPaths, pkgPathBase, pat, recursive)
 	} else {
 		pkgPaths = append(pkgPaths, pat)
 	}
 	return pkgPaths, nil
 }
 
-func doListPkgs(pkgPaths []string, pkgPathBase, pat string, exts map[string]struct{}, recursive bool) ([]string, error) {
+func doListPkgs(pkgPaths []string, pkgPathBase, pat string, recursive bool) ([]string, error) {
 	fis, err := os.ReadDir(pat)
 	if err != nil {
 		return pkgPaths, err
@@ -108,11 +107,11 @@ func doListPkgs(pkgPaths []string, pkgPathBase, pat string, exts map[string]stru
 		}
 		if fi.IsDir() {
 			if recursive {
-				pkgPaths, _ = doListPkgs(pkgPaths, pkgPathBase+"/"+name, pat+"/"+name, exts, true)
+				pkgPaths, _ = doListPkgs(pkgPaths, pkgPathBase+"/"+name, pat+"/"+name, true)
 			}
 		} else if noSouceFile {
 			ext := path.Ext(name)
-			if _, ok := exts[ext]; ok {
+			if ext == ".go" {
 				noSouceFile = false
 			}
 		}
