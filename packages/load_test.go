@@ -152,7 +152,7 @@ func TestLoadErr(t *testing.T) {
 		t.Fatal("loadPkgExport no error?")
 	}
 
-	_, err = doListPkgs(nil, "", "/not-found", nil, false)
+	_, err = doListPkgs(nil, "", "/not-found", false)
 	if err == nil {
 		t.Fatal("doListPkgs no error?")
 	}

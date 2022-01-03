@@ -59,9 +59,6 @@ type Config struct {
 	// ModPath specifies module path (required).
 	ModPath string
 
-	// SupportedExts specifies all supported file extensions (optional).
-	SupportedExts map[string]struct{}
-
 	// Loaded specifies all loaded packages (optional).
 	Loaded map[string]*types.Package
 
@@ -69,12 +66,6 @@ type Config struct {
 	// If Fset is nil, Load will use a new fileset, but preserve Fset's value.
 	Fset *token.FileSet
 }
-
-var (
-	defaultSupportedExts = map[string]struct{}{
-		".go": {},
-	}
-)
 
 func (p *Config) getTempDir() string {
 	return filepath.Join(p.ModRoot, ".gop/_dummy")
@@ -95,19 +86,15 @@ func (p *Config) listPkgs(pkgPaths []string, pat, modRoot string) ([]string, err
 		if err1 != nil || err2 != nil || strings.HasPrefix(patRel, "..") {
 			return nil, fmt.Errorf("directory `%s` outside available modules", pat)
 		}
-		exts := p.SupportedExts
-		if exts == nil {
-			exts = defaultSupportedExts
-		}
 		pkgPathBase := path.Join(p.ModPath, filepath.ToSlash(patRel))
-		return doListPkgs(pkgPaths, pkgPathBase, pat, exts, recursive)
+		return doListPkgs(pkgPaths, pkgPathBase, pat, recursive)
 	} else {
 		pkgPaths = append(pkgPaths, pat)
 	}
 	return pkgPaths, nil
 }
 
-func doListPkgs(pkgPaths []string, pkgPathBase, pat string, exts map[string]struct{}, recursive bool) ([]string, error) {
+func doListPkgs(pkgPaths []string, pkgPathBase, pat string, recursive bool) ([]string, error) {
 	fis, err := os.ReadDir(pat)
 	if err != nil {
 		return pkgPaths, err
@@ -120,11 +107,11 @@ func doListPkgs(pkgPaths []string, pkgPathBase, pat string, exts map[string]stru
 		}
 		if fi.IsDir() {
 			if recursive {
-				pkgPaths, _ = doListPkgs(pkgPaths, pkgPathBase+"/"+name, pat+"/"+name, exts, true)
+				pkgPaths, _ = doListPkgs(pkgPaths, pkgPathBase+"/"+name, pat+"/"+name, true)
 			}
 		} else if noSouceFile {
 			ext := path.Ext(name)
-			if _, ok := exts[ext]; ok {
+			if ext == ".go" {
 				noSouceFile = false
 			}
 		}
