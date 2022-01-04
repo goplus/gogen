@@ -38,7 +38,7 @@ func SetDebug(dbgFlags int) {
 	debugRemoveTempFile = (dbgFlags & DbgNoRemoveTempFile) == 0
 }
 
-func IsLocal(ns string) bool {
+func isLocal(ns string) bool {
 	if len(ns) > 0 {
 		switch c := ns[0]; c {
 		case '/', '\\', '.':
@@ -71,9 +71,11 @@ func (p *Config) getTempDir() string {
 	return filepath.Join(p.ModRoot, ".gop/_dummy")
 }
 
-func (p *Config) listPkgs(pkgPaths []string, pat, modRoot string) ([]string, error) {
+type none = struct{}
+
+func (p *Config) listPkgs(ret map[string]none, pat, modRoot string) (err error) {
 	const multi = "/..."
-	if IsLocal(pat) {
+	if isLocal(pat) {
 		recursive := strings.HasSuffix(pat, multi)
 		if recursive {
 			pat = pat[:len(pat)-len(multi)]
@@ -84,20 +86,19 @@ func (p *Config) listPkgs(pkgPaths []string, pat, modRoot string) ([]string, err
 		patAbs, err1 := filepath.Abs(pat)
 		patRel, err2 := filepath.Rel(modRoot, patAbs)
 		if err1 != nil || err2 != nil || strings.HasPrefix(patRel, "..") {
-			return nil, fmt.Errorf("directory `%s` outside available modules", pat)
+			return fmt.Errorf("directory `%s` outside available modules", pat)
 		}
 		pkgPathBase := path.Join(p.ModPath, filepath.ToSlash(patRel))
-		return doListPkgs(pkgPaths, pkgPathBase, pat, recursive)
-	} else {
-		pkgPaths = append(pkgPaths, pat)
+		return doListPkgs(ret, pkgPathBase, pat, recursive)
 	}
-	return pkgPaths, nil
+	ret[pat] = none{}
+	return nil
 }
 
-func doListPkgs(pkgPaths []string, pkgPathBase, pat string, recursive bool) ([]string, error) {
+func doListPkgs(ret map[string]none, pkgPathBase, pat string, recursive bool) (err error) {
 	fis, err := os.ReadDir(pat)
 	if err != nil {
-		return pkgPaths, err
+		return
 	}
 	noSouceFile := true
 	for _, fi := range fis {
@@ -107,7 +108,9 @@ func doListPkgs(pkgPaths []string, pkgPathBase, pat string, recursive bool) ([]s
 		}
 		if fi.IsDir() {
 			if recursive {
-				pkgPaths, _ = doListPkgs(pkgPaths, pkgPathBase+"/"+name, pat+"/"+name, true)
+				if err = doListPkgs(ret, pkgPathBase+"/"+name, pat+"/"+name, true); err != nil {
+					return
+				}
 			}
 		} else if noSouceFile {
 			ext := path.Ext(name)
@@ -117,22 +120,31 @@ func doListPkgs(pkgPaths []string, pkgPathBase, pat string, recursive bool) ([]s
 		}
 	}
 	if !noSouceFile {
-		pkgPaths = append(pkgPaths, pkgPathBase)
+		ret[pkgPathBase] = none{}
 	}
-	return pkgPaths, nil
+	return nil
 }
 
 func List(conf *Config, pattern ...string) (pkgPaths []string, err error) {
 	if conf == nil {
 		conf = new(Config)
 	}
+	ret := make(map[string]none)
 	modRoot, _ := filepath.Abs(conf.ModRoot)
 	for _, pat := range pattern {
-		if pkgPaths, err = conf.listPkgs(pkgPaths, pat, modRoot); err != nil {
+		if err = conf.listPkgs(ret, pat, modRoot); err != nil {
 			return
 		}
 	}
-	return
+	return getKeys(ret), nil
+}
+
+func getKeys(v map[string]none) []string {
+	keys := make([]string, 0, len(v))
+	for key := range v {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 func Load(conf *Config, pattern ...string) (pkgs []*types.Package, err error) {
