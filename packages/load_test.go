@@ -152,7 +152,7 @@ func TestLoadErr(t *testing.T) {
 		t.Fatal("loadPkgExport no error?")
 	}
 
-	_, err = doListPkgs(nil, "", "/not-found", false)
+	err = doListPkgs(nil, "", "/not-found", false)
 	if err == nil {
 		t.Fatal("doListPkgs no error?")
 	}
@@ -172,7 +172,7 @@ func TestLoadConf(t *testing.T) {
 	conf := &Config{
 		Loaded: make(map[string]*types.Package),
 	}
-	pkgs1, err := Load(conf, "fmt", "strings")
+	pkgs1, err := Load(conf, "fmt", "fmt", "strings")
 	if err != nil {
 		t.Fatal("Load failed:", err)
 	}
@@ -186,10 +186,6 @@ func TestLoadConf(t *testing.T) {
 	}
 	if len(pkgs2) != 2 {
 		t.Log(pkgs2)
-	}
-
-	if pkgs1[0] != pkgs2[0] {
-		t.Fatal("Load failed: unmatched `fmt` pkg")
 	}
 }
 
