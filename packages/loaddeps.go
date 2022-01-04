@@ -160,7 +160,7 @@ func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (wd string, err err
 				pkgPath := line[:t]
 				if expfile := pkgExport(line[t+1:]); !strings.HasPrefix(expfile, "$") {
 					pkgs[pkgPath] = expfile
-				} else {
+				} else if pkgPath != "command-line-arguments" {
 					log.Println("==> loadDeps skip:", pkgPath)
 				}
 			}
