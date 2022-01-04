@@ -38,7 +38,7 @@ func SetDebug(dbgFlags int) {
 	debugRemoveTempFile = (dbgFlags & DbgNoRemoveTempFile) == 0
 }
 
-func IsLocal(ns string) bool {
+func isLocal(ns string) bool {
 	if len(ns) > 0 {
 		switch c := ns[0]; c {
 		case '/', '\\', '.':
@@ -73,7 +73,7 @@ func (p *Config) getTempDir() string {
 
 func (p *Config) listPkgs(pkgPaths []string, pat, modRoot string) ([]string, error) {
 	const multi = "/..."
-	if IsLocal(pat) {
+	if isLocal(pat) {
 		recursive := strings.HasSuffix(pat, multi)
 		if recursive {
 			pat = pat[:len(pat)-len(multi)]

@@ -41,17 +41,17 @@ func TestGetProgramList(t *testing.T) {
 }
 
 func TestIsLocal(t *testing.T) {
-	if !IsLocal(".") || !IsLocal("/") {
-		t.Fatal(`IsLocal(".") || IsLocal("/")`)
+	if !isLocal(".") || !isLocal("/") {
+		t.Fatal(`isLocal(".") || isLocal("/")`)
 	}
-	if !IsLocal("c:/foo") {
-		t.Fatal(`IsLocal("c:/foo")`)
+	if !isLocal("c:/foo") {
+		t.Fatal(`isLocal("c:/foo")`)
 	}
-	if !IsLocal("C:/foo") {
-		t.Fatal(`IsLocal("C:/foo")`)
+	if !isLocal("C:/foo") {
+		t.Fatal(`isLocal("C:/foo")`)
 	}
-	if IsLocal("") {
-		t.Fatal(`IsLocal("")`)
+	if isLocal("") {
+		t.Fatal(`isLocal("")`)
 	}
 }
 
