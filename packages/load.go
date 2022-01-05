@@ -20,6 +20,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 
@@ -167,6 +168,7 @@ type Importer struct {
 	pkgs   map[string]pkgExport
 	loaded map[string]*types.Package
 	fset   *token.FileSet
+	wds    []string
 }
 
 func NewImporter(conf *Config, pattern ...string) (p *Importer, pkgPaths []string, err error) {
@@ -178,7 +180,7 @@ func NewImporter(conf *Config, pattern ...string) (p *Importer, pkgPaths []strin
 	if err != nil {
 		return
 	}
-	pkgs, err := loadDeps(conf.getTempDir(), pkgPaths...)
+	pkgs, wds, err := loadDeps(conf.getTempDir(), pkgPaths...)
 	if err != nil {
 		return
 	}
@@ -191,8 +193,19 @@ func NewImporter(conf *Config, pattern ...string) (p *Importer, pkgPaths []strin
 		loaded = make(map[string]*types.Package)
 	}
 	loaded["unsafe"] = types.Unsafe
-	p = &Importer{pkgs: pkgs, loaded: loaded, fset: fset}
+	p = &Importer{pkgs: pkgs, loaded: loaded, fset: fset, wds: wds}
+	runtime.SetFinalizer(p, (*Importer).Close)
 	return
+}
+
+func (p *Importer) Close() error {
+	if p.wds != nil {
+		cleanWorkDirs(p.wds)
+		p.wds = nil
+	}
+	// no need for a finalizer anymore
+	runtime.SetFinalizer(p, nil)
+	return nil
 }
 
 func (p *Importer) Import(pkgPath string) (*types.Package, error) {
