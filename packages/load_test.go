@@ -16,6 +16,7 @@ package packages
 import (
 	"errors"
 	"go/types"
+	"os"
 	"strings"
 	"syscall"
 	"testing"
@@ -58,7 +59,8 @@ func TestIsLocal(t *testing.T) {
 // ----------------------------------------------------------------------------
 
 func TestLoadDep(t *testing.T) {
-	pkgs, wds, err := loadDeps("./.gop", "fmt")
+	dir, _ := os.Getwd()
+	pkgs, wds, err := loadDeps(dir+"/.gop", "fmt")
 	if err != nil {
 		t.Fatal("LoadDeps failed:", pkgs, err)
 	}

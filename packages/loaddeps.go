@@ -139,7 +139,9 @@ func loadDepPkgs(pkgs map[string]pkgExport, dir, src string) (wd string, err err
 	cmd := exec.Command("go", "install", "-work", "-x", src)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	cmd.Dir = dir
+	if !strings.HasPrefix(dir, ".") {
+		cmd.Dir = dir
+	}
 	err = cmd.Run()
 	if err != nil {
 		err = &ExecCmdError{Err: err, Stderr: stderr.Bytes()}
