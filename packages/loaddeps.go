@@ -158,11 +158,13 @@ func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (workd string, err 
 	const packagefile = "packagefile "
 	const workdir = "WORK="
 	const workvar = "$WORK"
-	if !strings.HasPrefix(data, workdir) {
+	pos := strings.Index(data, workdir)
+	if pos < 0 {
+		fmt.Fprint(os.Stderr, data)
 		return "", ErrWorkDirNotFound
 	}
-	data = data[len(workdir):]
-	pos := strings.IndexByte(data, '\n')
+	data = data[pos+len(workdir):]
+	pos = strings.IndexByte(data, '\n')
 	if pos < 0 {
 		return "", ErrWorkDirNotFound
 	}
