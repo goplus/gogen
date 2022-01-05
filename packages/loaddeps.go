@@ -36,7 +36,7 @@ func loadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, wd
 			if pkgs, wd, err = tryLoadDeps(tempDir, pkgPaths[napp:]...); err == nil {
 				wds = appendWorkDir(wds, wd)
 				for _, appPath := range pkgPaths[:napp] {
-					if wd, err = loadDepPkgs(pkgs, appPath); err != nil {
+					if wd, err = loadDepPkgs(pkgs, tempDir, appPath); err != nil {
 						cleanWorkDirs(wds)
 						break
 					}
@@ -130,15 +130,16 @@ func main() {
 		}()
 	}
 	pkgs = make(map[string]pkgExport)
-	wd, err = loadDepPkgs(pkgs, file)
+	wd, err = loadDepPkgs(pkgs, tempDir, file)
 	return
 }
 
-func loadDepPkgs(pkgs map[string]pkgExport, src string) (wd string, err error) {
+func loadDepPkgs(pkgs map[string]pkgExport, dir, src string) (wd string, err error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("go", "install", "-work", "-x", src)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	cmd.Dir = dir
 	err = cmd.Run()
 	if err != nil {
 		err = &ExecCmdError{Err: err, Stderr: stderr.Bytes()}
