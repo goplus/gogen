@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -30,20 +29,38 @@ import (
 
 type pkgExport = string
 
-func loadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, err error) {
-	pkgs, err = tryLoadDeps(tempDir, pkgPaths...)
+func loadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, wds []string, err error) {
+	pkgs, wd, err := tryLoadDeps(tempDir, pkgPaths...)
 	if err != nil {
 		if napp := getProgramList(err.Error(), pkgPaths); napp > 0 {
-			if pkgs, err = tryLoadDeps(tempDir, pkgPaths[napp:]...); err == nil {
+			if pkgs, wd, err = tryLoadDeps(tempDir, pkgPaths[napp:]...); err == nil {
+				wds = appendWorkDir(wds, wd)
 				for _, appPath := range pkgPaths[:napp] {
-					if err = loadDepPkgs(pkgs, appPath); err != nil {
+					if wd, err = loadDepPkgs(pkgs, appPath); err != nil {
+						cleanWorkDirs(wds)
 						break
 					}
+					wds = appendWorkDir(wds, wd)
 				}
 			}
 		}
+	} else {
+		wds = appendWorkDir(wds, wd)
 	}
 	return
+}
+
+func appendWorkDir(wds []string, wd string) []string {
+	if wd != "" {
+		wds = append(wds, wd)
+	}
+	return wds
+}
+
+func cleanWorkDirs(wds []string) {
+	for _, wd := range wds {
+		os.RemoveAll(wd)
+	}
 }
 
 func getProgramList(msg string, pkgPaths []string) (napp int) {
@@ -83,7 +100,7 @@ func initLoadDeps() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func tryLoadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, err error) {
+func tryLoadDeps(tempDir string, pkgPaths ...string) (pkgs map[string]pkgExport, wd string, err error) {
 	gid++
 	file := tempDir + "/dummy-" + strconv.Itoa(gid) + ".go"
 	os.MkdirAll(tempDir, 0755)
@@ -113,33 +130,31 @@ func main() {
 		}()
 	}
 	pkgs = make(map[string]pkgExport)
-	err = loadDepPkgs(pkgs, file)
+	wd, err = loadDepPkgs(pkgs, file)
 	return
 }
 
-func loadDepPkgs(pkgs map[string]pkgExport, src string) (err error) {
+func loadDepPkgs(pkgs map[string]pkgExport, src string) (wd string, err error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("go", "install", "-work", "-x", src)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err = cmd.Run()
 	if err != nil {
-		return &ExecCmdError{Err: err, Stderr: stderr.Bytes()}
+		err = &ExecCmdError{Err: err, Stderr: stderr.Bytes()}
+		return
 	}
-	wd, err := loadDepPkgsFrom(pkgs, stderr.String())
-	if err == nil {
-		os.RemoveAll(wd)
-	}
-	return
+	return loadDepPkgsFrom(pkgs, stderr.String())
 }
 
 var (
-	ErrWorkDirNotFound = errors.New("WorkDir not found")
+	ErrWorkDirNotFound = errors.New("loadDeps: WorkingDir $WORK not found")
 )
 
-func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (wd string, err error) {
+func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (workd string, err error) {
 	const packagefile = "packagefile "
 	const workdir = "WORK="
+	const workvar = "$WORK"
 	if !strings.HasPrefix(data, workdir) {
 		return "", ErrWorkDirNotFound
 	}
@@ -148,7 +163,12 @@ func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (wd string, err err
 	if pos < 0 {
 		return "", ErrWorkDirNotFound
 	}
-	wd, data = data[:pos], data[pos+1:]
+	wd, data := data[:pos], data[pos+1:]
+	defer func() {
+		if workd == "" {
+			os.RemoveAll(wd)
+		}
+	}()
 	for data != "" {
 		pos := strings.IndexByte(data, '\n')
 		if pos < 0 {
@@ -156,13 +176,13 @@ func loadDepPkgsFrom(pkgs map[string]pkgExport, data string) (wd string, err err
 		}
 		if strings.HasPrefix(data, packagefile) {
 			line := data[len(packagefile):pos]
-			if t := strings.Index(line, "="); t > 0 {
-				pkgPath := line[:t]
-				if expfile := pkgExport(line[t+1:]); !strings.HasPrefix(expfile, "$") {
-					pkgs[pkgPath] = expfile
-				} else if pkgPath != "command-line-arguments" {
-					log.Println("==> loadDeps skip:", pkgPath)
+			if t := strings.Index(line, "="); t > 0 && line[:t] != "command-line-arguments" {
+				expfile := pkgExport(line[t+1:])
+				if strings.HasPrefix(expfile, workvar) {
+					expfile = wd + expfile[len(workvar):]
+					workd = wd
 				}
+				pkgs[line[:t]] = expfile
 			}
 		}
 		data = data[pos+1:]

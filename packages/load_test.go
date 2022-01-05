@@ -58,10 +58,11 @@ func TestIsLocal(t *testing.T) {
 // ----------------------------------------------------------------------------
 
 func TestLoadDep(t *testing.T) {
-	pkgs, err := loadDeps("./.gop", "fmt")
+	pkgs, wds, err := loadDeps("./.gop", "fmt")
 	if err != nil {
 		t.Fatal("LoadDeps failed:", pkgs, err)
 	}
+	cleanWorkDirs(wds)
 	if _, ok := pkgs["runtime"]; !ok {
 		t.Fatal("LoadDeps failed:", pkgs)
 	}
@@ -74,14 +75,14 @@ func TestLoadDep(t *testing.T) {
 	if err != ErrWorkDirNotFound {
 		t.Fatal("LoadDeps:", err)
 	}
-	_, err = loadDepPkgsFrom(nil, "WORK=a\n ")
-	if err != nil {
-		t.Fatal("LoadDeps:", err)
+	wd, err := loadDepPkgsFrom(make(map[string]string), "WORK=a\npackagefile fmt=$WORK/fmt\n ")
+	if err != nil || wd != "a" {
+		t.Fatal("LoadDeps:", wd, err)
 	}
 }
 
 func TestLoadDepErr(t *testing.T) {
-	_, err := loadDeps("/.gop", "fmt")
+	_, _, err := loadDeps("/.gop", "fmt")
 	if err == nil {
 		t.Fatal("LoadDeps: no error")
 	}
@@ -198,6 +199,7 @@ func TestImporterNormal(t *testing.T) {
 	if err != nil {
 		t.Fatal("NewImporter failed:", err)
 	}
+	defer p.Close()
 	pkg, err := p.Import("fmt")
 	if err != nil || pkg.Path() != "fmt" {
 		t.Fatal("Import failed:", pkg, err)
@@ -217,6 +219,7 @@ func TestImporterRecursive(t *testing.T) {
 	if err != nil {
 		t.Fatal("NewImporter failed:", err)
 	}
+	defer p.Close()
 	if len(pkgPaths) == 0 {
 		t.Fatal("NewImporter pkgPaths:", pkgPaths)
 	}
@@ -235,6 +238,11 @@ func TestImporterRecursiveErr(t *testing.T) {
 	if err == nil || err.Error() != "directory `/` outside available modules" {
 		t.Fatal("NewImporter failed:", p, pkgPaths, err)
 	}
+}
+
+func TestImporterClose(t *testing.T) {
+	p := &Importer{wds: appendWorkDir(nil, "/not-found")}
+	p.Close()
 }
 
 // ----------------------------------------------------------------------------
