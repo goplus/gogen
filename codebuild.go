@@ -327,6 +327,10 @@ func (p *CodeBuilder) Comments() *ast.CommentGroup {
 	return p.comments
 }
 
+func (p *CodeBuilder) BackupComments() (*ast.CommentGroup, bool) {
+	return p.comments, p.commentOnce
+}
+
 // SetComments sets comments to next statement.
 func (p *CodeBuilder) SetComments(comments *ast.CommentGroup, once bool) *CodeBuilder {
 	if debugComments && comments != nil {
