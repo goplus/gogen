@@ -364,7 +364,8 @@ func TestIncDec(t *testing.T) {
 		VarRef(ctxRef(pkg, "a")).IncDec(token.INC).EndStmt().
 		VarRef(ctxRef(pkg, "a")).IncDec(token.DEC).EndStmt().
 		End()
-	if pkg.CB().Comments() != nil {
+	cb := pkg.CB()
+	if c, _ := cb.BackupComments(); c != nil || cb.Comments() != nil {
 		t.Fatal("comment is not nil")
 	}
 	domTest(t, pkg, `package main
