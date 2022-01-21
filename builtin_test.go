@@ -766,13 +766,23 @@ func TestImportPkg(t *testing.T) {
 	}
 }
 
-func TestStmtPanic(t *testing.T) {
+func TestForRangeStmtPanic(t *testing.T) {
 	defer func() {
 		if e := recover(); e != nil {
 			t.Fatal("forRangeStmt.End panic")
 		}
 	}()
 	var s forRangeStmt
+	s.End(nil)
+}
+
+func TestSwitchStmtPanic(t *testing.T) {
+	defer func() {
+		if e := recover(); e != nil {
+			t.Fatal("siwtchStmt.End panic")
+		}
+	}()
+	var s switchStmt
 	s.End(nil)
 }
 
