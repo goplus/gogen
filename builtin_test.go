@@ -766,4 +766,14 @@ func TestImportPkg(t *testing.T) {
 	}
 }
 
+func TestStmtPanic(t *testing.T) {
+	defer func() {
+		if e := recover(); e != nil {
+			t.Fatal("forRangeStmt.End panic")
+		}
+	}()
+	var s forRangeStmt
+	s.End(nil)
+}
+
 // ----------------------------------------------------------------------------
