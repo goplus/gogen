@@ -162,6 +162,9 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int) {
 }
 
 func (p *switchStmt) End(cb *CodeBuilder) {
+	if p.tag == nil {
+		return
+	}
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ flowFlagBreak)
 
