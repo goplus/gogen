@@ -162,6 +162,9 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int) {
 }
 
 func (p *switchStmt) End(cb *CodeBuilder) {
+	if p.tag == nil {
+		return
+	}
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ flowFlagBreak)
 
@@ -615,9 +618,11 @@ const (
 )
 
 func (p *forRangeStmt) End(cb *CodeBuilder) {
+	if p.stmt == nil {
+		return
+	}
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
-
 	if n := p.udt; n == 0 {
 		p.stmt.Body = p.handleFor(&ast.BlockStmt{List: stmts}, 1)
 		cb.emitStmt(p.stmt)
