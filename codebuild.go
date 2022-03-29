@@ -1910,7 +1910,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 	if debugInstr {
 		log.Println("UnaryOp", op, flags)
 	}
-	ret, err := callOpFunc(p, op, unaryOps[0:], p.stk.GetArgs(1), flags)
+	ret, err := callOpFunc(p, op, unaryOps[:], p.stk.GetArgs(1), flags)
 	if err != nil {
 		panic(err)
 	}

@@ -629,8 +629,11 @@ func (p addrInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast
 	if len(args) != 1 {
 		panic("TODO: please use &variable to get its address")
 	}
-	// TODO: type check
+	// TODO: can't take addr(&) to a non-reference type
 	t := args[0].Type
+	if tt, ok := t.(*refType); ok {
+		t = tt.typ
+	}
 	ret = &Element{Val: &ast.UnaryExpr{Op: token.AND, X: args[0].Val}, Type: types.NewPointer(t)}
 	return
 }
