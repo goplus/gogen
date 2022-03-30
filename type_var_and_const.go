@@ -430,6 +430,14 @@ type refType struct {
 	typ types.Type
 }
 
+func DerefType(typ types.Type) (types.Type, bool) {
+	t, ok := typ.(*refType)
+	if ok {
+		typ = t.Elem()
+	}
+	return typ, ok
+}
+
 func (p *refType) Elem() types.Type {
 	return p.typ
 }
