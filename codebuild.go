@@ -1851,7 +1851,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	args := p.stk.GetArgs(2)
 	var ret *internal.Elem
 	var err error
-	if ret, err = callOpFunc(p, op, binaryOps[0:], args, 0); err != nil {
+	if ret, err = callOpFunc(p, op, binaryOps[:], args, 0); err != nil {
 		src, pos := p.loadExpr(expr)
 		p.panicCodeErrorf(
 			&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
