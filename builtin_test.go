@@ -766,7 +766,7 @@ func TestImportPkg(t *testing.T) {
 	}
 }
 
-func TestStmtPanic(t *testing.T) {
+func TestForRangeStmtPanic(t *testing.T) {
 	defer func() {
 		if e := recover(); e != nil {
 			t.Fatal("forRangeStmt.End panic")
@@ -798,6 +798,16 @@ func TestNewFuncPanic(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
 	a := types.NewParam(token.NoPos, pkg.Types, "", types.Typ[types.Int])
 	pkg.NewFunc(nil, "init", types.NewTuple(a), nil, false)
+}
+
+func TestSwitchStmtPanic(t *testing.T) {
+	defer func() {
+		if e := recover(); e != nil {
+			t.Fatal("siwtchStmt.End panic")
+		}
+	}()
+	var s switchStmt
+	s.End(nil)
 }
 
 // ----------------------------------------------------------------------------
