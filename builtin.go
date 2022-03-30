@@ -583,12 +583,27 @@ func callIncDec(pkg *Package, args []*Element, tok token.Token) (ret *Element, e
 	if len(args) != 1 {
 		panic("TODO: please use val" + tok.String())
 	}
-	if _, ok := args[0].Type.(*refType); !ok {
+	t, ok := args[0].Type.(*refType)
+	if !ok {
 		panic("TODO: not addressable")
 	}
-	// TODO: type check
-	pkg.cb.emitStmt(&ast.IncDecStmt{X: args[0].Val, Tok: tok})
+	cb := &pkg.cb
+	if !isNumeric(t.typ) {
+		text, pos := cb.loadExpr(args[0].Src)
+		cb.panicCodeErrorf(&pos, "invalid operation: %s%v (non-numeric type %v)", text, tok, t.typ)
+	}
+	cb.emitStmt(&ast.IncDecStmt{X: args[0].Val, Tok: tok})
 	return
+}
+
+func isNumeric(typ types.Type) bool {
+	const (
+		numericFlags = types.IsInteger | types.IsFloat | types.IsComplex
+	)
+	if t, ok := typ.(*types.Basic); ok {
+		return (t.Info() & numericFlags) != 0
+	}
+	return false
 }
 
 type recvInstr struct {
@@ -630,10 +645,7 @@ func (p addrInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast
 		panic("TODO: please use &variable to get its address")
 	}
 	// TODO: can't take addr(&) to a non-reference type
-	t := args[0].Type
-	if tt, ok := t.(*refType); ok {
-		t = tt.typ
-	}
+	t, _ := DerefType(args[0].Type)
 	ret = &Element{Val: &ast.UnaryExpr{Op: token.AND, X: args[0].Val}, Type: types.NewPointer(t)}
 	return
 }
