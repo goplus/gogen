@@ -583,12 +583,27 @@ func callIncDec(pkg *Package, args []*Element, tok token.Token) (ret *Element, e
 	if len(args) != 1 {
 		panic("TODO: please use val" + tok.String())
 	}
-	if _, ok := args[0].Type.(*refType); !ok {
+	t, ok := args[0].Type.(*refType)
+	if !ok {
 		panic("TODO: not addressable")
 	}
-	// TODO: type check
-	pkg.cb.emitStmt(&ast.IncDecStmt{X: args[0].Val, Tok: tok})
+	cb := &pkg.cb
+	if !isNumeric(t.typ) {
+		text, pos := cb.loadExpr(args[0].Src)
+		cb.panicCodeErrorf(&pos, "invalid operation: %s%v (non-numeric type %v)", text, tok, t.typ)
+	}
+	cb.emitStmt(&ast.IncDecStmt{X: args[0].Val, Tok: tok})
 	return
+}
+
+func isNumeric(typ types.Type) bool {
+	const (
+		numericFlags = types.IsInteger | types.IsFloat | types.IsComplex
+	)
+	if t, ok := typ.(*types.Basic); ok {
+		return (t.Info() & numericFlags) != 0
+	}
+	return false
 }
 
 type recvInstr struct {
