@@ -115,14 +115,24 @@ func (p *Func) End(cb *CodeBuilder) {
 	}
 }
 
-// NewFunc func
-func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
-	sig := types.NewSignature(recv, params, results, variadic)
-	fn, err := p.NewFuncWith(token.NoPos, name, sig, nil)
+func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) *Func {
+	f, err := p.NewFuncWith(pos, name, sig, nil)
 	if err != nil {
 		panic(err)
 	}
-	return fn
+	fn := f.decl
+	fn.Name, fn.Type = ident(name), toFuncType(p, sig)
+	return f
+}
+
+// NewFunc func
+func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
+	sig := types.NewSignature(recv, params, results, variadic)
+	f, err := p.NewFuncWith(token.NoPos, name, sig, nil)
+	if err != nil {
+		panic(err)
+	}
+	return f
 }
 
 func getRecv(recvTypePos func() token.Pos) token.Pos {

@@ -776,6 +776,30 @@ func TestForRangeStmtPanic(t *testing.T) {
 	s.End(nil)
 }
 
+func TestNewFuncDeclPanic(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestNewFuncDeclPanic: not panic")
+		}
+	}()
+	pkg := NewPackage("", "foo", gblConf)
+	a := types.NewParam(token.NoPos, pkg.Types, "", types.Typ[types.Int])
+	sig := types.NewSignature(nil, types.NewTuple(a), nil, false)
+	pkg.NewFuncDecl(token.NoPos, "init", sig)
+}
+
+func TestNewFuncPanic(t *testing.T) {
+	getRecv(nil)
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestNewFuncPanic: not panic")
+		}
+	}()
+	pkg := NewPackage("", "foo", gblConf)
+	a := types.NewParam(token.NoPos, pkg.Types, "", types.Typ[types.Int])
+	pkg.NewFunc(nil, "init", types.NewTuple(a), nil, false)
+}
+
 func TestSwitchStmtPanic(t *testing.T) {
 	defer func() {
 		if e := recover(); e != nil {

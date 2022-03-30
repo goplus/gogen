@@ -337,7 +337,7 @@ func main() {
 `)
 }
 
-func TestTypeConv(t *testing.T) {
+func TestTypeConv(t *testing.T) { // TypeCast
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint32]
 	tyPInt := types.NewPointer(tyInt)
@@ -716,12 +716,17 @@ func foo(v interface {
 `)
 }
 
+func newFuncDecl(pkg *gox.Package, name string, params, results *types.Tuple) *gox.Func {
+	sig := types.NewSignature(nil, params, results, false)
+	return pkg.NewFuncDecl(token.NoPos, name, sig)
+}
+
 func TestTypeSwitch(t *testing.T) {
 	pkg := newMainPackage()
 	p := pkg.NewParam(token.NoPos, "p", types.NewPointer(gox.TyEmptyInterface))
 	v := pkg.NewParam(token.NoPos, "v", gox.TyEmptyInterface)
-	pkg.NewFunc(nil, "bar", types.NewTuple(p), nil, false).BodyStart(pkg).End()
-	pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+	newFuncDecl(pkg, "bar", types.NewTuple(p), nil)
+	newFuncDecl(pkg, "foo", types.NewTuple(v), nil).BodyStart(pkg).
 		/**/ TypeSwitch("t").Val(v).TypeAssertThen().
 		/****/ Typ(types.Typ[types.Int]).Typ(types.Typ[types.String]).TypeCase(2).
 		/******/ Val(ctxRef(pkg, "bar")).VarRef(ctxRef(pkg, "t")).UnaryOp(token.AND).Call(1).EndStmt().
@@ -737,8 +742,7 @@ func TestTypeSwitch(t *testing.T) {
 	domTest(t, pkg, `package main
 
 func bar(p *interface {
-}) {
-}
+})
 func foo(v interface {
 }) {
 	switch t := v.(type) {
