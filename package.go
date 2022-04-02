@@ -279,6 +279,11 @@ func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {
 	p.commentedStmts[stmt] = comments
 }
 
+// Sizeof returns sizeof typ in bytes.
+func (p *Package) Sizeof(typ types.Type) int64 {
+	return std.Sizeof(typ)
+}
+
 // Builtin returns the buitlin package.
 func (p *Package) Builtin() *PkgRef {
 	return &PkgRef{Types: p.builtin}

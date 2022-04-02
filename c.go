@@ -53,10 +53,16 @@ func (p *BitFields) FindField(
 		if v.Name == name {
 			o := t.Underlying().(*types.Struct)
 			if kind := cb.field(o, v.FldName, "", MemberFlagVal, arg, src); kind != MemberInvalid {
-				if v.Off != 0 {
-					cb.Val(v.Off).BinaryOp(token.SHR)
+				tfld := cb.stk.Get(-1).Type
+				if (tfld.(*types.Basic).Info() & types.IsUnsigned) != 0 {
+					if v.Off != 0 {
+						cb.Val(v.Off).BinaryOp(token.SHR)
+					}
+					cb.Val((1 << v.Bits) - 1).BinaryOp(token.AND)
+				} else {
+					bits := int(std.Sizeof(tfld)<<3) - v.Bits
+					cb.Val(bits - v.Off).BinaryOp(token.SHL).Val(bits).BinaryOp(token.SHR)
 				}
-				cb.Val((1 << v.Bits) - 1).BinaryOp(token.AND)
 				return kind
 			}
 		}

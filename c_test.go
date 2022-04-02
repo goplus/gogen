@@ -10,6 +10,45 @@ import (
 
 // ----------------------------------------------------------------------------
 
+func TestBitFields(t *testing.T) {
+	pkg := newMainPackage()
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.Uint], false),
+	}
+	tyT := pkg.NewType("T").InitType(pkg, types.NewStruct(fields, nil))
+	pkg.SetVFields(tyT, gox.NewBitFields([]*gox.BitField{
+		{Name: "z1", FldName: "x", Off: 0, Bits: 1},
+		{Name: "z2", FldName: "x", Off: 1, Bits: 3},
+		{Name: "u1", FldName: "y", Off: 0, Bits: 1},
+		{Name: "u2", FldName: "y", Off: 1, Bits: 3},
+	}))
+	pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
+		NewVar(tyT, "a").
+		NewVarStart(types.Typ[types.Int], "z").
+		Val(ctxRef(pkg, "a")).MemberVal("z1").UnaryOp(token.SUB).
+		Val(ctxRef(pkg, "a")).MemberVal("z2").
+		BinaryOp(token.MUL).EndInit(1).
+		NewVarStart(types.Typ[types.Uint], "u").
+		Val(ctxRef(pkg, "a")).MemberVal("u1").UnaryOp(token.XOR).
+		Val(ctxRef(pkg, "a")).MemberVal("u2").
+		BinaryOp(token.MUL).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+type T struct {
+	x int
+	y uint
+}
+
+func test() {
+	var a T
+	var z int = -(a.x << 63 >> 63) * (a.x << 60 >> 61)
+	var u uint = ^(a.y & 1) * (a.y >> 1 & 7)
+}
+`)
+}
+
 func TestUnionFields(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{

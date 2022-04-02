@@ -1835,7 +1835,10 @@ retry:
 			return nil, errors.New("mismatched types")
 		}
 		ret = &internal.Elem{
-			Val:  &ast.BinaryExpr{X: checkParenExpr(args[0].Val), Op: op, Y: checkParenExpr(args[1].Val)},
+			Val: &ast.BinaryExpr{
+				X: checkParenExpr(args[0].Val), Op: op,
+				Y: checkParenExpr(args[1].Val),
+			},
 			Type: types.Typ[types.UntypedBool],
 			CVal: binaryOp(cb, op, args),
 		}
