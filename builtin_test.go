@@ -20,6 +20,7 @@ import (
 	"go/types"
 	"math/big"
 	"testing"
+	"unsafe"
 
 	"github.com/goplus/gox/internal"
 	"github.com/goplus/gox/packages"
@@ -819,6 +820,9 @@ func TestCallIncDec(t *testing.T) {
 		}
 	}()
 	pkg := NewPackage("", "foo", gblConf)
+	if uintptr(pkg.Sizeof(tyInt)) != unsafe.Sizeof(int(0)) {
+		t.Fatal("pkg.Sizeof?")
+	}
 	args := []*Element{
 		{Type: &refType{typ: types.Typ[types.String]}},
 	}
