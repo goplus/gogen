@@ -103,6 +103,7 @@ type CodeBuilder struct {
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
 	closureParamInsts
+	vFieldsMgr
 	iotav       int
 	commentOnce bool
 }
@@ -1524,12 +1525,13 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 
 func (p *CodeBuilder) findMember(
 	typ types.Type, name, aliasName string, flag MemberFlag, arg *Element, srcExpr ast.Node) MemberKind {
+	var named *types.Named
 retry:
 	switch o := typ.(type) {
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
 		case *types.Named:
-			u := p.getUnderlying(t)
+			u := p.getUnderlying(t) // may cause to loadNamed (delay-loaded)
 			if kind := p.method(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 				return kind
 			}
@@ -1537,6 +1539,7 @@ retry:
 				if kind := p.field(struc, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 					return kind
 				}
+				return p.findVField(t, name, arg, srcExpr)
 			}
 		case *types.Struct:
 			if kind := p.field(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
@@ -1544,7 +1547,7 @@ retry:
 			}
 		}
 	case *types.Named:
-		typ = p.getUnderlying(o)
+		named, typ = o, p.getUnderlying(o) // may cause to loadNamed (delay-loaded)
 		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
 		}
@@ -1552,6 +1555,9 @@ retry:
 	case *types.Struct:
 		if kind := p.field(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
+		}
+		if named != nil {
+			return p.findVField(named, name, arg, srcExpr)
 		}
 	case *types.Interface:
 		o.Complete()
