@@ -383,8 +383,10 @@ func TestToVariadic(t *testing.T) {
 }
 
 func TestUnderlying(t *testing.T) {
+	bfReft := &bfRefType{}
 	typs := []types.Type{
 		&refType{},
+		bfReft,
 		&unboundType{},
 		&unboundMapElemType{},
 		&overloadFuncType{},
@@ -395,6 +397,9 @@ func TestUnderlying(t *testing.T) {
 		&unboundProxyParam{},
 		&TemplateParamType{},
 		&TemplateSignature{},
+	}
+	if bfReft.String() == "bfRefType{typ: nil:0 off: 0}" {
+		t.Fatal("bfRefType.String")
 	}
 	for _, typ := range typs {
 		func() {
