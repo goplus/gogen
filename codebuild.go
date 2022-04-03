@@ -1367,7 +1367,6 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr) MemberKind {
 	switch o := indirect(typ).(type) {
 	case *types.Named:
-		log.Println("==> refMember types.Named", o, name)
 		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
 			if p.fieldRef(argVal, struc, name) {
 				return MemberField
