@@ -77,6 +77,8 @@ func TestUnionFields(t *testing.T) {
 		NewVarStart(tyFlt, "barval").Val(ctxRef(pkg, "bara")).MemberVal("val").EndInit(1).
 		NewVarStart(tyFlt, "barz2").Val(ctxRef(pkg, "barb")).MemberVal("z").EndInit(1).
 		NewVarStart(tyFlt, "barval2").Val(ctxRef(pkg, "barb")).MemberVal("val").EndInit(1).
+		Val(ctxRef(pkg, "a")).MemberRef("z").Val(1).Assign(1).
+		Val(ctxRef(pkg, "barb")).MemberRef("val").Val(1.2).Assign(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -104,6 +106,8 @@ func test() {
 	var barval float32 = *(*float32)(unsafe.Pointer(uintptr(unsafe.Pointer(&bara.T)) + 4))
 	var barz2 float32 = *(*float32)(unsafe.Pointer(&barb.T))
 	var barval2 float32 = *(*float32)(unsafe.Pointer(uintptr(unsafe.Pointer(&barb.T)) + 4))
+	*(*float32)(unsafe.Pointer(&a)) = 1
+	*(*float32)(unsafe.Pointer(uintptr(unsafe.Pointer(&barb.T)) + 4)) = 1.2
 }
 `)
 }

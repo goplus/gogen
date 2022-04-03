@@ -4,16 +4,25 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
 )
 
 // ----------------------------------------------------------------------------
 
 type VFields interface { // virtual fields
 	FindField(cb *CodeBuilder, t *types.Named, name string, arg *Element, src ast.Node) MemberKind
+	FieldRef(cb *CodeBuilder, t *types.Named, name string, src ast.Node) MemberKind
 }
 
 type vFieldsMgr struct {
 	vfts map[*types.Named]VFields
+}
+
+func (p *CodeBuilder) refVField(t *types.Named, name string, src ast.Node) MemberKind {
+	if vft, ok := p.vfts[t]; ok {
+		return vft.FieldRef(p, t, name, src)
+	}
+	return MemberInvalid
 }
 
 func (p *CodeBuilder) findVField(t *types.Named, name string, arg *Element, src ast.Node) MemberKind {
@@ -37,6 +46,7 @@ type BitField struct {
 	FldName string // real field name
 	Off     int
 	Bits    int
+	Pos     token.Pos
 }
 
 type BitFields struct {
@@ -70,12 +80,18 @@ func (p *BitFields) FindField(
 	return MemberInvalid
 }
 
+func (p *BitFields) FieldRef(cb *CodeBuilder, t *types.Named, name string, src ast.Node) MemberKind {
+	log.Panicln("BitFields.FieldRef: TODO - notimpl")
+	return MemberInvalid
+}
+
 // ----------------------------------------------------------------------------
 
 type UnionField struct {
 	Name string
 	Off  int
 	Type types.Type
+	Pos  token.Pos
 }
 
 type UnionFields struct {
@@ -86,8 +102,8 @@ func NewUnionFields(flds []*UnionField) *UnionFields {
 	return &UnionFields{flds: flds}
 }
 
-func (p *UnionFields) FindField(
-	cb *CodeBuilder, tfld *types.Named, name string, arg *Element, src ast.Node) MemberKind {
+func (p *UnionFields) getField(
+	cb *CodeBuilder, tfld *types.Named, name string, src ast.Node, ref bool) MemberKind {
 	for _, v := range p.flds {
 		if v.Name == name {
 			obj := cb.stk.Pop()
@@ -110,11 +126,25 @@ func (p *UnionFields) FindField(
 			if v.Off != 0 {
 				cb.Call(1).Call(1).Val(v.Off).BinaryOp(token.ADD) // => voidptr => uintptr
 			}
-			cb.Call(1).Call(1).Elem() // => voidptr => *type
+			cb.Call(1).Call(1) // => voidptr => *type
+			if ref {
+				cb.ElemRef()
+			} else {
+				cb.Elem()
+			}
 			return MemberField
 		}
 	}
 	return MemberInvalid
+}
+
+func (p *UnionFields) FindField(
+	cb *CodeBuilder, tfld *types.Named, name string, arg *Element, src ast.Node) MemberKind {
+	return p.getField(cb, tfld, name, src, false)
+}
+
+func (p *UnionFields) FieldRef(cb *CodeBuilder, tfld *types.Named, name string, src ast.Node) MemberKind {
+	return p.getField(cb, tfld, name, src, true)
 }
 
 // ----------------------------------------------------------------------------
