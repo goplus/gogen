@@ -77,6 +77,7 @@ func TestUnionFields(t *testing.T) {
 		NewVarStart(tyFlt, "barval").Val(ctxRef(pkg, "bara")).MemberVal("val").EndInit(1).
 		NewVarStart(tyFlt, "barz2").Val(ctxRef(pkg, "barb")).MemberVal("z").EndInit(1).
 		NewVarStart(tyFlt, "barval2").Val(ctxRef(pkg, "barb")).MemberVal("val").EndInit(1).
+		// Val(ctxRef(pkg, "barb")).MemberRef("val").Val(1).Assign(1).
 		End()
 	domTest(t, pkg, `package main
 

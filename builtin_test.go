@@ -420,8 +420,9 @@ func TestStructFieldType(t *testing.T) {
 		types.NewField(token.NoPos, pkg, "Bar", bar, true),
 	}
 	struc := types.NewStruct(flds, nil)
-	if typ := cb.structFieldType(struc, "val"); typ != types.Typ[types.Int] {
-		t.Fatal("structFieldType failed:", typ)
+	cb.Val(nil)
+	if !cb.fieldRef(nil, struc, "val") {
+		t.Fatal("structFieldType failed")
 	}
 }
 
@@ -437,8 +438,9 @@ func TestStructFieldType2(t *testing.T) {
 		types.NewField(token.NoPos, pkg, "Bar", types.NewPointer(bar), true),
 	}
 	struc := types.NewStruct(flds, nil)
-	if typ := cb.structFieldType(struc, "val"); typ != types.Typ[types.Int] {
-		t.Fatal("structFieldType failed:", typ)
+	cb.Val(nil)
+	if !cb.fieldRef(nil, struc, "val") {
+		t.Fatal("structFieldType failed")
 	}
 }
 

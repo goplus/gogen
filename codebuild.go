@@ -1367,6 +1367,7 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr) MemberKind {
 	switch o := indirect(typ).(type) {
 	case *types.Named:
+		log.Println("==> refMember types.Named", o, name)
 		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
 			if p.fieldRef(argVal, struc, name) {
 				return MemberField
@@ -1381,22 +1382,15 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr) Me
 	return MemberInvalid
 }
 
-func (p *CodeBuilder) fieldRef(x ast.Expr, struc *types.Struct, name string) bool {
-	if t := p.structFieldType(struc, name); t != nil {
-		p.stk.Ret(1, &internal.Elem{
-			Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
-			Type: &refType{typ: t},
-		})
-		return true
-	}
-	return false
-}
-
-func (p *CodeBuilder) structFieldType(o *types.Struct, name string) types.Type {
+func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string) bool {
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		if fld.Name() == name {
-			return fld.Type()
+			p.stk.Ret(1, &internal.Elem{
+				Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
+				Type: &refType{typ: fld.Type()},
+			})
+			return true
 		} else if fld.Embedded() {
 			fldt := fld.Type()
 			if o, ok := fldt.(*types.Pointer); ok {
@@ -1405,14 +1399,14 @@ func (p *CodeBuilder) structFieldType(o *types.Struct, name string) types.Type {
 			if t, ok := fldt.(*types.Named); ok {
 				u := p.getUnderlying(t)
 				if struc, ok := u.(*types.Struct); ok {
-					if typ := p.structFieldType(struc, name); typ != nil {
-						return typ
+					if p.fieldRef(x, struc, name) {
+						return true
 					}
 				}
 			}
 		}
 	}
-	return nil
+	return false
 }
 
 type (
