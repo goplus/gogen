@@ -1371,6 +1371,7 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr) Me
 			if p.fieldRef(argVal, struc, name) {
 				return MemberField
 			}
+			return p.refVField(o, name, argVal)
 		}
 	case *types.Struct:
 		if p.fieldRef(argVal, o, name) {
