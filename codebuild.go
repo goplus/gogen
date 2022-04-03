@@ -103,6 +103,7 @@ type CodeBuilder struct {
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
 	closureParamInsts
+	vFieldsMgr
 	iotav       int
 	commentOnce bool
 }
@@ -1366,10 +1367,12 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr) MemberKind {
 	switch o := indirect(typ).(type) {
 	case *types.Named:
+		log.Println("==> refMember types.Named", o, name)
 		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
 			if p.fieldRef(argVal, struc, name) {
 				return MemberField
 			}
+			return p.refVField(o, name, argVal)
 		}
 	case *types.Struct:
 		if p.fieldRef(argVal, o, name) {
@@ -1379,22 +1382,15 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr) Me
 	return MemberInvalid
 }
 
-func (p *CodeBuilder) fieldRef(x ast.Expr, struc *types.Struct, name string) bool {
-	if t := p.structFieldType(struc, name); t != nil {
-		p.stk.Ret(1, &internal.Elem{
-			Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
-			Type: &refType{typ: t},
-		})
-		return true
-	}
-	return false
-}
-
-func (p *CodeBuilder) structFieldType(o *types.Struct, name string) types.Type {
+func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string) bool {
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		if fld.Name() == name {
-			return fld.Type()
+			p.stk.Ret(1, &internal.Elem{
+				Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
+				Type: &refType{typ: fld.Type()},
+			})
+			return true
 		} else if fld.Embedded() {
 			fldt := fld.Type()
 			if o, ok := fldt.(*types.Pointer); ok {
@@ -1403,14 +1399,14 @@ func (p *CodeBuilder) structFieldType(o *types.Struct, name string) types.Type {
 			if t, ok := fldt.(*types.Named); ok {
 				u := p.getUnderlying(t)
 				if struc, ok := u.(*types.Struct); ok {
-					if typ := p.structFieldType(struc, name); typ != nil {
-						return typ
+					if p.fieldRef(x, struc, name) || p.refVField(t, name, nil) != MemberInvalid {
+						return true
 					}
 				}
 			}
 		}
 	}
-	return nil
+	return false
 }
 
 type (
@@ -1524,12 +1520,13 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 
 func (p *CodeBuilder) findMember(
 	typ types.Type, name, aliasName string, flag MemberFlag, arg *Element, srcExpr ast.Node) MemberKind {
+	var named *types.Named
 retry:
 	switch o := typ.(type) {
 	case *types.Pointer:
 		switch t := o.Elem().(type) {
 		case *types.Named:
-			u := p.getUnderlying(t)
+			u := p.getUnderlying(t) // may cause to loadNamed (delay-loaded)
 			if kind := p.method(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 				return kind
 			}
@@ -1537,6 +1534,7 @@ retry:
 				if kind := p.field(struc, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 					return kind
 				}
+				return p.findVField(t, name, arg, srcExpr)
 			}
 		case *types.Struct:
 			if kind := p.field(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
@@ -1544,7 +1542,7 @@ retry:
 			}
 		}
 	case *types.Named:
-		typ = p.getUnderlying(o)
+		named, typ = o, p.getUnderlying(o) // may cause to loadNamed (delay-loaded)
 		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
 		}
@@ -1552,6 +1550,9 @@ retry:
 	case *types.Struct:
 		if kind := p.field(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
+		}
+		if named != nil {
+			return p.findVField(named, name, arg, srcExpr)
 		}
 	case *types.Interface:
 		o.Complete()
@@ -1829,7 +1830,10 @@ retry:
 			return nil, errors.New("mismatched types")
 		}
 		ret = &internal.Elem{
-			Val:  &ast.BinaryExpr{X: checkParenExpr(args[0].Val), Op: op, Y: checkParenExpr(args[1].Val)},
+			Val: &ast.BinaryExpr{
+				X: checkParenExpr(args[0].Val), Op: op,
+				Y: checkParenExpr(args[1].Val),
+			},
 			Type: types.Typ[types.UntypedBool],
 			CVal: binaryOp(cb, op, args),
 		}

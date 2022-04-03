@@ -20,6 +20,7 @@ import (
 	"go/types"
 	"math/big"
 	"testing"
+	"unsafe"
 
 	"github.com/goplus/gox/internal"
 	"github.com/goplus/gox/packages"
@@ -419,8 +420,9 @@ func TestStructFieldType(t *testing.T) {
 		types.NewField(token.NoPos, pkg, "Bar", bar, true),
 	}
 	struc := types.NewStruct(flds, nil)
-	if typ := cb.structFieldType(struc, "val"); typ != types.Typ[types.Int] {
-		t.Fatal("structFieldType failed:", typ)
+	cb.Val(nil)
+	if !cb.fieldRef(nil, struc, "val") {
+		t.Fatal("structFieldType failed")
 	}
 }
 
@@ -436,8 +438,9 @@ func TestStructFieldType2(t *testing.T) {
 		types.NewField(token.NoPos, pkg, "Bar", types.NewPointer(bar), true),
 	}
 	struc := types.NewStruct(flds, nil)
-	if typ := cb.structFieldType(struc, "val"); typ != types.Typ[types.Int] {
-		t.Fatal("structFieldType failed:", typ)
+	cb.Val(nil)
+	if !cb.fieldRef(nil, struc, "val") {
+		t.Fatal("structFieldType failed")
 	}
 }
 
@@ -819,10 +822,23 @@ func TestCallIncDec(t *testing.T) {
 		}
 	}()
 	pkg := NewPackage("", "foo", gblConf)
+	if uintptr(pkg.Sizeof(tyInt)) != unsafe.Sizeof(int(0)) {
+		t.Fatal("pkg.Sizeof?")
+	}
 	args := []*Element{
 		{Type: &refType{typ: types.Typ[types.String]}},
 	}
 	callIncDec(pkg, args, token.INC)
+}
+
+func TestBitFields_FieldRef(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("TestBitFields_FieldRef: no error?")
+		}
+	}()
+	var bf BitFields
+	bf.FieldRef(nil, nil, "", nil)
 }
 
 // ----------------------------------------------------------------------------
