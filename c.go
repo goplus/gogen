@@ -92,11 +92,13 @@ func (p *bfRefType) assign(cb *CodeBuilder, lhs, rhs *ast.Expr) {
 	cb.emitStmt(stmt)
 	mask := ((1 << p.bits) - 1) << p.off
 	maskLit := &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(mask)}
-	offLit := &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(p.off)}
 	valMask := &ast.BinaryExpr{X: &ast.StarExpr{X: tvar}, Op: token.AND_NOT, Y: maskLit}
-	shlRHS := &ast.BinaryExpr{X: *rhs, Op: token.SHL, Y: offLit}
+	if p.off != 0 {
+		offLit := &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(p.off)}
+		*rhs = &ast.BinaryExpr{X: *rhs, Op: token.SHL, Y: offLit}
+	}
 	*lhs = &ast.StarExpr{X: tvar}
-	*rhs = &ast.BinaryExpr{X: valMask, Op: token.OR, Y: shlRHS}
+	*rhs = &ast.BinaryExpr{X: valMask, Op: token.OR, Y: *rhs}
 }
 
 func (p *BitFields) FieldRef(cb *CodeBuilder, t *types.Named, name string, src ast.Node) MemberKind {
