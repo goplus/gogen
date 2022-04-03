@@ -831,4 +831,14 @@ func TestCallIncDec(t *testing.T) {
 	callIncDec(pkg, args, token.INC)
 }
 
+func TestBitFields_FieldRef(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("TestBitFields_FieldRef: no error?")
+		}
+	}()
+	var bf BitFields
+	bf.FieldRef(nil, nil, "", nil)
+}
+
 // ----------------------------------------------------------------------------

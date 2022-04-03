@@ -1399,7 +1399,7 @@ func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string) bool {
 			if t, ok := fldt.(*types.Named); ok {
 				u := p.getUnderlying(t)
 				if struc, ok := u.(*types.Struct); ok {
-					if p.fieldRef(x, struc, name) {
+					if p.fieldRef(x, struc, name) || p.refVField(t, name, nil) != MemberInvalid {
 						return true
 					}
 				}

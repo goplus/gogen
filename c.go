@@ -81,7 +81,7 @@ func (p *BitFields) FindField(
 }
 
 func (p *BitFields) FieldRef(cb *CodeBuilder, t *types.Named, name string, src ast.Node) MemberKind {
-	log.Fatalln("BitFields.FieldRef: TODO - notimpl")
+	log.Panicln("BitFields.FieldRef: TODO - notimpl")
 	return MemberInvalid
 }
 
