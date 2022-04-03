@@ -4,7 +4,9 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"log"
+	"strconv"
+
+	"github.com/goplus/gox/internal"
 )
 
 // ----------------------------------------------------------------------------
@@ -63,8 +65,8 @@ func (p *BitFields) FindField(
 		if v.Name == name {
 			o := t.Underlying().(*types.Struct)
 			if kind := cb.field(o, v.FldName, "", MemberFlagVal, arg, src); kind != MemberInvalid {
-				tfld := cb.stk.Get(-1).Type
-				if (tfld.(*types.Basic).Info() & types.IsUnsigned) != 0 {
+				tfld := cb.stk.Get(-1).Type.(*types.Basic)
+				if (tfld.Info() & types.IsUnsigned) != 0 {
 					if v.Off != 0 {
 						cb.Val(v.Off).BinaryOp(token.SHR)
 					}
@@ -75,13 +77,47 @@ func (p *BitFields) FindField(
 				}
 				return kind
 			}
+			break
 		}
 	}
 	return MemberInvalid
 }
 
+func (p *bfRefType) assign(cb *CodeBuilder, lhs, rhs *ast.Expr) {
+	// *addr = *addr &^ ((1 << bits) - 1) << off) | (rhs << off)
+	tname := cb.pkg.autoName()
+	tvar := ident(tname)
+	addr := &ast.UnaryExpr{Op: token.AND, X: *lhs}
+	stmt := &ast.AssignStmt{Lhs: []ast.Expr{tvar}, Tok: token.DEFINE, Rhs: []ast.Expr{addr}}
+	cb.emitStmt(stmt)
+	mask := ((1 << p.bits) - 1) << p.off
+	maskLit := &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(mask)}
+	valMask := &ast.BinaryExpr{X: &ast.StarExpr{X: tvar}, Op: token.AND_NOT, Y: maskLit}
+	if p.off != 0 {
+		offLit := &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(p.off)}
+		*rhs = &ast.BinaryExpr{X: *rhs, Op: token.SHL, Y: offLit}
+	}
+	*lhs = &ast.StarExpr{X: tvar}
+	*rhs = &ast.BinaryExpr{X: valMask, Op: token.OR, Y: *rhs}
+}
+
 func (p *BitFields) FieldRef(cb *CodeBuilder, t *types.Named, name string, src ast.Node) MemberKind {
-	log.Panicln("BitFields.FieldRef: TODO - notimpl")
+	for _, v := range p.flds {
+		if v.Name == name {
+			stk := cb.stk
+			o := t.Underlying().(*types.Struct)
+			if cb.fieldRef(stk.Get(-1).Val, o, v.FldName) {
+				fld := stk.Get(-1)
+				tfld := fld.Type.(*refType).typ.(*types.Basic)
+				stk.Ret(1, &internal.Elem{
+					Val: fld.Val, Src: src,
+					Type: &bfRefType{typ: tfld, bits: v.Bits, off: v.Off},
+				})
+				return MemberField
+			}
+			break
+		}
+	}
 	return MemberInvalid
 }
 

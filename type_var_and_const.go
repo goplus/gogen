@@ -430,14 +430,6 @@ type refType struct {
 	typ types.Type
 }
 
-func DerefType(typ types.Type) (types.Type, bool) {
-	t, ok := typ.(*refType)
-	if ok {
-		typ = t.Elem()
-	}
-	return typ, ok
-}
-
 func (p *refType) Elem() types.Type {
 	return p.typ
 }
@@ -449,6 +441,30 @@ func (p *refType) Underlying() types.Type {
 
 func (p *refType) String() string {
 	return fmt.Sprintf("refType{typ: %v}", p.typ)
+}
+
+func DerefType(typ types.Type) (types.Type, bool) {
+	t, ok := typ.(*refType)
+	if ok {
+		typ = t.Elem()
+	}
+	return typ, ok
+}
+
+// bfRefType: bit field refType
+type bfRefType struct {
+	typ  *types.Basic
+	off  int
+	bits int
+}
+
+func (p *bfRefType) Underlying() types.Type {
+	fatal("bit field refType")
+	return nil
+}
+
+func (p *bfRefType) String() string {
+	return fmt.Sprintf("bfRefType{typ: %v:%d off: %d}", p.typ, p.bits, p.off)
 }
 
 // unboundType: unbound type

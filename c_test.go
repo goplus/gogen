@@ -33,6 +33,8 @@ func TestBitFields(t *testing.T) {
 		Val(ctxRef(pkg, "a")).MemberVal("u1").UnaryOp(token.XOR).
 		Val(ctxRef(pkg, "a")).MemberVal("u2").
 		BinaryOp(token.MUL).EndInit(1).
+		Val(ctxRef(pkg, "a")).MemberRef("z1").Val(1).Assign(1).
+		Val(ctxRef(pkg, "a")).MemberRef("z2").Val(1).Assign(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -45,6 +47,10 @@ func test() {
 	var a T
 	var z int = -(a.x << 63 >> 63) * (a.x << 60 >> 61)
 	var u uint = ^(a.y & 1) * (a.y >> 1 & 7)
+	_autoGo_1 := &a.x
+	*_autoGo_1 = *_autoGo_1&^1 | 1
+	_autoGo_2 := &a.x
+	*_autoGo_2 = *_autoGo_2&^14 | 1<<1
 }
 `)
 }

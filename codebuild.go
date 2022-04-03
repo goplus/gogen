@@ -1367,7 +1367,6 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr) MemberKind {
 	switch o := indirect(typ).(type) {
 	case *types.Named:
-		log.Println("==> refMember types.Named", o, name)
 		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
 			if p.fieldRef(argVal, struc, name) {
 				return MemberField
@@ -1782,9 +1781,17 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 	}
 	if lhs == rhs {
 		for i := 0; i < lhs; i++ {
-			checkAssignType(p.pkg, args[i].Type, args[lhs+i])
+			lhsType := args[i].Type
+			bfr, bfAssign := lhsType.(*bfRefType)
+			if bfAssign {
+				lhsType = &refType{typ: bfr.typ}
+			}
+			checkAssignType(p.pkg, lhsType, args[lhs+i])
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
+			if bfAssign {
+				bfr.assign(p, &stmt.Lhs[i], &stmt.Rhs[i])
+			}
 		}
 	} else {
 		pos := p.nodePosition(src)
