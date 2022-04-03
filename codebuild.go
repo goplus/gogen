@@ -1781,9 +1781,14 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 	}
 	if lhs == rhs {
 		for i := 0; i < lhs; i++ {
-			checkAssignType(p.pkg, args[i].Type, args[lhs+i])
+			lhsType := args[i].Type
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
+			if bfr, ok := lhsType.(*bfRefType); ok { // bit field assignment
+				bfr.assign(p, &stmt.Lhs[i], &stmt.Rhs[i])
+				lhsType = &refType{typ: bfr.typ}
+			}
+			checkAssignType(p.pkg, lhsType, args[lhs+i])
 		}
 	} else {
 		pos := p.nodePosition(src)
