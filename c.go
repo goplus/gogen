@@ -143,6 +143,14 @@ func NewUnionFields(flds []*UnionField) *UnionFields {
 	return &UnionFields{flds: flds}
 }
 
+func (p *UnionFields) At(i int) *UnionField {
+	return p.flds[i]
+}
+
+func (p *UnionFields) Len() int {
+	return len(p.flds)
+}
+
 func (p *UnionFields) getField(
 	cb *CodeBuilder, tfld *types.Named, name string, src ast.Node, ref bool) MemberKind {
 	for _, v := range p.flds {
