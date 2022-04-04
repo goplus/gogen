@@ -836,4 +836,13 @@ func TestCallIncDec(t *testing.T) {
 	callIncDec(pkg, args, token.INC)
 }
 
+func TestVFields(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "bar", nil), tyInt, nil)
+	_, ok := pkg.VFields(typ)
+	if ok {
+		t.Fatal("VFields?")
+	}
+}
+
 // ----------------------------------------------------------------------------

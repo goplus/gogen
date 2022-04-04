@@ -41,6 +41,11 @@ func (p *Package) SetVFields(t *types.Named, vft VFields) {
 	p.cb.vfts[t] = vft
 }
 
+func (p *Package) VFields(t *types.Named) (vft VFields, ok bool) {
+	vft, ok = p.cb.vfts[t]
+	return
+}
+
 // ----------------------------------------------------------------------------
 
 type BitField struct {
