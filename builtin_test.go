@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"bytes"
 	"go/ast"
 	"go/constant"
 	"go/token"
@@ -23,6 +24,7 @@ import (
 	"unsafe"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/internal/go/format"
 	"github.com/goplus/gox/packages"
 )
 
@@ -851,6 +853,18 @@ func TestVFields(t *testing.T) {
 	}
 	if flds.At(0).Name != "foo" {
 		t.Fatal("UnionField.name != foo")
+	}
+}
+
+func TestTypeAST(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	fset := token.NewFileSet()
+	expr := TypeAST(pkg, TyEmptyInterface)
+	b := bytes.NewBuffer(nil)
+	format.Node(b, fset, expr)
+	if b.String() != `interface {
+}` {
+		t.Fatal("TypeAST failed:", b.String())
 	}
 }
 
