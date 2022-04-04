@@ -16,6 +16,7 @@ package gox
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 	"io"
 	"log"
 	"os"
@@ -26,6 +27,11 @@ import (
 )
 
 // ----------------------------------------------------------------------------
+
+// TypeAST func
+func TypeAST(pkg *Package, typ types.Type) ast.Expr {
+	return toType(pkg, typ)
+}
 
 // ASTFile func
 func ASTFile(pkg *Package, testingFile bool) *ast.File {
