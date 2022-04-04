@@ -843,6 +843,15 @@ func TestVFields(t *testing.T) {
 	if ok {
 		t.Fatal("VFields?")
 	}
+	flds := NewUnionFields([]*UnionField{
+		{Name: "foo"},
+	})
+	if flds.Len() != 1 {
+		t.Fatal("UnionFields.len != 1")
+	}
+	if flds.At(0).Name != "foo" {
+		t.Fatal("UnionField.name != foo")
+	}
 }
 
 // ----------------------------------------------------------------------------
