@@ -39,9 +39,9 @@ func (p *CodeBuilder) EndConst() *Element {
 
 // TypeDecl type
 type TypeDecl struct {
-	typ  *types.Named
-	decl *ast.GenDecl
-	spec *ast.TypeSpec
+	typ   *types.Named
+	decl  *ast.GenDecl
+	scope *types.Scope
 }
 
 // SetComments sets associated documentation.
@@ -65,7 +65,9 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 	} else {
 		p.typ.SetUnderlying(typ)
 	}
-	p.spec.Type = toType(pkg, typ)
+	spec := p.decl.Specs[0].(*ast.TypeSpec)
+	spec.Type = toType(pkg, typ)
+	pkg.appendGenDecl(p.scope, p.decl)
 	return p.typ
 }
 
@@ -93,6 +95,15 @@ func getPos(pos []token.Pos) token.Pos {
 	return pos[0]
 }
 
+func (p *Package) appendGenDecl(scope *types.Scope, decl *ast.GenDecl) {
+	if scope == p.Types.Scope() {
+		idx := p.testingFile
+		p.files[idx].decls = append(p.files[idx].decls, decl)
+	} else {
+		p.cb.emitStmt(&ast.DeclStmt{Decl: decl})
+	}
+}
+
 func (p *Package) doNewType(
 	scope *types.Scope, pos token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {
 	typName := types.NewTypeName(pos, p.Types, name, typ)
@@ -101,18 +112,13 @@ func (p *Package) doNewType(
 	}
 	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
 	decl := &ast.GenDecl{Tok: token.TYPE, Specs: []ast.Spec{spec}}
-	if scope == p.Types.Scope() {
-		idx := p.testingFile
-		p.files[idx].decls = append(p.files[idx].decls, decl)
-	} else {
-		p.cb.emitStmt(&ast.DeclStmt{Decl: decl})
-	}
 	if alias != 0 { // alias don't need to call InitType
 		spec.Type = toType(p, typ)
 		typ = typ.Underlying() // typ.Underlying() may delay load and can be nil, it's reasonable
+		p.appendGenDecl(scope, decl)
 	}
 	named := types.NewNamed(typName, typ, nil)
-	return &TypeDecl{typ: named, decl: decl, spec: spec}
+	return &TypeDecl{typ: named, decl: decl, scope: scope}
 }
 
 // ----------------------------------------------------------------------------
