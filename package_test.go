@@ -601,11 +601,11 @@ func TestTypeCycleDef(t *testing.T) {
 	foo.InitType(pkg, types.NewStruct(fields, nil))
 	domTest(t, pkg, `package main
 
+type a = foo
+type b = a
 type foo struct {
 	p *b
 }
-type a = foo
-type b = a
 `)
 }
 
