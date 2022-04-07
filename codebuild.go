@@ -2325,8 +2325,9 @@ func (p *CodeBuilder) EndStmt() *CodeBuilder {
 		if n != 1 {
 			panic("syntax error: unexpected newline, expecting := or = or comma")
 		}
-		stmt := &ast.ExprStmt{X: p.stk.Pop().Val}
-		p.emitStmt(stmt)
+		if e := p.stk.Pop(); e.CVal == nil { // skip constant
+			p.emitStmt(&ast.ExprStmt{X: e.Val})
+		}
 	}
 	return p
 }
