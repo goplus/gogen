@@ -139,6 +139,16 @@ func TestErrSwitch(t *testing.T) {
 		})
 }
 
+func TestErrTypeRedefined(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:2:5: foo redeclared in this block\n\tprevious declaration at ./foo.gop:1:5", func(pkg *gox.Package) {
+		typ := pkg.NewType("foo", position(1, 5))
+		if typ.Inited() {
+			t.Fatal("NewType failed: inited?")
+		}
+		pkg.NewType("foo", position(2, 5))
+	})
+}
+
 func TestErrTypeSwitch(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: impossible type switch case: v (type interface{Bar()}) cannot have dynamic type int (missing Bar method)",
 		func(pkg *gox.Package) {

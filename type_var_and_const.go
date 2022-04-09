@@ -55,17 +55,25 @@ func (p *TypeDecl) Type() *types.Named {
 	return p.typ
 }
 
+// Inited checkes if `InitType` is called or not.
+func (p *TypeDecl) Inited() bool {
+	return p.decl.Specs[0].(*ast.TypeSpec).Type != nil
+}
+
 // InitType initializes a uncompleted type.
 func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 	if debugInstr {
 		log.Println("InitType", p.typ.Obj().Name(), typ)
+	}
+	spec := p.decl.Specs[0].(*ast.TypeSpec)
+	if spec.Type != nil {
+		log.Panicln("TODO: type already defined -", typ)
 	}
 	if named, ok := typ.(*types.Named); ok {
 		p.typ.SetUnderlying(pkg.cb.getUnderlying(named))
 	} else {
 		p.typ.SetUnderlying(typ)
 	}
-	spec := p.decl.Specs[0].(*ast.TypeSpec)
 	spec.Type = toType(pkg, typ)
 	pkg.appendGenDecl(p.scope, p.decl)
 	return p.typ
@@ -107,8 +115,10 @@ func (p *Package) appendGenDecl(scope *types.Scope, decl *ast.GenDecl) {
 func (p *Package) doNewType(
 	scope *types.Scope, pos token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {
 	typName := types.NewTypeName(pos, p.Types, name, typ)
-	if scope.Insert(typName) != nil {
-		log.Panicln("TODO: type already defined -", name)
+	if old := scope.Insert(typName); old != nil {
+		oldPos := p.cb.position(old.Pos())
+		p.cb.panicCodePosErrorf(
+			pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
 	}
 	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
 	decl := &ast.GenDecl{Tok: token.TYPE, Specs: []ast.Spec{spec}}
