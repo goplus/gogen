@@ -385,7 +385,10 @@ func TestToVariadic(t *testing.T) {
 }
 
 func TestUnderlying(t *testing.T) {
-	bfReft := &bfRefType{}
+	bfReft := &bfRefType{typ: tyInt}
+	if typ, ok := DerefType(bfReft); !ok || typ != tyInt {
+		t.Fatal("TestDerefType failed")
+	}
 	typs := []types.Type{
 		&refType{},
 		bfReft,
