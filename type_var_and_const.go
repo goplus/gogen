@@ -450,11 +450,13 @@ func (p *refType) String() string {
 }
 
 func DerefType(typ types.Type) (types.Type, bool) {
-	t, ok := typ.(*refType)
-	if ok {
-		typ = t.Elem()
+	switch t := typ.(type) {
+	case *refType:
+		return t.Elem(), true
+	case *bfRefType:
+		return t.typ, true
 	}
-	return typ, ok
+	return typ, false
 }
 
 // bfRefType: bit field refType
