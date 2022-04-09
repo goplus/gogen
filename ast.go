@@ -158,10 +158,15 @@ retry:
 		return toFuncType(pkg, t)
 	case *unboundType:
 		if t.tBound == nil {
-			panic("TODO: unbound type")
+			panic("unbound type")
 		}
 		typ = t.tBound
 		goto retry
+	default:
+		if v := reflect.ValueOf(typ).FieldByName("Signature"); v.IsValid() {
+			typ = v.Interface().(types.Type)
+			goto retry
+		}
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil

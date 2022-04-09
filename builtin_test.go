@@ -384,6 +384,22 @@ func TestToVariadic(t *testing.T) {
 	toVariadic(&ast.Field{Type: &ast.Ident{Name: "int"}})
 }
 
+type funcType struct {
+	*types.Signature
+}
+
+func TestToType(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	toType(pkg, &unboundType{tBound: tyInt})
+	toType(pkg, funcType{types.NewSignature(nil, nil, nil, false)})
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestToType: no error?")
+		}
+	}()
+	toType(pkg, &unboundType{})
+}
+
 func TestUnderlying(t *testing.T) {
 	bfReft := &bfRefType{typ: tyInt}
 	if typ, ok := DerefType(bfReft); !ok || typ != tyInt {
