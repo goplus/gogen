@@ -127,7 +127,7 @@ func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 				return fmt.Errorf("TODO: contract.Match %v => %v failed", arg, p.typ.contract)
 			}
 			p.boundTo(pkg, arg, parg)
-		} else if !AssignableTo(pkg, getElemTypeIf(arg, parg), p.tBound) {
+		} else if !AssignableConv(pkg, getElemTypeIf(arg, parg), p.tBound, parg) {
 			if !(isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.parg)) {
 				return &boundTypeError{a: arg, b: p.tBound}
 			}
@@ -180,7 +180,7 @@ func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 	case *types.Signature:
 		panic("TODO: boundType function signature")
 	default:
-		if AssignableTo(pkg, arg, param) {
+		if AssignableConv(pkg, arg, param, parg) {
 			return nil
 		}
 	}
@@ -291,6 +291,9 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *internal.Elem) bool {
 			log.Println("==> AssignableConv", V, T, ok)
 		}
 		return ok
+	}
+	if pkg.implicitCast != nil {
+		return pkg.implicitCast(pkg, V, T, pv)
 	}
 	return false
 }
