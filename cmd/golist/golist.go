@@ -8,6 +8,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"io/fs"
 	"os"
 	"strings"
 )
@@ -33,6 +34,7 @@ func main() {
 		usage()
 		return
 	}
+	initGoEnv()
 
 	var files []*ast.File
 
@@ -41,7 +43,9 @@ func main() {
 	// ParseFile returns an *ast.File, a syntax tree.
 	fset := token.NewFileSet()
 	if infile := flag.Arg(0); isDir(infile) {
-		pkgs, first := parser.ParseDir(fset, infile, nil, 0)
+		pkgs, first := parser.ParseDir(fset, infile, func(fi fs.FileInfo) bool {
+			return !strings.HasSuffix(fi.Name(), "_test.go")
+		}, 0)
 		check(first)
 		for name, pkg := range pkgs {
 			if !strings.HasSuffix(name, "_test") {
