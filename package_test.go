@@ -57,11 +57,15 @@ func init() {
 	gblImp = imp
 }
 
-func newMainPackage() *gox.Package {
+func newMainPackage(
+	implicitCast ...func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool) *gox.Package {
 	conf := &gox.Config{
 		Fset:            gblFset,
 		Importer:        gblImp,
 		NodeInterpreter: nodeInterp{},
+	}
+	if len(implicitCast) > 0 {
+		conf.CanImplicitCast = implicitCast[0]
 	}
 	if handleErr != nil {
 		conf.HandleErr = handleErr
@@ -2727,6 +2731,27 @@ func TestBinaryOpUntyped(t *testing.T) {
 func main() {
 	var a string
 	a = "Hi" + "!"
+}
+`)
+}
+
+func TestImplicitCast(t *testing.T) {
+	pkg := newMainPackage(func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool {
+		log.Println("ImplicitCast:", V, T)
+		*pv = *pkg.CB().Typ(T).Val(pv).Call(1).InternalStack().Pop()
+		return true
+	})
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.Int32], "a").
+		NewVar(types.Typ[types.Int64], "b").
+		VarRef(ctxRef(pkg, "b")).Val(ctxRef(pkg, "a")).AssignOp(token.ADD_ASSIGN).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a int32
+	var b int64
+	b += int64(a)
 }
 `)
 }
