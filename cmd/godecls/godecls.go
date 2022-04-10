@@ -18,7 +18,7 @@ var (
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: golist [source.go ...]\n")
+	fmt.Fprintf(os.Stderr, "Usage: godecls [source.go ...]\n")
 }
 
 func isDir(name string) bool {
