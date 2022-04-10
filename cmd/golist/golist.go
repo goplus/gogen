@@ -62,11 +62,9 @@ func main() {
 	// A Config controls various options of the type checker.
 	// The defaults work fine except for one setting:
 	// we must specify how to deal with imports.
-	ctx := types.NewContext()
 	imp := importer.ForCompiler(fset, "source", nil)
 	conf := types.Config{
 		Importer:                 imp,
-		Context:                  ctx,
 		IgnoreFuncBodies:         true,
 		DisableUnusedImportCheck: true,
 	}
