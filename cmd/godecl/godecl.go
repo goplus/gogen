@@ -11,19 +11,28 @@ import (
 	"io/fs"
 	"os"
 	"strings"
+	"unicode"
 )
 
 var (
-	verbose = flag.Bool("v", false, "print verbose information")
+	internal = flag.Bool("i", false, "print internal declarations")
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: godecls [source.go ...]\n")
+	fmt.Fprintf(os.Stderr, "Usage: godecl [-i] [source.go ...]\n")
+	flag.PrintDefaults()
 }
 
 func isDir(name string) bool {
 	if fi, err := os.Lstat(name); err == nil {
 		return fi.IsDir()
+	}
+	return false
+}
+
+func isPublic(name string) bool {
+	for _, c := range name {
+		return unicode.IsUpper(c)
 	}
 	return false
 }
@@ -81,7 +90,9 @@ func main() {
 	scope := pkg.Scope()
 	names := scope.Names()
 	for _, name := range names {
-		fmt.Println(scope.Lookup(name))
+		if *internal || isPublic(name) {
+			fmt.Println(scope.Lookup(name))
+		}
 	}
 }
 
