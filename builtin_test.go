@@ -34,16 +34,7 @@ var (
 
 func getConf() *Config {
 	fset := token.NewFileSet()
-	conf := &packages.Config{
-		ModPath: "github.com/goplus/gox",
-		Loaded:  make(map[string]*types.Package),
-		Fset:    fset,
-	}
-	imp, _, err := packages.NewImporter(
-		conf, ".", "github.com/goplus/gox/internal/builtin", "github.com/goplus/gox/internal/foo")
-	if err != nil {
-		panic(err)
-	}
+	imp := packages.NewImporter(fset)
 	return &Config{Fset: fset, Importer: imp}
 }
 

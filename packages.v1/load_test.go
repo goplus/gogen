@@ -195,7 +195,7 @@ func TestLoadConf(t *testing.T) {
 func TestImporterNormal(t *testing.T) {
 	conf := &Config{
 		Loaded:  make(map[string]*types.Package),
-		ModPath: "github.com/goplus/gox/packages",
+		ModPath: "github.com/goplus/gox/packages.v1",
 	}
 	p, _, err := NewImporter(conf, ".")
 	if err != nil {
@@ -234,7 +234,7 @@ func TestImporterRecursive(t *testing.T) {
 func TestImporterRecursiveErr(t *testing.T) {
 	conf := &Config{
 		Loaded:  make(map[string]*types.Package),
-		ModPath: "github.com/goplus/gox/packages",
+		ModPath: "github.com/goplus/gox/packages.v1",
 	}
 	p, pkgPaths, err := NewImporter(conf, "/...")
 	if err == nil || err.Error() != "directory `/` outside available modules" {

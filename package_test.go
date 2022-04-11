@@ -37,24 +37,9 @@ var (
 )
 
 func init() {
-	packages.SetDebug(0)
 	gox.SetDebug(gox.DbgFlagAll)
 	gblFset = token.NewFileSet()
-	conf := &packages.Config{
-		ModPath: "github.com/goplus/gox",
-		Loaded:  make(map[string]*types.Package),
-		Fset:    gblFset,
-	}
-	const (
-		pkgfoo = "github.com/goplus/gox/internal/foo"
-		pkgbar = "github.com/goplus/gox/internal/bar"
-	)
-	imp, _, err := packages.NewImporter(
-		conf, ".", "flag", "testing", pkgfoo, pkgbar, "github.com/goplus/gox/internal/builtin")
-	if err != nil {
-		panic(err)
-	}
-	gblImp = imp
+	gblImp = packages.NewImporter(gblFset)
 }
 
 func newMainPackage(
