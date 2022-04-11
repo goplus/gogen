@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/goplus/gox/packages"
 )
 
 type LoadNamedFunc = func(at *Package, typ *types.Named)
@@ -252,6 +254,17 @@ const (
 
 // NewPackage creates a new package.
 func NewPackage(pkgPath, name string, conf *Config) *Package {
+	if conf == nil {
+		conf = new(Config)
+	}
+	fset := conf.Fset
+	if fset == nil {
+		fset = token.NewFileSet()
+	}
+	imp := conf.Importer
+	if imp == nil {
+		imp = packages.NewImporter(fset)
+	}
 	newBuiltin := conf.NewBuiltin
 	if newBuiltin == nil {
 		newBuiltin = newBuiltinDefault
@@ -261,11 +274,11 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		{importPkgs: make(map[string]*PkgRef)},
 	}
 	pkg := &Package{
-		Fset:  conf.Fset,
+		Fset:  fset,
 		files: files,
 		conf:  conf,
 	}
-	pkg.imp = conf.Importer
+	pkg.imp = imp
 	pkg.pkgPath = pkgPath
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.builtin = newBuiltin(pkg, conf)

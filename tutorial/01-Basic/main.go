@@ -3,11 +3,9 @@ package main
 import (
 	"go/token"
 	"go/types"
-	"log"
 	"os"
 
 	"github.com/goplus/gox"
-	"github.com/goplus/gox/packages.v1"
 )
 
 func ctxRef(pkg *gox.Package, name string) gox.Ref {
@@ -15,15 +13,7 @@ func ctxRef(pkg *gox.Package, name string) gox.Ref {
 }
 
 func main() {
-	conf := &packages.Config{
-		ModRoot: "../..",
-		ModPath: "github.com/goplus/gox",
-	}
-	imp, _, err := packages.NewImporter(conf, ".", "fmt", "strings", "strconv")
-	if err != nil {
-		log.Fatal("\n", err)
-	}
-	pkg := gox.NewPackage("", "main", &gox.Config{Importer: imp})
+	pkg := gox.NewPackage("", "main", nil)
 	fmt := pkg.Import("fmt")
 	v := pkg.NewParam(token.NoPos, "v", types.Typ[types.String]) // v string
 
