@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/goplus/gox"
-	"github.com/goplus/gox/packages"
+	"github.com/goplus/gox/packages.v1"
 )
 
 func ctxRef(pkg *gox.Package, name string) gox.Ref {

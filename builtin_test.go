@@ -25,7 +25,7 @@ import (
 
 	"github.com/goplus/gox/internal"
 	"github.com/goplus/gox/internal/go/format"
-	"github.com/goplus/gox/packages"
+	"github.com/goplus/gox/packages.v1"
 )
 
 var (

@@ -26,7 +26,7 @@ import (
 	"unsafe"
 
 	"github.com/goplus/gox"
-	"github.com/goplus/gox/packages"
+	"github.com/goplus/gox/packages.v1"
 	"golang.org/x/tools/go/gcexportdata"
 )
 
