@@ -63,7 +63,7 @@ func TestContractName(t *testing.T) {
 }
 
 func TestContract(t *testing.T) {
-	pkg := NewPackage("", "foo", gblConf)
+	pkg := NewPackage("", "foo", nil)
 	at := types.NewPackage("foo", "foo")
 	foo := pkg.Import("github.com/goplus/gox/internal/foo")
 	tfoo := foo.Ref("Foo").Type()
