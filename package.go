@@ -91,7 +91,7 @@ type Config struct {
 	NewBuiltin func(pkg PkgImporter, conf *Config) *types.Package
 
 	// CanImplicitCast checkes can cast V to T implicitly.
-	// CanImplicitCast func(pkg *Package, V, T types.Type, pv *Element) bool
+	CanImplicitCast func(pkg *Package, V, T types.Type, pv *Element) bool
 
 	// untyped bigint, untyped bigrat, untyped bigfloat
 	UntypedBigInt, UntypedBigRat, UntypedBigFloat *types.Named
@@ -245,7 +245,7 @@ type Package struct {
 	autoIdx        int
 	testingFile    int
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
-	// implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
+	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
 }
 
 const (
@@ -282,7 +282,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	pkg.pkgPath = pkgPath
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.builtin = newBuiltin(pkg, conf)
-	// pkg.implicitCast = conf.CanImplicitCast
+	pkg.implicitCast = conf.CanImplicitCast
 	pkg.utBigInt = conf.UntypedBigInt
 	pkg.utBigRat = conf.UntypedBigRat
 	pkg.utBigFlt = conf.UntypedBigFloat
