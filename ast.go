@@ -705,73 +705,22 @@ func checkParenExpr(x ast.Expr) ast.Expr {
 	return x
 }
 
-/*
-func checkParenBinaryExpr(x ast.Expr, op token.Token, delta int) ast.Expr {
-	switch v := x.(type) {
-	case *ast.BinaryExpr:
-		if bopPrecedences[op]+delta > bopPrecedences[v.Op] {
-			return &ast.ParenExpr{X: x}
-		}
-		return x
-	}
-	return checkParenExpr(x)
+type backupElem struct {
+	typ types.Type
+	val ast.Expr
 }
 
-const (
-	precedence1 = (iota << 1) + 1
-	precedence2
-	precedence3
-	precedence4
-	precedence5
-)
-
-var (
-	//
-		BinaryOp Precedences:
-			5             *  /  %  <<  >>  &  &^
-			4             +  -  |  ^
-			3             ==  !=  <  <=  >  >=
-			2             &&
-			1             ||
-	//
-	bopPrecedences = [...]int{
-		token.MUL:     precedence5,
-		token.QUO:     precedence5,
-		token.REM:     precedence5,
-		token.SHL:     precedence5,
-		token.SHR:     precedence5,
-		token.AND:     precedence5,
-		token.AND_NOT: precedence5,
-
-		token.ADD: precedence4,
-		token.SUB: precedence4,
-		token.OR:  precedence4,
-		token.XOR: precedence4,
-
-		token.EQL: precedence3,
-		token.NEQ: precedence3,
-		token.LSS: precedence3,
-		token.LEQ: precedence3,
-		token.GTR: precedence3,
-		token.GEQ: precedence3,
-
-		token.LAND: precedence2,
-		token.LOR:  precedence1,
-	}
-)
-*/
-
-func backupArgs(args []*internal.Elem) []ast.Expr {
-	backup := make([]ast.Expr, len(args))
+func backupArgs(args []*internal.Elem) []backupElem {
+	backup := make([]backupElem, len(args))
 	for i, arg := range args {
-		backup[i] = arg.Val
+		backup[i].typ, backup[i].val = arg.Type, arg.Val
 	}
 	return backup
 }
 
-func restoreArgs(args []*internal.Elem, backup []ast.Expr) {
+func restoreArgs(args []*internal.Elem, backup []backupElem) {
 	for i, arg := range args {
-		arg.Val = backup[i]
+		arg.Type, arg.Val = backup[i].typ, backup[i].val
 	}
 }
 
