@@ -1811,6 +1811,25 @@ retry:
 `)
 }
 
+func TestMultiLabel(t *testing.T) {
+	pkg := newMainPackage()
+	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+	l := cb.NewLabel(token.NoPos, "retry")
+	l2 := cb.NewLabel(token.NoPos, "retry2")
+	cb.Label(l).Label(l2).Goto(l).Goto(l2).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+retry:
+	;
+retry2:
+	goto retry
+	goto retry2
+}
+`)
+}
+
 func TestBreakContinue(t *testing.T) { // TODO: check invalid syntax
 	pkg := newMainPackage()
 	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
