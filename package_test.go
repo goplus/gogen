@@ -343,6 +343,29 @@ func main() {
 `)
 }
 
+func TestTypeConvBool(t *testing.T) { // TypeCast
+	pkg := newMainPackage()
+	tyBool := types.Typ[types.Bool]
+	tyInt := types.Typ[types.Uint32]
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tyBool, "a").Val(false).EndInit(1).
+		NewVarStart(tyInt, "b").Typ(tyInt).Val(ctxRef(pkg, "a")).Call(1).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a bool = false
+	var b uint32 = func() uint32 {
+		if a {
+			return 1
+		} else {
+			return 0
+		}
+	}()
+}
+`)
+}
+
 func TestIncDec(t *testing.T) {
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint]
