@@ -464,12 +464,20 @@ func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.
 	return nil
 }
 
+func isBool(cb *CodeBuilder, arg *internal.Elem) bool { // is bool
+	return isBasicKind(cb, arg, types.IsBoolean)
+}
+
 func isNormalInt(cb *CodeBuilder, arg *internal.Elem) bool { // is integer but not bigint
+	return isBasicKind(cb, arg, types.IsInteger)
+}
+
+func isBasicKind(cb *CodeBuilder, arg *internal.Elem, kind types.BasicInfo) bool {
 	argType := arg.Type
 retry:
 	switch t := argType.(type) {
 	case *types.Basic:
-		return (t.Info() & types.IsInteger) != 0
+		return (t.Info() & kind) != 0
 	case *types.Named:
 		argType = cb.getUnderlying(t)
 		goto retry
@@ -587,18 +595,25 @@ retry:
 			sig = t
 		}
 	case *TypeType: // type convert
+		fnVal := fn.Val
+		typ := t.typ
+		switch typ.(type) {
+		case *types.Pointer, *types.Chan:
+			fnVal = &ast.ParenExpr{X: fnVal}
+		case *types.Basic:
+			if len(args) == 1 {
+				if ret, ok := CastFromBool(&pkg.cb, typ, args[0]); ok {
+					return ret, nil
+				}
+			}
+		}
 		valArgs := make([]ast.Expr, len(args))
 		for i, v := range args { // TODO: type check
 			valArgs[i] = v.Val
 		}
-		fnVal := fn.Val
-		switch t.typ.(type) {
-		case *types.Pointer, *types.Chan:
-			fnVal = &ast.ParenExpr{X: fnVal}
-		}
 		ret = &internal.Elem{
 			Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
-			Type: t.typ,
+			Type: typ,
 		}
 		if len(args) == 1 { // TODO: const value may changed by type-convert
 			ret.CVal = args[0].CVal
@@ -691,6 +706,21 @@ retry:
 		Type: tyRet, CVal: cval,
 		Val: &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 	}, nil
+}
+
+// CastFromBool tries to cast a bool expression into integer. typ must be an integer type.
+func CastFromBool(cb *CodeBuilder, typ types.Type, v *Element) (ret *Element, ok bool) {
+	if ok = isBool(cb, v); ok {
+		pkg := cb.pkg
+		results := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", typ))
+		ret = cb.NewClosure(nil, results, false).BodyStart(pkg).
+			If().Val(v).Then().Val(1).Return(1).
+			Else().Val(0).Return(1).
+			End().
+			End().Call(0).
+			InternalStack().Pop()
+	}
+	return
 }
 
 func isPointer(typ types.Type) bool {
