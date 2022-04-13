@@ -2208,6 +2208,10 @@ func (p *CodeBuilder) Label(l *Label) *CodeBuilder {
 	if debugInstr {
 		log.Println("Label", name)
 	}
+	if p.current.label != nil {
+		p.current.label.Stmt = &ast.EmptyStmt{}
+		p.current.stmts = append(p.current.stmts, p.current.label)
+	}
 	p.current.label = &ast.LabeledStmt{Label: ident(name)}
 	return p
 }
