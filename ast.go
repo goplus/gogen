@@ -464,12 +464,20 @@ func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.
 	return nil
 }
 
+func isBool(cb *CodeBuilder, arg *internal.Elem) bool { // is bool
+	return isBasicKind(cb, arg, types.IsBoolean)
+}
+
 func isNormalInt(cb *CodeBuilder, arg *internal.Elem) bool { // is integer but not bigint
+	return isBasicKind(cb, arg, types.IsInteger)
+}
+
+func isBasicKind(cb *CodeBuilder, arg *internal.Elem, kind types.BasicInfo) bool {
 	argType := arg.Type
 retry:
 	switch t := argType.(type) {
 	case *types.Basic:
-		return (t.Info() & types.IsInteger) != 0
+		return (t.Info() & kind) != 0
 	case *types.Named:
 		argType = cb.getUnderlying(t)
 		goto retry
@@ -587,18 +595,25 @@ retry:
 			sig = t
 		}
 	case *TypeType: // type convert
+		fnVal := fn.Val
+		typ := t.typ
+		switch typ.(type) {
+		case *types.Pointer, *types.Chan:
+			fnVal = &ast.ParenExpr{X: fnVal}
+		case *types.Basic:
+			if len(args) == 1 {
+				if ret, ok := CastFromBool(&pkg.cb, typ, args[0]); ok {
+					return ret, nil
+				}
+			}
+		}
 		valArgs := make([]ast.Expr, len(args))
 		for i, v := range args { // TODO: type check
 			valArgs[i] = v.Val
 		}
-		fnVal := fn.Val
-		switch t.typ.(type) {
-		case *types.Pointer, *types.Chan:
-			fnVal = &ast.ParenExpr{X: fnVal}
-		}
 		ret = &internal.Elem{
 			Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
-			Type: t.typ,
+			Type: typ,
 		}
 		if len(args) == 1 { // TODO: const value may changed by type-convert
 			ret.CVal = args[0].CVal
@@ -693,6 +708,21 @@ retry:
 	}, nil
 }
 
+// CastFromBool tries to cast a bool expression into integer. typ must be an integer type.
+func CastFromBool(cb *CodeBuilder, typ types.Type, v *Element) (ret *Element, ok bool) {
+	if ok = isBool(cb, v); ok {
+		pkg := cb.pkg
+		results := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", typ))
+		ret = cb.NewClosure(nil, results, false).BodyStart(pkg).
+			If().Val(v).Then().Val(1).Return(1).
+			Else().Val(0).Return(1).
+			End().
+			End().Call(0).
+			InternalStack().Pop()
+	}
+	return
+}
+
 func isPointer(typ types.Type) bool {
 	_, ok := typ.(*types.Pointer)
 	return ok
@@ -705,73 +735,22 @@ func checkParenExpr(x ast.Expr) ast.Expr {
 	return x
 }
 
-/*
-func checkParenBinaryExpr(x ast.Expr, op token.Token, delta int) ast.Expr {
-	switch v := x.(type) {
-	case *ast.BinaryExpr:
-		if bopPrecedences[op]+delta > bopPrecedences[v.Op] {
-			return &ast.ParenExpr{X: x}
-		}
-		return x
-	}
-	return checkParenExpr(x)
+type backupElem struct {
+	typ types.Type
+	val ast.Expr
 }
 
-const (
-	precedence1 = (iota << 1) + 1
-	precedence2
-	precedence3
-	precedence4
-	precedence5
-)
-
-var (
-	//
-		BinaryOp Precedences:
-			5             *  /  %  <<  >>  &  &^
-			4             +  -  |  ^
-			3             ==  !=  <  <=  >  >=
-			2             &&
-			1             ||
-	//
-	bopPrecedences = [...]int{
-		token.MUL:     precedence5,
-		token.QUO:     precedence5,
-		token.REM:     precedence5,
-		token.SHL:     precedence5,
-		token.SHR:     precedence5,
-		token.AND:     precedence5,
-		token.AND_NOT: precedence5,
-
-		token.ADD: precedence4,
-		token.SUB: precedence4,
-		token.OR:  precedence4,
-		token.XOR: precedence4,
-
-		token.EQL: precedence3,
-		token.NEQ: precedence3,
-		token.LSS: precedence3,
-		token.LEQ: precedence3,
-		token.GTR: precedence3,
-		token.GEQ: precedence3,
-
-		token.LAND: precedence2,
-		token.LOR:  precedence1,
-	}
-)
-*/
-
-func backupArgs(args []*internal.Elem) []ast.Expr {
-	backup := make([]ast.Expr, len(args))
+func backupArgs(args []*internal.Elem) []backupElem {
+	backup := make([]backupElem, len(args))
 	for i, arg := range args {
-		backup[i] = arg.Val
+		backup[i].typ, backup[i].val = arg.Type, arg.Val
 	}
 	return backup
 }
 
-func restoreArgs(args []*internal.Elem, backup []ast.Expr) {
+func restoreArgs(args []*internal.Elem, backup []backupElem) {
 	for i, arg := range args {
-		arg.Val = backup[i]
+		arg.Type, arg.Val = backup[i].typ, backup[i].val
 	}
 }
 

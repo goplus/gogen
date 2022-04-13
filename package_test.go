@@ -50,7 +50,7 @@ func newMainPackage(
 		NodeInterpreter: nodeInterp{},
 	}
 	if len(implicitCast) > 0 {
-		// conf.CanImplicitCast = implicitCast[0]
+		conf.CanImplicitCast = implicitCast[0]
 	}
 	if handleErr != nil {
 		conf.HandleErr = handleErr
@@ -339,6 +339,29 @@ func TestTypeConv(t *testing.T) { // TypeCast
 func main() {
 	var a uint32 = uint32(0)
 	var b *uint32 = (*uint32)(nil)
+}
+`)
+}
+
+func TestTypeConvBool(t *testing.T) { // TypeCast
+	pkg := newMainPackage()
+	tyBool := types.Typ[types.Bool]
+	tyInt := types.Typ[types.Uint32]
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tyBool, "a").Val(false).EndInit(1).
+		NewVarStart(tyInt, "b").Typ(tyInt).Val(ctxRef(pkg, "a")).Call(1).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a bool = false
+	var b uint32 = func() uint32 {
+		if a {
+			return 1
+		} else {
+			return 0
+		}
+	}()
 }
 `)
 }
@@ -1788,6 +1811,25 @@ retry:
 `)
 }
 
+func TestMultiLabel(t *testing.T) {
+	pkg := newMainPackage()
+	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+	l := cb.NewLabel(token.NoPos, "retry")
+	l2 := cb.NewLabel(token.NoPos, "retry2")
+	cb.Label(l).Label(l2).Goto(l).Goto(l2).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+retry:
+	;
+retry2:
+	goto retry
+	goto retry2
+}
+`)
+}
+
 func TestBreakContinue(t *testing.T) { // TODO: check invalid syntax
 	pkg := newMainPackage()
 	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
@@ -2720,7 +2762,7 @@ func main() {
 `)
 }
 
-func _TestImplicitCast(t *testing.T) {
+func TestImplicitCast(t *testing.T) {
 	pkg := newMainPackage(func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool {
 		log.Println("ImplicitCast:", V, T)
 		*pv = *pkg.CB().Typ(T).Val(pv).Call(1).InternalStack().Pop()
