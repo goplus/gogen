@@ -222,6 +222,7 @@ func (p *CodeBuilder) Pkg() *Package {
 
 func (p *CodeBuilder) startFuncBody(fn *Func, old *funcBodyCtx) *CodeBuilder {
 	p.current.fn, old.fn = fn, p.current.fn
+	p.current.labels, old.labels = nil, p.current.labels
 	p.startBlockStmt(fn, "func "+fn.Name(), &old.codeBlockCtx)
 	scope := p.current.scope
 	sig := fn.Type().(*types.Signature)
@@ -245,6 +246,7 @@ func insertParams(scope *types.Scope, params *types.Tuple) {
 func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
 	p.current.checkLabels(p)
 	p.current.fn = old.fn
+	p.current.labels = old.labels
 	stmts, _ := p.endBlockStmt(&old.codeBlockCtx)
 	return stmts
 }
