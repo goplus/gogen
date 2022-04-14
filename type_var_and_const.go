@@ -133,12 +133,12 @@ func (p *Package) doNewType(
 
 // ----------------------------------------------------------------------------
 
-// VarDecl type
-type VarDecl struct {
+// ValueDecl type
+type ValueDecl struct {
 	names []string
 	typ   types.Type
 	old   codeBlock
-	oldv  *VarDecl
+	oldv  *ValueDecl
 	scope *types.Scope
 	vals  *[]ast.Expr
 	tok   token.Token
@@ -146,17 +146,21 @@ type VarDecl struct {
 	at    int // commitStmt(at)
 }
 
-func (p *VarDecl) InitStart(pkg *Package) *CodeBuilder {
-	p.oldv, pkg.cb.varDecl = pkg.cb.varDecl, p
+func (p *ValueDecl) InitStart(pkg *Package) *CodeBuilder {
+	p.oldv, pkg.cb.valDecl = pkg.cb.valDecl, p
 	p.old = pkg.cb.startInitExpr(p)
 	return &pkg.cb
 }
 
-func (p *VarDecl) End(cb *CodeBuilder) {
+func (p *ValueDecl) Ref(name string) Ref {
+	return p.scope.Lookup(name)
+}
+
+func (p *ValueDecl) End(cb *CodeBuilder) {
 	fatal("don't call End(), please use EndInit() instead")
 }
 
-func (p *VarDecl) resetInit(cb *CodeBuilder) *VarDecl {
+func (p *ValueDecl) resetInit(cb *CodeBuilder) *ValueDecl {
 	cb.endInitExpr(p.old)
 	if p.at >= 0 {
 		cb.commitStmt(p.at) // to support inline call, we must emitStmt at ResetInit stage
@@ -169,7 +173,7 @@ func checkTuple(t **types.Tuple, typ types.Type) (ok bool) {
 	return
 }
 
-func (p *VarDecl) endInit(cb *CodeBuilder, arity int) *VarDecl {
+func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	var t *types.Tuple
 	var expr *ast.Expr
 	var values []ast.Expr
@@ -257,13 +261,11 @@ func (p *VarDecl) endInit(cb *CodeBuilder, arity int) *VarDecl {
 	return p.oldv
 }
 
-// ValueDecl type (only for internal use).
-//
-// Deprecated: Use VarDecl instead.
-type ValueDecl = VarDecl
+// VarDecl type
+type VarDecl = ValueDecl
 
 func (p *Package) newValueDecl(
-	cdecl *ConstDecl, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
+	vdecl *ValueDefs, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
 	n := len(names)
 	if tok == token.DEFINE { // a, b := expr
 		noNewVar := true
@@ -302,16 +304,12 @@ func (p *Package) newValueDecl(
 			spec.Type = toType(p, typ)
 		}
 	}
-	var inAST bool
-	var decl *ast.GenDecl
-	if cdecl != nil {
-		decl, inAST, cdecl.inAST = cdecl.decl, cdecl.inAST, true
+	at := -1
+	if vdecl != nil {
+		decl := vdecl.decl
 		decl.Specs = append(decl.Specs, spec)
 	} else {
-		decl = &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
-	}
-	at := -1
-	if !inAST {
+		decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
 		if scope == p.Types.Scope() {
 			idx := p.testingFile
 			p.files[idx].decls = append(p.files[idx].decls, decl)
@@ -323,9 +321,21 @@ func (p *Package) newValueDecl(
 		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: at}
 }
 
+func (p *Package) newValueDefs(scope *types.Scope, tok token.Token) *ValueDefs {
+	at := -1
+	decl := &ast.GenDecl{Tok: tok}
+	if scope == p.Types.Scope() {
+		idx := p.testingFile
+		p.files[idx].decls = append(p.files[idx].decls, decl)
+	} else {
+		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
+	}
+	return &ValueDefs{pkg: p, scope: scope, decl: decl, at: at}
+}
+
 // NewConstStart creates constants with names.
 //
-// Deprecated: Use NewConstDecl instead.
+// Deprecated: Use NewConstDefs instead.
 func (p *Package) NewConstStart(scope *types.Scope, pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("NewConst", names)
@@ -333,12 +343,19 @@ func (p *Package) NewConstStart(scope *types.Scope, pos token.Pos, typ types.Typ
 	return p.newValueDecl(nil, scope, pos, token.CONST, typ, names...).InitStart(p)
 }
 
-func (p *Package) NewConstDecl(scope *types.Scope) *ConstDecl {
+// NewConstDecl starts a constant declaration block.
+//
+// Deprecated: Use NewConstDefs instead.
+func (p *Package) NewConstDecl(scope *types.Scope) *ConstDefs {
+	return p.NewConstDefs(scope)
+}
+
+// NewConstDefs starts a constant declaration block.
+func (p *Package) NewConstDefs(scope *types.Scope) *ConstDefs {
 	if debugInstr {
-		log.Println("NewConstDecl")
+		log.Println("NewConstDefs")
 	}
-	decl := &ast.GenDecl{Tok: token.CONST}
-	return &ConstDecl{pkg: p, scope: scope, decl: decl}
+	return &ConstDefs{ValueDefs: *p.newValueDefs(scope, token.CONST)}
 }
 
 func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *VarDecl {
@@ -362,15 +379,51 @@ func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *C
 	return p.newValueDecl(nil, p.Types.Scope(), pos, token.VAR, typ, names...).InitStart(p)
 }
 
+// NewVarDefs starts a constant declaration block.
+func (p *Package) NewVarDefs(scope *types.Scope) *VarDefs {
+	if debugInstr {
+		log.Println("NewVarDefs")
+	}
+	return (*VarDefs)(p.newValueDefs(scope, token.VAR))
+}
+
 // ----------------------------------------------------------------------------
 
-type ConstDecl struct {
+type ValueDefs struct {
 	decl  *ast.GenDecl
 	scope *types.Scope
 	pkg   *Package
-	fn    func(cb *CodeBuilder) int
-	typ   types.Type
-	inAST bool
+	at    int
+}
+
+type VarDefs ValueDefs
+
+func (p *VarDefs) New(pos token.Pos, typ types.Type, names ...string) *VarDecl {
+	if debugInstr {
+		log.Println("NewVar", names)
+	}
+	return p.pkg.newValueDecl((*ValueDefs)(p), p.scope, pos, token.VAR, typ, names...)
+}
+
+func (p *VarDefs) NewAndInit(fn func(cb *CodeBuilder) int, pos token.Pos, typ types.Type, names ...string) *VarDefs {
+	if debugInstr {
+		log.Println("NewAndInit", names)
+	}
+	decl := p.pkg.newValueDecl((*ValueDefs)(p), p.scope, pos, token.VAR, typ, names...)
+	if fn != nil {
+		cb := decl.InitStart(p.pkg)
+		n := fn(cb)
+		cb.EndInit(n)
+	}
+	return p
+}
+
+// ----------------------------------------------------------------------------
+
+type ConstDefs struct {
+	ValueDefs
+	fn  func(cb *CodeBuilder) int
+	typ types.Type
 }
 
 func constInitFn(cb *CodeBuilder, iotav int, fn func(cb *CodeBuilder) int) int {
@@ -382,20 +435,20 @@ func constInitFn(cb *CodeBuilder, iotav int, fn func(cb *CodeBuilder) int) int {
 	return fn(cb)
 }
 
-func (p *ConstDecl) New(
-	fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDecl {
+func (p *ConstDefs) New(
+	fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDefs {
 	if debugInstr {
 		log.Println("NewConst", names, iotav)
 	}
 	pkg := p.pkg
-	cb := pkg.newValueDecl(p, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
+	cb := pkg.newValueDecl(&p.ValueDefs, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
 	n := constInitFn(cb, iotav, fn)
 	cb.EndInit(n)
 	p.fn, p.typ = fn, typ
 	return p
 }
 
-func (p *ConstDecl) Next(iotav int, pos token.Pos, names ...string) *ConstDecl {
+func (p *ConstDefs) Next(iotav int, pos token.Pos, names ...string) *ConstDefs {
 	pkg := p.pkg
 	cb := pkg.CB()
 	n := constInitFn(cb, iotav, p.fn)
@@ -428,6 +481,11 @@ func (p *ConstDecl) Next(iotav int, pos token.Pos, names ...string) *ConstDecl {
 	p.decl.Specs = append(p.decl.Specs, spec)
 	return p
 }
+
+// ConstDecl type
+//
+// Deprecated: Use ConstDefs instead.
+type ConstDecl = ConstDefs
 
 // ----------------------------------------------------------------------------
 
