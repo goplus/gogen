@@ -1172,7 +1172,8 @@ const (
 
 func TestVarDecl(t *testing.T) {
 	pkg := newMainPackage()
-	decl := pkg.NewVarDefs(pkg.CB().Scope()).NewAndInit(func(cb *gox.CodeBuilder) int {
+	scope := pkg.CB().Scope()
+	decl := pkg.NewVarDefs(scope).NewAndInit(func(cb *gox.CodeBuilder) int {
 		cb.Val(1).Val(2).BinaryOp(token.ADD).
 			Val("1").Val("2").BinaryOp(token.ADD)
 		return 2
@@ -1180,7 +1181,10 @@ func TestVarDecl(t *testing.T) {
 	pkg.CB().NewVarStart(types.Typ[types.String], "x").
 		Val("Hello, ").Val("Go+").BinaryOp(token.ADD).
 		EndInit(1)
-	decl.New(token.NoPos, types.Typ[types.String], "y")
+	if decl.New(token.NoPos, types.Typ[types.String], "y").Ref("y") == nil {
+		t.Fatal("TestVarDecl failed: var y not found")
+	}
+	pkg.NewVarDefs(scope) // no variables, ignore
 	domTest(t, pkg, `package main
 
 var (
@@ -1188,6 +1192,7 @@ var (
 	y    string
 )
 var x string = "Hello, " + "Go+"
+
 `)
 }
 
