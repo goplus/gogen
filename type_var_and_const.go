@@ -394,17 +394,16 @@ type ValueDefs struct {
 
 type VarDefs ValueDefs
 
-func (p *VarDefs) New(pos token.Pos, typ types.Type, names ...string) *VarDefs {
+func (p *VarDefs) New(pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	p.pkg.newValueDecl((*ValueDefs)(p), p.scope, pos, token.VAR, typ, names...)
-	return p
+	return p.pkg.newValueDecl((*ValueDefs)(p), p.scope, pos, token.VAR, typ, names...)
 }
 
-func (p *VarDefs) NewEx(fn func(cb *CodeBuilder) int, pos token.Pos, typ types.Type, names ...string) *VarDefs {
+func (p *VarDefs) NewAndInit(fn func(cb *CodeBuilder) int, pos token.Pos, typ types.Type, names ...string) *VarDefs {
 	if debugInstr {
-		log.Println("NewVar", names)
+		log.Println("NewAndInit", names)
 	}
 	decl := p.pkg.newValueDecl((*ValueDefs)(p), p.scope, pos, token.VAR, typ, names...)
 	if fn != nil {
