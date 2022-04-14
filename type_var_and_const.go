@@ -261,7 +261,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 type VarDecl = ValueDecl
 
 func (p *Package) newValueDecl(
-	cdecl *ConstDefs, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
+	vdecl *ValueDefs, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
 	n := len(names)
 	if tok == token.DEFINE { // a, b := expr
 		noNewVar := true
@@ -301,8 +301,8 @@ func (p *Package) newValueDecl(
 		}
 	}
 	at := -1
-	if cdecl != nil {
-		decl := cdecl.decl
+	if vdecl != nil {
+		decl := vdecl.decl
 		decl.Specs = append(decl.Specs, spec)
 	} else {
 		decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
@@ -351,7 +351,7 @@ func (p *Package) NewConstDefs(scope *types.Scope) *ConstDefs {
 	if debugInstr {
 		log.Println("NewConstDefs")
 	}
-	return (*ConstDefs)(p.newValueDefs(scope, token.CONST))
+	return &ConstDefs{ValueDefs: *p.newValueDefs(scope, token.CONST)}
 }
 
 func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *VarDecl {
@@ -375,18 +375,53 @@ func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *C
 	return p.newValueDecl(nil, p.Types.Scope(), pos, token.VAR, typ, names...).InitStart(p)
 }
 
+// NewVarDefs starts a constant declaration block.
+func (p *Package) NewVarDefs(scope *types.Scope) *VarDefs {
+	if debugInstr {
+		log.Println("NewVarDefs")
+	}
+	return (*VarDefs)(p.newValueDefs(scope, token.VAR))
+}
+
 // ----------------------------------------------------------------------------
 
 type ValueDefs struct {
 	decl  *ast.GenDecl
 	scope *types.Scope
 	pkg   *Package
-	fn    func(cb *CodeBuilder) int
-	typ   types.Type
 	at    int
 }
 
-type ConstDefs ValueDefs
+type VarDefs ValueDefs
+
+func (p *VarDefs) New(pos token.Pos, typ types.Type, names ...string) *VarDefs {
+	if debugInstr {
+		log.Println("NewVar", names)
+	}
+	p.pkg.newValueDecl((*ValueDefs)(p), p.scope, pos, token.VAR, typ, names...)
+	return p
+}
+
+func (p *VarDefs) NewEx(fn func(cb *CodeBuilder) int, pos token.Pos, typ types.Type, names ...string) *VarDefs {
+	if debugInstr {
+		log.Println("NewVar", names)
+	}
+	decl := p.pkg.newValueDecl((*ValueDefs)(p), p.scope, pos, token.VAR, typ, names...)
+	if fn != nil {
+		cb := decl.InitStart(p.pkg)
+		n := fn(cb)
+		cb.EndInit(n)
+	}
+	return p
+}
+
+// ----------------------------------------------------------------------------
+
+type ConstDefs struct {
+	ValueDefs
+	fn  func(cb *CodeBuilder) int
+	typ types.Type
+}
 
 func constInitFn(cb *CodeBuilder, iotav int, fn func(cb *CodeBuilder) int) int {
 	oldv := cb.iotav
@@ -403,7 +438,7 @@ func (p *ConstDefs) New(
 		log.Println("NewConst", names, iotav)
 	}
 	pkg := p.pkg
-	cb := pkg.newValueDecl(p, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
+	cb := pkg.newValueDecl(&p.ValueDefs, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
 	n := constInitFn(cb, iotav, fn)
 	cb.EndInit(n)
 	p.fn, p.typ = fn, typ
