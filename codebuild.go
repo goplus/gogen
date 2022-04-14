@@ -98,7 +98,7 @@ type CodeBuilder struct {
 	current   funcBodyCtx
 	comments  *ast.CommentGroup
 	pkg       *Package
-	varDecl   *VarDecl
+	valDecl   *ValueDecl
 	interp    NodeInterpreter
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
@@ -2369,7 +2369,7 @@ func (p *CodeBuilder) ResetInit() {
 	if debugInstr {
 		log.Println("ResetInit")
 	}
-	p.varDecl = p.varDecl.resetInit(p)
+	p.valDecl = p.valDecl.resetInit(p)
 }
 
 // EndInit func
@@ -2377,7 +2377,7 @@ func (p *CodeBuilder) EndInit(n int) *CodeBuilder {
 	if debugInstr {
 		log.Println("EndInit", n)
 	}
-	p.varDecl = p.varDecl.endInit(p, n)
+	p.valDecl = p.valDecl.endInit(p, n)
 	return p
 }
 
