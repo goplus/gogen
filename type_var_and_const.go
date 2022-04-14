@@ -152,6 +152,10 @@ func (p *ValueDecl) InitStart(pkg *Package) *CodeBuilder {
 	return &pkg.cb
 }
 
+func (p *ValueDecl) Ref(name string) Ref {
+	return p.scope.Lookup(name)
+}
+
 func (p *ValueDecl) End(cb *CodeBuilder) {
 	fatal("don't call End(), please use EndInit() instead")
 }
