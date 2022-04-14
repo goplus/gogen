@@ -1172,7 +1172,7 @@ const (
 
 func TestVarDecl(t *testing.T) {
 	pkg := newMainPackage()
-	decl := pkg.NewVarDefs(pkg.CB().Scope()).NewEx(func(cb *gox.CodeBuilder) int {
+	decl := pkg.NewVarDefs(pkg.CB().Scope()).NewAndInit(func(cb *gox.CodeBuilder) int {
 		cb.Val(1).Val(2).BinaryOp(token.ADD).
 			Val("1").Val("2").BinaryOp(token.ADD)
 		return 2
