@@ -1091,17 +1091,23 @@ func TestConstLenCap(t *testing.T) {
 
 func TestConstDecl(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.CB().NewConstStart(nil, "n").
-		Val(1).Val(2).BinaryOp(token.ADD).EndInit(1)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+	pkg.NewConstDefs(pkg.CB().Scope()).New(func(cb *gox.CodeBuilder) int {
+		cb.Val(1).Val(2).BinaryOp(token.ADD)
+		return 1
+	}, 0, token.NoPos, nil, "n")
 	pkg.CB().NewConstStart(types.Typ[types.String], "x").
 		Val("1").Val("2").BinaryOp(token.ADD).EndInit(1)
 	pkg.CB().NewConstStart(types.Typ[types.String], "y").
-		Val("Hello").EndInit(1)
+		Val("Hello").EndInit(1).
+		End()
 	domTest(t, pkg, `package main
 
-const n = 1 + 2
-const x string = "1" + "2"
-const y string = "Hello"
+func main() {
+	const n = 1 + 2
+	const x string = "1" + "2"
+	const y string = "Hello"
+}
 `)
 }
 

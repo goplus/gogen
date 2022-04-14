@@ -300,16 +300,12 @@ func (p *Package) newValueDecl(
 			spec.Type = toType(p, typ)
 		}
 	}
-	var inAST bool
-	var decl *ast.GenDecl
+	at := -1
 	if cdecl != nil {
-		decl, inAST, cdecl.inAST = cdecl.decl, cdecl.inAST, true
+		decl := cdecl.decl
 		decl.Specs = append(decl.Specs, spec)
 	} else {
-		decl = &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
-	}
-	at := -1
-	if !inAST {
+		decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
 		if scope == p.Types.Scope() {
 			idx := p.testingFile
 			p.files[idx].decls = append(p.files[idx].decls, decl)
@@ -319,6 +315,18 @@ func (p *Package) newValueDecl(
 	}
 	return &ValueDecl{
 		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: at}
+}
+
+func (p *Package) newValueDefs(scope *types.Scope, tok token.Token) *ValueDefs {
+	at := -1
+	decl := &ast.GenDecl{Tok: tok}
+	if scope == p.Types.Scope() {
+		idx := p.testingFile
+		p.files[idx].decls = append(p.files[idx].decls, decl)
+	} else {
+		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
+	}
+	return &ValueDefs{pkg: p, scope: scope, decl: decl, at: at}
 }
 
 // NewConstStart creates constants with names.
@@ -343,8 +351,7 @@ func (p *Package) NewConstDefs(scope *types.Scope) *ConstDefs {
 	if debugInstr {
 		log.Println("NewConstDefs")
 	}
-	decl := &ast.GenDecl{Tok: token.CONST}
-	return &ConstDefs{pkg: p, scope: scope, decl: decl}
+	return (*ConstDefs)(p.newValueDefs(scope, token.CONST))
 }
 
 func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *VarDecl {
@@ -370,14 +377,16 @@ func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *C
 
 // ----------------------------------------------------------------------------
 
-type ConstDefs struct {
+type ValueDefs struct {
 	decl  *ast.GenDecl
 	scope *types.Scope
 	pkg   *Package
 	fn    func(cb *CodeBuilder) int
 	typ   types.Type
-	inAST bool
+	at    int
 }
+
+type ConstDefs ValueDefs
 
 func constInitFn(cb *CodeBuilder, iotav int, fn func(cb *CodeBuilder) int) int {
 	oldv := cb.iotav
