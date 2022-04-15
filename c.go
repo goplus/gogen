@@ -82,7 +82,6 @@ func (p *BitFields) FindField(
 				}
 				return kind
 			}
-			break
 		}
 	}
 	return MemberInvalid
@@ -123,7 +122,6 @@ func (p *BitFields) FieldRef(cb *CodeBuilder, t *types.Named, name string, src a
 				})
 				return MemberField
 			}
-			break
 		}
 	}
 	return MemberInvalid
