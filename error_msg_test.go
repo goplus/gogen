@@ -259,6 +259,12 @@ func TestErrConst(t *testing.T) {
 			pkg.NewVarStart(position(1, 5), nil, "a").Val(1).EndInit(1)
 			pkg.NewConstStart(pkg.Types.Scope(), position(2, 7), nil, "a").Val(2).EndInit(1)
 		})
+	codeErrorTest(t, "./foo.gop:2:7: a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
+		func(pkg *gox.Package) {
+			scope := pkg.Types.Scope()
+			pkg.NewConstStart(scope, position(1, 5), nil, "a").Val(2).EndInit(1)
+			pkg.NewVarDefs(scope).New(position(2, 7), types.Typ[types.Int], "a").InitStart(pkg).Val(1).EndInit(1)
+		})
 	codeErrorTest(t, "./foo.gop:2:7: const initializer len(a) is not a constant",
 		func(pkg *gox.Package) {
 			pkg.NewVar(position(1, 5), types.NewSlice(types.Typ[types.Int]), "a")
