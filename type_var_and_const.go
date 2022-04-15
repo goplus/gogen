@@ -293,7 +293,11 @@ func (p *Package) newValueDecl(
 			continue
 		}
 		if typ != nil && tok == token.VAR {
-			scope.Insert(types.NewVar(pos, p.Types, name, typ))
+			if old := scope.Insert(types.NewVar(pos, p.Types, name, typ)); old != nil {
+				oldpos := p.cb.position(old.Pos())
+				p.cb.panicCodePosErrorf(
+					pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
+			}
 		}
 	}
 	spec := &ast.ValueSpec{Names: nameIdents}
