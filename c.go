@@ -82,28 +82,30 @@ func (p *BitFields) FindField(
 				}
 				return kind
 			}
-			break
 		}
 	}
 	return MemberInvalid
 }
 
 func (p *bfRefType) assign(cb *CodeBuilder, lhs, rhs *ast.Expr) {
-	// *addr = *addr &^ ((1 << bits) - 1) << off) | (rhs << off)
+	// *addr = *addr &^ ((1 << bits) - 1) << off) | ((rhs & (1 << bits) - 1)) << off)
 	tname := cb.pkg.autoName()
 	tvar := ident(tname)
 	addr := &ast.UnaryExpr{Op: token.AND, X: *lhs}
 	stmt := &ast.AssignStmt{Lhs: []ast.Expr{tvar}, Tok: token.DEFINE, Rhs: []ast.Expr{addr}}
 	cb.emitStmt(stmt)
-	mask := ((1 << p.bits) - 1) << p.off
+	mask0 := (1 << p.bits) - 1
+	mask := mask0 << p.off
+	maskLit0 := &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(mask0)}
 	maskLit := &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(mask)}
 	valMask := &ast.BinaryExpr{X: &ast.StarExpr{X: tvar}, Op: token.AND_NOT, Y: maskLit}
+	rhsExpr := &ast.BinaryExpr{X: *rhs, Op: token.AND, Y: maskLit0}
 	if p.off != 0 {
 		offLit := &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(p.off)}
-		*rhs = &ast.BinaryExpr{X: *rhs, Op: token.SHL, Y: offLit}
+		rhsExpr = &ast.BinaryExpr{X: rhsExpr, Op: token.SHL, Y: offLit}
 	}
 	*lhs = &ast.StarExpr{X: tvar}
-	*rhs = &ast.BinaryExpr{X: valMask, Op: token.OR, Y: *rhs}
+	*rhs = &ast.BinaryExpr{X: valMask, Op: token.OR, Y: rhsExpr}
 }
 
 func (p *BitFields) FieldRef(cb *CodeBuilder, t *types.Named, name string, src ast.Node) MemberKind {
@@ -120,7 +122,6 @@ func (p *BitFields) FieldRef(cb *CodeBuilder, t *types.Named, name string, src a
 				})
 				return MemberField
 			}
-			break
 		}
 	}
 	return MemberInvalid

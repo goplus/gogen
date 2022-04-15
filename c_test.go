@@ -23,7 +23,7 @@ func TestBitFields(t *testing.T) {
 		{Name: "u1", FldName: "y", Off: 0, Bits: 1},
 		{Name: "u2", FldName: "y", Off: 1, Bits: 3},
 	}))
-	pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
+	cb := pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
 		NewVar(tyT, "a").
 		NewVarStart(types.Typ[types.Int], "z").
 		Val(ctxRef(pkg, "a")).MemberVal("z1").UnaryOp(token.SUB).
@@ -48,11 +48,28 @@ func test() {
 	var z int = -(a.x << 63 >> 63) * (a.x << 60 >> 61)
 	var u uint = ^(a.y & 1) * (a.y >> 1 & 7)
 	_autoGo_1 := &a.x
-	*_autoGo_1 = *_autoGo_1&^1 | 1
+	*_autoGo_1 = *_autoGo_1&^1 | 1&1
 	_autoGo_2 := &a.x
-	*_autoGo_2 = *_autoGo_2&^14 | 1<<1
+	*_autoGo_2 = *_autoGo_2&^14 | 1&7<<1
 }
 `)
+	cb.NewVar(tyT, "a").Val(ctxRef(pkg, "a"))
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("TestBitFields: no error?")
+			}
+		}()
+		cb.MemberVal("z3")
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("TestBitFields: no error?")
+			}
+		}()
+		cb.MemberRef("z3")
+	}()
 }
 
 func TestUnionFields(t *testing.T) {
@@ -72,7 +89,7 @@ func TestUnionFields(t *testing.T) {
 		types.NewField(token.NoPos, pkg.Types, "T", tyT, true),
 	}
 	tyBar := pkg.NewType("Bar").InitType(pkg, types.NewStruct(barFields, nil))
-	pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
+	cb := pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
 		NewVar(tyT, "a").NewVar(types.NewPointer(tyT), "b").
 		NewVar(tyBar, "bara").NewVar(types.NewPointer(tyBar), "barb").
 		NewVarStart(tyFlt, "z").Val(ctxRef(pkg, "a")).MemberVal("z").EndInit(1).
@@ -116,6 +133,12 @@ func test() {
 	*(*float32)(unsafe.Pointer(uintptr(unsafe.Pointer(&barb.T)) + 4)) = 1.2
 }
 `)
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestUnionFields: no error?")
+		}
+	}()
+	cb.NewVar(tyT, "a").Val(ctxRef(pkg, "a")).MemberVal("unknown")
 }
 
 // ----------------------------------------------------------------------------
