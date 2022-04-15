@@ -695,7 +695,7 @@ func (p *CodeBuilder) ZeroLit(typ types.Type) *CodeBuilder {
 func (p *CodeBuilder) doZeroLit(typ types.Type, allowDebug bool) *CodeBuilder {
 	typ0 := typ
 	if allowDebug && debugInstr {
-		log.Println("ZeroLit")
+		log.Println("ZeroLit //", typ)
 	}
 retry:
 	switch t := typ.(type) {
