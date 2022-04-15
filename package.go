@@ -302,6 +302,10 @@ func (p *Package) Sizeof(typ types.Type) int64 {
 	return std.Sizeof(typ)
 }
 
+func (p *Package) Offsetsof(fields []*types.Var) []int64 {
+	return std.Offsetsof(fields)
+}
+
 // Builtin returns the buitlin package.
 func (p *Package) Builtin() *PkgRef {
 	return &PkgRef{Types: p.builtin}

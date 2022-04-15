@@ -842,6 +842,9 @@ func TestCallIncDec(t *testing.T) {
 	if uintptr(pkg.Sizeof(tyInt)) != unsafe.Sizeof(int(0)) {
 		t.Fatal("pkg.Sizeof?")
 	}
+	if len(pkg.Offsetsof(nil)) != 0 {
+		t.Fatal("pkg.Offsetsof?")
+	}
 	args := []*Element{
 		{Type: &refType{typ: types.Typ[types.String]}},
 	}
