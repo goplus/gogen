@@ -64,6 +64,14 @@ func NewBitFields(flds []*BitField) *BitFields {
 	return &BitFields{flds: flds}
 }
 
+func (p *BitFields) At(i int) *BitField {
+	return p.flds[i]
+}
+
+func (p *BitFields) Len() int {
+	return len(p.flds)
+}
+
 func (p *BitFields) FindField(
 	cb *CodeBuilder, t *types.Named, name string, arg *Element, src ast.Node) MemberKind {
 	for _, v := range p.flds {

@@ -293,7 +293,7 @@ func (p *Package) newValueDecl(
 			continue
 		}
 		if typ != nil && tok == token.VAR {
-			if old := scope.Insert(types.NewVar(pos, p.Types, name, typ)); old != nil {
+			if old := scope.Insert(types.NewVar(pos, p.Types, name, typ)); old != nil { // && false {
 				oldpos := p.cb.position(old.Pos())
 				p.cb.panicCodePosErrorf(
 					pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
