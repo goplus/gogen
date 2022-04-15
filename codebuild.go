@@ -437,7 +437,7 @@ func (p *CodeBuilder) CallWith(n int, ellipsis bool, src ...ast.Node) *CodeBuild
 		flags = InstrFlagEllipsis
 	}
 	if debugInstr {
-		log.Println("Call", n, int(flags))
+		log.Println("Call", n, int(flags), "//", fn.Type)
 	}
 	s := getSrc(src)
 	fn.Src = s
