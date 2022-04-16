@@ -842,6 +842,9 @@ func TestCallIncDec(t *testing.T) {
 	if uintptr(pkg.Sizeof(tyInt)) != unsafe.Sizeof(int(0)) {
 		t.Fatal("pkg.Sizeof?")
 	}
+	if len(pkg.Offsetsof(nil)) != 0 {
+		t.Fatal("pkg.Offsetsof?")
+	}
 	args := []*Element{
 		{Type: &refType{typ: types.Typ[types.String]}},
 	}
@@ -855,14 +858,27 @@ func TestVFields(t *testing.T) {
 	if ok {
 		t.Fatal("VFields?")
 	}
-	flds := NewUnionFields([]*UnionField{
-		{Name: "foo"},
-	})
-	if flds.Len() != 1 {
-		t.Fatal("UnionFields.len != 1")
+	{
+		flds := NewUnionFields([]*UnionField{
+			{Name: "foo"},
+		})
+		if flds.Len() != 1 {
+			t.Fatal("UnionFields.len != 1")
+		}
+		if flds.At(0).Name != "foo" {
+			t.Fatal("UnionField.name != foo")
+		}
 	}
-	if flds.At(0).Name != "foo" {
-		t.Fatal("UnionField.name != foo")
+	{
+		flds := NewBitFields([]*BitField{
+			{Name: "foo"},
+		})
+		if flds.Len() != 1 {
+			t.Fatal("BitFields.len != 1")
+		}
+		if flds.At(0).Name != "foo" {
+			t.Fatal("BitField.name != foo")
+		}
 	}
 }
 

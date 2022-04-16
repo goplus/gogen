@@ -437,7 +437,7 @@ func (p *CodeBuilder) CallWith(n int, ellipsis bool, src ...ast.Node) *CodeBuild
 		flags = InstrFlagEllipsis
 	}
 	if debugInstr {
-		log.Println("Call", n, int(flags))
+		log.Println("Call", n, int(flags), "//", fn.Type)
 	}
 	s := getSrc(src)
 	fn.Src = s
@@ -695,7 +695,7 @@ func (p *CodeBuilder) ZeroLit(typ types.Type) *CodeBuilder {
 func (p *CodeBuilder) doZeroLit(typ types.Type, allowDebug bool) *CodeBuilder {
 	typ0 := typ
 	if allowDebug && debugInstr {
-		log.Println("ZeroLit")
+		log.Println("ZeroLit //", typ)
 	}
 retry:
 	switch t := typ.(type) {
