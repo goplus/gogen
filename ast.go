@@ -754,6 +754,14 @@ func restoreArgs(args []*internal.Elem, backup []backupElem) {
 	}
 }
 
+func copyArgs(args []*internal.Elem) []*internal.Elem {
+	backup := make([]*internal.Elem, len(args))
+	for i, arg := range args {
+		backup[i] = arg
+	}
+	return backup
+}
+
 func untypeBig(pkg *Package, cval constant.Value, tyRet types.Type) (*internal.Elem, bool) {
 	switch tyRet {
 	case pkg.utBigInt:

@@ -47,10 +47,14 @@ func test() {
 	var a T
 	var z int = -(a.x << 63 >> 63) * (a.x << 60 >> 61)
 	var u uint = ^(a.y & 1) * (a.y >> 1 & 7)
-	_autoGo_1 := &a.x
-	*_autoGo_1 = *_autoGo_1&^1 | 1&1
-	_autoGo_2 := &a.x
-	*_autoGo_2 = *_autoGo_2&^14 | 1&7<<1
+	{
+		_autoGo_1 := &a.x
+		*_autoGo_1 = *_autoGo_1&^1 | 1&1
+	}
+	{
+		_autoGo_2 := &a.x
+		*_autoGo_2 = *_autoGo_2&^14 | 1&7<<1
+	}
 }
 `)
 	cb.NewVar(tyT, "a").Val(ctxRef(pkg, "a"))

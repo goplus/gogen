@@ -1757,6 +1757,7 @@ func (p *CodeBuilder) AssignWith(lhs, rhs int, src ...ast.Node) *CodeBuilder {
 }
 
 func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
+	mkBlockStmt := false
 	args := p.stk.GetArgs(lhs + rhs)
 	stmt := &ast.AssignStmt{
 		Tok: token.ASSIGN,
@@ -1782,6 +1783,12 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 		}
 	}
 	if lhs == rhs {
+		mkBlockStmt = hasBfRefType(args)
+		if mkBlockStmt { // {
+			args = copyArgs(args)
+			p.stk.PopN(lhs << 1)
+			p.Block()
+		}
 		for i := 0; i < lhs; i++ {
 			lhsType := args[i].Type
 			bfr, bfAssign := lhsType.(*bfRefType)
@@ -1802,8 +1809,21 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 	}
 done:
 	p.emitStmt(stmt)
-	p.stk.PopN(lhs + rhs)
+	if mkBlockStmt { // }
+		p.End()
+	} else {
+		p.stk.PopN(lhs + rhs)
+	}
 	return p
+}
+
+func hasBfRefType(args []*internal.Elem) bool {
+	for _, arg := range args {
+		if _, ok := arg.Type.(*bfRefType); ok {
+			return true
+		}
+	}
+	return false
 }
 
 func lookupMethod(t *types.Named, name string) types.Object {
