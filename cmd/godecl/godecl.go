@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"go/types"
 	"io/fs"
+	"log"
 	"os"
 	"strings"
 	"unicode"
@@ -98,7 +99,6 @@ func main() {
 
 func check(err error) {
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Panicln(err)
 	}
 }
