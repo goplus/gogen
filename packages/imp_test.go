@@ -40,6 +40,14 @@ func TestImporterRecursive(t *testing.T) {
 	}
 }
 
+func TestImportBuiltin(t *testing.T) {
+	p := NewImporter(nil, "..")
+	pkg, err := p.Import("github.com/goplus/gox/internal/builtin")
+	if err != nil {
+		t.Fatal("Import failed:", pkg, err)
+	}
+}
+
 func Test_loadByExport(t *testing.T) {
 	p := NewImporter(nil)
 	if _, err := p.loadByExport("/not-found", "notfound"); !os.IsNotExist(err) {

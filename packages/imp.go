@@ -1,14 +1,18 @@
 package packages
 
 import (
+	"bytes"
+	"encoding/json"
 	"go/token"
 	"go/types"
 	"os"
+	"os/exec"
 	"syscall"
 
 	"golang.org/x/tools/go/gcexportdata"
-	"golang.org/x/tools/go/packages"
 )
+
+// ----------------------------------------------------------------------------
 
 type Importer struct {
 	loaded map[string]*types.Package
@@ -54,13 +58,31 @@ func (p *Importer) loadByExport(expfile string, pkgPath string) (pkg *types.Pack
 	return
 }
 
+// ----------------------------------------------------------------------------
+
+type listExport struct {
+	Export string `json:"Export"`
+}
+
 func findExport(dir, pkgPath string) (expfile string) {
-	if expfile, _ = gcexportdata.Find(pkgPath, dir); expfile != "" {
-		return
+	var ret listExport
+	if data, err := golistExport(dir, pkgPath); err == nil {
+		json.Unmarshal(data, &ret)
 	}
-	pkgs, err := packages.Load(&packages.Config{Dir: dir, Mode: packages.NeedExportsFile}, pkgPath)
+	return ret.Export
+}
+
+func golistExport(dir, pkgPath string) (ret []byte, err error) {
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command("go", "list", "-json", "-export", pkgPath)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	cmd.Dir = dir
+	err = cmd.Run()
 	if err == nil {
-		expfile = pkgs[0].ExportFile
+		ret = stdout.Bytes()
 	}
 	return
 }
+
+// ----------------------------------------------------------------------------
