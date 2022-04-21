@@ -10,6 +10,8 @@ import (
 	"github.com/goplus/gox/packages"
 )
 
+type none = struct{}
+
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage: gobyeff pkgPath\n")
 }
@@ -23,13 +25,18 @@ func main() {
 	imp := packages.NewImporter(fset)
 	pkg, err := imp.Import(os.Args[1])
 	check(err)
-	checkSideEffect(imp, pkg)
+	checkSideEffect(imp, pkg, make(map[string]none))
 }
 
-func checkSideEffect(imp types.Importer, pkg *types.Package) {
-	fmt.Println("==> Checking", pkg.Path())
+func checkSideEffect(imp types.Importer, pkg *types.Package, checked map[string]none) {
+	pkgPath := pkg.Path()
+	if _, ok := checked[pkgPath]; ok {
+		return
+	}
+	checked[pkgPath] = none{}
+	fmt.Println("==> Checking", pkgPath)
 	if !pkg.Complete() {
-		pkg, _ = imp.Import(pkg.Path())
+		pkg, _ = imp.Import(pkgPath)
 	}
 	scope := pkg.Scope()
 	for _, name := range scope.Names() {
@@ -40,7 +47,7 @@ func checkSideEffect(imp types.Importer, pkg *types.Package) {
 	}
 	fmt.Println()
 	for _, ref := range pkg.Imports() {
-		checkSideEffect(imp, ref)
+		checkSideEffect(imp, ref, checked)
 	}
 }
 
