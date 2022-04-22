@@ -1025,7 +1025,11 @@ func (p *MatchError) Error() string {
 // TODO: use matchType to all assignable check
 func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) error {
 	if debugMatch {
-		log.Printf("==> MatchType %v, %v\n", arg.Type, param)
+		cval := ""
+		if arg.CVal != nil {
+			cval = fmt.Sprintf(" (%v)", arg.CVal)
+		}
+		log.Printf("==> MatchType %v%s, %v\n", arg.Type, cval, param)
 	}
 	switch t := param.(type) {
 	case *unboundType: // variable to bound type
@@ -1039,7 +1043,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 			arg.Type = t2.tBound
 		}
 		if t.tBound == nil {
-			arg.Type = DefaultConv(pkg, arg.Type, &arg.Val)
+			arg.Type = DefaultConv(pkg, arg.Type, arg)
 			t.boundTo(pkg, arg.Type)
 		}
 		param = t.tBound
@@ -1050,7 +1054,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 			}
 			arg.Type = t2.tBound
 		}
-		arg.Type = DefaultConv(pkg, arg.Type, &arg.Val)
+		arg.Type = DefaultConv(pkg, arg.Type, arg)
 		mapTy := types.NewMap(Default(pkg, t.key), arg.Type)
 		t.typ.boundTo(pkg, mapTy)
 		return nil
