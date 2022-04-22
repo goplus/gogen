@@ -351,7 +351,7 @@ func (a Gop_bigrat) Gop_Add(b Gop_bigrat) Gop_bigrat {
 }
 
 // Gop_Sub: func (a bigrat) - (b bigrat) bigrat
-func (a Gop_bigrat) Gop_Sub(b Gop_bigrat) Gop_bigrat {
+func (a Gop_bigrat) Gop_Sub__0(b Gop_bigrat) Gop_bigrat {
 	return Gop_bigrat{tmprat(a, b).Sub(a.Rat, b.Rat)}
 }
 

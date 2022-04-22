@@ -1848,7 +1848,7 @@ retry:
 				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
 				Type: realType(lm.Type()),
 			}
-			return matchFuncCall(cb.pkg, fn, args, flags)
+			return matchFuncCall(cb.pkg, fn, args, flags|instrFlagOpFunc)
 		}
 	case *types.Pointer:
 		typ = t.Elem()
