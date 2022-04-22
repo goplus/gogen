@@ -19,6 +19,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"math/big"
 
 	"github.com/goplus/gox/internal"
 )
@@ -342,6 +343,19 @@ func assignable(pkg *Package, v types.Type, t *types.Named, pv *internal.Elem) b
 	if at := o.Pkg(); at != nil {
 		name := o.Name() + "_Init"
 		if ini := at.Scope().Lookup(name); ini != nil {
+			if v == types.Typ[types.UntypedInt] {
+				switch t {
+				case pkg.utBigInt, pkg.utBigRat:
+					if pv != nil {
+						switch cv := constant.Val(pv.CVal).(type) {
+						case *big.Int:
+							nv := pkg.cb.UntypedBigInt(cv).stk.Pop()
+							pv.Type, pv.Val = nv.Type, nv.Val
+						}
+					}
+					return true
+				}
+			}
 			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
 			arg := &internal.Elem{Type: v}
 			if pv != nil {

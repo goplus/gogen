@@ -160,7 +160,7 @@ var h builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__1(g)
 `)
 }
 
-func _TestBigRatInit(t *testing.T) {
+func TestBigRatInit(t *testing.T) {
 	pkg := newGopMainPackage()
 	ng := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.CB().NewVarStart(ng.Ref("Gop_bigrat").Type(), "a").
@@ -173,7 +173,10 @@ import (
 	big "math/big"
 )
 
-var a builtin.Gop_bigrat = builtin.Gop_bigrat_Init__2(big.NewRat(1, 2))
+var a builtin.Gop_bigrat = builtin.Gop_bigrat_Init__1(func() *big.Int {
+	v, _ := new(big.Int).SetString("36893488147419103232", 10)
+	return v
+}())
 `)
 }
 
