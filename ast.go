@@ -583,7 +583,11 @@ retry:
 			for _, o := range funcs {
 				mfn := *fn
 				mfn.Val.(*ast.SelectorExpr).Sel = ident(o.Name())
-				mfn.Type = methodTypeOf(o.Type())
+				if (flags & instrFlagOpFunc) != 0 { // from callOpFunc
+					mfn.Type = o.Type()
+				} else {
+					mfn.Type = methodTypeOf(o.Type())
+				}
 				if ret, err = matchFuncCall(pkg, &mfn, args, flags); err == nil {
 					fn.Val, fn.Type = mfn.Val, mfn.Type
 					return

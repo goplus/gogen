@@ -114,6 +114,9 @@ func initGopPkg(pkg *types.Package) {
 	names := scope.Names()
 	for _, name := range names {
 		o := scope.Lookup(name)
+		if tn, ok := o.(*types.TypeName); ok && tn.IsAlias() {
+			continue
+		}
 		if n := len(name); n > 3 && name[n-3:n-1] == "__" { // overload function
 			key := name[:n-3]
 			overloads[key] = append(overloads[key], o)
