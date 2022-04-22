@@ -175,7 +175,6 @@ func checkTuple(t **types.Tuple, typ types.Type) (ok bool) {
 
 func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	var t *types.Tuple
-	var expr *ast.Expr
 	var values []ast.Expr
 	n := len(p.names)
 	rets := cb.stk.GetArgs(arity)
@@ -237,10 +236,15 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 					p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
 			}
 		} else if typ == nil {
+			var retType = rets[i].Type
+			var parg *Element
 			if values != nil {
-				expr = &values[i]
+				parg = &Element{Type: retType, Val: values[i]}
 			}
-			retType := DefaultConv(pkg, rets[i].Type, expr)
+			retType = DefaultConv(pkg, retType, parg)
+			if values != nil {
+				values[i] = parg.Val
+			}
 			if old := p.scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {
 					oldpos := cb.position(old.Pos())

@@ -15,7 +15,6 @@ package gox
 
 import (
 	"fmt"
-	"go/ast"
 	"go/constant"
 	"go/token"
 	"go/types"
@@ -71,11 +70,7 @@ type unboundFuncParam struct {
 
 func (p *unboundFuncParam) boundTo(pkg *Package, t types.Type, parg *internal.Elem) {
 	if !p.typ.allowUntyped() {
-		var expr *ast.Expr
-		if parg != nil {
-			expr = &parg.Val
-		}
-		t = DefaultConv(pkg, t, expr)
+		t = DefaultConv(pkg, t, parg)
 	}
 	p.tBound, p.parg = t, parg
 }
@@ -195,7 +190,7 @@ func Default(pkg *Package, t types.Type) types.Type {
 	return DefaultConv(pkg, t, nil)
 }
 
-func DefaultConv(pkg *Package, t types.Type, expr *ast.Expr) types.Type {
+func DefaultConv(pkg *Package, t types.Type, pv *Element) types.Type {
 	switch typ := t.(type) {
 	case *types.Named:
 		o := typ.Obj()
@@ -204,8 +199,8 @@ func DefaultConv(pkg *Package, t types.Type, expr *ast.Expr) types.Type {
 			if typName := at.Scope().Lookup(name); typName != nil {
 				if tn, ok := typName.(*types.TypeName); ok && tn.IsAlias() {
 					typ := tn.Type()
-					if expr != nil {
-						if ok = assignable(pkg, t, typ.(*types.Named), expr); !ok {
+					if pv != nil {
+						if ok = assignable(pkg, t, typ.(*types.Named), pv); !ok {
 							log.Panicln("==> DefaultConv failed:", t, typ)
 						}
 						if debugMatch {
@@ -219,8 +214,8 @@ func DefaultConv(pkg *Package, t types.Type, expr *ast.Expr) types.Type {
 	case *overloadFuncType:
 		if len(typ.funcs) == 1 {
 			o := typ.funcs[0]
-			if expr != nil {
-				*expr = toObjectExpr(pkg, o)
+			if pv != nil {
+				pv.Val = toObjectExpr(pkg, o)
 			}
 			return o.Type()
 		}
@@ -236,7 +231,7 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 	return AssignableConv(pkg, V, T, nil)
 }
 
-func AssignableConv(pkg *Package, V, T types.Type, pv *internal.Elem) bool {
+func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 	pkg.cb.ensureLoaded(V)
 	pkg.cb.ensureLoaded(T)
 	V, T = realType(V), realType(T)
@@ -282,11 +277,7 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *internal.Elem) bool {
 		return true
 	}
 	if t, ok := T.(*types.Named); ok {
-		var expr *ast.Expr
-		if pv != nil {
-			expr = &pv.Val
-		}
-		ok = assignable(pkg, V, t, expr)
+		ok = assignable(pkg, V, t, pv)
 		if debugMatch && pv != nil {
 			log.Println("==> AssignableConv", V, T, ok)
 		}
@@ -298,20 +289,20 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *internal.Elem) bool {
 	return false
 }
 
-func assignable(pkg *Package, v types.Type, t *types.Named, expr *ast.Expr) bool {
+func assignable(pkg *Package, v types.Type, t *types.Named, pv *internal.Elem) bool {
 	o := t.Obj()
 	if at := o.Pkg(); at != nil {
 		name := o.Name() + "_Init"
 		if ini := at.Scope().Lookup(name); ini != nil {
 			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
 			arg := &internal.Elem{Type: v}
-			if expr != nil {
-				arg.Val = *expr
+			if pv != nil {
+				arg.Val = pv.Val
 			}
 			ret, err := matchFuncCall(pkg, fn, []*internal.Elem{arg}, 0)
 			if err == nil {
-				if expr != nil {
-					*expr = ret.Val
+				if pv != nil {
+					pv.Val = ret.Val
 				}
 				return true
 			}
