@@ -1025,7 +1025,11 @@ func (p *MatchError) Error() string {
 // TODO: use matchType to all assignable check
 func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) error {
 	if debugMatch {
-		log.Printf("==> MatchType %v, %v\n", arg.Type, param)
+		cval := ""
+		if arg.CVal != nil {
+			cval = fmt.Sprintf(" (%v)", arg.CVal)
+		}
+		log.Printf("==> MatchType %v%s, %v\n", arg.Type, cval, param)
 	}
 	switch t := param.(type) {
 	case *unboundType: // variable to bound type

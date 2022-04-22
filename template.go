@@ -260,6 +260,12 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 			tkind := t.Kind()
 			switch {
 			case vkind >= types.UntypedInt && vkind <= types.UntypedComplex:
+				if tkind <= types.Uintptr && pv != nil && outOfRange(tkind, pv.CVal) {
+					if debugMatch {
+						log.Printf("==> AssignableConv %v (%v): value is out of %v range", V, pv.CVal, T)
+					}
+					return false
+				}
 				if tkind >= types.UntypedInt && tkind <= types.UntypedComplex {
 					if vkind == tkind || vkind == types.UntypedRune {
 						return true
@@ -289,6 +295,48 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 	return false
 }
 
+func outOfRange(tkind types.BasicKind, cval constant.Value) bool {
+	rg := tkindRanges[tkind]
+	return constant.Compare(cval, token.LSS, rg[0]) || constant.Compare(cval, token.GTR, rg[1])
+}
+
+const (
+	intSize    = 32 << (^uint(0) >> 63)
+	intptrSize = 32 << (^uintptr(0) >> 63)
+	maxUint    = (1 << intSize) - 1
+	maxUintptr = (1 << intptrSize) - 1
+	maxUint8   = (1 << 8) - 1
+	maxUint16  = (1 << 16) - 1
+	maxUint32  = (1 << 32) - 1
+	maxUint64  = (1 << 64) - 1
+	minInt     = -(1 << (intSize - 1))
+	maxInt     = (1 << (intSize - 1)) - 1
+	minInt8    = -(1 << (8 - 1))
+	maxInt8    = (1 << (8 - 1)) - 1
+	minInt16   = -(1 << (16 - 1))
+	maxInt16   = (1 << (16 - 1)) - 1
+	minInt32   = -(1 << (32 - 1))
+	maxInt32   = (1 << (32 - 1)) - 1
+	minInt64   = -(1 << (64 - 1))
+	maxInt64   = (1 << (64 - 1)) - 1
+)
+
+var (
+	tkindRanges = [...][2]constant.Value{
+		types.Int:     {constant.MakeInt64(minInt), constant.MakeInt64(maxInt)},
+		types.Int8:    {constant.MakeInt64(minInt8), constant.MakeInt64(maxInt8)},
+		types.Int16:   {constant.MakeInt64(minInt16), constant.MakeInt64(maxInt16)},
+		types.Int32:   {constant.MakeInt64(minInt32), constant.MakeInt64(maxInt32)},
+		types.Int64:   {constant.MakeInt64(minInt64), constant.MakeInt64(maxInt64)},
+		types.Uint:    {constant.MakeInt64(0), constant.MakeUint64(maxUint)},
+		types.Uint8:   {constant.MakeInt64(0), constant.MakeUint64(maxUint8)},
+		types.Uint16:  {constant.MakeInt64(0), constant.MakeUint64(maxUint16)},
+		types.Uint32:  {constant.MakeInt64(0), constant.MakeUint64(maxUint32)},
+		types.Uint64:  {constant.MakeInt64(0), constant.MakeUint64(maxUint64)},
+		types.Uintptr: {constant.MakeInt64(0), constant.MakeUint64(maxUintptr)},
+	}
+)
+
 func assignable(pkg *Package, v types.Type, t *types.Named, pv *internal.Elem) bool {
 	o := t.Obj()
 	if at := o.Pkg(); at != nil {
@@ -297,7 +345,7 @@ func assignable(pkg *Package, v types.Type, t *types.Named, pv *internal.Elem) b
 			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
 			arg := &internal.Elem{Type: v}
 			if pv != nil {
-				arg.Val = pv.Val
+				arg.Val, arg.CVal = pv.Val, pv.CVal
 			}
 			ret, err := matchFuncCall(pkg, fn, []*internal.Elem{arg}, 0)
 			if err == nil {
