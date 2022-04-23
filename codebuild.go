@@ -1674,16 +1674,57 @@ func indirect(typ types.Type) types.Type {
 	return typ
 }
 
+// IncDec func
+func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
+	name := goxPrefix + incdecOps[op]
+	if debugInstr {
+		log.Println("IncDec", op)
+	}
+	pkg := p.pkg
+	arg := p.stk.Pop()
+	if t, ok := arg.Type.(*refType).typ.(*types.Named); ok {
+		op := lookupMethod(t, name)
+		if op != nil {
+			fn := &internal.Elem{
+				Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
+				Type: realType(op.Type()),
+			}
+			ret := toFuncCall(pkg, fn, []*Element{arg}, 0)
+			if ret.Type != nil {
+				p.shouldNoResults(name, src)
+			}
+			p.emitStmt(&ast.ExprStmt{X: ret.Val})
+			return p
+		}
+	}
+	fn := pkg.builtin.Scope().Lookup(name)
+	if fn == nil {
+		panic("TODO: operator not matched")
+	}
+	t := fn.Type().(*instructionType)
+	if _, err := t.instr.Call(pkg, []*Element{arg}, 0, nil); err != nil {
+		panic(err)
+	}
+	return p
+}
+
+var (
+	incdecOps = [...]string{
+		token.INC: "Inc",
+		token.DEC: "Dec",
+	}
+)
+
 // AssignOp func
 func (p *CodeBuilder) AssignOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	args := p.stk.GetArgs(2)
-	stmt := callAssignOp(p.pkg, op, args)
+	stmt := callAssignOp(p.pkg, op, args, src)
 	p.emitStmt(stmt)
 	p.stk.PopN(2)
 	return p
 }
 
-func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem) ast.Stmt {
+func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []ast.Node) ast.Stmt {
 	name := goxPrefix + assignOps[tok]
 	if debugInstr {
 		log.Println("AssignOp", tok, name)
@@ -1697,7 +1738,7 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem) ast.Stmt
 			}
 			ret := toFuncCall(pkg, fn, args, 0)
 			if ret.Type != nil {
-				log.Panicf("TODO: AssignOp %s should return no results\n", name)
+				pkg.cb.shouldNoResults(name, src)
 			}
 			return &ast.ExprStmt{X: ret.Val}
 		}
@@ -1715,6 +1756,11 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem) ast.Stmt
 		Lhs: []ast.Expr{args[0].Val},
 		Rhs: []ast.Expr{args[1].Val},
 	}
+}
+
+func (p *CodeBuilder) shouldNoResults(name string, src []ast.Node) {
+	pos := p.nodePosition(getSrc(src))
+	p.panicCodeErrorf(&pos, "operator %s should return no results\n", name)
 }
 
 var (
@@ -1961,37 +2007,6 @@ func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilde
 	p.stk.Ret(1, ret)
 	return p
 }
-
-// IncDec func
-func (p *CodeBuilder) IncDec(op token.Token) *CodeBuilder {
-	if debugInstr {
-		log.Println("IncDec", op)
-	}
-	pkg := p.pkg
-	args := p.stk.GetArgs(1)
-	name := goxPrefix + incdecOps[op]
-	fn := pkg.builtin.Scope().Lookup(name)
-	if fn == nil {
-		panic("TODO: operator not matched")
-	}
-	switch t := fn.Type().(type) {
-	case *instructionType:
-		if _, err := t.instr.Call(pkg, args, token.NoPos, nil); err != nil {
-			panic(err)
-		}
-	default:
-		panic("TODO: IncDec not found?")
-	}
-	p.stk.Pop()
-	return p
-}
-
-var (
-	incdecOps = [...]string{
-		token.INC: "Inc",
-		token.DEC: "Dec",
-	}
-)
 
 // Send func
 func (p *CodeBuilder) Send() *CodeBuilder {

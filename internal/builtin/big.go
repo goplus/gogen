@@ -405,9 +405,13 @@ func (a Gop_bigrat) Gop_Dup() Gop_bigrat {
 	return a
 }
 
-// Gop_Inv: func /(a bigrat) bigrat
-func (a Gop_bigrat) Gop_Inv() Gop_bigrat {
-	return Gop_bigrat{tmprat1(a).Inv(a.Rat)}
+// Gop_Inc: func ++(a *bigrat)
+func (a *Gop_bigrat) Gop_Inc() {
+}
+
+// Gop_Dec: func --(a *bigrat) int
+func (a *Gop_bigrat) Gop_Dec() int { // error!
+	return 0
 }
 
 // Gop_Add: func (a bigrat) += (b bigrat)
@@ -415,9 +419,9 @@ func (a Gop_bigrat) Gop_AddAssign(b Gop_bigrat) {
 	a.Rat.Add(a.Rat, b.Rat)
 }
 
-// Gop_Sub: func (a bigrat) -= (b bigrat)
-func (a Gop_bigrat) Gop_SubAssign(b Gop_bigrat) {
-	a.Rat.Sub(a.Rat, b.Rat)
+// Gop_Sub: func (a bigrat) -= (b bigrat) int
+func (a Gop_bigrat) Gop_SubAssign(b Gop_bigrat) int { // error!
+	return 0
 }
 
 // Gop_Mul: func (a bigrat) *= (b bigrat)

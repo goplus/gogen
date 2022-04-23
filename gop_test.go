@@ -226,6 +226,57 @@ var a = builtin.Gop_bigint_Init__1(big.NewInt(69))
 `)
 }
 
+func TestBigRatIncDec(t *testing.T) {
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(ctxRef(pkg, "a")).
+		IncDec(token.INC).
+		End()
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+var a builtin.Gop_bigrat
+
+func main() {
+	a.Gop_Inc()
+}
+`)
+}
+
+func TestErrBigRatIncDec(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestErrBigRatIncDec: no error?")
+		}
+	}()
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(ctxRef(pkg, "a")).
+		IncDec(token.DEC).
+		End()
+}
+
+func TestErrBigRatAssignOp(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestErrBigRatAssignOp: no error?")
+		}
+	}()
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(ctxRef(pkg, "a")).
+		Val(ctxRef(pkg, "b")).
+		AssignOp(token.SUB_ASSIGN).
+		End()
+}
+
 func TestBigRatAssignOp(t *testing.T) {
 	pkg := newGopMainPackage()
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
