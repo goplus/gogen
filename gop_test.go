@@ -186,9 +186,9 @@ func TestBigRatCast(t *testing.T) {
 	ng := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).
-		Val(ng.Ref("Gop_bigrat")).Val(1).Val(65).BinaryOp(token.SHL).Call(1). // bigrat(1 << 65)
-		Val(ng.Ref("Gop_bigrat")).Call(0).                                    // bigrat()
-		Typ(types.Typ[types.Int]).Call(0).                                    // int()
+		Val(ng.Ref("Gop_bigrat")).Val(1).Val(65).BinaryOp(token.SHL).Call(1).    // bigrat(1 << 65)
+		Typ(types.Typ[types.Float64]).Val(ng.Ref("Gop_bigrat")).Call(0).Call(1). // float64(bigrat())
+		Typ(types.Typ[types.Int]).Call(0).                                       // int()
 		Call(3).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -203,7 +203,7 @@ func main() {
 	fmt.Println(builtin.Gop_bigrat_Cast__0(func() *big.Int {
 		v, _ := new(big.Int).SetString("36893488147419103232", 10)
 		return v
-	}()), builtin.Gop_bigrat_Cast__5(), 0)
+	}()), float64(builtin.Gop_bigrat_Cast__5()), 0)
 }
 `)
 }

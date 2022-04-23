@@ -685,7 +685,8 @@ retry:
 	}
 	return &internal.Elem{
 		Type: tyRet, CVal: cval,
-		Val: &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
+		Val: &ast.CallExpr{
+			Fun: fn.Val, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 	}, nil
 }
 
@@ -722,7 +723,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 		valArgs[i] = v.Val
 	}
 	ret = &internal.Elem{
-		Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
+		Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 		Type: typ,
 	}
 	if len(args) == 1 { // TODO: const value may changed by type-convert
