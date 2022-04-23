@@ -180,7 +180,7 @@ var a builtin.Gop_bigrat = builtin.Gop_bigrat_Init__1(func() *big.Int {
 `)
 }
 
-func _TestBigRatCast(t *testing.T) {
+func TestBigRatCast(t *testing.T) {
 	pkg := newGopMainPackage()
 	fmt := pkg.Import("fmt")
 	ng := pkg.Import("github.com/goplus/gox/internal/builtin")
@@ -192,14 +192,17 @@ func _TestBigRatCast(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
+	fmt "fmt"
 	builtin "github.com/goplus/gox/internal/builtin"
 	big "math/big"
 )
 
-var a builtin.Gop_bigrat = builtin.Gop_bigrat_Init__1(func() *big.Int {
-	v, _ := new(big.Int).SetString("36893488147419103232", 10)
-	return v
-}())
+func main() {
+	fmt.Println(builtin.Gop_bigrat_Cast__0(func() *big.Int {
+		v, _ := new(big.Int).SetString("36893488147419103232", 10)
+		return v
+	}()))
+}
 `)
 }
 

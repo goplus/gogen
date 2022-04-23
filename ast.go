@@ -691,7 +691,7 @@ retry:
 
 func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
 	fnVal := fn.Val
-	switch typ.(type) {
+	switch t := typ.(type) {
 	case *types.Pointer, *types.Chan:
 		fnVal = &ast.ParenExpr{X: fnVal}
 	case *types.Basic:
@@ -700,6 +700,20 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 				return ret, nil
 			}
 		}
+	case *types.Named:
+		pkg.cb.ensureLoaded(t)
+		if len(args) == 1 && types.ConvertibleTo(args[0].Type, t) {
+			break
+		}
+		o := t.Obj()
+		if at := o.Pkg(); at != nil {
+			name := o.Name() + "_Cast"
+			if cast := at.Scope().Lookup(name); cast != nil {
+				castFn := &internal.Elem{Val: toObjectExpr(pkg, cast), Type: cast.Type()}
+				return matchFuncCall(pkg, castFn, args, flags)
+			}
+		}
+		// TODO: panic
 	}
 	valArgs := make([]ast.Expr, len(args))
 	for i, v := range args { // TODO: type check
@@ -725,7 +739,7 @@ func CastFromBool(cb *CodeBuilder, typ types.Type, v *Element) (ret *Element, ok
 			Else().Val(0).Return(1).
 			End().
 			End().Call(0).
-			InternalStack().Pop()
+			stk.Pop()
 	}
 	return
 }
