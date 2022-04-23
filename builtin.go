@@ -121,8 +121,8 @@ func initBuiltinOps(builtin *types.Package, conf *Config) {
 		{"Neg", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
 		// func Gop_Neg[T number](a T) T
 
-		{"Pos", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
-		// func Gop_Pos[T number](a T) T
+		{"Dup", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
+		// func Gop_Dup[T number](a T) T
 
 		{"Not", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}}, 0},
 		// func Gop_Not[T integer](a T) T
