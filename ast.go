@@ -713,7 +713,9 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 				return matchFuncCall(pkg, castFn, args, flags)
 			}
 		}
-		// TODO: panic
+	}
+	if len(args) == 0 { // type() means to get zero value
+		return pkg.cb.ZeroLit(typ).stk.Pop(), nil
 	}
 	valArgs := make([]ast.Expr, len(args))
 	for i, v := range args { // TODO: type check
