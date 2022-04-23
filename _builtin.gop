@@ -76,7 +76,7 @@ func [T bool] (a T) || (b T) T // func Gop_LOr[T bool](a, b T) T
 func [T bool] (a T) && (b T) T // func Gop_LAnd[T bool](a, b T) T
 
 func [T number] -(a T) T  // func Gop_Neg[T number](a T) T
-func [T number] +(a T) T  // func Gop_Pos[T number](a T) T
+func [T number] +(a T) T  // func Gop_Dup[T number](a T) T
 func [T integer] ^(a T) T // func Gop_Not[T integer](a T) T
 func [T bool] !(a T) T    // func Gop_LNot[T bool](a T) T
 

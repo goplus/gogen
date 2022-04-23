@@ -1897,7 +1897,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 var (
 	unaryOps = [...]string{
 		token.SUB:   "Neg",
-		token.ADD:   "Pos",
+		token.ADD:   "Dup",
 		token.XOR:   "Not",
 		token.NOT:   "LNot",
 		token.ARROW: "Recv",
