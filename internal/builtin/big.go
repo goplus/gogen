@@ -430,9 +430,9 @@ func (a Gop_bigrat) Gop_QuoAssign(b Gop_bigrat) {
 	a.Rat.Quo(a.Rat, b.Rat)
 }
 
-// Gop_bigrat_Cast: func bigrat() bigrat
-func Gop_bigrat_Cast__0() Gop_bigrat {
-	return Gop_bigrat{new(big.Rat)}
+// Gop_bigrat_Cast: func bigrat(a untyped_bigint) bigrat
+func Gop_bigrat_Cast__0(a Gop_untyped_bigint) Gop_bigrat {
+	return Gop_bigrat{new(big.Rat).SetInt(a)}
 }
 
 // Gop_bigrat_Cast: func bigrat(a bigint) bigrat
@@ -453,6 +453,11 @@ func Gop_bigrat_Cast__3(a, b int64) Gop_bigrat {
 // Gop_bigrat_Cast: func bigrat(a *big.Rat) bigrat
 func Gop_bigrat_Cast__4(a *big.Rat) Gop_bigrat {
 	return Gop_bigrat{a}
+}
+
+// Gop_bigrat_Cast: func bigrat() bigrat
+func Gop_bigrat_Cast__5() Gop_bigrat {
+	return Gop_bigrat{new(big.Rat)}
 }
 
 // Gop_bigrat_Init: func bigrat.init(x untyped_int) bigrat

@@ -599,30 +599,7 @@ retry:
 			sig = t
 		}
 	case *TypeType: // type convert
-		fnVal := fn.Val
-		typ := t.typ
-		switch typ.(type) {
-		case *types.Pointer, *types.Chan:
-			fnVal = &ast.ParenExpr{X: fnVal}
-		case *types.Basic:
-			if len(args) == 1 {
-				if ret, ok := CastFromBool(&pkg.cb, typ, args[0]); ok {
-					return ret, nil
-				}
-			}
-		}
-		valArgs := make([]ast.Expr, len(args))
-		for i, v := range args { // TODO: type check
-			valArgs[i] = v.Val
-		}
-		ret = &internal.Elem{
-			Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
-			Type: typ,
-		}
-		if len(args) == 1 { // TODO: const value may changed by type-convert
-			ret.CVal = args[0].CVal
-		}
-		return
+		return matchTypeCast(pkg, t.typ, fn, args, flags)
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
 		if t.isUnaryOp() {
@@ -712,6 +689,48 @@ retry:
 	}, nil
 }
 
+func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+	fnVal := fn.Val
+	switch t := typ.(type) {
+	case *types.Pointer, *types.Chan:
+		fnVal = &ast.ParenExpr{X: fnVal}
+	case *types.Basic:
+		if len(args) == 1 {
+			if ret, ok := CastFromBool(&pkg.cb, typ, args[0]); ok {
+				return ret, nil
+			}
+		}
+	case *types.Named:
+		pkg.cb.ensureLoaded(t)
+		if len(args) == 1 && types.ConvertibleTo(args[0].Type, t) {
+			break
+		}
+		o := t.Obj()
+		if at := o.Pkg(); at != nil {
+			name := o.Name() + "_Cast"
+			if cast := at.Scope().Lookup(name); cast != nil {
+				castFn := &internal.Elem{Val: toObjectExpr(pkg, cast), Type: cast.Type()}
+				return matchFuncCall(pkg, castFn, args, flags)
+			}
+		}
+	}
+	if len(args) == 0 { // type() means to get zero value
+		return pkg.cb.ZeroLit(typ).stk.Pop(), nil
+	}
+	valArgs := make([]ast.Expr, len(args))
+	for i, v := range args { // TODO: type check
+		valArgs[i] = v.Val
+	}
+	ret = &internal.Elem{
+		Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
+		Type: typ,
+	}
+	if len(args) == 1 { // TODO: const value may changed by type-convert
+		ret.CVal = args[0].CVal
+	}
+	return
+}
+
 // CastFromBool tries to cast a bool expression into integer. typ must be an integer type.
 func CastFromBool(cb *CodeBuilder, typ types.Type, v *Element) (ret *Element, ok bool) {
 	if ok = isBool(cb, v); ok {
@@ -722,7 +741,7 @@ func CastFromBool(cb *CodeBuilder, typ types.Type, v *Element) (ret *Element, ok
 			Else().Val(0).Return(1).
 			End().
 			End().Call(0).
-			InternalStack().Pop()
+			stk.Pop()
 	}
 	return
 }
