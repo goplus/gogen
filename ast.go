@@ -599,30 +599,7 @@ retry:
 			sig = t
 		}
 	case *TypeType: // type convert
-		fnVal := fn.Val
-		typ := t.typ
-		switch typ.(type) {
-		case *types.Pointer, *types.Chan:
-			fnVal = &ast.ParenExpr{X: fnVal}
-		case *types.Basic:
-			if len(args) == 1 {
-				if ret, ok := CastFromBool(&pkg.cb, typ, args[0]); ok {
-					return ret, nil
-				}
-			}
-		}
-		valArgs := make([]ast.Expr, len(args))
-		for i, v := range args { // TODO: type check
-			valArgs[i] = v.Val
-		}
-		ret = &internal.Elem{
-			Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
-			Type: typ,
-		}
-		if len(args) == 1 { // TODO: const value may changed by type-convert
-			ret.CVal = args[0].CVal
-		}
-		return
+		return matchTypeCast(pkg, t.typ, fn, args, flags)
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
 		if t.isUnaryOp() {
@@ -710,6 +687,32 @@ retry:
 		Type: tyRet, CVal: cval,
 		Val: &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
 	}, nil
+}
+
+func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+	fnVal := fn.Val
+	switch typ.(type) {
+	case *types.Pointer, *types.Chan:
+		fnVal = &ast.ParenExpr{X: fnVal}
+	case *types.Basic:
+		if len(args) == 1 {
+			if ret, ok := CastFromBool(&pkg.cb, typ, args[0]); ok {
+				return ret, nil
+			}
+		}
+	}
+	valArgs := make([]ast.Expr, len(args))
+	for i, v := range args { // TODO: type check
+		valArgs[i] = v.Val
+	}
+	ret = &internal.Elem{
+		Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
+		Type: typ,
+	}
+	if len(args) == 1 { // TODO: const value may changed by type-convert
+		ret.CVal = args[0].CVal
+	}
+	return
 }
 
 // CastFromBool tries to cast a bool expression into integer. typ must be an integer type.
