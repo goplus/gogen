@@ -1934,11 +1934,21 @@ func (p *CodeBuilder) CompareNil(op token.Token, src ...ast.Node) *CodeBuilder {
 	return p.Val(nil).BinaryOp(op)
 }
 
-// UnaryOp func
-func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
+// UnaryOp:
+//  - cb.UnaryOp(op token.Token)
+//  - cb.UnaryOp(op token.Token, twoValue bool)
+//  - cb.UnaryOp(op token.Token, twoValue bool, src ast.Node)
+func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilder {
+	var src ast.Node
 	var flags InstrFlags
-	if twoValue != nil && twoValue[0] {
-		flags = InstrFlagTwoValue
+	switch len(params) {
+	case 2:
+		src, _ = params[1].(ast.Node)
+		fallthrough
+	case 1:
+		if params[0].(bool) {
+			flags = InstrFlagTwoValue
+		}
 	}
 	if debugInstr {
 		log.Println("UnaryOp", op, flags)
@@ -1947,6 +1957,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token, twoValue ...bool) *CodeBuilder {
 	if err != nil {
 		panic(err)
 	}
+	ret.Src = src
 	p.stk.Ret(1, ret)
 	return p
 }
