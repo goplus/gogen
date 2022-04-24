@@ -249,6 +249,10 @@ func (a Gop_bigint) Gop_RshAssign(n Gop_ninteger) {
 	a.Int.Rsh(a.Int, uint(n))
 }
 
+func (a Gop_bigint) Gop_Rcast() float64 {
+	return 0
+}
+
 // Gop_bigint_Cast: func bigint() bigint
 func Gop_bigint_Cast__0() Gop_bigint {
 	return Gop_bigint{new(big.Int)}
@@ -432,6 +436,22 @@ func (a Gop_bigrat) Gop_MulAssign(b Gop_bigrat) {
 // Gop_Quo: func (a bigrat) /= (b bigrat)
 func (a Gop_bigrat) Gop_QuoAssign(b Gop_bigrat) {
 	a.Rat.Quo(a.Rat, b.Rat)
+}
+
+func (a Gop_bigrat) Gop_Rcast__0() (int, bool) {
+	return 0, false
+}
+
+func (a *Gop_bigrat) Gop_Rcast__1() int {
+	return 0
+}
+
+func (a *Gop_bigrat) Gop_Rcast__2() float64 {
+	return 0
+}
+
+func (a *Gop_bigrat) Gop_Rcast__3(int) int64 {
+	return 0
 }
 
 // Gop_bigrat_Cast: func bigrat(a untyped_bigint) bigrat
