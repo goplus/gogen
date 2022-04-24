@@ -348,7 +348,7 @@ func checkSigParam(typ types.Type, nin int) bool {
 // ----------------------------------------------------------------------------
 
 type Element = internal.Elem
-type InstrFlags = token.Pos
+type InstrFlags token.Pos
 
 const (
 	InstrFlagEllipsis InstrFlags = 1 << iota

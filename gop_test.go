@@ -186,10 +186,11 @@ func TestBigRatCast(t *testing.T) {
 	ng := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).
-		Val(ng.Ref("Gop_bigrat")).Val(1).Val(65).BinaryOp(token.SHL).Call(1). // bigrat(1 << 65)
-		Val(ng.Ref("Gop_bigrat")).Call(0).                                    // bigrat()
-		Typ(types.Typ[types.Int]).Call(0).                                    // int()
-		Call(3).EndStmt().
+		Val(ng.Ref("Gop_bigrat")).Val(1).Val(65).BinaryOp(token.SHL).Call(1).           // bigrat(1 << 65)
+		Typ(types.Typ[types.Float64]).Val(ng.Ref("Gop_bigrat")).Call(0).Call(1).        // float64(bigrat())
+		Typ(types.Typ[types.Float64]).Val(ng.Ref("Gop_bigint")).Val(1).Call(1).Call(1). // float64(bigint(1))
+		Typ(types.Typ[types.Int]).Call(0).                                              // int()
+		Call(4).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -203,9 +204,66 @@ func main() {
 	fmt.Println(builtin.Gop_bigrat_Cast__0(func() *big.Int {
 		v, _ := new(big.Int).SetString("36893488147419103232", 10)
 		return v
-	}()), builtin.Gop_bigrat_Cast__5(), 0)
+	}()), builtin.Gop_bigrat_Cast__5().Gop_Rcast__2(), builtin.Gop_bigint_Cast__1(1).Gop_Rcast(), 0)
 }
 `)
+}
+
+func TestCastIntTwoValue(t *testing.T) {
+	pkg := newGopMainPackage()
+	ng := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v", "inRange").
+		Typ(types.Typ[types.Int]).
+		Val(ng.Ref("Gop_bigrat")).Val(1).Call(1).
+		CallWith(1, gox.InstrFlagTwoValue).
+		EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+func main() {
+	v, inRange := builtin.Gop_bigrat_Cast__0(1).Gop_Rcast__0()
+}
+`)
+}
+
+func TestCastBigIntTwoValue(t *testing.T) {
+	pkg := newGopMainPackage()
+	ng := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v", "inRange").
+		Val(ng.Ref("Gop_bigint")).
+		Val(ng.Ref("Gop_bigrat")).Val(1).Call(1).
+		CallWith(1, gox.InstrFlagTwoValue).
+		EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+func main() {
+	v, inRange := builtin.Gop_bigint_Cast__7(builtin.Gop_bigrat_Cast__0(1))
+}
+`)
+}
+
+func TestErrCast(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestErrCast: no error?")
+		}
+	}()
+	pkg := newGopMainPackage()
+	ng := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v", "inRange").
+		Typ(types.Typ[types.Int64]).
+		Val(ng.Ref("Gop_bigrat")).Val(1).Call(1).
+		CallWith(1, gox.InstrFlagTwoValue).
+		EndInit(1).
+		End()
 }
 
 func TestUntypedBigIntAdd(t *testing.T) {
@@ -224,6 +282,57 @@ import (
 
 var a = builtin.Gop_bigint_Init__1(big.NewInt(69))
 `)
+}
+
+func TestBigRatIncDec(t *testing.T) {
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(ctxRef(pkg, "a")).
+		IncDec(token.INC).
+		End()
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+var a builtin.Gop_bigrat
+
+func main() {
+	a.Gop_Inc()
+}
+`)
+}
+
+func TestErrBigRatIncDec(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestErrBigRatIncDec: no error?")
+		}
+	}()
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(ctxRef(pkg, "a")).
+		IncDec(token.DEC).
+		End()
+}
+
+func TestErrBigRatAssignOp(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestErrBigRatAssignOp: no error?")
+		}
+	}()
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(ctxRef(pkg, "a")).
+		Val(ctxRef(pkg, "b")).
+		AssignOp(token.SUB_ASSIGN).
+		End()
 }
 
 func TestBigRatAssignOp(t *testing.T) {

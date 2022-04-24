@@ -427,7 +427,7 @@ var (
 		"NE": {token.NEQ, 2},
 
 		"Neg":  {token.SUB, 1},
-		"Pos":  {token.ADD, 1},
+		"Dup":  {token.ADD, 1},
 		"Not":  {token.XOR, 1},
 		"LNot": {token.NOT, 1},
 		"Recv": {token.ARROW, 1},
@@ -685,15 +685,23 @@ retry:
 	}
 	return &internal.Elem{
 		Type: tyRet, CVal: cval,
-		Val: &ast.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
+		Val: &ast.CallExpr{
+			Fun: fn.Val, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 	}, nil
 }
 
 func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
 	fnVal := fn.Val
-	switch t := typ.(type) {
+	switch typ.(type) {
 	case *types.Pointer, *types.Chan:
 		fnVal = &ast.ParenExpr{X: fnVal}
+	}
+	pkg.cb.ensureLoaded(typ)
+	if len(args) == 1 && types.ConvertibleTo(args[0].Type, typ) {
+		goto finish
+	}
+
+	switch t := typ.(type) {
 	case *types.Basic:
 		if len(args) == 1 {
 			if ret, ok := CastFromBool(&pkg.cb, typ, args[0]); ok {
@@ -701,34 +709,75 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 			}
 		}
 	case *types.Named:
-		pkg.cb.ensureLoaded(t)
-		if len(args) == 1 && types.ConvertibleTo(args[0].Type, t) {
-			break
-		}
 		o := t.Obj()
 		if at := o.Pkg(); at != nil {
 			name := o.Name() + "_Cast"
 			if cast := at.Scope().Lookup(name); cast != nil {
 				castFn := &internal.Elem{Val: toObjectExpr(pkg, cast), Type: cast.Type()}
-				return matchFuncCall(pkg, castFn, args, flags)
+				if ret, err = matchFuncCall(pkg, castFn, args, flags); err == nil {
+					return
+				}
 			}
 		}
 	}
-	if len(args) == 0 { // type() means to get zero value
+
+	switch len(args) {
+	case 1:
+		arg := args[0]
+		switch t := arg.Type.(type) {
+		case *types.Named:
+			if m := lookupMethod(t, "Gop_Rcast"); m != nil {
+				switch mt := m.Type().(type) {
+				case *types.Signature:
+					if funcs, ok := CheckOverloadMethod(mt); ok {
+						for _, o := range funcs {
+							if ret, err = matchRcast(pkg, arg, o, typ, flags); err == nil {
+								return
+							}
+						}
+					} else if ret, err = matchRcast(pkg, arg, m, typ, flags); err == nil {
+						return
+					}
+				}
+			}
+		}
+	case 0:
+		// T() means to return zero value of T
 		return pkg.cb.ZeroLit(typ).stk.Pop(), nil
 	}
+
+finish:
 	valArgs := make([]ast.Expr, len(args))
 	for i, v := range args { // TODO: type check
 		valArgs[i] = v.Val
 	}
 	ret = &internal.Elem{
-		Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: flags & InstrFlagEllipsis},
+		Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 		Type: typ,
 	}
 	if len(args) == 1 { // TODO: const value may changed by type-convert
 		ret.CVal = args[0].CVal
 	}
 	return
+}
+
+func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type, flags InstrFlags) (ret *internal.Elem, err error) {
+	sig := m.Type().(*types.Signature)
+	if sig.Params().Len() != 0 {
+		log.Panicf("TODO: method %v should haven't no arguments\n", m)
+	}
+	n := 1
+	if (flags & InstrFlagTwoValue) != 0 {
+		n = 2
+	}
+	results := sig.Results()
+	if results.Len() != n {
+		return nil, fmt.Errorf("TODO: %v should return %d results", m, n)
+	}
+	if types.Identical(results.At(0).Type(), typ) {
+		return pkg.cb.Val(fn).MemberVal(m.Name()).CallWith(0, flags).stk.Pop(), nil
+	}
+	return nil, &MatchError{Src: fn.Src, Arg: fn.Type, Param: typ, At: "Gop_Rcast", cb: &pkg.cb}
 }
 
 // CastFromBool tries to cast a bool expression into integer. typ must be an integer type.
@@ -832,6 +881,9 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 
 func matchFuncType(
 	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, fn *internal.Elem) error {
+	if (flags&InstrFlagTwoValue) != 0 && sig.Results().Len() != 2 {
+		return errors.New("TODO: should return two values")
+	}
 	var t *types.Tuple
 	n := len(args)
 	if len(args) == 1 && checkTuple(&t, args[0].Type) {
