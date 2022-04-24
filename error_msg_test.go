@@ -269,7 +269,7 @@ func TestErrConst(t *testing.T) {
 		func(pkg *gox.Package) {
 			pkg.NewVar(position(1, 5), types.NewSlice(types.Typ[types.Int]), "a")
 			pkg.NewConstStart(pkg.Types.Scope(), position(2, 7), nil, "b").
-				Val(ctxRef(pkg, "len")).Val(ctxRef(pkg, "a")).CallWith(1, false, source("len(a)", 2, 10)).EndInit(1)
+				Val(ctxRef(pkg, "len")).Val(ctxRef(pkg, "a")).CallWith(1, 0, source("len(a)", 2, 10)).EndInit(1)
 		})
 	codeErrorTest(t, "./foo.gop:2:9: a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
 		func(pkg *gox.Package) {
@@ -320,7 +320,7 @@ func TestErrNewVar(t *testing.T) {
 		func(pkg *gox.Package) {
 			fmt := pkg.Import("fmt")
 			pkg.NewVarStart(position(2, 7), nil, "a").
-				Val(fmt.Ref("Println")).Val(2).CallWith(1, false, source("fmt.Println(2)", 2, 11)).EndInit(1)
+				Val(fmt.Ref("Println")).Val(2).CallWith(1, 0, source("fmt.Println(2)", 2, 11)).EndInit(1)
 		})
 	codeErrorTest(t, "./foo.gop:2:7: assignment mismatch: 1 variables but 2 values",
 		func(pkg *gox.Package) {
@@ -458,7 +458,7 @@ func TestErrAssign(t *testing.T) {
 				NewVar(types.Typ[types.Int], "x").
 				VarRef(ctxRef(pkg, "x")).
 				Val(ctxRef(pkg, "bar")).
-				CallWith(0, false, source("bar()", 1, 5)).
+				CallWith(0, 0, source("bar()", 1, 5)).
 				AssignWith(1, 1, source("x = bar()", 1, 3)).
 				End()
 		})
@@ -478,14 +478,14 @@ func TestErrFuncCall(t *testing.T) {
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.Int], "a").
-				Val(ctxRef(pkg, "a")).CallWith(0, false, source("a()", 2, 10)).
+				Val(ctxRef(pkg, "a")).CallWith(0, 0, source("a()", 2, 10)).
 				End()
 		})
 	codeErrorTest(t, `./foo.gop:2:10: invalid use of ... in call to foo(a...)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "foo", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.Int], "a").
-				Val(ctxRef(pkg, "foo"), source("foo", 2, 2)).Val(ctxRef(pkg, "a")).CallWith(1, true, source("foo(a...)", 2, 10)).
+				Val(ctxRef(pkg, "foo"), source("foo", 2, 2)).Val(ctxRef(pkg, "a")).CallWith(1, 1, source("foo(a...)", 2, 10)).
 				End()
 		})
 	codeErrorTest(t, `./foo.gop:3:5: cannot use a (type bool) as type int in argument to foo(a)`,
@@ -498,7 +498,7 @@ func TestErrFuncCall(t *testing.T) {
 					pkg.NewVar(position(2, 9), types.Typ[types.Bool], "a")
 				}).
 				Val(ctxRef(pkg, "foo")).Val(ctxRef(pkg, "a"), source("a", 3, 5)).
-				CallWith(1, false, source("foo(a)", 3, 10)).
+				CallWith(1, 0, source("foo(a)", 3, 10)).
 				End()
 		})
 }
@@ -523,7 +523,7 @@ func TestErrReturn(t *testing.T) {
 			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt2, retByte), false).BodyStart(pkg).End()
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
-				CallWith(0, false, source("bar()", 2, 9)).
+				CallWith(0, 0, source("bar()", 2, 9)).
 				Return(1, source("return bar()", 2, 5)).
 				End()
 		})
@@ -555,7 +555,7 @@ func TestErrReturn(t *testing.T) {
 			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(ret), false).BodyStart(pkg).End()
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
-				CallWith(0, false, source("bar()", 2, 9)).
+				CallWith(0, 0, source("bar()", 2, 9)).
 				Return(1, source("return bar()", 2, 5)).
 				End()
 		})
@@ -567,7 +567,7 @@ func TestErrReturn(t *testing.T) {
 			ret := pkg.NewParam(position(1, 10), "", gox.TyByte)
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
-				CallWith(0, false, source("bar()", 2, 9)).
+				CallWith(0, 0, source("bar()", 2, 9)).
 				Return(1, source("return bar()", 2, 5)).
 				End()
 		})
@@ -1051,7 +1051,7 @@ func TestErrUnsafe(t *testing.T) {
 		func(pkg *gox.Package) {
 			builtin := pkg.Builtin()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val(builtin.Ref("Sizeof")).CallWith(0, false, source("unsafe.Sizeof()", 6, 2)).EndStmt().
+				Val(builtin.Ref("Sizeof")).CallWith(0, 0, source("unsafe.Sizeof()", 6, 2)).EndStmt().
 				EndStmt().
 				End()
 		})
@@ -1060,7 +1060,7 @@ func TestErrUnsafe(t *testing.T) {
 		func(pkg *gox.Package) {
 			builtin := pkg.Builtin()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val(builtin.Ref("Sizeof")).Val(1).Val(2).CallWith(2, false, source("unsafe.Sizeof(1, 2)", 6, 2)).EndStmt().
+				Val(builtin.Ref("Sizeof")).Val(1).Val(2).CallWith(2, 0, source("unsafe.Sizeof(1, 2)", 6, 2)).EndStmt().
 				EndStmt().
 				End()
 		})
@@ -1069,7 +1069,7 @@ func TestErrUnsafe(t *testing.T) {
 		func(pkg *gox.Package) {
 			builtin := pkg.Builtin()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val(builtin.Ref("Offsetof")).Val(1).CallWith(1, false, source("unsafe.Offsetof(1)", 6, 2)).EndStmt().
+				Val(builtin.Ref("Offsetof")).Val(1).CallWith(1, 0, source("unsafe.Offsetof(1)", 6, 2)).EndStmt().
 				EndStmt().
 				End()
 		})
@@ -1087,7 +1087,7 @@ func TestErrUnsafe(t *testing.T) {
 			builtin := pkg.Builtin()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(foo, "a").
-				Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "a")).MemberVal("Bar").CallWith(1, false, source("unsafe.Offsetof(a.Bar)", 14, 2)).EndStmt().
+				Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "a")).MemberVal("Bar").CallWith(1, 0, source("unsafe.Offsetof(a.Bar)", 14, 2)).EndStmt().
 				EndStmt().
 				End()
 		})
@@ -1109,7 +1109,7 @@ func TestErrUnsafe(t *testing.T) {
 			tyT := pkg.NewType("T").InitType(pkg, typT)
 			pkg.CB().NewVar(tyT, "t")
 			pkg.CB().NewConstStart(nil, "c").
-				Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t"), source("t", 17, 27)).MemberVal("m").CallWith(1, false, source("unsafe.Offsetof(t.m)", 17, 11)).EndInit(1)
+				Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t"), source("t", 17, 27)).MemberVal("m").CallWith(1, 0, source("unsafe.Offsetof(t.m)", 17, 11)).EndInit(1)
 		})
 	codeErrorTest(t,
 		`./foo.gop:7:12: cannot use a (type int) as type unsafe.Pointer in argument to unsafe.Add`,
@@ -1118,7 +1118,7 @@ func TestErrUnsafe(t *testing.T) {
 			builtin := pkg.Builtin()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyInt, "a").
-				Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val(10).CallWith(2, false, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
+				Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val(10).CallWith(2, 0, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
 				End()
 		})
 	codeErrorTest(t,
@@ -1128,7 +1128,7 @@ func TestErrUnsafe(t *testing.T) {
 			builtin := pkg.Builtin()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyUP, "a").
-				Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val("hello", source(`"hello"`, 7, 16)).CallWith(2, false, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
+				Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val("hello", source(`"hello"`, 7, 16)).CallWith(2, 0, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
 				End()
 		})
 	codeErrorTest(t,
@@ -1138,7 +1138,7 @@ func TestErrUnsafe(t *testing.T) {
 			builtin := pkg.Builtin()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyInt, "a").
-				Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "a")).Val(10).CallWith(2, false, source(`unsafe.Slice(a, 10)`, 7, 2)).EndStmt().
+				Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "a")).Val(10).CallWith(2, 0, source(`unsafe.Slice(a, 10)`, 7, 2)).EndStmt().
 				End()
 		})
 	codeErrorTest(t,
@@ -1149,7 +1149,7 @@ func TestErrUnsafe(t *testing.T) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVarStart(nil, "ar").
 				Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
-				Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val("hello").CallWith(2, false, source(`unsafe.Slice(&a[0],"hello")`, 7, 2)).EndStmt().
+				Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val("hello").CallWith(2, 0, source(`unsafe.Slice(&a[0],"hello")`, 7, 2)).EndStmt().
 				End()
 		})
 }

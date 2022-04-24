@@ -414,11 +414,15 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 
 // Call func
 func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
-	return p.CallWith(n, ellipsis != nil && ellipsis[0])
+	var flags InstrFlags
+	if ellipsis != nil && ellipsis[0] {
+		flags = InstrFlagEllipsis
+	}
+	return p.CallWith(n, flags)
 }
 
 // CallWith func
-func (p *CodeBuilder) CallWith(n int, ellipsis bool, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) CallWith(n int, flags InstrFlags, src ...ast.Node) *CodeBuilder {
 	fn := p.stk.Get(-(n + 1))
 	if t, ok := fn.Type.(*btiMethodType); ok {
 		n++
@@ -432,10 +436,6 @@ func (p *CodeBuilder) CallWith(n int, ellipsis bool, src ...ast.Node) *CodeBuild
 		}
 	}
 	args := p.stk.GetArgs(n)
-	var flags InstrFlags
-	if ellipsis {
-		flags = InstrFlagEllipsis
-	}
 	if debugInstr {
 		log.Println("Call", n, int(flags), "//", fn.Type)
 	}
