@@ -777,7 +777,7 @@ func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type,
 	if types.Identical(results.At(0).Type(), typ) {
 		return pkg.cb.Val(fn).MemberVal(m.Name()).CallWith(0, flags).stk.Pop(), nil
 	}
-	return nil, &MatchError{Src: fn.Src, Arg: fn.Type, Param: typ, At: nil, cb: &pkg.cb}
+	return nil, &MatchError{Src: fn.Src, Arg: fn.Type, Param: typ, At: "Gop_Rcast", cb: &pkg.cb}
 }
 
 // CastFromBool tries to cast a bool expression into integer. typ must be an integer type.
