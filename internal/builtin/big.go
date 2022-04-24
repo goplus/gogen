@@ -283,13 +283,18 @@ func Gop_bigint_Cast__5(x *big.Int) Gop_bigint {
 	return Gop_bigint{x}
 }
 
-// Gop_bigint_Cast: func bigint(x *big.Rat) bigint
-func Gop_bigint_Cast__6(x *big.Rat) Gop_bigint {
+// Gop_bigint_Cast: func bigint(x bigrat) bigint
+func Gop_bigint_Cast__6(x Gop_bigrat) Gop_bigint {
 	if x.IsInt() {
 		return Gop_bigint{x.Num()}
 	}
-	ret, _ := new(big.Float).SetRat(x).Int(nil)
+	ret, _ := new(big.Float).SetRat(x.Rat).Int(nil)
 	return Gop_bigint{ret}
+}
+
+// Gop_bigint_Cast: func bigint(x bigrat) (ret bigint, exact bool)
+func Gop_bigint_Cast__7(x Gop_bigrat) (Gop_bigint, bool) {
+	return Gop_bigint_Cast__6(x), x.IsInt()
 }
 
 // Gop_bigint_Init: func bigint.init(x int) bigint
