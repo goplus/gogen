@@ -881,6 +881,9 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 
 func matchFuncType(
 	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, fn *internal.Elem) error {
+	if (flags&InstrFlagTwoValue) != 0 && sig.Results().Len() != 2 {
+		return errors.New("TODO: should return two values")
+	}
 	var t *types.Tuple
 	n := len(args)
 	if len(args) == 1 && checkTuple(&t, args[0].Type) {

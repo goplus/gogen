@@ -209,7 +209,7 @@ func main() {
 `)
 }
 
-func TestCastTwoValue(t *testing.T) {
+func TestCastIntTwoValue(t *testing.T) {
 	pkg := newGopMainPackage()
 	ng := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -225,6 +225,26 @@ import builtin "github.com/goplus/gox/internal/builtin"
 
 func main() {
 	v, inRange := builtin.Gop_bigrat_Cast__0(1).Gop_Rcast__0()
+}
+`)
+}
+
+func TestCastBigIntTwoValue(t *testing.T) {
+	pkg := newGopMainPackage()
+	ng := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v", "inRange").
+		Val(ng.Ref("Gop_bigint")).
+		Val(ng.Ref("Gop_bigrat")).Val(1).Call(1).
+		CallWith(1, gox.InstrFlagTwoValue).
+		EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+import builtin "github.com/goplus/gox/internal/builtin"
+
+func main() {
+	v, inRange := builtin.Gop_bigint_Cast__7(builtin.Gop_bigrat_Cast__0(1))
 }
 `)
 }
