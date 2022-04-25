@@ -2064,7 +2064,7 @@ func (p *CodeBuilder) Go() *CodeBuilder {
 	return p
 }
 
-// Block func
+// Block starts a block statement.
 func (p *CodeBuilder) Block() *CodeBuilder {
 	if debugInstr {
 		log.Println("Block")
@@ -2074,7 +2074,7 @@ func (p *CodeBuilder) Block() *CodeBuilder {
 	return p
 }
 
-// VBlock func
+// VBlock starts a vblock statement.
 func (p *CodeBuilder) VBlock() *CodeBuilder {
 	if debugInstr {
 		log.Println("VBlock")
@@ -2084,7 +2084,13 @@ func (p *CodeBuilder) VBlock() *CodeBuilder {
 	return p
 }
 
-// If func
+// InVBlock checks if current statement is in vblock or not.
+func (p *CodeBuilder) InVBlock() bool {
+	_, ok := p.current.codeBlock.(*vblockStmt)
+	return ok
+}
+
+// Block starts a if statement.
 func (p *CodeBuilder) If() *CodeBuilder {
 	if debugInstr {
 		log.Println("If")
@@ -2094,7 +2100,7 @@ func (p *CodeBuilder) If() *CodeBuilder {
 	return p
 }
 
-// Then func
+// Then starts body of a if/switch/for statement.
 func (p *CodeBuilder) Then() *CodeBuilder {
 	if debugInstr {
 		log.Println("Then")
@@ -2109,7 +2115,7 @@ func (p *CodeBuilder) Then() *CodeBuilder {
 	panic("use if..then or switch..then or for..then please")
 }
 
-// Else func
+// Else starts else body of a if..else statement.
 func (p *CodeBuilder) Else() *CodeBuilder {
 	if debugInstr {
 		log.Println("Else")
@@ -2121,7 +2127,19 @@ func (p *CodeBuilder) Else() *CodeBuilder {
 	panic("use if..else please")
 }
 
-// TypeSwitch func
+// TypeSwitch starts a type switch statement.
+//
+// <pre>
+// typeSwitch(name) init; expr typeAssertThen
+// type1, type2, ... typeN typeCase(N)
+//    ...
+//    end
+// type1, type2, ... typeM typeCase(M)
+//    ...
+//    end
+// end
+// </pre>
+//
 func (p *CodeBuilder) TypeSwitch(name string) *CodeBuilder {
 	if debugInstr {
 		log.Println("TypeSwitch")
@@ -2182,7 +2200,7 @@ retry:
 	return nil, false
 }
 
-// TypeAssertThen func
+// TypeAssertThen starts body of a type switch statement.
 func (p *CodeBuilder) TypeAssertThen() *CodeBuilder {
 	if debugInstr {
 		log.Println("TypeAssertThen")
@@ -2194,7 +2212,7 @@ func (p *CodeBuilder) TypeAssertThen() *CodeBuilder {
 	panic("use typeSwitch..typeAssertThen please")
 }
 
-// TypeCase func
+// TypeCase starts case body of a type switch statement.
 func (p *CodeBuilder) TypeCase(n int) *CodeBuilder { // n=0 means default case
 	if debugInstr {
 		log.Println("TypeCase", n)
@@ -2206,7 +2224,7 @@ func (p *CodeBuilder) TypeCase(n int) *CodeBuilder { // n=0 means default case
 	panic("use switch x.(type) .. case please")
 }
 
-// Select
+// Select starts a select statement.
 func (p *CodeBuilder) Select() *CodeBuilder {
 	if debugInstr {
 		log.Println("Select")
@@ -2216,7 +2234,7 @@ func (p *CodeBuilder) Select() *CodeBuilder {
 	return p
 }
 
-// CommCase
+// CommCase starts case body of a select..case statement.
 func (p *CodeBuilder) CommCase(n int) *CodeBuilder {
 	if debugInstr {
 		log.Println("CommCase", n)
@@ -2231,7 +2249,7 @@ func (p *CodeBuilder) CommCase(n int) *CodeBuilder {
 	panic("use select..case please")
 }
 
-// Switch func
+// Switch starts a switch statement.
 func (p *CodeBuilder) Switch() *CodeBuilder {
 	if debugInstr {
 		log.Println("Switch")
@@ -2241,7 +2259,7 @@ func (p *CodeBuilder) Switch() *CodeBuilder {
 	return p
 }
 
-// Case func
+// Case starts case body of a switch..case statement.
 func (p *CodeBuilder) Case(n int) *CodeBuilder { // n=0 means default case
 	if debugInstr {
 		log.Println("Case", n)

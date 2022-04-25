@@ -1037,7 +1037,17 @@ func TestBlockStmt(t *testing.T) {
 		End().
 		VBlock().
 		/**/ DefineVarStart(token.NoPos, "x", "y").Val(10).Val(100).EndInit(2).
+		/**/ Debug(func(cb *gox.CodeBuilder) {
+			if !cb.InVBlock() {
+				t.Fatal("InVBlock: false?")
+			}
+		}).
 		End().
+		Debug(func(cb *gox.CodeBuilder) {
+			if cb.InVBlock() {
+				t.Fatal("InVBlock: true?")
+			}
+		}).
 		End()
 	domTest(t, pkg, `package main
 
@@ -1051,12 +1061,22 @@ func main() {
 	x, y := 10, 100
 }
 `)
-	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("no error?")
-		}
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("no error?")
+			}
+		}()
+		pkg.CB().Then()
 	}()
-	pkg.CB().Then()
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("no error?")
+			}
+		}()
+		pkg.CB().Case(1)
+	}()
 }
 
 func TestConst(t *testing.T) {
