@@ -1061,22 +1061,51 @@ func main() {
 	x, y := 10, 100
 }
 `)
-	func() {
-		defer func() {
-			if e := recover(); e == nil {
-				t.Fatal("no error?")
-			}
-		}()
+	safeRun(t, func() {
 		pkg.CB().Then()
-	}()
-	func() {
-		defer func() {
-			if e := recover(); e == nil {
-				t.Fatal("no error?")
-			}
-		}()
+	})
+	safeRun(t, func() {
+		pkg.CB().Val(1).Then()
+	})
+	safeRun(t, func() {
+		pkg.CB().Else()
+	})
+	safeRun(t, func() {
+		pkg.CB().TypeAssertThen()
+	})
+	safeRun(t, func() {
 		pkg.CB().Case(1)
+	})
+	safeRun(t, func() {
+		pkg.CB().Fallthrough()
+	})
+	safeRun(t, func() {
+		pkg.CB().Post()
+	})
+	safeRun(t, func() {
+		pkg.CB().RangeAssignThen(0)
+	})
+	safeRun(t, func() {
+		pkg.CB().TypeCase(1)
+	})
+	safeRun(t, func() {
+		pkg.CB().CommCase(1)
+	})
+	safeRun(t, func() {
+		pkg.CB().CommCase(2)
+	})
+	safeRun(t, func() {
+		pkg.CB().Val(2).Val(3).EndStmt()
+	})
+}
+
+func safeRun(t *testing.T, doSth func()) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("no error?")
+		}
 	}()
+	doSth()
 }
 
 func TestConst(t *testing.T) {
