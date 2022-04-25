@@ -42,6 +42,11 @@ type codeBlock interface {
 	End(cb *CodeBuilder)
 }
 
+type vblockCtx struct {
+	codeBlock
+	scope *types.Scope
+}
+
 type codeBlockCtx struct {
 	codeBlock
 	scope *types.Scope
@@ -272,6 +277,17 @@ func (p *CodeBuilder) clearBlockStmt() []ast.Stmt {
 	stmts := p.current.stmts
 	p.current.stmts = nil
 	return stmts
+}
+
+func (p *CodeBuilder) startVBlockStmt(current codeBlock, comment string, old *vblockCtx) *CodeBuilder {
+	*old = vblockCtx{codeBlock: p.current.codeBlock, scope: p.current.scope}
+	scope := types.NewScope(p.current.scope, token.NoPos, token.NoPos, comment)
+	p.current.codeBlock, p.current.scope = current, scope
+	return p
+}
+
+func (p *CodeBuilder) endVBlockStmt(old *vblockCtx) {
+	p.current.codeBlock, p.current.scope = old.codeBlock, old.scope
 }
 
 func (p *CodeBuilder) popStmt() ast.Stmt {
@@ -2058,6 +2074,16 @@ func (p *CodeBuilder) Block() *CodeBuilder {
 	return p
 }
 
+// VBlock func
+func (p *CodeBuilder) VBlock() *CodeBuilder {
+	if debugInstr {
+		log.Println("VBlock")
+	}
+	stmt := &vblockStmt{}
+	p.startVBlockStmt(stmt, "vblock statement", &stmt.old)
+	return p
+}
+
 // If func
 func (p *CodeBuilder) If() *CodeBuilder {
 	if debugInstr {
@@ -2080,7 +2106,7 @@ func (p *CodeBuilder) Then() *CodeBuilder {
 		flow.Then(p)
 		return p
 	}
-	panic("use if..then or switch..then please")
+	panic("use if..then or switch..then or for..then please")
 }
 
 // Else func

@@ -1035,6 +1035,9 @@ func TestBlockStmt(t *testing.T) {
 		Block().
 		/**/ DefineVarStart(token.NoPos, "x", "y").Val(1).Val(4.0).EndInit(2).
 		End().
+		VBlock().
+		/**/ DefineVarStart(token.NoPos, "x", "y").Val(10).Val(100).EndInit(2).
+		End().
 		End()
 	domTest(t, pkg, `package main
 
@@ -1045,6 +1048,7 @@ func main() {
 	{
 		x, y := 1, 4.0
 	}
+	x, y := 10, 100
 }
 `)
 }
