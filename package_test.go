@@ -1035,6 +1035,19 @@ func TestBlockStmt(t *testing.T) {
 		Block().
 		/**/ DefineVarStart(token.NoPos, "x", "y").Val(1).Val(4.0).EndInit(2).
 		End().
+		VBlock().
+		/**/ DefineVarStart(token.NoPos, "x", "y").Val(10).Val(100).EndInit(2).
+		/**/ Debug(func(cb *gox.CodeBuilder) {
+			if !cb.InVBlock() {
+				t.Fatal("InVBlock: false?")
+			}
+		}).
+		End().
+		Debug(func(cb *gox.CodeBuilder) {
+			if cb.InVBlock() {
+				t.Fatal("InVBlock: true?")
+			}
+		}).
 		End()
 	domTest(t, pkg, `package main
 
@@ -1045,8 +1058,54 @@ func main() {
 	{
 		x, y := 1, 4.0
 	}
+	x, y := 10, 100
 }
 `)
+	safeRun(t, func() {
+		pkg.CB().Then()
+	})
+	safeRun(t, func() {
+		pkg.CB().Val(1).Then()
+	})
+	safeRun(t, func() {
+		pkg.CB().Else()
+	})
+	safeRun(t, func() {
+		pkg.CB().TypeAssertThen()
+	})
+	safeRun(t, func() {
+		pkg.CB().Case(1)
+	})
+	safeRun(t, func() {
+		pkg.CB().Fallthrough()
+	})
+	safeRun(t, func() {
+		pkg.CB().Post()
+	})
+	safeRun(t, func() {
+		pkg.CB().RangeAssignThen(0)
+	})
+	safeRun(t, func() {
+		pkg.CB().TypeCase(1)
+	})
+	safeRun(t, func() {
+		pkg.CB().CommCase(1)
+	})
+	safeRun(t, func() {
+		pkg.CB().CommCase(2)
+	})
+	safeRun(t, func() {
+		pkg.CB().Val(2).Val(3).EndStmt()
+	})
+}
+
+func safeRun(t *testing.T, doSth func()) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("no error?")
+		}
+	}()
+	doSth()
 }
 
 func TestConst(t *testing.T) {
