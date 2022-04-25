@@ -1051,6 +1051,12 @@ func main() {
 	x, y := 10, 100
 }
 `)
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("no error?")
+		}
+	}()
+	pkg.CB().Then()
 }
 
 func TestConst(t *testing.T) {
