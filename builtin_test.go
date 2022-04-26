@@ -409,6 +409,10 @@ func TestSubstVar(t *testing.T) {
 	if o != o2 {
 		t.Fatal("TestSubstVar:", o2)
 	}
+	o2 = Lookup(scope, "a")
+	if o != o2 {
+		t.Fatal("TestSubstVar:", o2)
+	}
 	LookupParent(scope, "b", token.NoPos)
 	Lookup(scope, "b")
 }

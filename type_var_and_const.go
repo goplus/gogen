@@ -153,7 +153,7 @@ func (p *ValueDecl) InitStart(pkg *Package) *CodeBuilder {
 }
 
 func (p *ValueDecl) Ref(name string) Ref {
-	return Lookup(p.scope, name)
+	return p.scope.Lookup(name)
 }
 
 func (p *ValueDecl) End(cb *CodeBuilder) {
