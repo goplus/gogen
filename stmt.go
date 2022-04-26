@@ -44,6 +44,20 @@ func (p *blockStmt) End(cb *CodeBuilder) {
 
 // ----------------------------------------------------------------------------
 //
+// vblock
+//   ...
+// end
+//
+type vblockStmt struct {
+	old vblockCtx
+}
+
+func (p *vblockStmt) End(cb *CodeBuilder) {
+	cb.endVBlockStmt(&p.old)
+}
+
+// ----------------------------------------------------------------------------
+//
 // if init; cond then
 //   ...
 // else

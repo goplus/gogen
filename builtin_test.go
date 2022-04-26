@@ -391,13 +391,32 @@ func TestToType(t *testing.T) {
 	toType(pkg, &unboundType{})
 }
 
+func TestSubstVar(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	a := pkg.NewAutoParam("a")
+	scope := pkg.cb.Scope()
+	scope.Insert(NewSubstVar(token.NoPos, pkg.Types, "bar", a))
+	_, o := LookupParent(scope, "bar", token.NoPos)
+	if o != a {
+		t.Fatal("TestSubstVar:", o)
+	}
+	scope.Insert(a)
+	_, o2 := LookupParent(scope, "a", token.NoPos)
+	if o != o2 {
+		t.Fatal("TestSubstVar:", o2)
+	}
+	LookupParent(scope, "b", token.NoPos)
+}
+
 func TestUnderlying(t *testing.T) {
+	subst := &substType{}
 	bfReft := &bfRefType{typ: tyInt}
 	if typ, ok := DerefType(bfReft); !ok || typ != tyInt {
 		t.Fatal("TestDerefType failed")
 	}
 	typs := []types.Type{
 		&refType{},
+		subst,
 		bfReft,
 		&unboundType{},
 		&unboundMapElemType{},
@@ -410,8 +429,11 @@ func TestUnderlying(t *testing.T) {
 		&TemplateParamType{},
 		&TemplateSignature{},
 	}
-	if bfReft.String() == "bfRefType{typ: nil:0 off: 0}" {
-		t.Fatal("bfRefType.String")
+	if v := bfReft.String(); v != "bfRefType{typ: int:0 off: 0}" {
+		t.Fatal("bfRefType.String:", v)
+	}
+	if v := subst.String(); v != "substType{real: <nil>}" {
+		t.Fatal("substType.String:", v)
 	}
 	for _, typ := range typs {
 		func() {
