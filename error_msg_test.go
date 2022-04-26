@@ -81,6 +81,12 @@ func (p nodeInterp) LoadExpr(node ast.Node) (src string, pos token.Position) {
 }
 
 func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package), disableRecover ...bool) {
+	t.Run(msg, func(t *testing.T) {
+		codeErrorTestDo(t, msg, source, disableRecover...)
+	})
+}
+
+func codeErrorTestDo(t *testing.T, msg string, source func(pkg *gox.Package), disableRecover ...bool) {
 	pos2Positions = map[token.Pos]token.Position{}
 	pkg := newMainPackage()
 	if !(disableRecover != nil && disableRecover[0]) {
