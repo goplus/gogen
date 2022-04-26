@@ -1900,6 +1900,7 @@ func lookupMethod(t *types.Named, name string) types.Object {
 
 func callOpFunc(cb *CodeBuilder, op token.Token, tokenOps []string, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
 	name := goxPrefix + tokenOps[op]
+	pkg := cb.pkg
 	typ := args[0].Type
 retry:
 	switch t := typ.(type) {
@@ -1910,14 +1911,14 @@ retry:
 				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
 				Type: realType(lm.Type()),
 			}
-			return matchFuncCall(cb.pkg, fn, args, flags|instrFlagOpFunc)
+			return matchFuncCall(pkg, fn, args, flags|instrFlagOpFunc)
 		}
 	case *types.Pointer:
 		typ = t.Elem()
 		goto retry
 	}
 	if op == token.EQL || op == token.NEQ {
-		if !ComparableTo(cb.pkg, args[0], args[1]) {
+		if !ComparableTo(pkg, args[0], args[1]) {
 			return nil, errors.New("mismatched types")
 		}
 		ret = &internal.Elem{
@@ -1930,11 +1931,17 @@ retry:
 		}
 		return
 	}
-	lm := cb.pkg.builtin.Scope().Lookup(name)
+	lm := pkg.builtin.Scope().Lookup(name)
 	if lm == nil {
 		panic("TODO: operator not matched")
 	}
-	return matchFuncCall(cb.pkg, toObject(cb.pkg, lm, nil), args, flags)
+	if ret, err = matchFuncCall(pkg, toObject(pkg, lm, nil), args, flags); err == nil {
+		if isUntyped(pkg, ret.Type) && ret.CVal == nil { // fix untyped operator result
+			// TODO: support untyped_bigint/bigrat
+			ret.Type = Default(pkg, ret.Type)
+		}
+	}
+	return
 }
 
 // BinaryOp func

@@ -696,8 +696,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 	case *types.Pointer, *types.Chan:
 		fnVal = &ast.ParenExpr{X: fnVal}
 	}
-	pkg.cb.ensureLoaded(typ)
-	if len(args) == 1 && types.ConvertibleTo(args[0].Type, typ) {
+	if len(args) == 1 && ConvertibleTo(pkg, args[0].Type, typ) {
 		goto finish
 	}
 
