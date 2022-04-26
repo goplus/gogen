@@ -153,7 +153,7 @@ func (p *ValueDecl) InitStart(pkg *Package) *CodeBuilder {
 }
 
 func (p *ValueDecl) Ref(name string) Ref {
-	return p.scope.Lookup(name)
+	return Lookup(p.scope, name)
 }
 
 func (p *ValueDecl) End(cb *CodeBuilder) {
@@ -710,6 +710,15 @@ func NewSubstVar(pos token.Pos, pkg *types.Package, name string, real types.Obje
 
 func LookupParent(scope *types.Scope, name string, pos token.Pos) (at *types.Scope, obj types.Object) {
 	if at, obj = scope.LookupParent(name, pos); obj != nil {
+		if t, ok := obj.Type().(*substType); ok {
+			obj = t.real
+		}
+	}
+	return
+}
+
+func Lookup(scope *types.Scope, name string) (obj types.Object) {
+	if obj = scope.Lookup(name); obj != nil {
 		if t, ok := obj.Type().(*substType); ok {
 			obj = t.real
 		}
