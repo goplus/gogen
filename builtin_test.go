@@ -396,7 +396,11 @@ func TestSubstVar(t *testing.T) {
 	a := pkg.NewAutoParam("a")
 	scope := pkg.cb.Scope()
 	scope.Insert(NewSubstVar(token.NoPos, pkg.Types, "bar", a))
-	_, o := LookupParent(scope, "bar", token.NoPos)
+	o := Lookup(scope, "bar")
+	if o != a {
+		t.Fatal("TestSubstVar:", o)
+	}
+	_, o = LookupParent(scope, "bar", token.NoPos)
 	if o != a {
 		t.Fatal("TestSubstVar:", o)
 	}
@@ -406,6 +410,7 @@ func TestSubstVar(t *testing.T) {
 		t.Fatal("TestSubstVar:", o2)
 	}
 	LookupParent(scope, "b", token.NoPos)
+	Lookup(scope, "b")
 }
 
 func TestUnderlying(t *testing.T) {
