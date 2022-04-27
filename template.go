@@ -399,7 +399,7 @@ func ComparableTo(pkg *Package, varg, targ *Element) bool {
 	if getUnderlying(pkg, V) == getUnderlying(pkg, T) {
 		return true
 	}
-	return AssignableTo(pkg, V, T) || AssignableTo(pkg, T, V)
+	return AssignableConv(pkg, V, T, varg) || AssignableConv(pkg, T, V, targ)
 }
 
 func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type) bool {
