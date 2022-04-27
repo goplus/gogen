@@ -20,6 +20,7 @@ import (
 	"go/types"
 	"log"
 	"reflect"
+	"syscall"
 
 	"github.com/goplus/gox/internal"
 )
@@ -146,6 +147,12 @@ type ValueDecl struct {
 	at    int // commitStmt(at)
 }
 
+// Inited checkes if `InitStart` is called or not.
+func (p *ValueDecl) Inited() bool {
+	return p.oldv != nil
+}
+
+// InitStart initializes a uninitialized variable or constant.
 func (p *ValueDecl) InitStart(pkg *Package) *CodeBuilder {
 	p.oldv, pkg.cb.valDecl = pkg.cb.valDecl, p
 	p.old = pkg.cb.startInitExpr(p)
@@ -156,6 +163,8 @@ func (p *ValueDecl) Ref(name string) Ref {
 	return p.scope.Lookup(name)
 }
 
+// End is provided for internal usage.
+// Don't call it at any time. Please use (*CodeBuilder).EndInit instead.
 func (p *ValueDecl) End(cb *CodeBuilder) {
 	fatal("don't call End(), please use EndInit() instead")
 }
@@ -297,7 +306,7 @@ func (p *Package) newValueDecl(
 			continue
 		}
 		if typ != nil && tok == token.VAR {
-			if old := scope.Insert(types.NewVar(pos, p.Types, name, typ)); old != nil { // && false {
+			if old := scope.Insert(types.NewVar(pos, p.Types, name, typ)); old != nil {
 				oldpos := p.cb.position(old.Pos())
 				p.cb.panicCodePosErrorf(
 					pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
@@ -366,6 +375,11 @@ func (p *Package) NewConstDefs(scope *types.Scope) *ConstDefs {
 	return &ConstDefs{ValueDefs: *p.newValueDefs(scope, token.CONST)}
 }
 
+// NewVar starts a var declaration block and creates uninitialized variables with
+// specified `typ` (can be nil) and `names`.
+//
+// This is a shortcut for creating variables. `NewVarDefs` is more powerful and
+// more recommended.
 func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
@@ -373,6 +387,11 @@ func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *VarDec
 	return p.newValueDecl(nil, p.Types.Scope(), pos, token.VAR, typ, names...)
 }
 
+// NewVarEx starts a var declaration block and creates uninitialized variables with
+// specified `typ` (can be nil) and `names`.
+//
+// This is a shortcut for creating variables. `NewVarDefs` is more powerful and
+// more recommended.
 func (p *Package) NewVarEx(scope *types.Scope, pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
@@ -380,6 +399,11 @@ func (p *Package) NewVarEx(scope *types.Scope, pos token.Pos, typ types.Type, na
 	return p.newValueDecl(nil, scope, pos, token.VAR, typ, names...)
 }
 
+// NewVarStart creates variables with specified `typ` (can be nil) and `names` and starts
+// to initialize them. You should call `CodeBuilder.EndInit` to end initialization.
+//
+// This is a shortcut for creating variables. `NewVarDefs` is more powerful and more
+// recommended.
 func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("NewVar", names)
@@ -387,7 +411,7 @@ func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *C
 	return p.newValueDecl(nil, p.Types.Scope(), pos, token.VAR, typ, names...).InitStart(p)
 }
 
-// NewVarDefs starts a constant declaration block.
+// NewVarDefs starts a var declaration block.
 func (p *Package) NewVarDefs(scope *types.Scope) *VarDefs {
 	if debugInstr {
 		log.Println("NewVarDefs")
@@ -406,6 +430,7 @@ type ValueDefs struct {
 
 type VarDefs ValueDefs
 
+// New creates uninitialized variables with specified `typ` (can be nil) and `names`.
 func (p *VarDefs) New(pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
@@ -413,6 +438,7 @@ func (p *VarDefs) New(pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	return p.pkg.newValueDecl((*ValueDefs)(p), p.scope, pos, token.VAR, typ, names...)
 }
 
+// NewAndInit creates variables with specified `typ` (can be nil) and `names`, and initializes them by `fn`.
 func (p *VarDefs) NewAndInit(fn func(cb *CodeBuilder) int, pos token.Pos, typ types.Type, names ...string) *VarDefs {
 	if debugInstr {
 		log.Println("NewAndInit", names)
@@ -424,6 +450,29 @@ func (p *VarDefs) NewAndInit(fn func(cb *CodeBuilder) int, pos token.Pos, typ ty
 		cb.EndInit(n)
 	}
 	return p
+}
+
+// Delete deletes an uninitialized variable who was created by `New`.
+// If the variable is initialized, it fails to delete and returns `syscall.EACCES`.
+// If the variable is not found, it returns `syscall.ENOENT`.
+func (p *VarDefs) Delete(name string) error {
+	for i, spec := range p.decl.Specs {
+		vspec := spec.(*ast.ValueSpec)
+		for j, ident := range vspec.Names {
+			if ident.Name == name {
+				if vspec.Values != nil { // can't remove an initialized variable
+					return syscall.EACCES
+				}
+				if len(vspec.Names) == 1 {
+					p.decl.Specs = append(p.decl.Specs[:i], p.decl.Specs[i+1:]...)
+					return nil
+				}
+				vspec.Names = append(vspec.Names[:j], vspec.Names[j+1:]...)
+				return nil
+			}
+		}
+	}
+	return syscall.ENOENT
 }
 
 // ----------------------------------------------------------------------------
