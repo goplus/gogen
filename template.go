@@ -227,6 +227,17 @@ func DefaultConv(pkg *Package, t types.Type, pv *Element) types.Type {
 	return t
 }
 
+func ConvertibleTo(pkg *Package, V, T types.Type) bool {
+	pkg.cb.ensureLoaded(V)
+	pkg.cb.ensureLoaded(T)
+	if V == types.Typ[types.UnsafePointer] {
+		if _, ok := T.(*types.Pointer); ok {
+			return true
+		}
+	}
+	return types.ConvertibleTo(V, T)
+}
+
 // AssignableTo reports whether a value of type V is assignable to a variable of type T.
 func AssignableTo(pkg *Package, V, T types.Type) bool {
 	return AssignableConv(pkg, V, T, nil)
@@ -388,7 +399,7 @@ func ComparableTo(pkg *Package, varg, targ *Element) bool {
 	if getUnderlying(pkg, V) == getUnderlying(pkg, T) {
 		return true
 	}
-	return AssignableTo(pkg, V, T) || AssignableTo(pkg, T, V)
+	return AssignableConv(pkg, V, T, varg) || AssignableConv(pkg, T, V, targ)
 }
 
 func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type) bool {

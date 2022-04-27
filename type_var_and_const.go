@@ -717,4 +717,13 @@ func LookupParent(scope *types.Scope, name string, pos token.Pos) (at *types.Sco
 	return
 }
 
+func Lookup(scope *types.Scope, name string) (obj types.Object) {
+	if obj = scope.Lookup(name); obj != nil {
+		if t, ok := obj.Type().(*substType); ok {
+			obj = t.real
+		}
+	}
+	return
+}
+
 // ----------------------------------------------------------------------------

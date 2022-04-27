@@ -2833,6 +2833,23 @@ func main() {
 `)
 }
 
+func TestBinaryOpSHL(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.Int32], "a").
+		NewVar(types.Typ[types.Int], "b").
+		Val(ctxRef(pkg, "b")).Val(1).Val(ctxRef(pkg, "a")).BinaryOp(token.SHL).BinaryOp(token.AND).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a int32
+	var b int
+	b & (1 << a)
+}
+`)
+}
+
 func TestImplicitCast(t *testing.T) {
 	pkg := newMainPackage(func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool {
 		log.Println("ImplicitCast:", V, T)
