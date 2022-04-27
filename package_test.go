@@ -22,6 +22,7 @@ import (
 	"go/types"
 	"log"
 	"os"
+	"syscall"
 	"testing"
 	"unsafe"
 
@@ -1225,6 +1226,39 @@ const (
 	_
 	_
 	b
+)
+`)
+}
+
+func TestDeleteVarDecl(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.SetVarRedeclarable(true)
+	scope := pkg.CB().Scope()
+	defs := pkg.NewVarDefs(scope)
+	decl := defs.New(token.NoPos, types.Typ[types.Int], "a", "b")
+	defs.New(token.NoPos, types.Typ[types.String], "c")
+	defs.New(token.NoPos, types.Typ[types.String], "s")
+	if decl.Inited() {
+		t.Fatal("TestDeleteVarDecl: inited?")
+	}
+	defs.Delete("b")
+	defs.Delete("c")
+	defs.NewAndInit(func(cb *gox.CodeBuilder) int {
+		cb.Val(10)
+		return 1
+	}, token.NoPos, types.Typ[types.Int], "b")
+	if err := defs.Delete("b"); err != syscall.EACCES {
+		t.Fatal("defs.Delete b failed:", err)
+	}
+	if err := defs.Delete("unknown"); err != syscall.ENOENT {
+		t.Fatal("defs.Delete unknown failed:", err)
+	}
+	domTest(t, pkg, `package main
+
+var (
+	a int
+	s string
+	b int = 10
 )
 `)
 }
