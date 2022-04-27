@@ -182,7 +182,7 @@ func (p *Package) NewFuncWith(
 				pos, "func init must have no arguments and no return values")
 		}
 	} else if fn.Name() != "_" { // skip underscore
-		p.Types.Scope().Insert(fn)
+		p.Types.Scope().Insert(fn) // TODO: type checker if exists (use types.Identical)
 	}
 
 	decl := &ast.FuncDecl{}
