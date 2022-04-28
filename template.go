@@ -272,7 +272,7 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 			tkind := t.Kind()
 			switch {
 			case vkind >= types.UntypedInt && vkind <= types.UntypedComplex:
-				if tkind <= types.Uintptr && pv != nil && outOfRange(tkind, pv.CVal) {
+				if tkind <= types.Uintptr && pv != nil && OutOfRange(tkind, pv.CVal) != 0 {
 					if debugMatch {
 						log.Printf("==> AssignableConv %v (%v): value is out of %v range", V, pv.CVal, T)
 					}
@@ -307,9 +307,21 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 	return false
 }
 
-func outOfRange(tkind types.BasicKind, cval constant.Value) bool {
+// OutOfRange checks if a constant `cval` is out of `tkind` range.
+//
+// If `cval` < min of `tkind`, it returns -1. If `cval` < max of `tkind`, it returns 1.
+// Otherwise it returns 0.
+//
+// Note: `tkind` must be one of `Int`, `Int8`-`Int64`, `Uint`, `Uint8`-`Uint64`, `Uintptr`.
+func OutOfRange(tkind types.BasicKind, cval constant.Value) int {
 	rg := tkindRanges[tkind]
-	return constant.Compare(cval, token.LSS, rg[0]) || constant.Compare(cval, token.GTR, rg[1])
+	if constant.Compare(cval, token.LSS, rg[0]) {
+		return -1
+	}
+	if constant.Compare(cval, token.GTR, rg[1]) {
+		return 1
+	}
+	return 0
 }
 
 const (
