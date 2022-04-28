@@ -150,7 +150,7 @@ func (p *Package) NewFuncWith(
 	}
 	cb := p.cb
 	fn := types.NewFunc(pos, p.Types, name, sig)
-	if recv := sig.Recv(); recv != nil { // add method to this type
+	if recv := sig.Recv(); recv != nil && !isCSigRecv(recv) { // add method to this type
 		var t *types.Named
 		var ok bool
 		var typ = recv.Type()
