@@ -162,11 +162,6 @@ retry:
 		}
 		typ = t.tBound
 		goto retry
-	default:
-		if v := reflect.ValueOf(typ).FieldByName("Signature"); v.IsValid() {
-			typ = v.Interface().(types.Type)
-			goto retry
-		}
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil
@@ -595,6 +590,8 @@ retry:
 				restoreArgs(args, backup)
 			}
 			return
+		} else if IsCSignature(t) {
+			sig = types.NewSignature(nil, t.Params(), t.Results(), t.Variadic())
 		} else {
 			sig = t
 		}

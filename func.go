@@ -109,7 +109,7 @@ func (p *Func) End(cb *CodeBuilder) {
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t})
 	} else {
 		fn.Name, fn.Type, fn.Body = ident(p.Name()), toFuncType(pkg, t), body
-		if recv := t.Recv(); recv != nil {
+		if recv := t.Recv(); recv != nil && !isCSigRecv(recv) {
 			fn.Recv = toRecv(pkg, recv)
 		}
 	}
@@ -150,7 +150,7 @@ func (p *Package) NewFuncWith(
 	}
 	cb := p.cb
 	fn := types.NewFunc(pos, p.Types, name, sig)
-	if recv := sig.Recv(); recv != nil { // add method to this type
+	if recv := sig.Recv(); recv != nil && !isCSigRecv(recv) { // add method to this type
 		var t *types.Named
 		var ok bool
 		var typ = recv.Type()

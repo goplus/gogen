@@ -375,20 +375,32 @@ func TestToVariadic(t *testing.T) {
 	toVariadic(&ast.Field{Type: &ast.Ident{Name: "int"}})
 }
 
-type funcType struct {
-	*types.Signature
-}
-
 func TestToType(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
+	cf := NewCSignature(nil, nil, false)
+	if !IsCSignature(cf) {
+		t.Fatal("IsCSignature failed: not c function?")
+	}
+	if v := typString(pkg, cf); v != "func()" {
+		t.Fatal("toType failed:", v)
+	}
 	toType(pkg, &unboundType{tBound: tyInt})
-	toType(pkg, funcType{types.NewSignature(nil, nil, nil, false)})
 	defer func() {
 		if e := recover(); e == nil {
 			t.Fatal("TestToType: no error?")
 		}
 	}()
 	toType(pkg, &unboundType{})
+}
+
+func typString(pkg *Package, t types.Type) string {
+	v := toType(pkg, t)
+	var b bytes.Buffer
+	err := format.Node(&b, pkg.Fset, v)
+	if err != nil {
+		panic(err)
+	}
+	return b.String()
 }
 
 func TestSubstVar(t *testing.T) {

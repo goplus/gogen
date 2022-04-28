@@ -206,3 +206,21 @@ func (p *UnionFields) FieldRef(cb *CodeBuilder, tfld *types.Named, name string, 
 }
 
 // ----------------------------------------------------------------------------
+
+// NewCSignature creates prototype of a C function.
+func NewCSignature(params, results *types.Tuple, variadic bool) *types.Signature {
+	crecv := types.NewParam(token.NoPos, nil, "", types.Typ[types.UntypedNil])
+	return types.NewSignature(crecv, params, results, variadic)
+}
+
+// IsCSignature checks a prototype is C function or not.
+func IsCSignature(sig *types.Signature) bool {
+	recv := sig.Recv()
+	return recv != nil && isCSigRecv(recv)
+}
+
+func isCSigRecv(recv *types.Var) bool {
+	return recv.Type() == types.Typ[types.UntypedNil]
+}
+
+// ----------------------------------------------------------------------------
