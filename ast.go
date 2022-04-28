@@ -162,11 +162,6 @@ retry:
 		}
 		typ = t.tBound
 		goto retry
-	default:
-		if v := reflect.ValueOf(typ).FieldByName("Signature"); v.IsValid() {
-			typ = v.Interface().(types.Type)
-			goto retry
-		}
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil

@@ -109,7 +109,7 @@ func (p *Func) End(cb *CodeBuilder) {
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t})
 	} else {
 		fn.Name, fn.Type, fn.Body = ident(p.Name()), toFuncType(pkg, t), body
-		if recv := t.Recv(); recv != nil {
+		if recv := t.Recv(); recv != nil && !isCSigRecv(recv) {
 			fn.Recv = toRecv(pkg, recv)
 		}
 	}
