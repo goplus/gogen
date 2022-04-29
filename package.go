@@ -246,6 +246,7 @@ type Package struct {
 	testingFile    int
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
+	allowVarRedecl bool
 }
 
 const (
@@ -295,6 +296,11 @@ func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {
 		p.commentedStmts = make(map[ast.Stmt]*ast.CommentGroup)
 	}
 	p.commentedStmts[stmt] = comments
+}
+
+// SetVarRedeclarable sets to allow redeclaration of variables or not.
+func (p *Package) SetVarRedeclarable(allowVarRedecl bool) {
+	p.allowVarRedecl = allowVarRedecl
 }
 
 // Sizeof returns sizeof typ in bytes.
