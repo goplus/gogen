@@ -205,15 +205,15 @@ func toIndex(c byte) int {
 
 // Import func
 func (p *Package) Import(pkgPath string) *PkgRef {
-	return p.files[p.testingFile].importPkg(p, pkgPath)
+	return p.file.importPkg(p, pkgPath)
 }
 
 func (p *Package) big() *PkgRef {
-	return p.files[p.testingFile].big(p)
+	return p.file.big(p)
 }
 
 func (p *Package) unsafe() *PkgRef {
-	return p.files[p.testingFile].unsafe(p)
+	return p.file.unsafe(p)
 }
 
 // ----------------------------------------------------------------------------

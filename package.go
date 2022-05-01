@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/goplus/gox/packages"
 )
@@ -99,16 +100,22 @@ type Config struct {
 
 // ----------------------------------------------------------------------------
 
-type file struct {
+type File struct {
 	decls        []ast.Decl
 	allPkgPaths  []string
 	importPkgs   map[string]*PkgRef
 	pkgBig       *PkgRef
 	pkgUnsafe    *PkgRef
+	fname        string
 	removedExprs bool
 }
 
-func (p *file) importPkg(this *Package, pkgPath string) *PkgRef {
+// Name returns the name of this file.
+func (p *File) Name() string {
+	return p.fname
+}
+
+func (p *File) importPkg(this *Package, pkgPath string) *PkgRef {
 	if strings.HasPrefix(pkgPath, ".") { // canonical pkgPath
 		pkgPath = path.Join(this.Path(), pkgPath)
 	}
@@ -121,7 +128,7 @@ func (p *file) importPkg(this *Package, pkgPath string) *PkgRef {
 	return pkgImport
 }
 
-func (p *file) markUsed(this *Package) {
+func (p *File) markUsed(this *Package) {
 	if p.removedExprs {
 		// travel all ast nodes to mark used
 		p.markUsedBy(this, reflect.ValueOf(p.decls))
@@ -140,7 +147,7 @@ var (
 	tySelExprPtr = reflect.TypeOf((*ast.SelectorExpr)(nil))
 )
 
-func (p *file) markUsedBy(this *Package, val reflect.Value) {
+func (p *File) markUsedBy(this *Package, val reflect.Value) {
 retry:
 	switch val.Kind() {
 	case reflect.Slice:
@@ -176,7 +183,7 @@ retry:
 	}
 }
 
-func (p *file) getDecls(this *Package) (decls []ast.Decl) {
+func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 	p.markUsed(this)
 	n := len(p.allPkgPaths)
 	if n == 0 {
@@ -215,14 +222,14 @@ func (p *file) getDecls(this *Package) (decls []ast.Decl) {
 	return
 }
 
-func (p *file) big(this *Package) *PkgRef {
+func (p *File) big(this *Package) *PkgRef {
 	if p.pkgBig == nil {
 		p.pkgBig = p.importPkg(this, "math/big")
 	}
 	return p.pkgBig
 }
 
-func (p *file) unsafe(this *Package) *PkgRef {
+func (p *File) unsafe(this *Package) *PkgRef {
 	if p.pkgUnsafe == nil {
 		p.pkgUnsafe = p.importPkg(this, "unsafe")
 	}
@@ -235,7 +242,8 @@ func (p *file) unsafe(this *Package) *PkgRef {
 type Package struct {
 	PkgRef
 	cb             CodeBuilder
-	files          [2]file
+	files          map[string]*File
+	file           *File
 	conf           *Config
 	Fset           *token.FileSet
 	builtin        *types.Package
@@ -243,7 +251,6 @@ type Package struct {
 	utBigRat       *types.Named
 	utBigFlt       *types.Named
 	autoIdx        int
-	testingFile    int
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
 	allowVarRedecl bool
@@ -270,12 +277,11 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if newBuiltin == nil {
 		newBuiltin = newBuiltinDefault
 	}
-	files := [2]file{
-		{importPkgs: make(map[string]*PkgRef)},
-		{importPkgs: make(map[string]*PkgRef)},
-	}
+	file := &File{importPkgs: make(map[string]*PkgRef)}
+	files := map[string]*File{"": file}
 	pkg := &Package{
 		Fset:  fset,
+		file:  file,
 		files: files,
 		conf:  conf,
 	}
@@ -322,27 +328,50 @@ func (p *Package) CB() *CodeBuilder {
 	return &p.cb
 }
 
-// SetInTestingFile sets inTestingFile or not.
-func (p *Package) SetInTestingFile(inTestingFile bool) (old bool) {
-	p.testingFile, old = getInTestingFile(inTestingFile), p.InTestingFile()
+// SetCurFile sets new current file to write.
+// If createIfNotExists is true, then create a new file named `fname` if it not exists.
+// It returns an `old` file to restore in the future (by calling `RestoreCurFile`).
+func (p *Package) SetCurFile(fname string, createIfNotExists bool) (old *File, err error) {
+	old = p.file
+	f, ok := p.files[fname]
+	if !ok {
+		if createIfNotExists {
+			f = &File{importPkgs: make(map[string]*PkgRef), fname: fname}
+			p.files[fname] = f
+		} else {
+			return nil, syscall.ENOENT
+		}
+	}
+	p.file = f
 	return
 }
 
-// InTestingFile returns inTestingFile or not.
-func (p *Package) InTestingFile() bool {
-	return p.testingFile != 0
+// CurFile returns the current file.
+func (p *Package) CurFile() *File {
+	return p.file
 }
 
-func getInTestingFile(inTestingFile bool) int {
-	if inTestingFile {
-		return 1
+// RestoreCurFile sets current file to an `old` file that was returned by `SetCurFile`.
+func (p *Package) RestoreCurFile(file *File) {
+	p.file = file
+}
+
+// File returns a file by its name.
+// If `fname` is not provided, it returns the default (NOT current) file.
+func (p *Package) File(fname ...string) (file *File, ok bool) {
+	var name string
+	if len(fname) == 1 {
+		name = fname[0]
 	}
-	return 0
+	file, ok = p.files[name]
+	return
 }
 
-// HasTestingFile returns true if this package has testing files.
-func (p *Package) HasTestingFile() bool {
-	return len(p.files[1].decls) != 0
+// ForEachFile walks all files to `doSth`.
+func (p *Package) ForEachFile(doSth func(fname string, file *File)) {
+	for fname, file := range p.files {
+		doSth(fname, file)
+	}
 }
 
 // ----------------------------------------------------------------------------

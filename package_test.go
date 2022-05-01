@@ -61,12 +61,12 @@ func newMainPackage(
 }
 
 func domTest(t *testing.T, pkg *gox.Package, expected string) {
-	domTestEx(t, pkg, expected, false)
+	domTestEx(t, pkg, expected, "")
 }
 
-func domTestEx(t *testing.T, pkg *gox.Package, expected string, testingFile bool) {
+func domTestEx(t *testing.T, pkg *gox.Package, expected string, fname string) {
 	var b bytes.Buffer
-	err := gox.WriteTo(&b, pkg, testingFile)
+	err := gox.WriteTo(&b, pkg, fname)
 	if err != nil {
 		t.Fatal("gox.WriteTo failed:", err)
 	}
@@ -280,21 +280,42 @@ func main() {
 func TestTestingFile(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
-	pkg.SetInTestingFile(true)
-	pkg.NewFunc(nil, "foo", nil, nil, false).BodyStart(pkg).End()
-	if !pkg.HasTestingFile() {
-		t.Fatal("not HasTestingFile?")
+	_, err := pkg.SetCurFile("test", false)
+	if err != syscall.ENOENT {
+		t.Fatal("pkg.SetCurFile failed:", err)
 	}
+	old, err := pkg.SetCurFile("test", true)
+	if err != nil {
+		t.Fatal("pkg.SetCurFile failed:", err)
+	}
+	pkg.NewFunc(nil, "foo", nil, nil, false).BodyStart(pkg).End()
 	domTestEx(t, pkg, `package main
 
 func foo() {
 }
-`, true)
-	err := gox.WriteFile("_gop_autogen_test.go", pkg, true)
+`, "test")
+	if pkg.CurFile().Name() != "test" {
+		t.Fatal("TestTestingFile: curfile =", pkg.CurFile().Name())
+	}
+	err = gox.WriteFile("_gop_autogen_test.go", pkg, "test")
+	pkg.RestoreCurFile(old)
 	if err != nil {
 		t.Fatal("gox.WriteFile failed:", err)
 	}
 	os.Remove("_gop_autogen_test.go")
+	err = gox.WriteTo(nil, pkg, "unknown")
+	if err != syscall.ENOENT {
+		t.Fatal("gox.WriteTo failed:", err)
+	}
+	err = gox.WriteFile("?.go", pkg, "unknown")
+	if err != syscall.ENOENT {
+		t.Fatal("gox.WriteFile failed:", err)
+	}
+	pkg.ForEachFile(func(fname string, file *gox.File) {
+		if fname != "" && fname != "test" {
+			t.Fatal("pkg.ForEachFile unexpected file:", fname)
+		}
+	})
 }
 
 func TestMake(t *testing.T) {

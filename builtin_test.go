@@ -336,9 +336,22 @@ func TestGetUnderlying2(t *testing.T) {
 }
 
 func TestWriteFile(t *testing.T) {
-	if WriteFile("/", nil, false) == nil {
+	pkg := NewPackage("foo", "foo", gblConf)
+	if WriteFile("/", pkg, "") == nil {
 		t.Fatal("WriteFile: no error?")
 	}
+	pkg.files[""] = &File{decls: []ast.Decl{
+		&ast.GenDecl{Specs: []ast.Spec{
+			&ast.ValueSpec{Type: &ast.Ident{}},
+		}},
+		nil,
+	}}
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("WriteFile: no error?")
+		}
+	}()
+	WriteFile("_unknown.go", pkg, "")
 }
 
 func TestScopeHasName(t *testing.T) {
@@ -787,7 +800,7 @@ func TestErrWriteFile(t *testing.T) {
 			t.Fatal("TestErrWriteFile: no error?")
 		}
 	}()
-	WriteFile("_gop_autogen.go", pkg, false)
+	WriteFile("_gop_autogen.go", pkg, "")
 }
 
 func TestLoadExpr(t *testing.T) {
@@ -822,7 +835,7 @@ func TestLookupLabel(t *testing.T) {
 
 func TestImportPkg(t *testing.T) {
 	pkg := NewPackage("foo/bar", "bar", gblConf)
-	f := &file{importPkgs: make(map[string]*PkgRef)}
+	f := &File{importPkgs: make(map[string]*PkgRef)}
 	a := f.importPkg(pkg, "./internal/a")
 	if f.importPkgs["foo/bar/internal/a"] != a {
 		t.Fatal("TestImportPkg failed")
