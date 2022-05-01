@@ -109,7 +109,7 @@ func codeErrorTestDo(t *testing.T, msg string, source func(pkg *gox.Package), di
 	}
 	source(pkg)
 	var b bytes.Buffer
-	gox.WriteTo(&b, pkg, false)
+	gox.WriteTo(&b, pkg, "")
 }
 
 func newFunc(

@@ -106,8 +106,7 @@ func getPos(pos []token.Pos) token.Pos {
 
 func (p *Package) appendGenDecl(scope *types.Scope, decl *ast.GenDecl) {
 	if scope == p.Types.Scope() {
-		idx := p.testingFile
-		p.files[idx].decls = append(p.files[idx].decls, decl)
+		p.file.decls = append(p.file.decls, decl)
 	} else {
 		p.cb.emitStmt(&ast.DeclStmt{Decl: decl})
 	}
@@ -331,8 +330,7 @@ func (p *Package) newValueDecl(
 	} else {
 		decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
 		if scope == p.Types.Scope() {
-			idx := p.testingFile
-			p.files[idx].decls = append(p.files[idx].decls, decl)
+			p.file.decls = append(p.file.decls, decl)
 		} else {
 			at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
 		}
@@ -345,8 +343,7 @@ func (p *Package) newValueDefs(scope *types.Scope, tok token.Token) *ValueDefs {
 	at := -1
 	decl := &ast.GenDecl{Tok: tok}
 	if scope == p.Types.Scope() {
-		idx := p.testingFile
-		p.files[idx].decls = append(p.files[idx].decls, decl)
+		p.file.decls = append(p.file.decls, decl)
 	} else {
 		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
 	}

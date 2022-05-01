@@ -30,5 +30,5 @@ func main() {
 		Val("Hello").Call(1).EndStmt(). // func(v string) { ... } ("Hello")
 		End()
 
-	gox.WriteTo(os.Stdout, pkg, false)
+	gox.WriteTo(os.Stdout, pkg)
 }

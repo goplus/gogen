@@ -660,7 +660,7 @@ retry:
 	tyRet := toRetType(sig.Results(), it)
 	if cval != nil { // untyped bigint/bigrat
 		if ret, ok := untypeBig(pkg, cval, tyRet); ok {
-			pkg.files[pkg.testingFile].removedExprs = true
+			pkg.file.removedExprs = true
 			return ret, nil
 		}
 	}

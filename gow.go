@@ -28,15 +28,22 @@ import (
 
 // ----------------------------------------------------------------------------
 
-// TypeAST func
+// TypeAST returns the AST of specified `typ`.
 func TypeAST(pkg *Package, typ types.Type) ast.Expr {
 	return toType(pkg, typ)
 }
 
-// ASTFile func
-func ASTFile(pkg *Package, testingFile bool) *ast.File {
-	idx := getInTestingFile(testingFile)
-	decls := pkg.files[idx].getDecls(pkg)
+// ASTFile returns AST of a file by it `fname`.
+// If `fname` is not provided, it returns AST of the default (NOT current) file.
+func ASTFile(pkg *Package, fname ...string) *ast.File {
+	f, ok := pkg.File(fname...)
+	if !ok {
+		return nil
+	}
+	if debugWriteFile {
+		log.Println("==> ASTFile", f.Name())
+	}
+	decls := f.getDecls(pkg)
 	return &ast.File{Name: ident(pkg.Types.Name()), Decls: decls, Imports: getImports(decls)}
 }
 
@@ -54,24 +61,35 @@ func getImports(decls []ast.Decl) []*ast.ImportSpec {
 	return nil
 }
 
-// CommentedASTFile func
-func CommentedASTFile(pkg *Package, testingFile bool) *printer.CommentedNodes {
+// CommentedASTFile returns commented AST of a file by it `fname`.
+// If `fname` is not provided, it returns AST of the default (NOT current) file.
+func CommentedASTFile(pkg *Package, fname ...string) *printer.CommentedNodes {
+	f := ASTFile(pkg, fname...)
+	if f == nil {
+		return nil
+	}
 	return &printer.CommentedNodes{
-		Node:           ASTFile(pkg, testingFile),
+		Node:           f,
 		CommentedStmts: pkg.commentedStmts,
 	}
 }
 
-// WriteTo func
-func WriteTo(dst io.Writer, pkg *Package, testingFile bool) (err error) {
+// WriteTo writes a file named `fname` to `dst`.
+// If `fname` is not provided, it writes the default (NOT current) file.
+func WriteTo(dst io.Writer, pkg *Package, fname ...string) (err error) {
+	file := CommentedASTFile(pkg, fname...)
+	if file == nil {
+		return syscall.ENOENT
+	}
 	fset := token.NewFileSet()
-	return format.Node(dst, fset, CommentedASTFile(pkg, testingFile))
+	return format.Node(dst, fset, file)
 }
 
-// WriteFile func
-func WriteFile(file string, pkg *Package, testingFile bool) (err error) {
+// WriteFile writes a `file` named `fname`.
+// If `fname` is not provided, it writes the default (NOT current) file.
+func WriteFile(file string, pkg *Package, fname ...string) (err error) {
 	if debugWriteFile {
-		log.Println("WriteFile", file, "testing:", testingFile)
+		log.Println("WriteFile", file)
 	}
 	f, err := os.Create(file)
 	if err != nil {
@@ -84,7 +102,7 @@ func WriteFile(file string, pkg *Package, testingFile bool) (err error) {
 			os.Remove(file)
 		}
 	}()
-	return WriteTo(f, pkg, testingFile)
+	return WriteTo(f, pkg, fname...)
 }
 
 // ----------------------------------------------------------------------------
