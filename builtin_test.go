@@ -336,9 +336,22 @@ func TestGetUnderlying2(t *testing.T) {
 }
 
 func TestWriteFile(t *testing.T) {
-	if WriteFile("/", nil, "") == nil {
+	pkg := NewPackage("foo", "foo", gblConf)
+	if WriteFile("/", pkg, "") == nil {
 		t.Fatal("WriteFile: no error?")
 	}
+	pkg.files[""] = &File{decls: []ast.Decl{
+		&ast.GenDecl{Specs: []ast.Spec{
+			&ast.ValueSpec{Type: &ast.Ident{}},
+		}},
+		nil,
+	}}
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("WriteFile: no error?")
+		}
+	}()
+	WriteFile("_unknown.go", pkg, "")
 }
 
 func TestScopeHasName(t *testing.T) {

@@ -303,6 +303,10 @@ func foo() {
 		t.Fatal("gox.WriteFile failed:", err)
 	}
 	os.Remove("_gop_autogen_test.go")
+	err = gox.WriteTo(nil, pkg, "unknown")
+	if err != syscall.ENOENT {
+		t.Fatal("gox.WriteTo failed:", err)
+	}
 	err = gox.WriteFile("?.go", pkg, "unknown")
 	if err != syscall.ENOENT {
 		t.Fatal("gox.WriteFile failed:", err)

@@ -88,6 +88,10 @@ func WriteTo(dst io.Writer, pkg *Package, fname ...string) (err error) {
 // WriteFile writes a `file` named `fname`.
 // If `fname` is not provided, it writes the default (NOT current) file.
 func WriteFile(file string, pkg *Package, fname ...string) (err error) {
+	ast := CommentedASTFile(pkg, fname...)
+	if ast == nil {
+		return syscall.ENOENT
+	}
 	if debugWriteFile {
 		log.Println("WriteFile", file)
 	}
@@ -102,7 +106,8 @@ func WriteFile(file string, pkg *Package, fname ...string) (err error) {
 			os.Remove(file)
 		}
 	}()
-	return WriteTo(f, pkg, fname...)
+	fset := token.NewFileSet()
+	return format.Node(f, fset, ast)
 }
 
 // ----------------------------------------------------------------------------
