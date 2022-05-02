@@ -88,6 +88,9 @@ type Config struct {
 	// An Importer resolves import paths to Packages.
 	Importer types.Importer
 
+	// DefaultGoFile specifies default file name. It can be empty.
+	DefaultGoFile string
+
 	// NewBuiltin is to create the builin package.
 	NewBuiltin func(pkg PkgImporter, conf *Config) *types.Package
 
@@ -277,8 +280,9 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if newBuiltin == nil {
 		newBuiltin = newBuiltinDefault
 	}
-	file := &File{importPkgs: make(map[string]*PkgRef)}
-	files := map[string]*File{"": file}
+	fname := conf.DefaultGoFile
+	file := &File{importPkgs: make(map[string]*PkgRef), fname: fname}
+	files := map[string]*File{fname: file}
 	pkg := &Package{
 		Fset:  fset,
 		file:  file,
@@ -362,6 +366,8 @@ func (p *Package) File(fname ...string) (file *File, ok bool) {
 	var name string
 	if len(fname) == 1 {
 		name = fname[0]
+	} else {
+		name = p.conf.DefaultGoFile
 	}
 	file, ok = p.files[name]
 	return
