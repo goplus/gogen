@@ -800,7 +800,7 @@ func TestErrWriteFile(t *testing.T) {
 			t.Fatal("TestErrWriteFile: no error?")
 		}
 	}()
-	WriteFile("_gop_autogen.go", pkg, "")
+	WriteFile("_gop_autogen.go", pkg)
 }
 
 func TestLoadExpr(t *testing.T) {

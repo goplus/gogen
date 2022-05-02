@@ -56,6 +56,12 @@ func (p *TypeDecl) Type() *types.Named {
 	return p.typ
 }
 
+// Delete deletes this type.
+// NOTE: It panics if you call InitType after Delete.
+func (p *TypeDecl) Delete() {
+	p.decl.Specs = p.decl.Specs[:0]
+}
+
 // Inited checkes if `InitType` is called or not.
 func (p *TypeDecl) Inited() bool {
 	return p.decl.Specs[0].(*ast.TypeSpec).Type != nil
