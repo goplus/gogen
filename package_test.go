@@ -598,6 +598,18 @@ type foo struct {
 `)
 }
 
+func TestDeleteType(t *testing.T) {
+	pkg := newMainPackage()
+	typ := types.NewStruct(nil, nil)
+	decl := pkg.NewType("foo")
+	decl.InitType(pkg, typ)
+	decl.Delete()
+	domTest(t, pkg, `package main
+
+
+`)
+}
+
 func TestTypeDecl(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{
