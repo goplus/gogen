@@ -174,8 +174,11 @@ func (p *CodeBuilder) getCaller(expr ast.Node) string {
 	return p.interp.Caller(expr)
 }
 
-func (p *CodeBuilder) loadExpr(expr ast.Node) (src string, pos token.Position) {
+func (p *CodeBuilder) loadExpr(expr ast.Node, alt ...fmt.Stringer) (src string, pos token.Position) {
 	if expr == nil {
+		if alt != nil {
+			src = alt[0].String()
+		}
 		return
 	}
 	return p.interp.LoadExpr(expr)
@@ -1954,7 +1957,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	var ret *internal.Elem
 	var err error
 	if ret, err = callOpFunc(p, op, binaryOps[:], args, 0); err != nil {
-		src, pos := p.loadExpr(expr)
+		src, pos := p.loadExpr(expr, op)
 		p.panicCodeErrorf(
 			&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
 	}
@@ -2020,7 +2023,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilde
 		}
 	}
 	if debugInstr {
-		log.Println("UnaryOp", op, flags)
+		log.Println("UnaryOp", op, "flags:", flags)
 	}
 	ret, err := callOpFunc(p, op, unaryOps[:], p.stk.GetArgs(1), flags)
 	if err != nil {
