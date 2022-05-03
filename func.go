@@ -84,7 +84,7 @@ func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 		tag := "NewFunc "
 		name := p.Name()
 		sig := p.Type().(*types.Signature)
-		if v := sig.Recv(); v != nil {
+		if v := sig.Recv(); v != nil && !isCSigRecv(v) {
 			recv = fmt.Sprintf(" (%v)", v.Type())
 		}
 		if name == "" {

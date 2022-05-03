@@ -181,6 +181,14 @@ func TestErrTypeSwitch(t *testing.T) {
 }
 
 func TestErrBinaryOp(t *testing.T) {
+	codeErrorTest(t, `-: invalid operation: * (mismatched types int and float64)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				NewVar(types.Typ[types.Float64], "b").
+				Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.MUL).EndStmt().
+				End()
+		})
 	codeErrorTest(t, `./foo.gop:2:9: invalid operation: a * b (mismatched types int and float64)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
