@@ -998,7 +998,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		elts = make([]ast.Expr, arity)
 		for i, arg := range args {
 			elts[i] = arg.Val
-			if !AssignableTo(pkg, arg.Type, val) {
+			if !AssignableConv(pkg, arg.Type, val, arg) {
 				src, pos := p.loadExpr(arg.Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
