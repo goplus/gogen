@@ -55,8 +55,9 @@ func NewTuple(x ...*Param) *Tuple {
 // Func type
 type Func struct {
 	*types.Func
-	decl *ast.FuncDecl
-	old  funcBodyCtx
+	decl   *ast.FuncDecl
+	old    funcBodyCtx
+	arity1 int // 0 for normal, (arity+1) for inlineClosure
 }
 
 // SetComments sets associated documentation.
@@ -190,20 +191,22 @@ func (p *Package) NewFuncWith(
 	return &Func{Func: fn, decl: decl}, nil
 }
 
-type closureType = token.Pos
-
-const (
-	closureNormal     closureType = 0
-	closureFlagInline closureType = (1 << 30)
-)
-
-func (p *Package) newClosure(sig *types.Signature, ct closureType) *Func {
-	fn := types.NewFunc(ct, p.Types, "", sig)
+func (p *Package) newClosure(sig *types.Signature) *Func {
+	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
 	return &Func{Func: fn}
 }
 
+func (p *Package) newInlineClosure(sig *types.Signature, arity int) *Func {
+	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
+	return &Func{Func: fn, arity1: arity + 1}
+}
+
 func (p *Func) isInline() bool {
-	return (p.Pos() & closureFlagInline) != 0
+	return p.arity1 != 0
+}
+
+func (p *Func) getInlineCallArity() int {
+	return p.arity1 - 1
 }
 
 // ----------------------------------------------------------------------------
