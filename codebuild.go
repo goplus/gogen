@@ -516,21 +516,13 @@ func (p *Func) inlineClosureEnd(cb *CodeBuilder) {
 	}
 }
 
-func (p *Func) getInlineCallArity() int {
-	return int(p.Pos() &^ closureFlagInline)
-}
-
-func makeInlineCall(arity int) closureType {
-	return closureFlagInline | closureType(arity)
-}
-
 // CallInlineClosureStart func
 func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, ellipsis bool) *CodeBuilder {
 	if debugInstr {
 		log.Println("CallInlineClosureStart", arity, ellipsis)
 	}
 	pkg := p.pkg
-	closure := pkg.newClosure(sig, makeInlineCall(arity))
+	closure := pkg.newInlineClosure(sig, arity)
 	results := sig.Results()
 	for i, n := 0, results.Len(); i < n; i++ {
 		p.emitVar(pkg, closure, results.At(i), false)
@@ -582,7 +574,7 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 			}
 		}
 	}
-	return p.pkg.newClosure(sig, closureNormal)
+	return p.pkg.newClosure(sig)
 }
 
 // NewType func
