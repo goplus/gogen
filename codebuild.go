@@ -174,8 +174,11 @@ func (p *CodeBuilder) getCaller(expr ast.Node) string {
 	return p.interp.Caller(expr)
 }
 
-func (p *CodeBuilder) loadExpr(expr ast.Node) (src string, pos token.Position) {
+func (p *CodeBuilder) loadExpr(expr ast.Node, alt ...fmt.Stringer) (src string, pos token.Position) {
 	if expr == nil {
+		if alt != nil {
+			src = alt[0].String()
+		}
 		return
 	}
 	return p.interp.LoadExpr(expr)
@@ -513,21 +516,13 @@ func (p *Func) inlineClosureEnd(cb *CodeBuilder) {
 	}
 }
 
-func (p *Func) getInlineCallArity() int {
-	return int(p.Pos() &^ closureFlagInline)
-}
-
-func makeInlineCall(arity int) closureType {
-	return closureFlagInline | closureType(arity)
-}
-
 // CallInlineClosureStart func
 func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, ellipsis bool) *CodeBuilder {
 	if debugInstr {
 		log.Println("CallInlineClosureStart", arity, ellipsis)
 	}
 	pkg := p.pkg
-	closure := pkg.newClosure(sig, makeInlineCall(arity))
+	closure := pkg.newInlineClosure(sig, arity)
 	results := sig.Results()
 	for i, n := 0, results.Len(); i < n; i++ {
 		p.emitVar(pkg, closure, results.At(i), false)
@@ -579,7 +574,7 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 			}
 		}
 	}
-	return p.pkg.newClosure(sig, closureNormal)
+	return p.pkg.newClosure(sig)
 }
 
 // NewType func
@@ -995,7 +990,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 		elts = make([]ast.Expr, arity)
 		for i, arg := range args {
 			elts[i] = arg.Val
-			if !AssignableTo(pkg, arg.Type, val) {
+			if !AssignableConv(pkg, arg.Type, val, arg) {
 				src, pos := p.loadExpr(arg.Src)
 				p.panicCodeErrorf(
 					&pos, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
@@ -1954,7 +1949,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	var ret *internal.Elem
 	var err error
 	if ret, err = callOpFunc(p, op, binaryOps[:], args, 0); err != nil {
-		src, pos := p.loadExpr(expr)
+		src, pos := p.loadExpr(expr, op)
 		p.panicCodeErrorf(
 			&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
 	}
@@ -2020,7 +2015,7 @@ func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilde
 		}
 	}
 	if debugInstr {
-		log.Println("UnaryOp", op, flags)
+		log.Println("UnaryOp", op, "flags:", flags)
 	}
 	ret, err := callOpFunc(p, op, unaryOps[:], p.stk.GetArgs(1), flags)
 	if err != nil {
