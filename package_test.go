@@ -307,6 +307,12 @@ func foo() {
 	if err != syscall.ENOENT {
 		t.Fatal("gox.WriteTo failed:", err)
 	}
+	if gox.ASTFile(pkg, "unknown") != nil {
+		t.Fatal("gox.ASTFile: not nil")
+	}
+	if gox.CommentedASTFile(pkg, "unknown") != nil {
+		t.Fatal("gox.CommentedASTFile: not nil")
+	}
 	err = gox.WriteFile("?.go", pkg, "unknown")
 	if err != syscall.ENOENT {
 		t.Fatal("gox.WriteFile failed:", err)
