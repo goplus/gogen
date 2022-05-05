@@ -608,8 +608,17 @@ func TestDeleteType(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)
 	decl := pkg.NewType("foo")
+	if decl.State() != gox.TyStateUninited {
+		t.Fatal("TypeDecl.State failed")
+	}
 	decl.InitType(pkg, typ)
+	if decl.State() != gox.TyStateInited {
+		t.Fatal("TypeDecl.State failed")
+	}
 	decl.Delete()
+	if decl.State() != gox.TyStateDeleted {
+		t.Fatal("TypeDecl.State failed")
+	}
 	domTest(t, pkg, `package main
 
 
