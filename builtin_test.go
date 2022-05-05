@@ -950,4 +950,21 @@ func TestTypeAST(t *testing.T) {
 	}
 }
 
+func TestCastFromBool(t *testing.T) {
+	ret, ok := CastFromBool(nil, types.Typ[types.Uint], &Element{
+		Type: types.Typ[types.UntypedBool],
+		CVal: constant.MakeBool(true),
+	})
+	if !ok || constant.Val(ret.CVal).(int64) != 1 {
+		t.Fatal("CastFromBool failed:", ret.CVal, ok)
+	}
+	ret, ok = CastFromBool(nil, types.Typ[types.Uint], &Element{
+		Type: types.Typ[types.Bool],
+		CVal: constant.MakeBool(false),
+	})
+	if !ok || constant.Val(ret.CVal).(int64) != 0 {
+		t.Fatal("CastFromBool failed:", ret.CVal, ok)
+	}
+}
+
 // ----------------------------------------------------------------------------
