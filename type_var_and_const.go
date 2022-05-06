@@ -769,27 +769,27 @@ func (p *TypeType) String() string {
 
 // ----------------------------------------------------------------------------
 
-type substType struct {
-	real types.Object
+type SubstType struct {
+	Real types.Object
 }
 
-func (p *substType) Underlying() types.Type {
+func (p *SubstType) Underlying() types.Type {
 	fatal("substitute type")
 	return nil
 }
 
-func (p *substType) String() string {
-	return fmt.Sprintf("substType{real: %v}", p.real)
+func (p *SubstType) String() string {
+	return fmt.Sprintf("substType{real: %v}", p.Real)
 }
 
 func NewSubstVar(pos token.Pos, pkg *types.Package, name string, real types.Object) *types.Var {
-	return types.NewVar(pos, pkg, name, &substType{real: real})
+	return types.NewVar(pos, pkg, name, &SubstType{Real: real})
 }
 
 func LookupParent(scope *types.Scope, name string, pos token.Pos) (at *types.Scope, obj types.Object) {
 	if at, obj = scope.LookupParent(name, pos); obj != nil {
-		if t, ok := obj.Type().(*substType); ok {
-			obj = t.real
+		if t, ok := obj.Type().(*SubstType); ok {
+			obj = t.Real
 		}
 	}
 	return
@@ -797,8 +797,8 @@ func LookupParent(scope *types.Scope, name string, pos token.Pos) (at *types.Sco
 
 func Lookup(scope *types.Scope, name string) (obj types.Object) {
 	if obj = scope.Lookup(name); obj != nil {
-		if t, ok := obj.Type().(*substType); ok {
-			obj = t.real
+		if t, ok := obj.Type().(*SubstType); ok {
+			obj = t.Real
 		}
 	}
 	return

@@ -443,7 +443,7 @@ func TestSubstVar(t *testing.T) {
 }
 
 func TestUnderlying(t *testing.T) {
-	subst := &substType{}
+	subst := &SubstType{}
 	bfReft := &bfRefType{typ: tyInt}
 	if typ, ok := DerefType(bfReft); !ok || typ != tyInt {
 		t.Fatal("TestDerefType failed")
