@@ -721,15 +721,7 @@ retry:
 		default:
 			return p.Val(0)
 		}
-	case *types.Interface:
-		return p.Val(nil)
-	case *types.Map:
-		return p.Val(nil)
-	case *types.Slice:
-		return p.Val(nil)
-	case *types.Pointer:
-		return p.Val(nil)
-	case *types.Chan:
+	case *types.Interface, *types.Map, *types.Slice, *types.Pointer, *types.Signature, *types.Chan:
 		return p.Val(nil)
 	case *types.Named:
 		typ = p.getUnderlying(t)
