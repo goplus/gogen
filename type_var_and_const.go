@@ -782,7 +782,7 @@ func (p *SubstType) String() string {
 	return fmt.Sprintf("substType{real: %v}", p.Real)
 }
 
-func NewSubstVar(pos token.Pos, pkg *types.Package, name string, real types.Object) *types.Var {
+func NewSubst(pos token.Pos, pkg *types.Package, name string, real types.Object) *types.Var {
 	return types.NewVar(pos, pkg, name, &SubstType{Real: real})
 }
 
