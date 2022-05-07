@@ -420,7 +420,7 @@ func TestSubstVar(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
 	a := pkg.NewAutoParam("a")
 	scope := pkg.cb.Scope()
-	scope.Insert(NewSubstVar(token.NoPos, pkg.Types, "bar", a))
+	scope.Insert(NewSubst(token.NoPos, pkg.Types, "bar", a))
 	o := Lookup(scope, "bar")
 	if o != a {
 		t.Fatal("TestSubstVar:", o)
@@ -443,7 +443,7 @@ func TestSubstVar(t *testing.T) {
 }
 
 func TestUnderlying(t *testing.T) {
-	subst := &substType{}
+	subst := &SubstType{}
 	bfReft := &bfRefType{typ: tyInt}
 	if typ, ok := DerefType(bfReft); !ok || typ != tyInt {
 		t.Fatal("TestDerefType failed")
