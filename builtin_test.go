@@ -420,7 +420,7 @@ func TestSubstVar(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
 	a := pkg.NewAutoParam("a")
 	scope := pkg.cb.Scope()
-	scope.Insert(NewSubstVar(token.NoPos, pkg.Types, "bar", a))
+	scope.Insert(NewSubst(token.NoPos, pkg.Types, "bar", a))
 	o := Lookup(scope, "bar")
 	if o != a {
 		t.Fatal("TestSubstVar:", o)
@@ -443,7 +443,7 @@ func TestSubstVar(t *testing.T) {
 }
 
 func TestUnderlying(t *testing.T) {
-	subst := &substType{}
+	subst := &SubstType{}
 	bfReft := &bfRefType{typ: tyInt}
 	if typ, ok := DerefType(bfReft); !ok || typ != tyInt {
 		t.Fatal("TestDerefType failed")
@@ -947,6 +947,23 @@ func TestTypeAST(t *testing.T) {
 	if b.String() != `interface {
 }` {
 		t.Fatal("TypeAST failed:", b.String())
+	}
+}
+
+func TestCastFromBool(t *testing.T) {
+	ret, ok := CastFromBool(nil, types.Typ[types.Uint], &Element{
+		Type: types.Typ[types.UntypedBool],
+		CVal: constant.MakeBool(true),
+	})
+	if !ok || constant.Val(ret.CVal).(int64) != 1 {
+		t.Fatal("CastFromBool failed:", ret.CVal, ok)
+	}
+	ret, ok = CastFromBool(nil, types.Typ[types.Uint], &Element{
+		Type: types.Typ[types.Bool],
+		CVal: constant.MakeBool(false),
+	})
+	if !ok || constant.Val(ret.CVal).(int64) != 0 {
+		t.Fatal("CastFromBool failed:", ret.CVal, ok)
 	}
 }
 

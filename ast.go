@@ -779,6 +779,13 @@ func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type,
 // CastFromBool tries to cast a bool expression into integer. typ must be an integer type.
 func CastFromBool(cb *CodeBuilder, typ types.Type, v *Element) (ret *Element, ok bool) {
 	if ok = isBool(cb, v); ok {
+		if v.CVal != nil { // untyped bool
+			var val int
+			if constant.BoolVal(v.CVal) {
+				val = 1
+			}
+			return toExpr(nil, val, v.Src), true
+		}
 		pkg := cb.pkg
 		results := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", typ))
 		ret = cb.NewClosure(nil, results, false).BodyStart(pkg).
