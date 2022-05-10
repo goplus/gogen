@@ -53,7 +53,7 @@ func Test_loadByExport(t *testing.T) {
 	if _, err := p.loadByExport("/not-found", "notfound"); !os.IsNotExist(err) {
 		t.Fatal("Test_loadByExport: no error?")
 	}
-	findExport(".", "C")
+	FindExport(".", "C")
 }
 
 // ----------------------------------------------------------------------------

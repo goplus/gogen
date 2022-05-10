@@ -20,6 +20,7 @@ type Importer struct {
 	dir    string
 }
 
+// NewImporter creates an Importer object that meets types.Importer interface.
 func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 	dir := ""
 	if len(workDir) > 0 {
@@ -37,7 +38,7 @@ func (p *Importer) Import(pkgPath string) (pkg *types.Package, err error) {
 	if ret, ok := p.loaded[pkgPath]; ok && ret.Complete() {
 		return ret, nil
 	}
-	expfile := findExport(p.dir, pkgPath)
+	expfile := FindExport(p.dir, pkgPath)
 	if expfile == "" {
 		return nil, syscall.ENOENT
 	}
@@ -64,7 +65,9 @@ type listExport struct {
 	Export string `json:"Export"`
 }
 
-func findExport(dir, pkgPath string) (expfile string) {
+// FindExport lookups export file (.a) of a package by its pkgPath.
+// It returns empty if pkgPath not found.
+func FindExport(dir, pkgPath string) (expfile string) {
 	var ret listExport
 	if data, err := golistExport(dir, pkgPath); err == nil {
 		json.Unmarshal(data, &ret)
