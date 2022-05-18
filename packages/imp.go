@@ -35,10 +35,23 @@ func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 }
 
 func (p *Importer) Import(pkgPath string) (pkg *types.Package, err error) {
+	return p.ImportFrom(pkgPath, p.dir, 0)
+}
+
+// ImportFrom returns the imported package for the given import
+// path when imported by a package file located in dir.
+// If the import failed, besides returning an error, ImportFrom
+// is encouraged to cache and return a package anyway, if one
+// was created. This will reduce package inconsistencies and
+// follow-on type checker errors due to the missing package.
+// The mode value must be 0; it is reserved for future use.
+// Two calls to ImportFrom with the same path and dir must
+// return the same package.
+func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*types.Package, error) {
 	if ret, ok := p.loaded[pkgPath]; ok && ret.Complete() {
 		return ret, nil
 	}
-	expfile := FindExport(p.dir, pkgPath)
+	expfile := FindExport(dir, pkgPath)
 	if expfile == "" {
 		return nil, syscall.ENOENT
 	}
