@@ -1821,6 +1821,9 @@ func declToken(decl ast.Decl) (tok token.Token) {
 func (p *printer) declList(list []ast.Decl) {
 	tok := token.ILLEGAL
 	for _, d := range list {
+		if gd, ok := d.(*ast.GenDecl); ok && len(gd.Specs) == 0 {
+			continue // skip empty genDecl
+		}
 		prev := tok
 		tok = declToken(d)
 		// If the declaration token changed (e.g., from CONST to TYPE)

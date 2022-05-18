@@ -620,8 +620,6 @@ func TestDeleteType(t *testing.T) {
 		t.Fatal("TypeDecl.State failed")
 	}
 	domTest(t, pkg, `package main
-
-
 `)
 }
 
@@ -1333,7 +1331,6 @@ var (
 	y    string
 )
 var x string = "Hello, " + "Go+"
-
 `)
 }
 
