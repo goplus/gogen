@@ -588,7 +588,7 @@ func callIncDec(pkg *Package, args []*Element, tok token.Token) (ret *Element, e
 		panic("TODO: not addressable")
 	}
 	cb := &pkg.cb
-	if !isNumeric(t.typ) {
+	if !isNumeric(cb, t.typ) {
 		text, pos := cb.loadExpr(args[0].Src)
 		cb.panicCodeErrorf(&pos, "invalid operation: %s%v (non-numeric type %v)", text, tok, t.typ)
 	}
@@ -596,10 +596,13 @@ func callIncDec(pkg *Package, args []*Element, tok token.Token) (ret *Element, e
 	return
 }
 
-func isNumeric(typ types.Type) bool {
+func isNumeric(cb *CodeBuilder, typ types.Type) bool {
 	const (
 		numericFlags = types.IsInteger | types.IsFloat | types.IsComplex
 	)
+	if t, ok := typ.(*types.Named); ok {
+		typ = cb.getUnderlying(t)
+	}
 	if t, ok := typ.(*types.Basic); ok {
 		return (t.Info() & numericFlags) != 0
 	}
