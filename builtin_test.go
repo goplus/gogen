@@ -481,6 +481,18 @@ func TestUnderlying(t *testing.T) {
 	}
 }
 
+func TestIsNumeric(t *testing.T) {
+	var cb CodeBuilder
+	if isNumeric(&cb, nil) {
+		t.Fatal("TestIsNumeric: nil isNumeric?")
+	}
+	pkg := types.NewPackage("", "foo")
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "MyInt", nil), types.Typ[types.Int], nil)
+	if !isNumeric(&cb, typ) {
+		t.Fatal("TestIsNumeric: MyInt not isNumeric?")
+	}
+}
+
 func TestStructFieldType(t *testing.T) {
 	var pkg = types.NewPackage("", "foo")
 	var cb CodeBuilder

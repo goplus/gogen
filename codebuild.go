@@ -245,7 +245,7 @@ func (p *CodeBuilder) startFuncBody(fn *Func, old *funcBodyCtx) *CodeBuilder {
 func insertParams(scope *types.Scope, params *types.Tuple) {
 	for i, n := 0, params.Len(); i < n; i++ {
 		v := params.At(i)
-		if name := v.Name(); name != "" {
+		if name := v.Name(); name != "" && name != "_" {
 			scope.Insert(v)
 		}
 	}
@@ -1531,14 +1531,20 @@ retry:
 		switch t := o.Elem().(type) {
 		case *types.Named:
 			u := p.getUnderlying(t) // may cause to loadNamed (delay-loaded)
+			struc, fstruc := u.(*types.Struct)
+			if fstruc {
+				if kind := p.normalField(struc, name, arg, srcExpr); kind != MemberInvalid {
+					return kind
+				}
+			}
 			if kind := p.method(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 				return kind
 			}
-			if struc, ok := u.(*types.Struct); ok {
-				if kind := p.field(struc, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+			if fstruc {
+				if kind := p.findVField(t, name, arg, srcExpr); kind != MemberInvalid {
 					return kind
 				}
-				return p.findVField(t, name, arg, srcExpr)
+				return p.embeddedField(struc, name, aliasName, flag, arg, srcExpr)
 			}
 		case *types.Struct:
 			if kind := p.field(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
@@ -1637,24 +1643,39 @@ func (p *CodeBuilder) btiMethod(
 	return MemberInvalid
 }
 
-func (p *CodeBuilder) field(
-	o *types.Struct, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
+func (p *CodeBuilder) normalField(
+	o *types.Struct, name string, arg *Element, src ast.Node) MemberKind {
 	for i, n := 0, o.NumFields(); i < n; i++ {
-		fld := o.Field(i)
-		if fld.Name() == name {
+		if fld := o.Field(i); fld.Name() == name {
 			p.stk.Ret(1, &internal.Elem{
 				Val:  selector(arg, name),
 				Type: fld.Type(),
 				Src:  src,
 			})
 			return MemberField
-		} else if fld.Embedded() {
+		}
+	}
+	return MemberInvalid
+}
+
+func (p *CodeBuilder) embeddedField(
+	o *types.Struct, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
+	for i, n := 0, o.NumFields(); i < n; i++ {
+		if fld := o.Field(i); fld.Embedded() {
 			if kind := p.findMember(fld.Type(), name, aliasName, flag, arg, src); kind != MemberInvalid {
 				return kind
 			}
 		}
 	}
 	return MemberInvalid
+}
+
+func (p *CodeBuilder) field(
+	o *types.Struct, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
+	if kind := p.normalField(o, name, arg, src); kind != MemberInvalid {
+		return kind
+	}
+	return p.embeddedField(o, name, aliasName, flag, arg, src)
 }
 
 func methodTypeOf(typ types.Type) types.Type {
@@ -1922,13 +1943,7 @@ retry:
 	if lm == nil {
 		panic("TODO: operator not matched")
 	}
-	if ret, err = matchFuncCall(pkg, toObject(pkg, lm, nil), args, flags); err == nil {
-		if isUntyped(pkg, ret.Type) && ret.CVal == nil { // fix untyped operator result
-			// TODO: support untyped_bigint/bigrat
-			ret.Type = Default(pkg, ret.Type)
-		}
-	}
-	return
+	return matchFuncCall(pkg, toObject(pkg, lm, nil), args, flags)
 }
 
 // BinaryOp func
