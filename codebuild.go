@@ -1922,13 +1922,7 @@ retry:
 	if lm == nil {
 		panic("TODO: operator not matched")
 	}
-	if ret, err = matchFuncCall(pkg, toObject(pkg, lm, nil), args, flags); err == nil {
-		if isUntyped(pkg, ret.Type) && ret.CVal == nil { // fix untyped operator result
-			// TODO: support untyped_bigint/bigrat
-			ret.Type = Default(pkg, ret.Type)
-		}
-	}
-	return
+	return matchFuncCall(pkg, toObject(pkg, lm, nil), args, flags)
 }
 
 // BinaryOp func
