@@ -245,7 +245,7 @@ func (p *CodeBuilder) startFuncBody(fn *Func, old *funcBodyCtx) *CodeBuilder {
 func insertParams(scope *types.Scope, params *types.Tuple) {
 	for i, n := 0, params.Len(); i < n; i++ {
 		v := params.At(i)
-		if name := v.Name(); name != "" {
+		if name := v.Name(); name != "" && name != "_" {
 			scope.Insert(v)
 		}
 	}
