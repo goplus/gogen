@@ -308,6 +308,13 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 }
 
 func outOfRange(tkind types.BasicKind, cval constant.Value) bool {
+	// untyped int may not a constant. For an example:
+	//    func GetValue(shift uint) uint {
+	//       return 1 << shift
+	//    }
+	if cval == nil {
+		return false
+	}
 	rg := tkindRanges[tkind]
 	return constant.Compare(cval, token.LSS, rg[0]) || constant.Compare(cval, token.GTR, rg[1])
 }
