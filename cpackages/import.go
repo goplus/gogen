@@ -15,7 +15,6 @@ package cpackages
 
 import (
 	"go/types"
-	"path/filepath"
 	"syscall"
 
 	"github.com/goplus/gox"
@@ -56,12 +55,12 @@ func PubName(name string) string {
 
 type Config struct {
 	Pkg       *gox.Package
-	LookupPub func(pkgPath string) (localDir string, err error)
+	LookupPub func(pkgPath string) (pubfile string, err error)
 }
 
 type Importer struct {
 	loaded    map[string]*PkgRef
-	lookupPub func(pkgPath string) (localDir string, err error)
+	lookupPub func(pkgPath string) (pubfile string, err error)
 	pkg       *gox.Package
 }
 
@@ -77,12 +76,11 @@ func (p *Importer) Import(pkgPath string) (pkg *PkgRef, err error) {
 	if ret, ok := p.loaded[pkgPath]; ok {
 		return ret, nil
 	}
-	localDir, err := p.lookupPub(pkgPath)
+	pubfile, err := p.lookupPub(pkgPath)
 	if err != nil {
 		return
 	}
-	pubFile := filepath.Join(localDir, "c2go.a.pub")
-	public, err := ReadPubFile(pubFile)
+	public, err := ReadPubFile(pubfile)
 	if err != nil {
 		return
 	}
