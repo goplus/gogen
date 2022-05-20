@@ -35,7 +35,7 @@ func (p *PkgRef) Pkg() *gox.PkgRef {
 func (p *PkgRef) Lookup(name string) (o types.Object, err error) {
 	if goName, ok := p.public[name]; ok {
 		if goName == "" {
-			goName = cPubName(name)
+			goName = PubName(name)
 		}
 		if o = p.pkg.TryRef(goName); o != nil {
 			return
@@ -44,7 +44,7 @@ func (p *PkgRef) Lookup(name string) (o types.Object, err error) {
 	return nil, syscall.ENOENT
 }
 
-func cPubName(name string) string {
+func PubName(name string) string {
 	if r := name[0]; 'a' <= r && r <= 'z' {
 		r -= 'a' - 'A'
 		return string(r) + name[1:]
