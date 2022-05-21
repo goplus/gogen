@@ -27,7 +27,7 @@ import (
 // Ref type
 type Ref = types.Object
 
-// PkgRef type is a subset of golang.org/x/tools/go/packages.Package
+// A PkgRef describes a Go package imported by others.
 type PkgRef struct {
 	// pkgPath is the package path.
 	pkgPath string
