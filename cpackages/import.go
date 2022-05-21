@@ -15,7 +15,6 @@ package cpackages
 
 import (
 	"go/types"
-	"syscall"
 
 	"github.com/goplus/gox"
 )
@@ -31,16 +30,14 @@ func (p *PkgRef) Pkg() *gox.PkgRef {
 	return &p.pkg
 }
 
-func (p *PkgRef) Lookup(name string) (o types.Object, err error) {
+func (p *PkgRef) Lookup(name string) types.Object {
 	if goName, ok := p.public[name]; ok {
 		if goName == "" {
 			goName = PubName(name)
 		}
-		if o = p.pkg.TryRef(goName); o != nil {
-			return
-		}
+		return p.pkg.TryRef(goName)
 	}
-	return nil, syscall.ENOENT
+	return nil
 }
 
 func PubName(name string) string {
