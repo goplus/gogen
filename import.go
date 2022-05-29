@@ -104,6 +104,9 @@ func initGopPkg(pkg *types.Package) {
 	if pkg.Scope().Lookup("GopPackage") == nil { // not is a Go+ package
 		return
 	}
+	if debugImport {
+		log.Println("==> Import", pkg.Path())
+	}
 	type omthd struct {
 		named *types.Named
 		mthd  string
