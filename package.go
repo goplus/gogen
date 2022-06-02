@@ -180,7 +180,7 @@ retry:
 			if sym, ok := x.(*ast.Ident); ok {
 				name := sym.Name
 				for _, at := range p.importPkgs {
-					if at.Types.Name() == name { // pkg.Object
+					if at.Types != nil && at.Types.Name() == name { // pkg.Object
 						at.markUsed(sym)
 					}
 				}
