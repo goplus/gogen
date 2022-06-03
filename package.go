@@ -112,6 +112,9 @@ type Config struct {
 
 	// untyped bigint, untyped bigrat, untyped bigfloat
 	UntypedBigInt, UntypedBigRat, UntypedBigFloat *types.Named
+
+	// NoSkipConstant is to disable optimization of skipping constant
+	NoSkipConstant bool
 }
 
 // ----------------------------------------------------------------------------
@@ -180,7 +183,7 @@ retry:
 			if sym, ok := x.(*ast.Ident); ok {
 				name := sym.Name
 				for _, at := range p.importPkgs {
-					if at.Types.Name() == name { // pkg.Object
+					if at.Types != nil && at.Types.Name() == name { // pkg.Object
 						at.markUsed(sym)
 					}
 				}
