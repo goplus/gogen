@@ -112,6 +112,9 @@ type Config struct {
 
 	// untyped bigint, untyped bigrat, untyped bigfloat
 	UntypedBigInt, UntypedBigRat, UntypedBigFloat *types.Named
+
+	// NoSkipConstant is to disable optimization of skipping constant
+	NoSkipConstant bool
 }
 
 // ----------------------------------------------------------------------------

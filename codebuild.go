@@ -2430,7 +2430,7 @@ func (p *CodeBuilder) EndStmt() *CodeBuilder {
 		if n != 1 {
 			panic("syntax error: unexpected newline, expecting := or = or comma")
 		}
-		if e := p.stk.Pop(); e.CVal == nil { // skip constant
+		if e := p.stk.Pop(); p.pkg.conf.NoSkipConstant || e.CVal == nil { // skip constant
 			p.emitStmt(&ast.ExprStmt{X: e.Val})
 		}
 	}
