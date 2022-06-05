@@ -802,6 +802,13 @@ func TestCheckSigParam(t *testing.T) {
 	if !checkSigParam(typ2, -1) {
 		t.Fatal("TestCheckSigParam failed: checkSigParam *t should return true")
 	}
+	typ3 := types.NewSlice(types.Typ[types.Int])
+	if !checkSigParam(typ3, -2) {
+		t.Fatal("TestCheckSigParam failed: checkSigParam []int should return true")
+	}
+	if checkSigParam(types.Typ[types.Int], -2) {
+		t.Fatal("TestCheckSigParam failed: checkSigParam int should return false")
+	}
 }
 
 func TestErrWriteFile(t *testing.T) {
