@@ -1247,6 +1247,7 @@ func initBuiltinTIs(pkg PkgImporter) {
 	strings := pkg.Import("strings")
 	btiMap = new(typeutil.Map)
 	btoLen := types.Universe.Lookup("len")
+	btoCap := types.Universe.Lookup("cap")
 	tis := []*builtinTI{
 		{
 			typ: types.Typ[types.Float64],
@@ -1290,6 +1291,7 @@ func initBuiltinTIs(pkg PkgImporter) {
 			typ: types.NewSlice(types.Typ[types.String]),
 			methods: []*builtinMethod{
 				{"Len", btoLen, nil},
+				{"Cap", btoCap, nil},
 				{"Join", strings.Ref("Join"), nil},
 			},
 		},
@@ -1297,6 +1299,7 @@ func initBuiltinTIs(pkg PkgImporter) {
 			typ: tySlice,
 			methods: []*builtinMethod{
 				{"Len", btoLen, nil},
+				{"Cap", btoCap, nil},
 			},
 		},
 		{
