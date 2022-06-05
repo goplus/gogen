@@ -302,8 +302,9 @@ func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, 
 }
 
 // CheckSignature checks param idx of typ signature.
-// If nin < 0, it means param idx is a CompositeLit;
-// If nin >= 0, it means param idx is a function, and length of its params == nin
+// If nin >= 0, it means param idx is a function, and length of its params == nin;
+// If nin == -1, it means param idx is a CompositeLit;
+// If nin == -2, it means param idx is a SliceLit.
 func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 	switch t := typ.(type) {
 	case *types.Signature:
@@ -341,7 +342,8 @@ func checkOverloadFuncs(funcs []types.Object, idx, nin int) *types.Signature {
 }
 
 func checkSigParam(typ types.Type, nin int) bool {
-	if nin < 0 { // input is CompositeLit
+	switch nin {
+	case -1: // input is CompositeLit
 		if t, ok := typ.(*types.Pointer); ok {
 			typ = t.Elem()
 		}
@@ -349,8 +351,15 @@ func checkSigParam(typ types.Type, nin int) bool {
 		case *types.Struct, *types.Named:
 			return true
 		}
-	} else if t, ok := typ.(*types.Signature); ok {
-		return t.Params().Len() == nin
+	case -2: // input is SliceLit
+		switch typ.(type) {
+		case *types.Slice, *types.Named:
+			return true
+		}
+	default:
+		if t, ok := typ.(*types.Signature); ok {
+			return t.Params().Len() == nin
+		}
 	}
 	return false
 }
