@@ -301,6 +301,9 @@ func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, 
 	return ofn
 }
 
+// CheckSignature checks param idx of typ signature.
+// If nin < 0, it means param idx is a CompositeLit;
+// If nin >= 0, it means param idx is a function, and length of its params == nin
 func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 	switch t := typ.(type) {
 	case *types.Signature:
