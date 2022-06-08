@@ -29,9 +29,6 @@ type Ref = types.Object
 
 // A PkgRef describes a Go package imported by others.
 type PkgRef struct {
-	// pkgPath is the package path.
-	pkgPath string
-
 	// Types provides type information for the package.
 	// The NeedTypes LoadMode bit sets this field for packages matching the
 	// patterns; type information for dependencies may be missing or incomplete,
@@ -40,14 +37,8 @@ type PkgRef struct {
 
 	nameRefs []*ast.Ident // for internal use
 
-	imp types.Importer // to import packages anywhere
-
 	isForceUsed bool // this package is force-used
 	isUsed      bool
-
-	// IllTyped indicates whether the package or any dependency contains errors.
-	// It is set only when Types is set.
-	IllTyped bool
 }
 
 func (p *PkgRef) markUsed(v *ast.Ident) {
@@ -64,7 +55,7 @@ func (p *PkgRef) markUsed(v *ast.Ident) {
 
 // Path returns the package path.
 func (p *PkgRef) Path() string {
-	return p.pkgPath
+	return p.Types.Path()
 }
 
 // Ref returns the object in this package with the given name if such an
@@ -79,7 +70,6 @@ func (p *PkgRef) Ref(name string) Ref {
 // TryRef returns the object in this package with the given name if such an
 // object exists; otherwise it returns nil.
 func (p *PkgRef) TryRef(name string) Ref {
-	p.EnsureImported()
 	return p.Types.Scope().Lookup(name)
 }
 
@@ -90,14 +80,6 @@ func (p *PkgRef) MarkForceUsed() {
 
 // EnsureImported ensures this package is imported.
 func (p *PkgRef) EnsureImported() {
-	if p.Types == nil {
-		var err error
-		if p.Types, err = p.imp.Import(p.pkgPath); err != nil {
-			log.Panicln("Import package not found:", p.pkgPath)
-		} else {
-			initGopPkg(p.Types)
-		}
-	}
 }
 
 func initGopPkg(pkg *types.Package) {

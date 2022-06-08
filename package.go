@@ -140,7 +140,13 @@ func (p *File) importPkg(this *Package, pkgPath string) *PkgRef {
 	}
 	pkgImport, ok := p.importPkgs[pkgPath]
 	if !ok {
-		pkgImport = &PkgRef{imp: this.imp, pkgPath: pkgPath}
+		pkgImp, err := this.imp.Import(pkgPath)
+		if err != nil {
+			log.Panicf("Import package %v failed: %v\n", pkgPath, err)
+		} else {
+			initGopPkg(pkgImp)
+		}
+		pkgImport = &PkgRef{Types: pkgImp}
 		p.importPkgs[pkgPath] = pkgImport
 		p.allPkgPaths = append(p.allPkgPaths, pkgPath)
 	}
@@ -261,6 +267,7 @@ func (p *File) unsafe(this *Package) *PkgRef {
 type Package struct {
 	PkgRef
 	cb             CodeBuilder
+	imp            types.Importer
 	files          map[string]*File
 	file           *File
 	conf           *Config
@@ -306,7 +313,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		conf:  conf,
 	}
 	pkg.imp = imp
-	pkg.pkgPath = pkgPath
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.builtin = newBuiltin(pkg, conf)
 	pkg.implicitCast = conf.CanImplicitCast
