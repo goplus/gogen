@@ -68,10 +68,6 @@ func fatal(msg string) {
 
 // ----------------------------------------------------------------------------
 
-type PkgImporter interface {
-	Import(pkgPath string) *PkgRef
-}
-
 type NodeInterpreter interface {
 	// Position gets position of a Pos.
 	Position(p token.Pos) token.Position
@@ -105,7 +101,7 @@ type Config struct {
 	DefaultGoFile string
 
 	// NewBuiltin is to create the builin package.
-	NewBuiltin func(pkg PkgImporter, conf *Config) *types.Package
+	NewBuiltin func(pkg *Package, conf *Config) *types.Package
 
 	// CanImplicitCast checkes can cast V to T implicitly.
 	CanImplicitCast func(pkg *Package, V, T types.Type, pv *Element) bool
@@ -134,13 +130,24 @@ func (p *File) Name() string {
 	return p.fname
 }
 
-func (p *File) importPkg(this *Package, pkgPath string) *PkgRef {
+func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 	if strings.HasPrefix(pkgPath, ".") { // canonical pkgPath
 		pkgPath = path.Join(this.Path(), pkgPath)
 	}
 	pkgImport, ok := p.importPkgs[pkgPath]
 	if !ok {
-		pkgImport = &PkgRef{imp: this.imp, pkgPath: pkgPath}
+		pkgImp, err := this.imp.Import(pkgPath)
+		if err != nil {
+			e := &ImportError{Path: pkgPath, Err: err}
+			if src != nil {
+				pos := this.Fset.Position(src.Pos())
+				e.Pos = &pos
+			}
+			panic(e)
+		} else {
+			initGopPkg(pkgImp)
+		}
+		pkgImport = &PkgRef{Types: pkgImp}
 		p.importPkgs[pkgPath] = pkgImport
 		p.allPkgPaths = append(p.allPkgPaths, pkgPath)
 	}
@@ -243,14 +250,14 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 
 func (p *File) big(this *Package) *PkgRef {
 	if p.pkgBig == nil {
-		p.pkgBig = p.importPkg(this, "math/big")
+		p.pkgBig = p.importPkg(this, "math/big", nil)
 	}
 	return p.pkgBig
 }
 
 func (p *File) unsafe(this *Package) *PkgRef {
 	if p.pkgUnsafe == nil {
-		p.pkgUnsafe = p.importPkg(this, "unsafe")
+		p.pkgUnsafe = p.importPkg(this, "unsafe", nil)
 	}
 	return p.pkgUnsafe
 }
@@ -261,6 +268,7 @@ func (p *File) unsafe(this *Package) *PkgRef {
 type Package struct {
 	PkgRef
 	cb             CodeBuilder
+	imp            types.Importer
 	files          map[string]*File
 	file           *File
 	conf           *Config
@@ -306,7 +314,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		conf:  conf,
 	}
 	pkg.imp = imp
-	pkg.pkgPath = pkgPath
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.builtin = newBuiltin(pkg, conf)
 	pkg.implicitCast = conf.CanImplicitCast

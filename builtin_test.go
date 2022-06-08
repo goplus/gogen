@@ -802,6 +802,13 @@ func TestCheckSigParam(t *testing.T) {
 	if !checkSigParam(typ2, -1) {
 		t.Fatal("TestCheckSigParam failed: checkSigParam *t should return true")
 	}
+	typ3 := types.NewSlice(types.Typ[types.Int])
+	if !checkSigParam(typ3, -2) {
+		t.Fatal("TestCheckSigParam failed: checkSigParam []int should return true")
+	}
+	if checkSigParam(types.Typ[types.Int], -2) {
+		t.Fatal("TestCheckSigParam failed: checkSigParam int should return false")
+	}
 }
 
 func TestErrWriteFile(t *testing.T) {
@@ -846,10 +853,10 @@ func TestLookupLabel(t *testing.T) {
 }
 
 func TestImportPkg(t *testing.T) {
-	pkg := NewPackage("foo/bar", "bar", gblConf)
+	pkg := NewPackage("github.com/goplus/gox", "gox", gblConf)
 	f := &File{importPkgs: make(map[string]*PkgRef)}
-	a := f.importPkg(pkg, "./internal/a")
-	if f.importPkgs["foo/bar/internal/a"] != a {
+	a := f.importPkg(pkg, "./internal/bar", nil)
+	if f.importPkgs["github.com/goplus/gox/internal/bar"] != a {
 		t.Fatal("TestImportPkg failed")
 	}
 }

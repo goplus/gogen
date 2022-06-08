@@ -16,11 +16,11 @@ package packages
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"go/token"
 	"go/types"
 	"os"
 	"os/exec"
-	"syscall"
 
 	"golang.org/x/tools/go/gcexportdata"
 )
@@ -64,9 +64,9 @@ func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*type
 	if ret, ok := p.loaded[pkgPath]; ok && ret.Complete() {
 		return ret, nil
 	}
-	expfile := FindExport(dir, pkgPath)
-	if expfile == "" {
-		return nil, syscall.ENOENT
+	expfile, err := FindExport(dir, pkgPath)
+	if err != nil {
+		return nil, err
 	}
 	return p.loadByExport(expfile, pkgPath)
 }
@@ -74,7 +74,7 @@ func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*type
 func (p *Importer) loadByExport(expfile string, pkgPath string) (pkg *types.Package, err error) {
 	f, err := os.Open(expfile)
 	if err != nil {
-		return nil, err
+		return
 	}
 	defer f.Close()
 
@@ -93,12 +93,15 @@ type listExport struct {
 
 // FindExport lookups export file (.a) of a package by its pkgPath.
 // It returns empty if pkgPath not found.
-func FindExport(dir, pkgPath string) (expfile string) {
+func FindExport(dir, pkgPath string) (expfile string, err error) {
 	var ret listExport
-	if data, err := golistExport(dir, pkgPath); err == nil {
-		json.Unmarshal(data, &ret)
+	data, err := golistExport(dir, pkgPath)
+	if err != nil {
+		return
 	}
-	return ret.Export
+	err = json.Unmarshal(data, &ret)
+	expfile = ret.Export
+	return
 }
 
 func golistExport(dir, pkgPath string) (ret []byte, err error) {
@@ -110,6 +113,8 @@ func golistExport(dir, pkgPath string) (ret []byte, err error) {
 	err = cmd.Run()
 	if err == nil {
 		ret = stdout.Bytes()
+	} else if stderr.Len() > 0 {
+		err = errors.New(stderr.String())
 	}
 	return
 }
