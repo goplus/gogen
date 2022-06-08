@@ -140,7 +140,7 @@ func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 		if err != nil {
 			e := &ImportError{Path: pkgPath, Err: err}
 			if src != nil {
-				pos := this.Fset.Position(src.Pos())
+				pos := this.cb.position(src.Pos())
 				e.Pos = &pos
 			}
 			panic(e)
