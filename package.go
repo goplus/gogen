@@ -138,7 +138,12 @@ func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 	if !ok {
 		pkgImp, err := this.imp.Import(pkgPath)
 		if err != nil {
-			log.Panicf("Import package %v failed: %v\n", pkgPath, err)
+			e := &ImportError{Path: pkgPath, Err: err}
+			if src != nil {
+				pos := this.Fset.Position(src.Pos())
+				e.Pos = &pos
+			}
+			panic(e)
 		} else {
 			initGopPkg(pkgImp)
 		}
