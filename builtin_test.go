@@ -855,7 +855,7 @@ func TestLookupLabel(t *testing.T) {
 func TestImportPkg(t *testing.T) {
 	pkg := NewPackage("github.com/goplus/gox", "gox", gblConf)
 	f := &File{importPkgs: make(map[string]*PkgRef)}
-	a := f.importPkg(pkg, "./internal/bar")
+	a := f.importPkg(pkg, "./internal/bar", nil)
 	if f.importPkgs["github.com/goplus/gox/internal/bar"] != a {
 		t.Fatal("TestImportPkg failed")
 	}

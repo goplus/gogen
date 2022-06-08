@@ -189,8 +189,8 @@ func toIndex(c byte) int {
 // ----------------------------------------------------------------------------
 
 // Import func
-func (p *Package) Import(pkgPath string) *PkgRef {
-	return p.file.importPkg(p, pkgPath)
+func (p *Package) Import(pkgPath string, src ...ast.Node) *PkgRef {
+	return p.file.importPkg(p, pkgPath, getSrc(src))
 }
 
 func (p *Package) big() *PkgRef {

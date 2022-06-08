@@ -27,13 +27,13 @@ import (
 	"golang.org/x/tools/go/types/typeutil"
 )
 
-func newBuiltinDefault(pkg PkgImporter, conf *Config) *types.Package {
+func newBuiltinDefault(pkg *Package, conf *Config) *types.Package {
 	builtin := types.NewPackage("", "")
 	InitBuiltin(pkg, builtin, conf)
 	return builtin
 }
 
-func InitBuiltin(pkg PkgImporter, builtin *types.Package, conf *Config) {
+func InitBuiltin(pkg *Package, builtin *types.Package, conf *Config) {
 	initBuiltinOps(builtin, conf)
 	initBuiltinAssignOps(builtin)
 	initBuiltinFuncs(builtin)
@@ -1242,7 +1242,7 @@ var (
 	tySlice types.Type = types.NewSlice(types.Typ[types.Invalid])
 )
 
-func initBuiltinTIs(pkg PkgImporter) {
+func initBuiltinTIs(pkg *Package) {
 	strconv := pkg.Import("strconv")
 	strings := pkg.Import("strings")
 	btiMap = new(typeutil.Map)

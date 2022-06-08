@@ -30,7 +30,7 @@ func initGopBuiltin(big *gox.PkgRef, conf *gox.Config) {
 	conf.UntypedBigFloat = big.Ref("Gop_untyped_bigfloat").Type().(*types.Named)
 }
 
-func newGopBuiltinDefault(pkg gox.PkgImporter, conf *gox.Config) *types.Package {
+func newGopBuiltinDefault(pkg *gox.Package, conf *gox.Config) *types.Package {
 	fmt := pkg.Import("fmt")
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	builtin := types.NewPackage("", "")
