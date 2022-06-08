@@ -145,7 +145,7 @@ func (p *File) importPkg(this *Package, pkgPath string) *PkgRef {
 	if !ok {
 		pkgImp, err := this.imp.Import(pkgPath)
 		if err != nil {
-			panic(&ImportMissingError{Path: pkgPath, Err: err})
+			panic(&ImportError{Path: pkgPath, Msg: importErrorMsg(pkgPath, err), Err: err})
 		} else {
 			initGopPkg(pkgImp)
 		}
@@ -414,24 +414,33 @@ func isStandardImportPath(path string) bool {
 	return !strings.Contains(elem, ".")
 }
 
-type ImportMissingError struct {
+func importErrorMsg(path string, err error) string {
+	if isStandardImportPath(path) || strings.HasPrefix(path, "internal/") {
+		return fmt.Sprintf("package %s is not in GOROOT (%s)", path, filepath.Join(runtime.GOROOT(), "src", path))
+	}
+	return fmt.Sprintf("no required module provides package %s", path)
+}
+
+type ImportError struct {
+	Pos  *token.Position
 	Path string
+	Msg  string
 	Err  error
 }
 
-func (e *ImportMissingError) Unwrap() error {
-	return e.Err
+func (p *ImportError) Unwrap() error {
+	return p.Err
 }
 
-func (e *ImportMissingError) Error() string {
-	if isStandardImportPath(e.Path) || strings.HasPrefix(e.Path, "internal/") {
-		return fmt.Sprintf("package %s is not in GOROOT (%s)", e.Path, filepath.Join(runtime.GOROOT(), "src", e.Path))
+func (p *ImportError) Error() string {
+	if p.Pos != nil {
+		return fmt.Sprintf("%v: %s", *p.Pos, p.Msg)
 	}
-	return fmt.Sprintf("no required module provides package %s", e.Path)
+	return p.Msg
 }
 
-func (e *ImportMissingError) ImportPath() string {
-	return e.Path
+func (p *ImportError) ImportPath() string {
+	return p.Path
 }
 
 // ----------------------------------------------------------------------------
