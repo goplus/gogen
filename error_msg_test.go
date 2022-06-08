@@ -15,9 +15,13 @@ package gox_test
 
 import (
 	"bytes"
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
+	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -97,6 +101,10 @@ func codeErrorTestDo(t *testing.T, msg string, source func(pkg *gox.Package), di
 					defer recover()
 					pkg.CB().ResetStmt()
 					if ret := err.(error).Error(); ret != msg {
+						t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
+					}
+				case *gox.ImportError:
+					if ret := err.Error(); ret != msg {
 						t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
 					}
 				default:
@@ -1165,5 +1173,17 @@ func TestErrUnsafe(t *testing.T) {
 				Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
 				Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val("hello").CallWith(2, 0, source(`unsafe.Slice(&a[0],"hello")`, 7, 2)).EndStmt().
 				End()
+		})
+}
+
+func TestImportPkgError(t *testing.T) {
+	codeErrorTest(t,
+		fmt.Sprintf(`./foo.gop:1:7: package bar2 is not in GOROOT (%v)
+`, filepath.Join(runtime.GOROOT(), "src", "bar2")),
+		func(pkg *gox.Package) {
+			spec := &ast.ImportSpec{
+				Path: &ast.BasicLit{ValuePos: position(1, 7), Kind: token.STRING, Value: strconv.Quote("bar")},
+			}
+			pkg.Import("bar2", spec)
 		})
 }
