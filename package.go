@@ -14,12 +14,15 @@
 package gox
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
 	"log"
 	"path"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -142,7 +145,7 @@ func (p *File) importPkg(this *Package, pkgPath string) *PkgRef {
 	if !ok {
 		pkgImp, err := this.imp.Import(pkgPath)
 		if err != nil {
-			log.Panicf("Import package %v failed: %v\n", pkgPath, err)
+			panic(&ImportMissingError{Path: pkgPath, Err: err})
 		} else {
 			initGopPkg(pkgImp)
 		}
@@ -400,6 +403,35 @@ func (p *Package) ForEachFile(doSth func(fname string, file *File)) {
 	for fname, file := range p.files {
 		doSth(fname, file)
 	}
+}
+
+func isStandardImportPath(path string) bool {
+	i := strings.Index(path, "/")
+	if i < 0 {
+		i = len(path)
+	}
+	elem := path[:i]
+	return !strings.Contains(elem, ".")
+}
+
+type ImportMissingError struct {
+	Path string
+	Err  error
+}
+
+func (e *ImportMissingError) Unwrap() error {
+	return e.Err
+}
+
+func (e *ImportMissingError) Error() string {
+	if isStandardImportPath(e.Path) || strings.HasPrefix(e.Path, "internal/") {
+		return fmt.Sprintf("package %s is not in GOROOT (%s)", e.Path, filepath.Join(runtime.GOROOT(), "src", e.Path))
+	}
+	return fmt.Sprintf("no required module provides package %s", e.Path)
+}
+
+func (e *ImportMissingError) ImportPath() string {
+	return e.Path
 }
 
 // ----------------------------------------------------------------------------
