@@ -19,6 +19,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -1177,8 +1178,8 @@ func TestErrUnsafe(t *testing.T) {
 
 func TestImportPkgError(t *testing.T) {
 	codeErrorTest(t,
-		fmt.Sprintf(`./foo.gop:1:7: package bar2 is not in GOROOT (%v/src/bar2)
-`, runtime.GOROOT()),
+		fmt.Sprintf(`./foo.gop:1:7: package bar2 is not in GOROOT (%v)
+`, filepath.Join(runtime.GOROOT(), "src", "bar2")),
 		func(pkg *gox.Package) {
 			spec := &ast.ImportSpec{
 				Path: &ast.BasicLit{ValuePos: position(1, 7), Kind: token.STRING, Value: strconv.Quote("bar")},
