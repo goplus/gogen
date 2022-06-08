@@ -14,7 +14,6 @@
 package gox
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -402,27 +401,6 @@ func (p *Package) ForEachFile(doSth func(fname string, file *File)) {
 	for fname, file := range p.files {
 		doSth(fname, file)
 	}
-}
-
-type ImportError struct {
-	Pos  *token.Position
-	Path string
-	Err  error
-}
-
-func (p *ImportError) Unwrap() error {
-	return p.Err
-}
-
-func (p *ImportError) Error() string {
-	if p.Pos != nil {
-		return fmt.Sprintf("%v: %s", *p.Pos, p.Err.Error())
-	}
-	return p.Err.Error()
-}
-
-func (p *ImportError) ImportPath() string {
-	return p.Path
 }
 
 // ----------------------------------------------------------------------------

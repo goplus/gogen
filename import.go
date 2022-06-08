@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -260,6 +261,23 @@ func (p *autoNames) RequireName(name string) (ret string, renamed bool) {
 	}
 	p.names[name] = null{}
 	return
+}
+
+type ImportError struct {
+	Pos  *token.Position
+	Path string
+	Err  error
+}
+
+func (p *ImportError) Unwrap() error {
+	return p.Err
+}
+
+func (p *ImportError) Error() string {
+	if p.Pos != nil {
+		return fmt.Sprintf("%v: %s", *p.Pos, p.Err.Error())
+	}
+	return p.Err.Error()
 }
 
 // ----------------------------------------------------------------------------
