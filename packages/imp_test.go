@@ -24,8 +24,8 @@ func TestImporterNormal(t *testing.T) {
 	if err != nil || pkg.Path() != "fmt" {
 		t.Fatal("Import failed:", pkg, err)
 	}
-	if _, err = p.Import("not-found"); !os.IsNotExist(err) {
-		t.Fatal("Import not-found:", err)
+	if _, err = p.Import("not-found"); err == nil {
+		t.Fatal("Import not-found: no error?")
 	}
 	if pkg2, err := p.Import("fmt"); err != nil || pkg2 != pkg {
 		t.Fatal("Import reuse fail:", pkg, pkg2)
