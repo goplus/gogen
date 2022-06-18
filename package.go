@@ -123,6 +123,7 @@ type File struct {
 	pkgUnsafe    *PkgRef
 	fname        string
 	removedExprs bool
+	defaultFile  bool
 }
 
 // Name returns the name of this file.
@@ -239,11 +240,22 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkgPath)},
 		})
 	}
-	if len(specs) == 0 {
+	addGopPkg := p.defaultFile && shouldAddGopPkg(this)
+	if len(specs) == 0 && !addGopPkg {
 		return p.decls
 	}
-	decls = make([]ast.Decl, 0, len(p.decls)+1)
+	decls = make([]ast.Decl, 0, len(p.decls)+2)
 	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
+	if addGopPkg {
+		decls = append(decls, &ast.GenDecl{Tok: token.CONST, Specs: []ast.Spec{
+			&ast.ValueSpec{
+				Names: []*ast.Ident{{Name: gopPackage}},
+				Values: []ast.Expr{
+					&ast.Ident{Name: "true"},
+				},
+			},
+		}})
+	}
 	decls = append(decls, p.decls...)
 	return
 }
@@ -281,6 +293,7 @@ type Package struct {
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
 	allowVarRedecl bool
+	isGopPkg       bool
 }
 
 const (
@@ -305,7 +318,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		newBuiltin = newBuiltinDefault
 	}
 	fname := conf.DefaultGoFile
-	file := &File{importPkgs: make(map[string]*PkgRef), fname: fname}
+	file := &File{importPkgs: make(map[string]*PkgRef), fname: fname, defaultFile: true}
 	files := map[string]*File{fname: file}
 	pkg := &Package{
 		Fset:  fset,

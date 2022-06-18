@@ -1470,6 +1470,32 @@ func bar(v foo) {
 `)
 }
 
+func TestDefOverloadFunc(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "bar__0", nil, nil, false).BodyStart(pkg).
+		End()
+	domTest(t, pkg, `package main
+
+const GopPackage = true
+
+func bar__0() {
+}
+`)
+}
+
+func TestDefTemplateMethod(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "Gopt_bar", nil, nil, false).BodyStart(pkg).
+		End()
+	domTest(t, pkg, `package main
+
+const GopPackage = true
+
+func Gopt_bar() {
+}
+`)
+}
+
 func TestBuiltinFunc(t *testing.T) {
 	var a, n *goxVar
 	pkg := newMainPackage()

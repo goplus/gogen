@@ -179,7 +179,7 @@ func (p *Package) NewFuncWith(
 			return nil, cb.newCodePosErrorf(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
-		if fn.Name() != "_" { // skip underscore
+		if name != "_" { // skip underscore
 			t.AddMethod(fn)
 		}
 	} else if name == "init" { // init is not a normal func
@@ -187,8 +187,12 @@ func (p *Package) NewFuncWith(
 			return nil, cb.newCodePosError(
 				pos, "func init must have no arguments and no return values")
 		}
-	} else if fn.Name() != "_" { // skip underscore
+	} else if name != "_" { // skip underscore
 		p.Types.Scope().Insert(fn) // TODO: type checker if exists (use types.Identical)
+	}
+
+	if isGopFunc(name) {
+		p.isGopPkg = true
 	}
 
 	decl := &ast.FuncDecl{}
