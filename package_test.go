@@ -120,7 +120,7 @@ func TestBTIMethod(t *testing.T) {
 		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "c")).MemberVal("Join").Val(",").Call(1).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val("Hi").MemberVal("Len").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val("100").MemberVal("Int").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val("100").MemberVal("Uint").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val("100").MemberVal("Uint64").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(100).MemberVal("String").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(1.34).MemberVal("String").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "e")).Debug(
