@@ -83,8 +83,25 @@ func (p *PkgRef) MarkForceUsed() {
 func (p *PkgRef) EnsureImported() {
 }
 
+func shouldAddGopPkg(pkg *Package) bool {
+	return pkg.isGopPkg && pkg.Types.Scope().Lookup(gopPackage) == nil
+}
+
+func isGopFunc(name string) bool {
+	if strings.HasPrefix(name, goptPrefix) {
+		return true
+	}
+	return isOverloadFunc(name)
+}
+
+func isOverloadFunc(name string) bool {
+	n := len(name)
+	return n > 3 && name[n-3:n-1] == "__"
+}
+
 func initGopPkg(pkg *types.Package) {
-	if pkg.Scope().Lookup("GopPackage") == nil { // not is a Go+ package
+	scope := pkg.Scope()
+	if scope.Lookup(gopPackage) == nil { // not is a Go+ package
 		return
 	}
 	if debugImport {
@@ -94,7 +111,6 @@ func initGopPkg(pkg *types.Package) {
 		named *types.Named
 		mthd  string
 	}
-	scope := pkg.Scope()
 	overloads := make(map[string][]types.Object)
 	moverloads := make(map[omthd][]types.Object)
 	names := scope.Names()
@@ -103,15 +119,15 @@ func initGopPkg(pkg *types.Package) {
 		if tn, ok := o.(*types.TypeName); ok && tn.IsAlias() {
 			continue
 		}
-		if n := len(name); n > 3 && name[n-3:n-1] == "__" { // overload function
-			key := name[:n-3]
+		if isOverloadFunc(name) { // overload function
+			key := name[:len(name)-3]
 			overloads[key] = append(overloads[key], o)
 		} else if named, ok := o.Type().(*types.Named); ok {
 			for i, n := 0, named.NumMethods(); i < n; i++ {
 				m := named.Method(i)
 				mName := m.Name()
-				if n := len(mName); n > 3 && mName[n-3:n-1] == "__" { // overload method
-					mthd := mName[:n-3]
+				if isOverloadFunc(mName) { // overload method
+					mthd := mName[:len(mName)-3]
 					key := omthd{named, mthd}
 					moverloads[key] = append(moverloads[key], m)
 				}
@@ -140,10 +156,12 @@ func initGopPkg(pkg *types.Package) {
 	}
 }
 
+const (
+	goptPrefix = "Gopt_"
+	gopPackage = "GopPackage"
+)
+
 func checkTemplateMethod(pkg *types.Package, name string, o types.Object) {
-	const (
-		goptPrefix = "Gopt_"
-	)
 	if strings.HasPrefix(name, goptPrefix) {
 		name = name[len(goptPrefix):]
 		if pos := strings.Index(name, "_"); pos > 0 {
