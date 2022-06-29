@@ -241,10 +241,13 @@ func TestCastIntTwoValue(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
 
 func main() {
-	v, inRange := builtin.Gop_bigrat_Cast__0(1).Gop_Rcast__0()
+	v, inRange := builtin.Gop_bigrat_Cast__0(big.NewInt(1)).Gop_Rcast__0()
 }
 `)
 }
@@ -261,10 +264,13 @@ func TestCastBigIntTwoValue(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
 
 func main() {
-	v, inRange := builtin.Gop_bigint_Cast__7(builtin.Gop_bigrat_Cast__0(1))
+	v, inRange := builtin.Gop_bigint_Cast__7(builtin.Gop_bigrat_Cast__0(big.NewInt(1)))
 }
 `)
 }
