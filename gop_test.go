@@ -973,7 +973,8 @@ func TestBigIntCastUntypedFloat(t *testing.T) {
 	pkg := newGopMainPackage()
 	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.CB().NewVarStart(nil, "a").
-		Val(mbig.Ref("Gop_bigint")).Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e20"}).Call(1).EndInit(1)
+		Val(mbig.Ref("Gop_bigint")).
+		Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e20"}).Call(1).EndInit(1)
 	domTest(t, pkg, `package main
 
 import (
@@ -987,5 +988,21 @@ var a = builtin.Gop_bigint_Cast__1(func() *big.Int {
 }())
 `)
 }
+
+func TestBigIntCastUntypedFloatError(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestBigIntCastUntypedFloatError: no error?")
+		}
+	}()
+	pkg := newGopMainPackage()
+	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.CB().NewVarStart(nil, "a").
+		Val(mbig.Ref("Gop_bigint")).
+		Val(&ast.BasicLit{Kind: token.FLOAT, Value: "10000000000000000000.1"}).
+		Call(1).EndInit(1)
+}
+
+//
 
 // ----------------------------------------------------------------------------
