@@ -224,7 +224,7 @@ func main() {
 	fmt.Println(builtin.Gop_bigrat_Cast__0(func() *big.Int {
 		v, _ := new(big.Int).SetString("36893488147419103232", 10)
 		return v
-	}()), builtin.Gop_bigrat_Cast__5().Gop_Rcast__2(), builtin.Gop_bigint_Cast__1(1).Gop_Rcast(), 0)
+	}()), builtin.Gop_bigrat_Cast__5().Gop_Rcast__2(), builtin.Gop_bigint_Cast__0(1).Gop_Rcast(), 0)
 }
 `)
 }
@@ -241,10 +241,13 @@ func TestCastIntTwoValue(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
 
 func main() {
-	v, inRange := builtin.Gop_bigrat_Cast__0(1).Gop_Rcast__0()
+	v, inRange := builtin.Gop_bigrat_Cast__0(big.NewInt(1)).Gop_Rcast__0()
 }
 `)
 }
@@ -261,10 +264,13 @@ func TestCastBigIntTwoValue(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
 
 func main() {
-	v, inRange := builtin.Gop_bigint_Cast__7(builtin.Gop_bigrat_Cast__0(1))
+	v, inRange := builtin.Gop_bigint_Cast__7(builtin.Gop_bigrat_Cast__0(big.NewInt(1)))
 }
 `)
 }
@@ -962,5 +968,41 @@ func TestErrTemplateRecvMethod(t *testing.T) {
 		Val(ctxRef(pkg, "g")).MemberVal("Run").Call(0).EndStmt().
 		End()
 }
+
+func TestBigIntCastUntypedFloat(t *testing.T) {
+	pkg := newGopMainPackage()
+	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.CB().NewVarStart(nil, "a").
+		Val(mbig.Ref("Gop_bigint")).
+		Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e20"}).Call(1).EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a = builtin.Gop_bigint_Cast__1(func() *big.Int {
+	v, _ := new(big.Int).SetString("100000000000000000000", 10)
+	return v
+}())
+`)
+}
+
+func TestBigIntCastUntypedFloatError(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestBigIntCastUntypedFloatError: no error?")
+		}
+	}()
+	pkg := newGopMainPackage()
+	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.CB().NewVarStart(nil, "a").
+		Val(mbig.Ref("Gop_bigint")).
+		Val(&ast.BasicLit{Kind: token.FLOAT, Value: "10000000000000000000.1"}).
+		Call(1).EndInit(1)
+}
+
+//
 
 // ----------------------------------------------------------------------------
