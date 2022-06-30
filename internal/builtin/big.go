@@ -253,19 +253,19 @@ func (a Gop_bigint) Gop_Rcast() float64 {
 	return 0
 }
 
-// Gop_bigint_Cast: func bigint() bigint
-func Gop_bigint_Cast__0() Gop_bigint {
-	return Gop_bigint{new(big.Int)}
+// Gop_bigint_Cast: func bigint(x int) bigint
+func Gop_bigint_Cast__0(x int) Gop_bigint {
+	return Gop_bigint{big.NewInt(int64(x))}
+}
+
+// Gop_bigint_Cast: func bigint(x untyped_bigint) bigint
+func Gop_bigint_Cast__1(x Gop_untyped_bigint) Gop_bigint {
+	return Gop_bigint{x}
 }
 
 // Gop_bigint_Cast: func bigint(x int64) bigint
-func Gop_bigint_Cast__1(x int64) Gop_bigint {
+func Gop_bigint_Cast__2(x int64) Gop_bigint {
 	return Gop_bigint{big.NewInt(x)}
-}
-
-// Gop_bigint_Cast: func bigint(x int) bigint
-func Gop_bigint_Cast__2(x int) Gop_bigint {
-	return Gop_bigint{big.NewInt(int64(x))}
 }
 
 // Gop_bigint_Cast: func bigint(x uint64) bigint
