@@ -1106,6 +1106,15 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 		log.Printf("==> MatchType %v%s, %v\n", arg.Type, cval, param)
 	}
 	switch t := param.(type) {
+	case *types.Interface:
+		if t.NumMethods() == 0 {
+			switch arg.Type {
+			case pkg.utBigInt, pkg.utBigRat, pkg.utBigFlt:
+				if utTypeToDefault(pkg, arg.Type.(*types.Named), arg) {
+					return nil
+				}
+			}
+		}
 	case *types.Named:
 		if t2, ok := arg.Type.(*types.Basic); ok {
 			if t == pkg.utBigInt {
@@ -1185,6 +1194,18 @@ func boundElementType(pkg *Package, elts []*internal.Elem, base, max, step int) 
 		}
 	}
 	return tBound
+}
+
+func utTypeToDefault(pkg *Package, t *types.Named, arg *internal.Elem) bool {
+	ut := pkg.Import(t.Obj().Pkg().Path())
+	if tname := ut.Ref(t.Obj().Name() + "_Default"); tname != nil {
+		if named, ok := tname.Type().(*types.Named); ok {
+			arg.Val = pkg.cb.Val(ut.Ref(named.Obj().Name())).Val(arg).Call(1).stk.Pop().Val
+			arg.Type = tname.Type()
+			return true
+		}
+	}
+	return false
 }
 
 // -----------------------------------------------------------------------------

@@ -1451,6 +1451,10 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	if debugInstr {
 		log.Println("Member", name, flag, "//", arg.Type)
 	}
+	switch arg.Type {
+	case p.pkg.utBigInt, p.pkg.utBigRat, p.pkg.utBigFlt:
+		utTypeToDefault(p.pkg, arg.Type.(*types.Named), arg)
+	}
 	at := arg.Type
 	if flag == MemberFlagRef {
 		kind = p.refMember(at, name, arg.Val)
