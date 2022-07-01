@@ -1027,7 +1027,6 @@ func main() {
 
 func TestUntypedBigDefaultCall(t *testing.T) {
 	pkg := newGopMainPackage()
-	pkg.Import("github.com/goplus/gox/internal/builtin").EnsureImported()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		UntypedBigInt(big.NewInt(1)).MemberVal("Int64").Call(0).EndStmt().
 		UntypedBigRat(big.NewRat(1, 2)).MemberVal("Float64").Call(0).EndStmt().End()
@@ -1041,6 +1040,37 @@ import (
 func main() {
 	builtin.Gop_bigint_Cast__1(big.NewInt(1)).Int64()
 	builtin.Gop_bigrat_Cast__1(builtin.Gop_bigint_Init__2(big.NewRat(1, 2))).Float64()
+}
+`)
+}
+
+func TestUntypedBigIntToInterface(t *testing.T) {
+	pkg := newGopMainPackage()
+	methods := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "Int64", types.NewSignature(nil, nil,
+			types.NewTuple(types.NewVar(token.NoPos, nil, "v", types.Typ[types.Int64])), false)),
+	}
+	tyInterf := types.NewInterfaceType(methods, nil).Complete()
+	tyA := pkg.NewType("A").InitType(pkg, tyInterf)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tyA, "a").UntypedBigInt(big.NewInt(1)).EndInit(1).
+		Val(ctxRef(pkg, "println")).
+		Val(ctxRef(pkg, "a")).MemberVal("Int64").Call(0).Call(1).EndStmt().End()
+	domTest(t, pkg, `package main
+
+import (
+	fmt "fmt"
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+type A interface {
+	Int64() (v int64)
+}
+
+func main() {
+	var a A = builtin.Gop_bigint_Cast__1(big.NewInt(1))
+	fmt.Println(a.Int64())
 }
 `)
 }
