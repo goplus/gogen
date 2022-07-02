@@ -1038,8 +1038,8 @@ import (
 )
 
 func main() {
-	builtin.Gop_bigint_Cast__1(big.NewInt(1)).Int64()
-	builtin.Gop_bigrat_Cast__1(builtin.Gop_bigint_Init__2(big.NewRat(1, 2))).Float64()
+	builtin.Gop_bigint_Init__1(big.NewInt(1)).Int64()
+	builtin.Gop_bigrat_Init__2(big.NewRat(1, 2)).Float64()
 }
 `)
 }
