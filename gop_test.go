@@ -1019,8 +1019,8 @@ import (
 )
 
 func main() {
-	fmt.Println(builtin.Gop_bigint_Cast__1(big.NewInt(1)))
-	fmt.Println(builtin.Gop_bigrat_Cast__1(builtin.Gop_bigint_Init__2(big.NewRat(1, 2))))
+	fmt.Println(builtin.Gop_bigint_Init__1(big.NewInt(1)))
+	fmt.Println(builtin.Gop_bigrat_Init__2(big.NewRat(1, 2)))
 }
 `)
 }
@@ -1069,7 +1069,7 @@ type A interface {
 }
 
 func main() {
-	var a A = builtin.Gop_bigint_Cast__1(big.NewInt(1))
+	var a A = builtin.Gop_bigint_Init__1(big.NewInt(1))
 	fmt.Println(a.Int64())
 }
 `)

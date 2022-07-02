@@ -1112,10 +1112,9 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 	retry:
 		switch t := typ.(type) {
 		case *types.Interface:
-			if utTypeToDefault(pkg, arg.Type.(*types.Named), arg) {
-				if t.NumMethods() == 0 {
-					return nil
-				}
+			arg.Type = DefaultConv(pkg, arg.Type, arg)
+			if t.NumMethods() == 0 {
+				return nil
 			}
 		case *types.Named:
 			typ = t.Underlying()
@@ -1202,18 +1201,6 @@ func boundElementType(pkg *Package, elts []*internal.Elem, base, max, step int) 
 		}
 	}
 	return tBound
-}
-
-func utTypeToDefault(pkg *Package, t *types.Named, arg *internal.Elem) bool {
-	ut := pkg.Import(t.Obj().Pkg().Path())
-	if tname := ut.Ref(t.Obj().Name() + "_Default"); tname != nil {
-		if named, ok := tname.Type().(*types.Named); ok {
-			arg.Val = pkg.cb.Val(ut.Ref(named.Obj().Name())).Val(arg).Call(1).stk.Pop().Val
-			arg.Type = tname.Type()
-			return true
-		}
-	}
-	return false
 }
 
 // -----------------------------------------------------------------------------
