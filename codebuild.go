@@ -1453,7 +1453,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	}
 	switch arg.Type {
 	case p.pkg.utBigInt, p.pkg.utBigRat, p.pkg.utBigFlt:
-		DefaultConv(p.pkg, arg.Type, arg)
+		arg.Type = DefaultConv(p.pkg, arg.Type, arg)
 	}
 	at := arg.Type
 	if flag == MemberFlagRef {
