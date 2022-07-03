@@ -1105,6 +1105,22 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 		}
 		log.Printf("==> MatchType %v%s, %v\n", arg.Type, cval, param)
 	}
+	// check untyped big int/rat/flt => interface
+	switch arg.Type {
+	case pkg.utBigInt, pkg.utBigRat, pkg.utBigFlt:
+		typ := param
+	retry:
+		switch t := typ.(type) {
+		case *types.Interface:
+			arg.Type = DefaultConv(pkg, arg.Type, arg)
+			if t.NumMethods() == 0 {
+				return nil
+			}
+		case *types.Named:
+			typ = t.Underlying()
+			goto retry
+		}
+	}
 	switch t := param.(type) {
 	case *types.Named:
 		if t2, ok := arg.Type.(*types.Basic); ok {
