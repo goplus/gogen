@@ -650,6 +650,9 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 		p.stmt.Body = p.handleFor(&ast.BlockStmt{List: stmts}, 1)
 		cb.emitStmt(p.stmt)
 	} else if n > 0 {
+		cb.stk.Push(p.x)
+		cb.MemberVal(nameGopEnum).Call(0)
+		callEnum := cb.stk.Pop().Val
 		/*
 			for _gop_it := X.Gop_Enum();; {
 				var _gop_ok bool
@@ -691,11 +694,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 			Init: &ast.AssignStmt{
 				Lhs: []ast.Expr{identGopIt},
 				Tok: token.DEFINE,
-				Rhs: []ast.Expr{
-					&ast.CallExpr{
-						Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: identGopEnum},
-					},
-				},
+				Rhs: []ast.Expr{callEnum},
 			},
 			Body: p.handleFor(&ast.BlockStmt{List: body}, 2),
 		}
