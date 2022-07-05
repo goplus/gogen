@@ -1393,7 +1393,9 @@ func initBuiltinTIs(pkg *Package) {
 		},
 	}
 	for _, ti := range tis {
-		btiMap.Set(ti.typ, ti)
+		if ti != nil {
+			btiMap.Set(ti.typ, ti)
+		}
 	}
 	pkg.cb.btiMap = btiMap
 }

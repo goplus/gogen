@@ -443,6 +443,7 @@ func (p *forStmt) End(cb *CodeBuilder) {
 type forRangeStmt struct {
 	names []string
 	stmt  *ast.RangeStmt
+	x     *internal.Elem
 	old   codeBlockCtx
 	kvt   []types.Type
 	udt   int // 0: non-udt, 2: (elem,ok), 3: (key,elem,ok)
@@ -480,6 +481,9 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 				log.Panicln("TODO: variable already defined -", name)
 			}
 		}
+		if p.udt != 0 {
+			p.x = x
+		}
 		p.stmt = &ast.RangeStmt{
 			Key:   ident(names[0]),
 			Value: val,
@@ -501,15 +505,18 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 			cb.panicCodePosError(pos, "too many variables in range")
 		}
 		cb.stk.PopN(n)
-		p.stmt = &ast.RangeStmt{
-			Key:   key.Val,
-			Value: val.Val,
-			X:     x.Val,
-		}
 		typs := p.getKeyValTypes(cb, x.Type)
 		if typs == nil {
 			src, _ := cb.loadExpr(x.Src)
 			cb.panicCodePosErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
+		}
+		if p.udt != 0 {
+			p.x = &x
+		}
+		p.stmt = &ast.RangeStmt{
+			Key:   key.Val,
+			Value: val.Val,
+			X:     x.Val,
 		}
 		if n > 1 {
 			p.stmt.Tok = token.ASSIGN
@@ -557,7 +564,7 @@ retry:
 }
 
 func (p *forRangeStmt) checkUdt(cb *CodeBuilder, o *types.Named) ([]types.Type, bool) {
-	if sig := findMethodType(cb, o, "Gop_Enum"); sig != nil {
+	if sig := findMethodType(cb, o, nameGopEnum); sig != nil {
 		enumRet := sig.Results()
 		params := sig.Params()
 		switch params.Len() {
@@ -735,9 +742,10 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 }
 
 var (
+	nameGopEnum  = "Gop_Enum"
 	identGopOk   = ident("_gop_ok")
 	identGopIt   = ident("_gop_it")
-	identGopEnum = ident("Gop_Enum")
+	identGopEnum = ident(nameGopEnum)
 )
 
 var (
