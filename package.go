@@ -47,6 +47,7 @@ var (
 	debugImport    bool
 	debugComments  bool
 	debugWriteFile bool
+	debugImportIox bool
 )
 
 func SetDebug(dbgFlags int) {
@@ -99,6 +100,9 @@ type Config struct {
 
 	// DefaultGoFile specifies default file name. It can be empty.
 	DefaultGoFile string
+
+	// PkgPathIox specifies package path of github.com/goplus/gop/builtin/iox
+	PkgPathIox string
 
 	// NewBuiltin is to create the builin package.
 	NewBuiltin func(pkg *Package, conf *Config) *types.Package

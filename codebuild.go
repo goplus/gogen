@@ -1603,7 +1603,7 @@ func denoteRecv(v *ast.SelectorExpr) *Element {
 }
 
 func (p *CodeBuilder) method(
-	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
+	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) (kind MemberKind) {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		v := method.Name()
@@ -1625,7 +1625,10 @@ func (p *CodeBuilder) method(
 			return MemberMethod
 		}
 	}
-	return MemberInvalid
+	if t, ok := o.(*types.Named); ok {
+		kind = p.btiMethod(p.getBuiltinTI(t), name, aliasName, flag, arg, src)
+	}
+	return
 }
 
 func (p *CodeBuilder) btiMethod(
