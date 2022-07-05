@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
+	"golang.org/x/tools/go/types/typeutil"
 )
 
 func getSrc(node []ast.Node) ast.Node {
@@ -103,6 +104,7 @@ type CodeBuilder struct {
 	current   funcBodyCtx
 	comments  *ast.CommentGroup
 	pkg       *Package
+	btiMap    *typeutil.Map
 	valDecl   *ValueDecl
 	interp    NodeInterpreter
 	loadNamed LoadNamedFunc
@@ -1576,7 +1578,7 @@ retry:
 			return kind
 		}
 	case *types.Basic, *types.Slice, *types.Map, *types.Chan:
-		return p.btiMethod(getBuiltinTI(o), name, aliasName, flag, arg, srcExpr)
+		return p.btiMethod(p.getBuiltinTI(o), name, aliasName, flag, arg, srcExpr)
 	}
 	return MemberInvalid
 }
