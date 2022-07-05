@@ -1222,6 +1222,28 @@ type builtinMethod struct {
 	eargs bmExargs
 }
 
+func (p *builtinMethod) Results() *types.Tuple {
+	return p.fn.Type().(*types.Signature).Results()
+}
+
+func (p *builtinMethod) Params() *types.Tuple {
+	params := p.fn.Type().(*types.Signature).Params()
+	n := params.Len() - len(p.eargs) - 1
+	if n <= 0 {
+		return nil
+	}
+	ret := make([]*types.Var, n)
+	for i := 0; i < n; i++ {
+		ret[i] = params.At(i + 1)
+	}
+	return types.NewTuple(ret...)
+}
+
+type mthdSignature interface {
+	Results() *types.Tuple
+	Params() *types.Tuple
+}
+
 type builtinTI struct {
 	typ     types.Type
 	methods []*builtinMethod
@@ -1235,6 +1257,16 @@ func (p *builtinTI) Method(i int) *builtinMethod {
 	return p.methods[i]
 }
 
+func (p *builtinTI) lookupByName(name string) mthdSignature {
+	for i, n := 0, p.NumMethods(); i < n; i++ {
+		method := p.Method(i)
+		if method.name == name {
+			return method
+		}
+	}
+	return nil
+}
+
 var (
 	tyMap   types.Type = types.NewMap(types.Typ[types.Invalid], types.Typ[types.Invalid])
 	tyChan  types.Type = types.NewChan(0, types.Typ[types.Invalid])
@@ -1244,10 +1276,26 @@ var (
 func initBuiltinTIs(pkg *Package) {
 	strconv := pkg.Import("strconv")
 	strings := pkg.Import("strings")
+	os := pkg.Import("os")
+	ioxTI := (*builtinTI)(nil)
+	ioxPkg := pkg.conf.PkgPathIox
+	if debugImportIox && ioxPkg == "" {
+		ioxPkg = "github.com/goplus/gox/internal/iox"
+	}
+	if ioxPkg != "" {
+		iox := pkg.Import(ioxPkg)
+		ioxTI = &builtinTI{
+			typ: os.Ref("File").Type(),
+			methods: []*builtinMethod{
+				{"Gop_Enum", iox.Ref("EnumLines"), nil},
+			},
+		}
+	}
 	btiMap := new(typeutil.Map)
 	btoLen := types.Universe.Lookup("len")
 	btoCap := types.Universe.Lookup("cap")
 	tis := []*builtinTI{
+		ioxTI,
 		{
 			typ: types.Typ[types.Float64],
 			methods: []*builtinMethod{

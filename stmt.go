@@ -536,7 +536,7 @@ retry:
 		case *types.Array:
 			return []types.Type{types.Typ[types.Int], e.Elem()}
 		case *types.Named:
-			if kv, ok := p.checkUdt(e); ok {
+			if kv, ok := p.checkUdt(cb, e); ok {
 				return kv
 			}
 		}
@@ -547,7 +547,7 @@ retry:
 			return []types.Type{types.Typ[types.Int], types.Typ[types.Rune]}
 		}
 	case *types.Named:
-		if kv, ok := p.checkUdt(t); ok {
+		if kv, ok := p.checkUdt(cb, t); ok {
 			return kv
 		}
 		typ = cb.getUnderlying(t)
@@ -556,9 +556,8 @@ retry:
 	return nil
 }
 
-func (p *forRangeStmt) checkUdt(o *types.Named) ([]types.Type, bool) {
-	if m := findMethod(o, "Gop_Enum"); m != nil {
-		sig := m.Type().(*types.Signature)
+func (p *forRangeStmt) checkUdt(cb *CodeBuilder, o *types.Named) ([]types.Type, bool) {
+	if sig := findMethodType(cb, o, "Gop_Enum"); sig != nil {
 		enumRet := sig.Results()
 		params := sig.Params()
 		switch params.Len() {
@@ -594,8 +593,8 @@ func (p *forRangeStmt) checkUdt(o *types.Named) ([]types.Type, bool) {
 				typ = t.Elem()
 			}
 			if it, ok := typ.(*types.Named); ok {
-				if next := findMethod(it, "Next"); next != nil {
-					ret := next.Type().(*types.Signature).Results()
+				if next := findMethodType(cb, it, "Next"); next != nil {
+					ret := next.Results()
 					typs := make([]types.Type, 2)
 					n := ret.Len()
 					switch n {
@@ -617,12 +616,15 @@ func (p *forRangeStmt) checkUdt(o *types.Named) ([]types.Type, bool) {
 	return nil, false
 }
 
-func findMethod(o *types.Named, name string) types.Object {
+func findMethodType(cb *CodeBuilder, o *types.Named, name string) mthdSignature {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		if method.Name() == name {
-			return method
+			return method.Type().(*types.Signature)
 		}
+	}
+	if bti := cb.getBuiltinTI(o); bti != nil {
+		return bti.lookupByName(name)
 	}
 	return nil
 }
