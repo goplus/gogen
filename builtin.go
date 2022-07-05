@@ -1236,7 +1236,6 @@ func (p *builtinTI) Method(i int) *builtinMethod {
 }
 
 var (
-	btiMap  *typeutil.Map
 	tyMap   types.Type = types.NewMap(types.Typ[types.Invalid], types.Typ[types.Invalid])
 	tyChan  types.Type = types.NewChan(0, types.Typ[types.Invalid])
 	tySlice types.Type = types.NewSlice(types.Typ[types.Invalid])
@@ -1245,7 +1244,7 @@ var (
 func initBuiltinTIs(pkg *Package) {
 	strconv := pkg.Import("strconv")
 	strings := pkg.Import("strings")
-	btiMap = new(typeutil.Map)
+	btiMap := new(typeutil.Map)
 	btoLen := types.Universe.Lookup("len")
 	btoCap := types.Universe.Lookup("cap")
 	tis := []*builtinTI{
@@ -1348,9 +1347,10 @@ func initBuiltinTIs(pkg *Package) {
 	for _, ti := range tis {
 		btiMap.Set(ti.typ, ti)
 	}
+	pkg.cb.btiMap = btiMap
 }
 
-func getBuiltinTI(typ types.Type) *builtinTI {
+func (p *CodeBuilder) getBuiltinTI(typ types.Type) *builtinTI {
 	switch t := typ.(type) {
 	case *types.Basic:
 		typ = types.Default(typ)
@@ -1363,7 +1363,7 @@ func getBuiltinTI(typ types.Type) *builtinTI {
 	case *types.Chan:
 		typ = tyChan
 	}
-	if bti := btiMap.At(typ); bti != nil {
+	if bti := p.btiMap.At(typ); bti != nil {
 		return bti.(*builtinTI)
 	}
 	return nil

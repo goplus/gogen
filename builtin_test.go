@@ -830,7 +830,8 @@ func TestLoadExpr(t *testing.T) {
 }
 
 func TestGetBuiltinTI(t *testing.T) {
-	if getBuiltinTI(types.NewPointer(types.Typ[0])) != nil {
+	var cb CodeBuilder
+	if cb.getBuiltinTI(types.NewPointer(types.Typ[0])) != nil {
 		t.Fatal("TestGetBuiltinTI failed")
 	}
 }
