@@ -1222,6 +1222,28 @@ type builtinMethod struct {
 	eargs bmExargs
 }
 
+func (p *builtinMethod) Results() *types.Tuple {
+	return p.fn.Type().(*types.Signature).Results()
+}
+
+func (p *builtinMethod) Params() *types.Tuple {
+	params := p.fn.Type().(*types.Signature).Params()
+	n := params.Len() - len(p.eargs) - 1
+	if n <= 0 {
+		return nil
+	}
+	ret := make([]*types.Var, n)
+	for i := 0; i < n; i++ {
+		ret[i] = params.At(i + 1)
+	}
+	return types.NewTuple(ret...)
+}
+
+type mthdSignature interface {
+	Results() *types.Tuple
+	Params() *types.Tuple
+}
+
 type builtinTI struct {
 	typ     types.Type
 	methods []*builtinMethod
@@ -1235,8 +1257,17 @@ func (p *builtinTI) Method(i int) *builtinMethod {
 	return p.methods[i]
 }
 
+func (p *builtinTI) lookupByName(name string) mthdSignature {
+	for i, n := 0, p.NumMethods(); i < n; i++ {
+		method := p.Method(i)
+		if method.name == name {
+			return method
+		}
+	}
+	return nil
+}
+
 var (
-	btiMap  *typeutil.Map
 	tyMap   types.Type = types.NewMap(types.Typ[types.Invalid], types.Typ[types.Invalid])
 	tyChan  types.Type = types.NewChan(0, types.Typ[types.Invalid])
 	tySlice types.Type = types.NewSlice(types.Typ[types.Invalid])
@@ -1245,10 +1276,26 @@ var (
 func initBuiltinTIs(pkg *Package) {
 	strconv := pkg.Import("strconv")
 	strings := pkg.Import("strings")
-	btiMap = new(typeutil.Map)
+	os := pkg.Import("os")
+	ioxTI := (*builtinTI)(nil)
+	ioxPkg := pkg.conf.PkgPathIox
+	if debugImportIox && ioxPkg == "" {
+		ioxPkg = "github.com/goplus/gox/internal/iox"
+	}
+	if ioxPkg != "" {
+		iox := pkg.Import(ioxPkg)
+		ioxTI = &builtinTI{
+			typ: os.Ref("File").Type(),
+			methods: []*builtinMethod{
+				{"Gop_Enum", iox.Ref("EnumLines"), nil},
+			},
+		}
+	}
+	btiMap := new(typeutil.Map)
 	btoLen := types.Universe.Lookup("len")
 	btoCap := types.Universe.Lookup("cap")
 	tis := []*builtinTI{
+		ioxTI,
 		{
 			typ: types.Typ[types.Float64],
 			methods: []*builtinMethod{
@@ -1277,14 +1324,44 @@ func initBuiltinTIs(pkg *Package) {
 			typ: types.Typ[types.String],
 			methods: []*builtinMethod{
 				{"Len", btoLen, nil},
+				{"Count", strings.Ref("Count"), nil},
 				{"Int", strconv.Ref("Atoi"), nil},
-				{"Uint", strconv.Ref("ParseUint"), bmExargs{10, 64}},
+				{"Int64", strconv.Ref("ParseInt"), bmExargs{10, 64}},
+				{"Uint64", strconv.Ref("ParseUint"), bmExargs{10, 64}},
 				{"Float", strconv.Ref("ParseFloat"), bmExargs{64}},
+				{"Index", strings.Ref("Index"), nil},
+				{"IndexAny", strings.Ref("IndexAny"), nil},
+				{"IndexByte", strings.Ref("IndexByte"), nil},
+				{"IndexRune", strings.Ref("IndexRune"), nil},
+				{"LastIndex", strings.Ref("LastIndex"), nil},
+				{"LastIndexAny", strings.Ref("LastIndexAny"), nil},
+				{"LastIndexByte", strings.Ref("LastIndexByte"), nil},
+				{"Contains", strings.Ref("Contains"), nil},
+				{"ContainsAny", strings.Ref("ContainsAny"), nil},
+				{"ContainsRune", strings.Ref("ContainsRune"), nil},
+				{"Compare", strings.Ref("Compare"), nil},
+				{"EqualFold", strings.Ref("EqualFold"), nil},
+				{"HasPrefix", strings.Ref("HasPrefix"), nil},
+				{"HasSuffix", strings.Ref("HasSuffix"), nil},
 				{"Quote", strconv.Ref("Quote"), nil},
 				{"Unquote", strconv.Ref("Unquote"), nil},
+				{"ToTitle", strings.Ref("ToTitle"), nil},
+				{"ToUpper", strings.Ref("ToUpper"), nil},
+				{"ToLower", strings.Ref("ToLower"), nil},
 				{"Fields", strings.Ref("Fields"), nil},
+				{"Repeat", strings.Ref("Repeat"), nil},
 				{"Split", strings.Ref("Split"), nil},
-				{"Contains", strings.Ref("Contains"), nil},
+				{"SplitAfter", strings.Ref("SplitAfter"), nil},
+				{"SplitN", strings.Ref("SplitN"), nil},
+				{"SplitAfterN", strings.Ref("SplitAfterN"), nil},
+				{"Replace", strings.Ref("Replace"), nil},
+				{"ReplaceAll", strings.Ref("ReplaceAll"), nil},
+				{"Trim", strings.Ref("Trim"), nil},
+				{"TrimSpace", strings.Ref("TrimSpace"), nil},
+				{"TrimLeft", strings.Ref("TrimLeft"), nil},
+				{"TrimRight", strings.Ref("TrimRight"), nil},
+				{"TrimPrefix", strings.Ref("TrimPrefix"), nil},
+				{"TrimSuffix", strings.Ref("TrimSuffix"), nil},
 			},
 		},
 		{
@@ -1316,11 +1393,14 @@ func initBuiltinTIs(pkg *Package) {
 		},
 	}
 	for _, ti := range tis {
-		btiMap.Set(ti.typ, ti)
+		if ti != nil {
+			btiMap.Set(ti.typ, ti)
+		}
 	}
+	pkg.cb.btiMap = btiMap
 }
 
-func getBuiltinTI(typ types.Type) *builtinTI {
+func (p *CodeBuilder) getBuiltinTI(typ types.Type) *builtinTI {
 	switch t := typ.(type) {
 	case *types.Basic:
 		typ = types.Default(typ)
@@ -1333,7 +1413,7 @@ func getBuiltinTI(typ types.Type) *builtinTI {
 	case *types.Chan:
 		typ = tyChan
 	}
-	if bti := btiMap.At(typ); bti != nil {
+	if bti := p.btiMap.At(typ); bti != nil {
 		return bti.(*builtinTI)
 	}
 	return nil

@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
+	"golang.org/x/tools/go/types/typeutil"
 )
 
 func getSrc(node []ast.Node) ast.Node {
@@ -103,6 +104,7 @@ type CodeBuilder struct {
 	current   funcBodyCtx
 	comments  *ast.CommentGroup
 	pkg       *Package
+	btiMap    *typeutil.Map
 	valDecl   *ValueDecl
 	interp    NodeInterpreter
 	loadNamed LoadNamedFunc
@@ -1451,6 +1453,10 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	if debugInstr {
 		log.Println("Member", name, flag, "//", arg.Type)
 	}
+	switch arg.Type {
+	case p.pkg.utBigInt, p.pkg.utBigRat, p.pkg.utBigFlt:
+		arg.Type = DefaultConv(p.pkg, arg.Type, arg)
+	}
 	at := arg.Type
 	if flag == MemberFlagRef {
 		kind = p.refMember(at, name, arg.Val)
@@ -1572,7 +1578,7 @@ retry:
 			return kind
 		}
 	case *types.Basic, *types.Slice, *types.Map, *types.Chan:
-		return p.btiMethod(getBuiltinTI(o), name, aliasName, flag, arg, srcExpr)
+		return p.btiMethod(p.getBuiltinTI(o), name, aliasName, flag, arg, srcExpr)
 	}
 	return MemberInvalid
 }
@@ -1597,7 +1603,7 @@ func denoteRecv(v *ast.SelectorExpr) *Element {
 }
 
 func (p *CodeBuilder) method(
-	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
+	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) (kind MemberKind) {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		v := method.Name()
@@ -1619,7 +1625,10 @@ func (p *CodeBuilder) method(
 			return MemberMethod
 		}
 	}
-	return MemberInvalid
+	if t, ok := o.(*types.Named); ok {
+		kind = p.btiMethod(p.getBuiltinTI(t), name, aliasName, flag, arg, src)
+	}
+	return
 }
 
 func (p *CodeBuilder) btiMethod(

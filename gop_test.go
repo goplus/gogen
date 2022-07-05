@@ -224,7 +224,7 @@ func main() {
 	fmt.Println(builtin.Gop_bigrat_Cast__0(func() *big.Int {
 		v, _ := new(big.Int).SetString("36893488147419103232", 10)
 		return v
-	}()), builtin.Gop_bigrat_Cast__5().Gop_Rcast__2(), builtin.Gop_bigint_Cast__1(1).Gop_Rcast(), 0)
+	}()), builtin.Gop_bigrat_Cast__5().Gop_Rcast__2(), builtin.Gop_bigint_Cast__0(1).Gop_Rcast(), 0)
 }
 `)
 }
@@ -241,10 +241,13 @@ func TestCastIntTwoValue(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
 
 func main() {
-	v, inRange := builtin.Gop_bigrat_Cast__0(1).Gop_Rcast__0()
+	v, inRange := builtin.Gop_bigrat_Cast__0(big.NewInt(1)).Gop_Rcast__0()
 }
 `)
 }
@@ -261,10 +264,13 @@ func TestCastBigIntTwoValue(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
 
 func main() {
-	v, inRange := builtin.Gop_bigint_Cast__7(builtin.Gop_bigrat_Cast__0(1))
+	v, inRange := builtin.Gop_bigint_Cast__7(builtin.Gop_bigrat_Cast__0(big.NewInt(1)))
 }
 `)
 }
@@ -961,6 +967,112 @@ func TestErrTemplateRecvMethod(t *testing.T) {
 		NewVar(types.NewPointer(bar.Ref("Game").Type()), "g").
 		Val(ctxRef(pkg, "g")).MemberVal("Run").Call(0).EndStmt().
 		End()
+}
+
+func TestBigIntCastUntypedFloat(t *testing.T) {
+	pkg := newGopMainPackage()
+	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.CB().NewVarStart(nil, "a").
+		Val(mbig.Ref("Gop_bigint")).
+		Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e20"}).Call(1).EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a = builtin.Gop_bigint_Cast__1(func() *big.Int {
+	v, _ := new(big.Int).SetString("100000000000000000000", 10)
+	return v
+}())
+`)
+}
+
+func TestBigIntCastUntypedFloatError(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestBigIntCastUntypedFloatError: no error?")
+		}
+	}()
+	pkg := newGopMainPackage()
+	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
+	pkg.CB().NewVarStart(nil, "a").
+		Val(mbig.Ref("Gop_bigint")).
+		Val(&ast.BasicLit{Kind: token.FLOAT, Value: "10000000000000000000.1"}).
+		Call(1).EndInit(1)
+}
+
+func TestUntypedBigDefault(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(ctxRef(pkg, "println")).
+		UntypedBigInt(big.NewInt(1)).Call(1).EndStmt().
+		Val(ctxRef(pkg, "println")).
+		UntypedBigRat(big.NewRat(1, 2)).Call(1).EndStmt().End()
+	domTest(t, pkg, `package main
+
+import (
+	fmt "fmt"
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+func main() {
+	fmt.Println(builtin.Gop_bigint_Init__1(big.NewInt(1)))
+	fmt.Println(builtin.Gop_bigrat_Init__2(big.NewRat(1, 2)))
+}
+`)
+}
+
+func TestUntypedBigDefaultCall(t *testing.T) {
+	pkg := newGopMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		UntypedBigInt(big.NewInt(1)).MemberVal("Int64").Call(0).EndStmt().
+		UntypedBigRat(big.NewRat(1, 2)).MemberVal("Float64").Call(0).EndStmt().End()
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+func main() {
+	builtin.Gop_bigint_Init__1(big.NewInt(1)).Int64()
+	builtin.Gop_bigrat_Init__2(big.NewRat(1, 2)).Float64()
+}
+`)
+}
+
+func TestUntypedBigIntToInterface(t *testing.T) {
+	pkg := newGopMainPackage()
+	methods := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "Int64", types.NewSignature(nil, nil,
+			types.NewTuple(types.NewVar(token.NoPos, nil, "v", types.Typ[types.Int64])), false)),
+	}
+	tyInterf := types.NewInterfaceType(methods, nil).Complete()
+	tyA := pkg.NewType("A").InitType(pkg, tyInterf)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tyA, "a").UntypedBigInt(big.NewInt(1)).EndInit(1).
+		Val(ctxRef(pkg, "println")).
+		Val(ctxRef(pkg, "a")).MemberVal("Int64").Call(0).Call(1).EndStmt().End()
+	domTest(t, pkg, `package main
+
+import (
+	fmt "fmt"
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+type A interface {
+	Int64() (v int64)
+}
+
+func main() {
+	var a A = builtin.Gop_bigint_Init__1(big.NewInt(1))
+	fmt.Println(a.Int64())
+}
+`)
 }
 
 // ----------------------------------------------------------------------------

@@ -377,7 +377,7 @@ func assignable(pkg *Package, v types.Type, t *types.Named, pv *internal.Elem) b
 			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
 			arg := &internal.Elem{Type: v}
 			if pv != nil {
-				arg.Val, arg.CVal = pv.Val, pv.CVal
+				arg.Val, arg.CVal, arg.Src = pv.Val, pv.CVal, pv.Src
 			}
 			ret, err := matchFuncCall(pkg, fn, []*internal.Elem{arg}, 0)
 			if err == nil {

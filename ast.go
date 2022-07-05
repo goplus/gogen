@@ -1105,7 +1105,42 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 		}
 		log.Printf("==> MatchType %v%s, %v\n", arg.Type, cval, param)
 	}
+	// check untyped big int/rat/flt => interface
+	switch arg.Type {
+	case pkg.utBigInt, pkg.utBigRat, pkg.utBigFlt:
+		typ := param
+	retry:
+		switch t := typ.(type) {
+		case *types.Interface:
+			arg.Type = DefaultConv(pkg, arg.Type, arg)
+			if t.NumMethods() == 0 {
+				return nil
+			}
+		case *types.Named:
+			typ = t.Underlying()
+			goto retry
+		}
+	}
 	switch t := param.(type) {
+	case *types.Named:
+		if t2, ok := arg.Type.(*types.Basic); ok {
+			if t == pkg.utBigInt {
+				switch t2.Kind() {
+				case types.UntypedInt:
+					val, _ := new(big.Int).SetString(arg.CVal.ExactString(), 10)
+					arg.Val = pkg.cb.UntypedBigInt(val).stk.Pop().Val
+					return nil
+				case types.UntypedFloat:
+					val, ok := new(big.Int).SetString(arg.CVal.ExactString(), 10)
+					if !ok {
+						code, pos := pkg.cb.loadExpr(arg.Src)
+						pkg.cb.panicCodeErrorf(&pos, "cannot convert %v (untyped float constant) to %v", code, t)
+					}
+					arg.Val = pkg.cb.UntypedBigInt(val).stk.Pop().Val
+					return nil
+				}
+			}
+		}
 	case *unboundType: // variable to bound type
 		if t2, ok := arg.Type.(*unboundType); ok {
 			if t2.tBound == nil {

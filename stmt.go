@@ -443,6 +443,7 @@ func (p *forStmt) End(cb *CodeBuilder) {
 type forRangeStmt struct {
 	names []string
 	stmt  *ast.RangeStmt
+	x     *internal.Elem
 	old   codeBlockCtx
 	kvt   []types.Type
 	udt   int // 0: non-udt, 2: (elem,ok), 3: (key,elem,ok)
@@ -480,6 +481,9 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 				log.Panicln("TODO: variable already defined -", name)
 			}
 		}
+		if p.udt != 0 {
+			p.x = x
+		}
 		p.stmt = &ast.RangeStmt{
 			Key:   ident(names[0]),
 			Value: val,
@@ -501,15 +505,18 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 			cb.panicCodePosError(pos, "too many variables in range")
 		}
 		cb.stk.PopN(n)
-		p.stmt = &ast.RangeStmt{
-			Key:   key.Val,
-			Value: val.Val,
-			X:     x.Val,
-		}
 		typs := p.getKeyValTypes(cb, x.Type)
 		if typs == nil {
 			src, _ := cb.loadExpr(x.Src)
 			cb.panicCodePosErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
+		}
+		if p.udt != 0 {
+			p.x = &x
+		}
+		p.stmt = &ast.RangeStmt{
+			Key:   key.Val,
+			Value: val.Val,
+			X:     x.Val,
 		}
 		if n > 1 {
 			p.stmt.Tok = token.ASSIGN
@@ -536,7 +543,7 @@ retry:
 		case *types.Array:
 			return []types.Type{types.Typ[types.Int], e.Elem()}
 		case *types.Named:
-			if kv, ok := p.checkUdt(e); ok {
+			if kv, ok := p.checkUdt(cb, e); ok {
 				return kv
 			}
 		}
@@ -547,7 +554,7 @@ retry:
 			return []types.Type{types.Typ[types.Int], types.Typ[types.Rune]}
 		}
 	case *types.Named:
-		if kv, ok := p.checkUdt(t); ok {
+		if kv, ok := p.checkUdt(cb, t); ok {
 			return kv
 		}
 		typ = cb.getUnderlying(t)
@@ -556,9 +563,8 @@ retry:
 	return nil
 }
 
-func (p *forRangeStmt) checkUdt(o *types.Named) ([]types.Type, bool) {
-	if m := findMethod(o, "Gop_Enum"); m != nil {
-		sig := m.Type().(*types.Signature)
+func (p *forRangeStmt) checkUdt(cb *CodeBuilder, o *types.Named) ([]types.Type, bool) {
+	if sig := findMethodType(cb, o, nameGopEnum); sig != nil {
 		enumRet := sig.Results()
 		params := sig.Params()
 		switch params.Len() {
@@ -594,8 +600,8 @@ func (p *forRangeStmt) checkUdt(o *types.Named) ([]types.Type, bool) {
 				typ = t.Elem()
 			}
 			if it, ok := typ.(*types.Named); ok {
-				if next := findMethod(it, "Next"); next != nil {
-					ret := next.Type().(*types.Signature).Results()
+				if next := findMethodType(cb, it, "Next"); next != nil {
+					ret := next.Results()
 					typs := make([]types.Type, 2)
 					n := ret.Len()
 					switch n {
@@ -617,12 +623,15 @@ func (p *forRangeStmt) checkUdt(o *types.Named) ([]types.Type, bool) {
 	return nil, false
 }
 
-func findMethod(o *types.Named, name string) types.Object {
+func findMethodType(cb *CodeBuilder, o *types.Named, name string) mthdSignature {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		if method.Name() == name {
-			return method
+			return method.Type().(*types.Signature)
 		}
+	}
+	if bti := cb.getBuiltinTI(o); bti != nil {
+		return bti.lookupByName(name)
 	}
 	return nil
 }
@@ -641,6 +650,9 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 		p.stmt.Body = p.handleFor(&ast.BlockStmt{List: stmts}, 1)
 		cb.emitStmt(p.stmt)
 	} else if n > 0 {
+		cb.stk.Push(p.x)
+		cb.MemberVal(nameGopEnum).Call(0)
+		callEnum := cb.stk.Pop().Val
 		/*
 			for _gop_it := X.Gop_Enum();; {
 				var _gop_ok bool
@@ -682,11 +694,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 			Init: &ast.AssignStmt{
 				Lhs: []ast.Expr{identGopIt},
 				Tok: token.DEFINE,
-				Rhs: []ast.Expr{
-					&ast.CallExpr{
-						Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: identGopEnum},
-					},
-				},
+				Rhs: []ast.Expr{callEnum},
 			},
 			Body: p.handleFor(&ast.BlockStmt{List: body}, 2),
 		}
@@ -733,9 +741,10 @@ func (p *forRangeStmt) End(cb *CodeBuilder) {
 }
 
 var (
+	nameGopEnum  = "Gop_Enum"
 	identGopOk   = ident("_gop_ok")
 	identGopIt   = ident("_gop_it")
-	identGopEnum = ident("Gop_Enum")
+	identGopEnum = ident(nameGopEnum)
 )
 
 var (

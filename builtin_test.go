@@ -32,10 +32,45 @@ var (
 	gblConf = getConf()
 )
 
+func init() {
+	debugImportIox = true
+}
+
 func getConf() *Config {
 	fset := token.NewFileSet()
 	imp := packages.NewImporter(fset)
 	return &Config{Fset: fset, Importer: imp}
+}
+
+func TestGetBuiltinTI(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := &pkg.cb
+	if cb.getBuiltinTI(types.NewPointer(types.Typ[0])) != nil {
+		t.Fatal("TestGetBuiltinTI failed")
+	}
+	tiStr := cb.getBuiltinTI(types.Typ[types.String])
+	sig := tiStr.lookupByName("Index")
+	if sig == nil || sig.Params().Len() != 1 {
+		t.Fatal("string.Index (Params):", sig)
+	}
+	if sig == nil || sig.Results().Len() != 1 {
+		t.Fatal("string.Index (Results):", sig)
+	}
+	if tsig := tiStr.lookupByName("__unknown"); tsig != nil {
+		t.Fatal("tsig:", tsig)
+	}
+}
+
+func TestFindMethodType(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	tyFile := pkg.Import("os").Ref("File").Type().(*types.Named)
+	sig := findMethodType(&pkg.cb, tyFile, "Gop_Enum")
+	if sig == nil || sig.Params().Len() != 0 {
+		t.Fatal("os.File.GopEnum (Params):", sig)
+	}
+	if sig == nil || sig.Results().Len() != 1 {
+		t.Fatal("os.File.GopEnum (Results):", sig)
+	}
 }
 
 func TestContractName(t *testing.T) {
@@ -241,7 +276,8 @@ func TestIsFunc(t *testing.T) {
 func TestCheckUdt(t *testing.T) {
 	o := types.NewNamed(types.NewTypeName(token.NoPos, nil, "foo", nil), types.Typ[types.Int], nil)
 	var frs forRangeStmt
-	if _, ok := frs.checkUdt(o); ok {
+	var cb CodeBuilder
+	if _, ok := frs.checkUdt(&cb, o); ok {
 		t.Fatal("findMethod failed: bar exists?")
 	}
 }
@@ -826,12 +862,6 @@ func TestLoadExpr(t *testing.T) {
 	var cb CodeBuilder
 	if src, pos := cb.loadExpr(nil); src != "" || pos.Filename != "" {
 		t.Fatal("TestLoadExpr failed")
-	}
-}
-
-func TestGetBuiltinTI(t *testing.T) {
-	if getBuiltinTI(types.NewPointer(types.Typ[0])) != nil {
-		t.Fatal("TestGetBuiltinTI failed")
 	}
 }
 
