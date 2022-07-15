@@ -215,6 +215,10 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	var values []ast.Expr
 	n := len(p.names)
 	rets := cb.stk.GetArgs(arity)
+	defer func() {
+		cb.stk.PopN(arity)
+		cb.endInitExpr(p.old)
+	}()
 	if arity == 1 && checkTuple(&t, rets[0].Type) {
 		if n != t.Len() {
 			caller := cb.getCaller(rets[0].Src)
@@ -294,8 +298,6 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			}
 		}
 	}
-	cb.stk.PopN(arity)
-	cb.endInitExpr(p.old)
 	if p.at >= 0 {
 		cb.commitStmt(p.at) // to support inline call, we must emitStmt at EndInit stage
 	}
