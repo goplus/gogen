@@ -218,6 +218,9 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	defer func() {
 		cb.stk.PopN(arity)
 		cb.endInitExpr(p.old)
+		if p.at >= 0 {
+			cb.commitStmt(p.at) // to support inline call, we must emitStmt at EndInit stage
+		}
 	}()
 	if arity == 1 && checkTuple(&t, rets[0].Type) {
 		if n != t.Len() {
@@ -297,9 +300,6 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 				}
 			}
 		}
-	}
-	if p.at >= 0 {
-		cb.commitStmt(p.at) // to support inline call, we must emitStmt at EndInit stage
 	}
 	return p.oldv
 }
