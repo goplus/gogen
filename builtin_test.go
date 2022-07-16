@@ -265,6 +265,10 @@ func TestIsFunc(t *testing.T) {
 	if !IsFunc(types.NewSignature(nil, nil, nil, false)) {
 		t.Fatal("func() is not func?")
 	}
+	fn := types.NewFunc(token.NoPos, nil, "fn", types.NewSignature(nil, nil, nil, false))
+	if !IsFunc(&templateRecvMethodType{fn: fn}) {
+		t.Fatal("templateRecvMethodType is not func?")
+	}
 	if HasAutoProperty(nil) {
 		t.Fatal("nil has autoprop?")
 	}
