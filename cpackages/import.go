@@ -44,6 +44,8 @@ func PubName(name string) string {
 	if r := name[0]; 'a' <= r && r <= 'z' {
 		r -= 'a' - 'A'
 		return string(r) + name[1:]
+	} else if r == '_' {
+		return "X" + name
 	}
 	return name
 }
