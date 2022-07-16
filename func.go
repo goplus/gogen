@@ -266,9 +266,13 @@ func HasAutoProperty(typ types.Type) bool {
 }
 
 func IsFunc(typ types.Type) bool {
-	switch typ.(type) {
+retry:
+	switch t := typ.(type) {
 	case *types.Signature, *overloadFuncType:
 		return true
+	case *templateRecvMethodType:
+		typ = t.fn.Type()
+		goto retry
 	}
 	return false
 }
