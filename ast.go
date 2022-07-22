@@ -450,20 +450,6 @@ func unaryOp(tok token.Token, args []*internal.Elem) constant.Value {
 func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.Value {
 	if len(args) == 2 {
 		if a, b := args[0].CVal, args[1].CVal; a != nil && b != nil {
-			if tok == token.QUO {
-				switch b.Kind() {
-				case constant.Int, constant.Float:
-					if b.String() == "0" {
-						_, pos := cb.loadExpr(args[1].Src)
-						cb.panicCodeError(&pos, "invalid operation: division by zero")
-					}
-				case constant.Complex:
-					if b.String() == "(0 + 0i)" {
-						_, pos := cb.loadExpr(args[1].Src)
-						cb.panicCodeError(&pos, "invalid operation: division by zero")
-					}
-				}
-			}
 			if tok == token.QUO && isNormalInt(cb, args[0]) && isNormalInt(cb, args[1]) {
 				tok = token.QUO_ASSIGN // issue #805
 			}
