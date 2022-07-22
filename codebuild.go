@@ -1759,6 +1759,18 @@ func (p *CodeBuilder) AssignOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	return p
 }
 
+func checkDivisionByZero(cb *CodeBuilder, arg *internal.Elem) {
+	if c := arg.CVal; c != nil {
+		switch c.Kind() {
+		case constant.Int, constant.Float, constant.Complex:
+			if constant.Sign(c) == 0 {
+				_, pos := cb.loadExpr(arg.Src)
+				cb.panicCodeError(&pos, "invalid operation: division by zero")
+			}
+		}
+	}
+}
+
 func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []ast.Node) ast.Stmt {
 	name := goxPrefix + assignOps[tok]
 	if debugInstr {
@@ -1781,6 +1793,9 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 	op := pkg.builtin.Scope().Lookup(name)
 	if op == nil {
 		panic("TODO: operator not matched")
+	}
+	if tok == token.QUO_ASSIGN {
+		checkDivisionByZero(&pkg.cb, args[1])
 	}
 	fn := &internal.Elem{
 		Val: ident(op.Name()), Type: op.Type(),
@@ -1935,6 +1950,9 @@ retry:
 	case *types.Pointer:
 		typ = t.Elem()
 		goto retry
+	}
+	if op == token.QUO {
+		checkDivisionByZero(cb, args[1])
 	}
 	if op == token.EQL || op == token.NEQ {
 		if !ComparableTo(pkg, args[0], args[1]) {
