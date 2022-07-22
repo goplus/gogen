@@ -1800,7 +1800,6 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 	fn := &internal.Elem{
 		Val: ident(op.Name()), Type: op.Type(),
 	}
-
 	toFuncCall(pkg, fn, args, 0)
 	return &ast.AssignStmt{
 		Tok: tok,
