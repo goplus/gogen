@@ -1764,7 +1764,7 @@ func checkDivisionByZero(cb *CodeBuilder, a, b *internal.Elem) {
 		if isNormalInt(cb, a) {
 			if c := b.CVal; c != nil {
 				switch c.Kind() {
-				case constant.Int, constant.Float:
+				case constant.Int, constant.Float, constant.Complex:
 					if constant.Sign(c) == 0 {
 						_, pos := cb.loadExpr(b.Src)
 						cb.panicCodeError(&pos, "invalid operation: division by zero")
