@@ -1759,12 +1759,24 @@ func (p *CodeBuilder) AssignOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-func checkDivisionByZero(cb *CodeBuilder, arg *internal.Elem) {
-	if c := arg.CVal; c != nil {
+func checkDivisionByZero(cb *CodeBuilder, a, b *internal.Elem) {
+	if a.CVal == nil {
+		if isNormalInt(cb, a) {
+			if c := b.CVal; c != nil {
+				switch c.Kind() {
+				case constant.Int, constant.Float, constant.Complex:
+					if constant.Sign(c) == 0 {
+						_, pos := cb.loadExpr(b.Src)
+						cb.panicCodeError(&pos, "invalid operation: division by zero")
+					}
+				}
+			}
+		}
+	} else if c := b.CVal; c != nil {
 		switch c.Kind() {
 		case constant.Int, constant.Float, constant.Complex:
 			if constant.Sign(c) == 0 {
-				_, pos := cb.loadExpr(arg.Src)
+				_, pos := cb.loadExpr(b.Src)
 				cb.panicCodeError(&pos, "invalid operation: division by zero")
 			}
 		}
@@ -1795,7 +1807,7 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 		panic("TODO: operator not matched")
 	}
 	if tok == token.QUO_ASSIGN {
-		checkDivisionByZero(&pkg.cb, args[1])
+		checkDivisionByZero(&pkg.cb, &internal.Elem{Val: args[0].Val, Type: args[0].Type.(*refType).typ}, args[1])
 	}
 	fn := &internal.Elem{
 		Val: ident(op.Name()), Type: op.Type(),
@@ -1952,7 +1964,7 @@ retry:
 		goto retry
 	}
 	if op == token.QUO {
-		checkDivisionByZero(cb, args[1])
+		checkDivisionByZero(cb, args[0], args[1])
 	}
 	if op == token.EQL || op == token.NEQ {
 		if !ComparableTo(pkg, args[0], args[1]) {

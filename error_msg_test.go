@@ -1222,7 +1222,7 @@ func TestDivisionByZero(t *testing.T) {
 	codeErrorTest(t,
 		`./foo.gop:1:3: invalid operation: division by zero`,
 		func(pkg *gox.Package) {
-			typ := types.Typ[types.Float64]
+			typ := types.Typ[types.Int]
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(typ, "a").
 				Val(ctxRef(pkg, "a")).Val(0.0, source("0.0", 1, 3)).BinaryOp(token.QUO).
@@ -1231,7 +1231,7 @@ func TestDivisionByZero(t *testing.T) {
 	codeErrorTest(t,
 		`./foo.gop:1:3: invalid operation: division by zero`,
 		func(pkg *gox.Package) {
-			typ := types.Typ[types.Complex128]
+			typ := types.Typ[types.Int]
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(typ, "a").
 				Val(ctxRef(pkg, "a")).Val(&ast.BasicLit{Kind: token.IMAG, Value: "0i"}, source("0i", 1, 3)).BinaryOp(token.QUO).
@@ -1249,7 +1249,7 @@ func TestDivisionByZero(t *testing.T) {
 	codeErrorTest(t,
 		`./foo.gop:1:3: invalid operation: division by zero`,
 		func(pkg *gox.Package) {
-			typ := types.Typ[types.Float64]
+			typ := types.Typ[types.Int]
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(typ, "a").
 				VarRef(ctxRef(pkg, "a")).Val(0.0, source("0.0", 1, 3)).AssignOp(token.QUO_ASSIGN).
@@ -1258,7 +1258,7 @@ func TestDivisionByZero(t *testing.T) {
 	codeErrorTest(t,
 		`./foo.gop:1:3: invalid operation: division by zero`,
 		func(pkg *gox.Package) {
-			typ := types.Typ[types.Complex128]
+			typ := types.Typ[types.Int]
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(typ, "a").
 				VarRef(ctxRef(pkg, "a")).Val(&ast.BasicLit{Kind: token.IMAG, Value: "0i"}, source("0i", 1, 3)).AssignOp(token.QUO_ASSIGN).
