@@ -29,8 +29,28 @@ type VFields interface { // virtual fields
 	FieldRef(cb *CodeBuilder, t *types.Named, name string, src ast.Node) MemberKind
 }
 
+type none = struct{}
+
 type vFieldsMgr struct {
 	vfts map[*types.Named]VFields
+	pubs map[*types.Named]none
+}
+
+func CPubName(name string) string {
+	if r := name[0]; 'a' <= r && r <= 'z' {
+		r -= 'a' - 'A'
+		return string(r) + name[1:]
+	} else if r == '_' {
+		return "X" + name
+	}
+	return name
+}
+
+func (p *CodeBuilder) getFieldName(t *types.Named, name string) string {
+	if _, ok := p.pubs[t]; ok {
+		return CPubName(name)
+	}
+	return name
 }
 
 func (p *CodeBuilder) refVField(t *types.Named, name string, src ast.Node) MemberKind {
@@ -45,6 +65,13 @@ func (p *CodeBuilder) findVField(t *types.Named, name string, arg *Element, src 
 		return vft.FindField(p, t, name, arg, src)
 	}
 	return MemberInvalid
+}
+
+func (p *Package) ExportFields(t *types.Named) {
+	if p.cb.pubs == nil {
+		p.cb.pubs = make(map[*types.Named]none)
+	}
+	p.cb.pubs[t] = none{}
 }
 
 func (p *Package) SetVFields(t *types.Named, vft VFields) {

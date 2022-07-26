@@ -1541,6 +1541,7 @@ retry:
 			u := p.getUnderlying(t) // may cause to loadNamed (delay-loaded)
 			struc, fstruc := u.(*types.Struct)
 			if fstruc {
+				name = p.getFieldName(t, name)
 				if kind := p.normalField(struc, name, arg, srcExpr); kind != MemberInvalid {
 					return kind
 				}
@@ -1563,6 +1564,9 @@ retry:
 		named, typ = o, p.getUnderlying(o) // may cause to loadNamed (delay-loaded)
 		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
+		}
+		if _, ok := typ.(*types.Struct); ok {
+			name = p.getFieldName(o, name)
 		}
 		goto retry
 	case *types.Struct:
