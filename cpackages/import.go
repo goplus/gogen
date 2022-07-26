@@ -33,7 +33,7 @@ func (p *PkgRef) Pkg() *gox.PkgRef {
 func (p *PkgRef) Lookup(name string) types.Object {
 	if goName, ok := p.public[name]; ok {
 		if goName == "" {
-			goName = PubName(name)
+			goName = gox.CPubName(name)
 		}
 		return p.pkg.TryRef(goName)
 	}
@@ -41,13 +41,7 @@ func (p *PkgRef) Lookup(name string) types.Object {
 }
 
 func PubName(name string) string {
-	if r := name[0]; 'a' <= r && r <= 'z' {
-		r -= 'a' - 'A'
-		return string(r) + name[1:]
-	} else if r == '_' {
-		return "X" + name
-	}
-	return name
+	return gox.CPubName(name)
 }
 
 // ----------------------------------------------------------------------------
