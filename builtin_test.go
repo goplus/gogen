@@ -42,6 +42,25 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestExportFields(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "Y", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "X__u", types.Typ[types.String], false),
+	}
+	tyT := pkg.NewType("T").InitType(pkg, types.NewStruct(fields, nil))
+	pkg.ExportFields(tyT)
+	if name := pkg.cb.getFieldName(tyT, "y"); name != "Y" {
+		t.Fatal("getFieldName y:", name)
+	}
+	if name := pkg.cb.getFieldName(tyT, "__u"); name != "X__u" {
+		t.Fatal("getFieldName __u:", name)
+	}
+	if CPubName("123") != "123" {
+		t.Fatal("CPubName(123) failed")
+	}
+}
+
 func TestGetBuiltinTI(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	cb := &pkg.cb
