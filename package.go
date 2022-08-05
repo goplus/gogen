@@ -355,7 +355,13 @@ func (p *Package) SetVarRedeclarable(allowVarRedecl bool) {
 
 // Sizeof returns sizeof typ in bytes.
 func (p *Package) Sizeof(typ types.Type) int64 {
-	return std.Sizeof(typ)
+	return align(std.Sizeof(typ), std.Alignof(typ))
+}
+
+// align returns the smallest y >= x such that y % a == 0.
+func align(x, a int64) int64 {
+	y := x + a - 1
+	return y - y%a
 }
 
 func (p *Package) Offsetsof(fields []*types.Var) []int64 {
