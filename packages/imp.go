@@ -15,12 +15,12 @@ package packages
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"go/token"
 	"go/types"
 	"os"
 	"os/exec"
+	"strings"
 
 	"golang.org/x/tools/go/gcexportdata"
 )
@@ -87,26 +87,20 @@ func (p *Importer) loadByExport(expfile string, pkgPath string) (pkg *types.Pack
 
 // ----------------------------------------------------------------------------
 
-type listExport struct {
-	Export string `json:"Export"`
-}
-
 // FindExport lookups export file (.a) of a package by its pkgPath.
 // It returns empty if pkgPath not found.
 func FindExport(dir, pkgPath string) (expfile string, err error) {
-	var ret listExport
 	data, err := golistExport(dir, pkgPath)
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal(data, &ret)
-	expfile = ret.Export
+	expfile = strings.TrimSpace(string(data))
 	return
 }
 
 func golistExport(dir, pkgPath string) (ret []byte, err error) {
 	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("go", "list", "-json", "-export", pkgPath)
+	cmd := exec.Command("go", "list", "-f={{.Export}}", "-export", pkgPath)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	cmd.Dir = dir
