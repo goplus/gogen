@@ -765,7 +765,8 @@ func (p *TypeType) Type() types.Type {
 }
 
 func (p *TypeType) Underlying() types.Type {
-	panic("type of type")
+	fatal("type of type")
+	return nil
 }
 
 func (p *TypeType) String() string {
@@ -779,7 +780,8 @@ type SubstType struct {
 }
 
 func (p *SubstType) Underlying() types.Type {
-	panic("substitute type")
+	fatal("substitute type")
+	return nil
 }
 
 func (p *SubstType) String() string {
