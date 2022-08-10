@@ -591,7 +591,7 @@ retry:
 				restoreArgs(args, backup)
 			}
 			return
-		} else if IsCSignature(t) {
+		} else if gtypes.IsCSignature(t) {
 			sig = types.NewSignature(nil, t.Params(), t.Results(), t.Variadic())
 		} else {
 			sig = t

@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/goplus/gox"
+	gtypes "github.com/goplus/gox/types"
 )
 
 // ----------------------------------------------------------------------------
@@ -162,7 +163,7 @@ func test() {
 
 func TestCFunc(t *testing.T) {
 	pkg := newMainPackage()
-	cfn := gox.NewCSignature(nil, nil, false)
+	cfn := gtypes.NewCSignature(nil, nil, false)
 	pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
 		NewVar(cfn, "f").
 		Val(ctxRef(pkg, "f")).Call(0).EndStmt().

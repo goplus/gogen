@@ -26,6 +26,7 @@ import (
 	"github.com/goplus/gox/internal"
 	"github.com/goplus/gox/internal/go/format"
 	"github.com/goplus/gox/packages"
+	gtypes "github.com/goplus/gox/types"
 )
 
 var (
@@ -449,8 +450,8 @@ func TestToVariadic(t *testing.T) {
 
 func TestToType(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
-	cf := NewCSignature(nil, nil, false)
-	if !IsCSignature(cf) {
+	cf := gtypes.NewCSignature(nil, nil, false)
+	if !gtypes.IsCSignature(cf) {
 		t.Fatal("IsCSignature failed: not c function?")
 	}
 	if v := typString(pkg, cf); v != "func()" {
