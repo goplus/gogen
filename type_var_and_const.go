@@ -756,6 +756,10 @@ func NewTypeType(typ types.Type) *TypeType {
 	return &TypeType{typ: typ}
 }
 
+func (p *TypeType) Pointer() *TypeType {
+	return &TypeType{typ: types.NewPointer(p.typ)}
+}
+
 func (p *TypeType) Type() types.Type {
 	return p.typ
 }

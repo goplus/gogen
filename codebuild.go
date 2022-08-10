@@ -1309,7 +1309,7 @@ func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 retry:
 	switch t := argType.(type) {
 	case *TypeType:
-		ret.Type = &TypeType{typ: types.NewPointer(t.typ)}
+		ret.Type = t.Pointer()
 	case *types.Pointer:
 		ret.Type = t.Elem()
 	case *types.Named:
@@ -1464,7 +1464,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	} else {
 		t, isType := at.(*TypeType)
 		if isType {
-			at = t.typ
+			at = t.Type()
 			if flag == MemberFlagAutoProperty {
 				flag = MemberFlagVal // can't use auto property to type
 			}

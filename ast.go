@@ -596,7 +596,7 @@ retry:
 			sig = t
 		}
 	case *TypeType: // type convert
-		return matchTypeCast(pkg, t.typ, fn, args, flags)
+		return matchTypeCast(pkg, t.Type(), fn, args, flags)
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
 		if t.isUnaryOp() {

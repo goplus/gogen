@@ -475,32 +475,6 @@ func typString(pkg *Package, t types.Type) string {
 	return b.String()
 }
 
-func TestSubstVar(t *testing.T) {
-	pkg := NewPackage("", "foo", gblConf)
-	a := pkg.NewAutoParam("a")
-	scope := pkg.cb.Scope()
-	scope.Insert(NewSubst(token.NoPos, pkg.Types, "bar", a))
-	o := Lookup(scope, "bar")
-	if o != a {
-		t.Fatal("TestSubstVar:", o)
-	}
-	_, o = LookupParent(scope, "bar", token.NoPos)
-	if o != a {
-		t.Fatal("TestSubstVar:", o)
-	}
-	scope.Insert(a)
-	_, o2 := LookupParent(scope, "a", token.NoPos)
-	if o != o2 {
-		t.Fatal("TestSubstVar:", o2)
-	}
-	o2 = Lookup(scope, "a")
-	if o != o2 {
-		t.Fatal("TestSubstVar:", o2)
-	}
-	LookupParent(scope, "b", token.NoPos)
-	Lookup(scope, "b")
-}
-
 func TestUnderlying(t *testing.T) {
 	subst := &SubstType{}
 	bfReft := &bfRefType{typ: tyInt}
@@ -1037,6 +1011,32 @@ func TestCastFromBool(t *testing.T) {
 	if !ok || constant.Val(ret.CVal).(int64) != 0 {
 		t.Fatal("CastFromBool failed:", ret.CVal, ok)
 	}
+}
+
+func TestSubstVar(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	a := types.NewParam(0, pkg, "a", types.Typ[types.Int])
+	scope := pkg.Scope()
+	scope.Insert(NewSubst(token.NoPos, pkg, "bar", a))
+	o := Lookup(scope, "bar")
+	if o != a {
+		t.Fatal("TestSubstVar:", o)
+	}
+	_, o = LookupParent(scope, "bar", token.NoPos)
+	if o != a {
+		t.Fatal("TestSubstVar:", o)
+	}
+	scope.Insert(a)
+	_, o2 := LookupParent(scope, "a", token.NoPos)
+	if o != o2 {
+		t.Fatal("TestSubstVar:", o2)
+	}
+	o2 = Lookup(scope, "a")
+	if o != o2 {
+		t.Fatal("TestSubstVar:", o2)
+	}
+	LookupParent(scope, "b", token.NoPos)
+	Lookup(scope, "b")
 }
 
 // ----------------------------------------------------------------------------

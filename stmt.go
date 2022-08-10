@@ -287,7 +287,7 @@ func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
 		for i, arg := range args {
 			typ = arg.Type
 			if tt, ok := typ.(*TypeType); ok {
-				typ = tt.typ
+				typ = tt.Type()
 				if missing := cb.missingMethod(typ, p.xType); missing != "" {
 					xsrc, _ := cb.loadExpr(p.xSrc)
 					pos := cb.nodePosition(arg.Src)

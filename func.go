@@ -90,7 +90,7 @@ func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 		tag := "NewFunc "
 		name := p.Name()
 		sig := p.Type().(*types.Signature)
-		if v := sig.Recv(); v != nil && !isCSigRecv(v) {
+		if v := sig.Recv(); IsMethodRecv(v) {
 			recv = fmt.Sprintf(" (%v)", v.Type())
 		}
 		if name == "" {
@@ -115,7 +115,7 @@ func (p *Func) End(cb *CodeBuilder) {
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t})
 	} else {
 		fn.Name, fn.Type, fn.Body = ident(p.Name()), toFuncType(pkg, t), body
-		if recv := t.Recv(); recv != nil && !isCSigRecv(recv) {
+		if recv := t.Recv(); IsMethodRecv(recv) {
 			fn.Recv = toRecv(pkg, recv)
 		}
 	}
@@ -156,7 +156,7 @@ func (p *Package) NewFuncWith(
 	}
 	cb := p.cb
 	fn := types.NewFunc(pos, p.Types, name, sig)
-	if recv := sig.Recv(); recv != nil && !isCSigRecv(recv) { // add method to this type
+	if recv := sig.Recv(); IsMethodRecv(recv) { // add method to this type
 		var t *types.Named
 		var ok bool
 		var typ = recv.Type()
