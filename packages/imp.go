@@ -20,7 +20,6 @@ import (
 	"go/types"
 	"os"
 	"os/exec"
-	"strings"
 
 	"golang.org/x/tools/go/gcexportdata"
 )
@@ -94,7 +93,7 @@ func FindExport(dir, pkgPath string) (expfile string, err error) {
 	if err != nil {
 		return
 	}
-	expfile = strings.TrimSpace(string(data))
+	expfile = string(bytes.TrimSuffix(data, []byte{'\n'}))
 	return
 }
 
