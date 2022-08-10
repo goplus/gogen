@@ -23,7 +23,6 @@ import (
 	"syscall"
 
 	"github.com/goplus/gox/internal"
-	gtypes "github.com/goplus/gox/types"
 )
 
 // ----------------------------------------------------------------------------
@@ -749,7 +748,64 @@ func isType(t types.Type) bool {
 
 // ----------------------------------------------------------------------------
 
-type TypeType = gtypes.TypeType
-type SubstType = gtypes.SubstType
+type TypeType struct {
+	typ types.Type
+}
+
+func NewTypeType(typ types.Type) *TypeType {
+	return &TypeType{typ: typ}
+}
+
+func (p *TypeType) Pointer() *TypeType {
+	return &TypeType{typ: types.NewPointer(p.typ)}
+}
+
+func (p *TypeType) Type() types.Type {
+	return p.typ
+}
+
+func (p *TypeType) Underlying() types.Type {
+	panic("type of type")
+}
+
+func (p *TypeType) String() string {
+	return fmt.Sprintf("TypeType{typ: %v}", p.typ)
+}
+
+// ----------------------------------------------------------------------------
+
+type SubstType struct {
+	Real types.Object
+}
+
+func (p *SubstType) Underlying() types.Type {
+	panic("substitute type")
+}
+
+func (p *SubstType) String() string {
+	return fmt.Sprintf("substType{real: %v}", p.Real)
+}
+
+func NewSubst(pos token.Pos, pkg *types.Package, name string, real types.Object) *types.Var {
+	return types.NewVar(pos, pkg, name, &SubstType{Real: real})
+}
+
+func LookupParent(scope *types.Scope, name string, pos token.Pos) (at *types.Scope, obj types.Object) {
+	if at, obj = scope.LookupParent(name, pos); obj != nil {
+		if t, ok := obj.Type().(*SubstType); ok {
+			obj = t.Real
+		}
+	}
+	return
+}
+
+func Lookup(scope *types.Scope, name string) (obj types.Object) {
+	if obj = scope.Lookup(name); obj != nil {
+		if t, ok := obj.Type().(*SubstType); ok {
+			obj = t.Real
+		}
+	}
+	return
+}
 
 // ----------------------------------------------------------------------------

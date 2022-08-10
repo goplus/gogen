@@ -26,7 +26,6 @@ import (
 	"github.com/goplus/gox/internal"
 	"github.com/goplus/gox/internal/go/format"
 	"github.com/goplus/gox/packages"
-	gtypes "github.com/goplus/gox/types"
 )
 
 var (
@@ -450,8 +449,8 @@ func TestToVariadic(t *testing.T) {
 
 func TestToType(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
-	cf := gtypes.NewCSignature(nil, nil, false)
-	if !gtypes.IsCSignature(cf) {
+	cf := NewCSignature(nil, nil, false)
+	if !IsCSignature(cf) {
 		t.Fatal("IsCSignature failed: not c function?")
 	}
 	if v := typString(pkg, cf); v != "func()" {
@@ -1012,6 +1011,32 @@ func TestCastFromBool(t *testing.T) {
 	if !ok || constant.Val(ret.CVal).(int64) != 0 {
 		t.Fatal("CastFromBool failed:", ret.CVal, ok)
 	}
+}
+
+func TestSubstVar(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	a := types.NewParam(0, pkg, "a", types.Typ[types.Int])
+	scope := pkg.Scope()
+	scope.Insert(NewSubst(token.NoPos, pkg, "bar", a))
+	o := Lookup(scope, "bar")
+	if o != a {
+		t.Fatal("TestSubstVar:", o)
+	}
+	_, o = LookupParent(scope, "bar", token.NoPos)
+	if o != a {
+		t.Fatal("TestSubstVar:", o)
+	}
+	scope.Insert(a)
+	_, o2 := LookupParent(scope, "a", token.NoPos)
+	if o != o2 {
+		t.Fatal("TestSubstVar:", o2)
+	}
+	o2 = Lookup(scope, "a")
+	if o != o2 {
+		t.Fatal("TestSubstVar:", o2)
+	}
+	LookupParent(scope, "b", token.NoPos)
+	Lookup(scope, "b")
 }
 
 // ----------------------------------------------------------------------------

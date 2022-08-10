@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
-	gtypes "github.com/goplus/gox/types"
 	"golang.org/x/tools/go/types/typeutil"
 )
 
@@ -1219,7 +1218,7 @@ func (p *CodeBuilder) Typ(typ types.Type, src ...ast.Node) *CodeBuilder {
 	}
 	p.stk.Push(&internal.Elem{
 		Val:  toType(p.pkg, typ),
-		Type: gtypes.NewTypeType(typ),
+		Type: NewTypeType(typ),
 		Src:  getSrc(src),
 	})
 	return p
