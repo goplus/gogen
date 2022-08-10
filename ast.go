@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
+	gtypes "github.com/goplus/gox/types"
 )
 
 // ----------------------------------------------------------------------------
@@ -268,7 +269,7 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 	case *types.TypeName:
 		if typ := v.Type(); isType(typ) {
 			return &internal.Elem{
-				Val: toType(pkg, typ), Type: NewTypeType(typ), Src: src,
+				Val: toType(pkg, typ), Type: gtypes.NewTypeType(typ), Src: src,
 			}
 		} else {
 			return toObject(pkg, v, src)
@@ -596,7 +597,7 @@ retry:
 			sig = t
 		}
 	case *TypeType: // type convert
-		return matchTypeCast(pkg, t.typ, fn, args, flags)
+		return matchTypeCast(pkg, t.Type(), fn, args, flags)
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
 		if t.isUnaryOp() {

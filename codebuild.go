@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
+	gtypes "github.com/goplus/gox/types"
 	"golang.org/x/tools/go/types/typeutil"
 )
 
@@ -1218,7 +1219,7 @@ func (p *CodeBuilder) Typ(typ types.Type, src ...ast.Node) *CodeBuilder {
 	}
 	p.stk.Push(&internal.Elem{
 		Val:  toType(p.pkg, typ),
-		Type: NewTypeType(typ),
+		Type: gtypes.NewTypeType(typ),
 		Src:  getSrc(src),
 	})
 	return p
@@ -1309,7 +1310,7 @@ func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 retry:
 	switch t := argType.(type) {
 	case *TypeType:
-		ret.Type = &TypeType{typ: types.NewPointer(t.typ)}
+		ret.Type = t.Pointer()
 	case *types.Pointer:
 		ret.Type = t.Elem()
 	case *types.Named:
@@ -1464,7 +1465,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	} else {
 		t, isType := at.(*TypeType)
 		if isType {
-			at = t.typ
+			at = t.Type()
 			if flag == MemberFlagAutoProperty {
 				flag = MemberFlagVal // can't use auto property to type
 			}
