@@ -128,6 +128,10 @@ const filteredMsg = "contains filtered or unexported fields"
 //           so that we can use the algorithm for any kind of list
 //           (e.g., pass list via a channel over which to range).
 func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exprListMode, next0 token.Pos, isIncomplete bool) {
+	p.exprListEx(prev0, list, depth, mode, next0, isIncomplete, false)
+}
+
+func (p *printer) exprListEx(prev0 token.Pos, list []ast.Expr, depth int, mode exprListMode, next0 token.Pos, isIncomplete bool, needNewline bool) {
 	if len(list) == 0 {
 		if isIncomplete {
 			prev := p.posFor(prev0)
@@ -161,6 +165,10 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 			p.print(token.COMMA, blank, "/* "+filteredMsg+" */")
 		}
 		return
+	}
+	if needNewline {
+		p.print(newline)
+		p.print(indent)
 	}
 
 	// list entries span multiple lines;
@@ -239,6 +247,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 		}
 
 		needsLinebreak := 0 < prevLine && prevLine < line
+
 		if i > 0 {
 			// Use position of expression following the comma as
 			// comma position for correct comment placement, but
@@ -267,7 +276,9 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 					count = 0
 				}
 			}
-			if needsBlank {
+			if needNewline {
+				p.print(newline)
+			} else if needsBlank {
 				p.print(blank)
 			}
 		}
@@ -293,7 +304,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 		prevLine = line
 	}
 
-	if mode&commaTerm != 0 && next.IsValid() && p.pos.Line < next.Line {
+	if mode&commaTerm != 0 && ((next.IsValid() && p.pos.Line < next.Line) || needNewline) {
 		// Print a terminating comma if the next token is on a new line.
 		p.print(token.COMMA)
 		if isIncomplete {
@@ -305,6 +316,9 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 			p.print(unindent)
 		}
 		p.print(formfeed) // terminating comma needs a line break to look good
+		if needNewline {
+			p.print(unindent)
+		}
 		return
 	}
 
@@ -910,7 +924,19 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		}
 		p.level++
 		p.print(x.Lbrace, token.LBRACE)
-		p.exprList(x.Lbrace, x.Elts, 1, commaTerm, x.Rbrace, x.Incomplete)
+		_, isArray := x.Type.(*ast.ArrayType)
+		var needNewline bool
+		if isArray {
+			const infinity = 1e6
+			var size int
+			for _, v := range x.Elts {
+				size += p.nodeSize(v, infinity) + 1
+			}
+			if size > 80 && size/len(x.Elts) > 10 {
+				needNewline = true
+			}
+		}
+		p.exprListEx(x.Lbrace, x.Elts, 1, commaTerm, x.Rbrace, x.Incomplete, needNewline)
 		// do not insert extra line break following a /*-style comment
 		// before the closing '}' as it might break the code if there
 		// is no trailing ','
