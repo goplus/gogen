@@ -25,3 +25,9 @@ import (
 func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
 	panic("type parameters are unsupported at this go version")
 }
+
+type typesContext struct{}
+
+func newTypesContext() *typesContext {
+	return &typesContext{}
+}

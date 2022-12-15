@@ -33,7 +33,7 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 		targs[i] = args[i+1].Type.(*TypeType).Type()
 	}
 	srcExpr := getSrc(src)
-	tyRet, err := types.Instantiate(nil, args[0].Type, targs, true)
+	tyRet, err := types.Instantiate(p.ctxt, args[0].Type, targs, true)
 	if err != nil {
 		_, pos := p.loadExpr(srcExpr)
 		p.panicCodeErrorf(&pos, "instantiate error: %v", err)
@@ -43,4 +43,10 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 	}
 	p.stk.Ret(nidx+1, elem)
 	return p
+}
+
+type typesContext = types.Context
+
+func newTypesContext() *typesContext {
+	return types.NewContext()
 }
