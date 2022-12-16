@@ -31,6 +31,7 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 	targs := make([]types.Type, nidx)
 	for i := 0; i < nidx; i++ {
 		targs[i] = args[i+1].Type.(*TypeType).Type()
+		p.ensureLoaded(targs[i])
 	}
 	srcExpr := getSrc(src)
 	tyRet, err := types.Instantiate(p.ctxt, args[0].Type, targs, true)
