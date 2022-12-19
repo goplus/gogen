@@ -28,13 +28,18 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 	if debugInstr {
 		log.Println("Instantiate", nidx)
 	}
+	typ := args[0].Type
+	if t, ok := typ.(*TypeType); ok {
+		typ = t.Type()
+	}
+	p.ensureLoaded(typ)
 	targs := make([]types.Type, nidx)
 	for i := 0; i < nidx; i++ {
 		targs[i] = args[i+1].Type.(*TypeType).Type()
 		p.ensureLoaded(targs[i])
 	}
 	srcExpr := getSrc(src)
-	tyRet, err := types.Instantiate(p.ctxt, args[0].Type, targs, true)
+	tyRet, err := types.Instantiate(p.ctxt, typ, targs, true)
 	if err != nil {
 		_, pos := p.loadExpr(srcExpr)
 		p.panicCodeErrorf(&pos, "instantiate error: %v", err)
