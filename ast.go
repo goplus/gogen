@@ -190,10 +190,6 @@ func isUntyped(pkg *Package, typ types.Type) bool {
 	return false
 }
 
-func toNamedType(pkg *Package, t *types.Named) ast.Expr {
-	return toObjectExpr(pkg, t.Obj())
-}
-
 func toChanType(pkg *Package, t *types.Chan) ast.Expr {
 	return &ast.ChanType{Value: toType(pkg, t.Elem()), Dir: chanDirs[t.Dir()]}
 }

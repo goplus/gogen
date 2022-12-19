@@ -18,6 +18,7 @@ package gox
 
 import (
 	"go/ast"
+	"go/types"
 
 	"github.com/goplus/gox/internal"
 )
@@ -30,4 +31,8 @@ type typesContext struct{}
 
 func newTypesContext() *typesContext {
 	return &typesContext{}
+}
+
+func toNamedType(pkg *Package, t *types.Named) ast.Expr {
+	return toObjectExpr(pkg, t.Obj())
 }
