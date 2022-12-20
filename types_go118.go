@@ -34,9 +34,11 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 	}
 	p.ensureLoaded(typ)
 	targs := make([]types.Type, nidx)
+	indices := make([]ast.Expr, nidx)
 	for i := 0; i < nidx; i++ {
 		targs[i] = args[i+1].Type.(*TypeType).Type()
 		p.ensureLoaded(targs[i])
+		indices[i] = args[i+1].Val
 	}
 	srcExpr := getSrc(src)
 	tyRet, err := types.Instantiate(p.ctxt, typ, targs, true)
@@ -45,7 +47,12 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 		p.panicCodeErrorf(&pos, "instantiate error: %v", err)
 	}
 	elem := &internal.Elem{
-		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val}, Type: tyRet, Src: srcExpr,
+		Type: tyRet, Src: srcExpr,
+	}
+	if nidx == 1 {
+		elem.Val = &ast.IndexExpr{X: args[0].Val, Index: indices[0]}
+	} else {
+		elem.Val = &ast.IndexListExpr{X: args[0].Val, Indices: indices}
 	}
 	p.stk.Ret(nidx+1, elem)
 	return p

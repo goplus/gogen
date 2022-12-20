@@ -93,8 +93,13 @@ func Sum[T interface{ int | float64 }](vec []T) T {
 	return sum
 }
 
+func At[T interface{ ~[]E }, E any](x T, i int) E {
+	return x[i]
+}
+
 var (
 	SumInt = Sum[int]
+	AtInt = At[[]int,int]
 )
 `
 	gt := newGoxTest()
@@ -104,18 +109,23 @@ var (
 	}
 	pkg := gt.NewPackage("", "main")
 	pkgRef := pkg.Import("foo")
-	fn := pkgRef.Ref("Sum")
-	tyFn := pkgRef.Ref("SumInt").Type()
+	fnSum := pkgRef.Ref("Sum")
+	tySumInt := pkgRef.Ref("SumInt").Type()
 	tyInt := types.Typ[types.Int]
+	tyIntSlice := types.NewSlice(tyInt)
+	fnAt := pkgRef.Ref("At")
+	tyAtInt := pkgRef.Ref("AtInt").Type()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVarStart(tyFn, "fn").Val(fn).Typ(tyInt).Index(1, false).EndInit(1).
+		NewVarStart(tySumInt, "sum").Val(fnSum).Typ(tyInt).Index(1, false).EndInit(1).
+		NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyIntSlice).Typ(tyInt).Index(2, false).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
 import foo "foo"
 
 func main() {
-	var fn func(vec []int) int = foo.Sum[int]
+	var sum func(vec []int) int = foo.Sum[int]
+	var at func(x []int, i int) int = foo.At[[]int, int]
 }
 `)
 }
