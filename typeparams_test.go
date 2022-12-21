@@ -183,3 +183,44 @@ func main() {
 }
 `)
 }
+
+func TestTypeParamsInfer(t *testing.T) {
+	const src = `package foo
+
+func Sum[T interface{ int | float64 }](vec []T) T {
+	var sum T
+	for _, elt := range vec {
+		sum = sum + elt
+	}
+	return sum
+}
+
+func At[T interface{ ~[]E }, E any](x T, i int) E {
+	return x[i]
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnSum := pkgRef.Ref("Sum")
+	fnAt := pkgRef.Ref("At")
+	tyInt := types.Typ[types.Int]
+	tyIntSlice := types.NewSlice(tyInt)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tyInt, "v1").Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
+		NewVarStart(tyInt, "v2").Val(fnAt).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+import foo "foo"
+
+func main() {
+	var v1 int = foo.Sum([]int{1, 2, 3})
+	var v2 int = foo.At([]int{1, 2, 3}, 1)
+}
+`)
+}
