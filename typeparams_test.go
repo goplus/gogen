@@ -129,3 +129,57 @@ func main() {
 }
 `)
 }
+
+func TestTypeParamsType(t *testing.T) {
+	const src = `package foo
+
+type Data[T any] struct {
+	v T
+}
+
+type sliceOf[E any] interface {
+	~[]E
+}
+
+type Slice[S sliceOf[T], T any] struct {
+	Data S
+}
+
+func (p *Slice[S, T]) Append(t ...T) S {
+	p.Data = append(p.Data, t...)
+	return p.Data
+}
+
+type (
+	DataInt = Data[int]
+	SliceInt = Slice[[]int,int]
+)
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	tySlice := pkgRef.Ref("Slice").Type()
+	tySliceInt := pkgRef.Ref("SliceInt").Type()
+	tyData := pkgRef.Ref("Data").Type()
+	tyDataInt := pkgRef.Ref("DataInt").Type()
+	tyInt := types.Typ[types.Int]
+	tyIntSlice := types.NewSlice(tyInt)
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(types.NewPointer(tyDataInt), "data").Typ(tyData).Typ(tyInt).Index(1, false).Star().Val(nil).Call(1).EndInit(1).
+		NewVarStart(types.NewPointer(tySliceInt), "slice").Typ(tySlice).Typ(tyIntSlice).Typ(tyInt).Index(2, false).Star().Val(nil).Call(1).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+import foo "foo"
+
+func main() {
+	var data *foo.Data[int] = (*foo.Data[int])(nil)
+	var slice *foo.Slice[[]int, int] = (*foo.Slice[[]int, int])(nil)
+}
+`)
+}
