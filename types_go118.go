@@ -29,8 +29,10 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 		log.Println("Instantiate", nidx)
 	}
 	typ := args[0].Type
+	var tt bool
 	if t, ok := typ.(*TypeType); ok {
 		typ = t.Type()
+		tt = true
 	}
 	p.ensureLoaded(typ)
 	targs := make([]types.Type, nidx)
@@ -45,6 +47,9 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 	if err != nil {
 		_, pos := p.loadExpr(srcExpr)
 		p.panicCodeErrorf(&pos, "instantiate error: %v", err)
+	}
+	if tt {
+		tyRet = NewTypeType(tyRet)
 	}
 	elem := &internal.Elem{
 		Type: tyRet, Src: srcExpr,
