@@ -36,3 +36,11 @@ func newTypesContext() *typesContext {
 func toNamedType(pkg *Package, t *types.Named) ast.Expr {
 	return toObjectExpr(pkg, t.Obj())
 }
+
+func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem) (types.Type, error) {
+	panic("type parameters are unsupported at this go version")
+}
+
+func funcHasTypeParams(t *types.Signature) bool {
+	return false
+}
