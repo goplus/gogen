@@ -569,6 +569,15 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 retry:
 	switch t := fnType.(type) {
 	case *types.Signature:
+		if t.TypeParams() != nil {
+			rt, err := inferFunc(pkg, fn, t, args)
+			if err != nil {
+				_, pos := pkg.cb.loadExpr(fn.Src)
+				pkg.cb.panicCodeErrorf(&pos, "infer func error %v", err)
+			}
+			sig = rt.(*types.Signature)
+			break
+		}
 		if funcs, ok := CheckOverloadMethod(t); ok {
 			backup := backupArgs(args)
 			for _, o := range funcs {
