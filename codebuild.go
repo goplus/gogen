@@ -1124,7 +1124,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 	}
 	args := p.stk.GetArgs(nidx + 1)
 	if _, ok := args[1].Type.(*TypeType); ok {
-		return p.instantiate(nidx, args, src...)
+		return p.inferType(nidx, args, src...)
 	}
 	if nidx != 1 {
 		panic("Index doesn't support a[i, j...] yet")

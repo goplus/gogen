@@ -27,10 +27,7 @@ import (
 	"github.com/goplus/gox/internal"
 )
 
-func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
-	if debugInstr {
-		log.Println("Instantiate", nidx)
-	}
+func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
 	typ := args[0].Type
 	var tt bool
 	if t, ok := typ.(*TypeType); ok {
@@ -46,10 +43,13 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 		indices[i] = args[i+1].Val
 	}
 	srcExpr := getSrc(src)
-	tyRet, err := types.Instantiate(p.ctxt, typ, targs, true)
+	tyRet, err := inferType(p.pkg, srcExpr, typ, targs)
 	if err != nil {
 		_, pos := p.loadExpr(srcExpr)
-		p.panicCodeErrorf(&pos, "instantiate error: %v", err)
+		p.panicCodeErrorf(&pos, "InferType error: %v", err)
+	}
+	if debugMatch {
+		log.Println("==> InferType", tyRet)
 	}
 	if tt {
 		tyRet = NewTypeType(tyRet)
@@ -145,6 +145,22 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*in
 	checker := types.NewChecker(nil, pkg.Fset, pkg.Types, nil)
 	targs := checker_infer(checker, fn.Val, tparams, nil, sig.Params(), xlist)
 	return types.Instantiate(pkg.cb.ctxt, sig, targs, true)
+}
+
+func inferType(pkg *Package, posn positioner, typ types.Type, targs []types.Type) (types.Type, error) {
+	if sig, ok := typ.(*types.Signature); ok {
+		tp := sig.TypeParams()
+		n := tp.Len()
+		if len(targs) < n {
+			tparams := make([]*types.TypeParam, n)
+			for i := 0; i < n; i++ {
+				tparams[i] = tp.At(i)
+			}
+			checker := types.NewChecker(nil, pkg.Fset, pkg.Types, nil)
+			targs = checker_infer(checker, posn, tparams, targs, nil, nil)
+		}
+	}
+	return types.Instantiate(pkg.cb.ctxt, typ, targs, true)
 }
 
 func funcHasTypeParams(t *types.Signature) bool {

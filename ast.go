@@ -576,6 +576,9 @@ retry:
 				pkg.cb.panicCodeErrorf(&pos, "infer func error %v", err)
 			}
 			sig = rt.(*types.Signature)
+			if debugMatch {
+				log.Println("==> InferFunc", sig)
+			}
 			break
 		}
 		if funcs, ok := CheckOverloadMethod(t); ok {
