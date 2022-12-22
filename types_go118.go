@@ -27,6 +27,8 @@ import (
 	"github.com/goplus/gox/internal"
 )
 
+const enableTypeParams = true
+
 func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
 	typ := args[0].Type
 	var tt bool
@@ -137,10 +139,11 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*in
 		xlist[i].typ = arg.Type
 		xlist[i].mode = value
 	}
-	n := sig.TypeParams().Len()
+	tp := sig.TypeParams()
+	n := tp.Len()
 	tparams := make([]*types.TypeParam, n)
 	for i := 0; i < n; i++ {
-		tparams[i] = sig.TypeParams().At(i)
+		tparams[i] = tp.At(i)
 	}
 	checker := types.NewChecker(nil, pkg.Fset, pkg.Types, nil)
 	targs := checker_infer(checker, fn.Val, tparams, nil, sig.Params(), xlist)

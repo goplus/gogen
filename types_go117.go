@@ -23,7 +23,9 @@ import (
 	"github.com/goplus/gox/internal"
 )
 
-func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
+const enableTypeParams = false
+
+func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
 	panic("type parameters are unsupported at this go version")
 }
 

@@ -569,7 +569,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 retry:
 	switch t := fnType.(type) {
 	case *types.Signature:
-		if funcHasTypeParams(t) {
+		if enableTypeParams && funcHasTypeParams(t) {
 			rt, err := inferFunc(pkg, fn, t, args)
 			if err != nil {
 				_, pos := pkg.cb.loadExpr(fn.Src)
