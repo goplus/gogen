@@ -132,12 +132,12 @@ func checker_infer(check *types.Checker, posn positioner, tparams []*types.TypeP
 func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem) (types.Type, error) {
 	xlist := make([]*operand, len(args))
 	for i, arg := range args {
-		xlist[i] = &operand{}
-		xlist[i].id = builtinId(i)
-		xlist[i].expr = arg.Val
-		xlist[i].val = arg.CVal
-		xlist[i].typ = arg.Type
-		xlist[i].mode = value
+		xlist[i] = &operand{
+			mode: value,
+			expr: arg.Val,
+			typ:  arg.Type,
+			val:  arg.CVal,
+		}
 	}
 	tp := sig.TypeParams()
 	n := tp.Len()
