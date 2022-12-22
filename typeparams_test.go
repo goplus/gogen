@@ -85,7 +85,11 @@ func (p *goxTest) NewPackage(pkgPath string, name string) *gox.Package {
 func TestTypeParamsFunc(t *testing.T) {
 	const src = `package foo
 
-func Sum[T interface{ int | float64 }](vec []T) T {
+type Number interface {
+	~int | float64
+}
+
+func Sum[T Number](vec []T) T {
 	var sum T
 	for _, elt := range vec {
 		sum = sum + elt
@@ -187,7 +191,11 @@ func main() {
 func TestTypeParamsInfer(t *testing.T) {
 	const src = `package foo
 
-func Sum[T interface{ int | float64 }](vec []T) T {
+type Number interface {
+	~int | float64
+}
+
+func Sum[T Number](vec []T) T {
 	var sum T
 	for _, elt := range vec {
 		sum = sum + elt
@@ -293,6 +301,40 @@ var	AtInt = At[[]int]
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyInt).Index(1, false, source(`foo.At[int]`, 5, 40)).EndInit(1).
+		End()
+}
+
+func TestTypeParamsErrorCall(t *testing.T) {
+	const src = `package foo
+
+type Number interface {
+	~int | float64
+}
+
+func Sum[T Number](vec []T) T {
+	var sum T
+	for _, elt := range vec {
+		sum = sum + elt
+	}
+	return sum
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnSum := pkgRef.Ref("Sum")
+	tyUint := types.Typ[types.Uint]
+	tyUintSlice := types.NewSlice(tyUint)
+
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: uint does not implement foo.Number (uint missing in ~int | float64)`,
+		`./foo.gop:5:40: uint does not implement foo.Number`)()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyUintSlice, 3).CallWith(1, 0, source(`foo.Sum([]uint{1,2,3})`, 5, 40)).EndInit(1).
 		End()
 }
 

@@ -154,10 +154,9 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*in
 func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type, err error) {
 	conf := &types.Config{
 		Error: func(e error) {
+			err = e
 			if terr, ok := e.(types.Error); ok {
 				err = fmt.Errorf("%s", terr.Msg)
-			} else {
-				err = e
 			}
 		},
 	}
