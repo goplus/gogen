@@ -229,3 +229,100 @@ func main() {
 }
 `)
 }
+
+func TestTypeParamsErrorInstantiate(t *testing.T) {
+	const src = `package foo
+
+type Number interface {
+	~int | float64
+}
+
+func Sum[T Number](vec []T) T {
+	var sum T
+	for _, elt := range vec {
+		sum = sum + elt
+	}
+	return sum
+}
+
+var	SumInt = Sum[int]
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnSum := pkgRef.Ref("Sum")
+	tyUint := types.Typ[types.Uint]
+
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: uint does not implement foo.Number`,
+		`./foo.gop:5:40: uint does not implement foo.Number (uint missing in ~int | float64)`)()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "sum").Val(fnSum).Typ(tyUint).Index(1, false, source(`foo.Sum[uint]`, 5, 40)).EndInit(1).
+		End()
+}
+
+func TestTypeParamsErrorInfer(t *testing.T) {
+	const src = `package foo
+
+func At[T interface{ ~[]E }, E any](x T, i int) E {
+	return x[i]
+}
+
+var	AtInt = At[[]int]
+`
+
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnAt := pkgRef.Ref("At")
+	tyAtInt := pkgRef.Ref("AtInt").Type()
+	tyInt := types.Typ[types.Int]
+
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: T does not match ~[]E`,
+		`./foo.gop:5:40: int does not match ~[]E`)()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyInt).Index(1, false, source(`foo.At[int]`, 5, 40)).EndInit(1).
+		End()
+}
+
+func checkErrorMessage(pkg *gox.Package, t *testing.T, msgs ...string) func() {
+	return func() {
+		if e := recover(); e != nil {
+			switch err := e.(type) {
+			case *gox.CodeError, *gox.MatchError:
+				defer recover()
+				pkg.CB().ResetStmt()
+				ret := err.(error).Error()
+				for _, msg := range msgs {
+					if ret == msg {
+						return
+					}
+				}
+				t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msgs)
+			case *gox.ImportError:
+				ret := err.Error()
+				for _, msg := range msgs {
+					if ret == msg {
+						return
+					}
+				}
+				t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msgs)
+			default:
+				t.Fatal("Unexpected error:", e)
+			}
+		} else {
+			t.Fatal("no error?")
+		}
+	}
+}

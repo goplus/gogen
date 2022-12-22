@@ -573,7 +573,7 @@ retry:
 			rt, err := inferFunc(pkg, fn, t, args)
 			if err != nil {
 				_, pos := pkg.cb.loadExpr(fn.Src)
-				pkg.cb.panicCodeErrorf(&pos, "infer func error %v", err)
+				pkg.cb.panicCodeErrorf(&pos, "%v", err)
 			}
 			sig = rt.(*types.Signature)
 			if debugMatch {

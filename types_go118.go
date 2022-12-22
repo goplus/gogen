@@ -17,6 +17,7 @@
 package gox
 
 import (
+	"fmt"
 	"go/ast"
 	"go/constant"
 	"go/token"
@@ -48,7 +49,7 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 	tyRet, err := inferType(p.pkg, srcExpr, typ, targs)
 	if err != nil {
 		_, pos := p.loadExpr(srcExpr)
-		p.panicCodeErrorf(&pos, "InferType error: %v", err)
+		p.panicCodeErrorf(&pos, "%v", err)
 	}
 	if debugMatch {
 		log.Println("==> InferType", tyRet)
@@ -150,6 +151,21 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*in
 	return types.Instantiate(pkg.cb.ctxt, sig, targs, true)
 }
 
+func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type, err error) {
+	conf := &types.Config{
+		Error: func(e error) {
+			if terr, ok := e.(types.Error); ok {
+				err = fmt.Errorf("%s", terr.Msg)
+			} else {
+				err = e
+			}
+		},
+	}
+	checker := types.NewChecker(conf, pkg.Fset, pkg.Types, nil)
+	result = checker_infer(checker, posn, tparams, targs, params, args)
+	return
+}
+
 func inferType(pkg *Package, posn positioner, typ types.Type, targs []types.Type) (types.Type, error) {
 	if sig, ok := typ.(*types.Signature); ok {
 		tp := sig.TypeParams()
@@ -159,8 +175,11 @@ func inferType(pkg *Package, posn positioner, typ types.Type, targs []types.Type
 			for i := 0; i < n; i++ {
 				tparams[i] = tp.At(i)
 			}
-			checker := types.NewChecker(nil, pkg.Fset, pkg.Types, nil)
-			targs = checker_infer(checker, posn, tparams, targs, nil, nil)
+			var err error
+			targs, err = infer(pkg, posn, tparams, targs, nil, nil)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return types.Instantiate(pkg.cb.ctxt, typ, targs, true)
