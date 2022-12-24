@@ -146,8 +146,10 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*in
 	for i := 0; i < n; i++ {
 		tparams[i] = tp.At(i)
 	}
-	checker := types.NewChecker(nil, pkg.Fset, pkg.Types, nil)
-	targs := checker_infer(checker, fn.Val, tparams, nil, sig.Params(), xlist)
+	targs, err := infer(pkg, fn.Val, tparams, nil, sig.Params(), xlist)
+	if err != nil {
+		return nil, err
+	}
 	return types.Instantiate(pkg.cb.ctxt, sig, targs, true)
 }
 
