@@ -238,6 +238,67 @@ func main() {
 `)
 }
 
+func TestTypeParamsCall(t *testing.T) {
+	const src = `package foo
+
+type Number interface {
+	~int | float64
+}
+
+func Sum[T Number](vec []T) T {
+	var sum T
+	for _, elt := range vec {
+		sum = sum + elt
+	}
+	return sum
+}
+
+func At[T interface{ ~[]E }, E any](x T, i int) E {
+	return x[i]
+}
+
+func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
+	return p1
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnSum := pkgRef.Ref("Sum")
+	fnAt := pkgRef.Ref("At")
+	fnLoader := pkgRef.Ref("Loader")
+	tyInt := types.Typ[types.Int]
+	tyIntSlice := types.NewSlice(tyInt)
+	tyIntPointer := types.NewPointer(tyInt)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tyInt, "v1").Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
+		NewVarStart(tyInt, "v2").Val(fnSum).Typ(tyInt).Index(1, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
+		NewVarStart(tyInt, "v3").Val(fnAt).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
+		NewVarStart(tyInt, "v4").Val(fnAt).Typ(tyIntSlice).Index(1, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
+		NewVarStart(tyInt, "v5").Val(fnAt).Typ(tyIntSlice).Typ(tyInt).Index(2, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
+		NewVarStart(tyIntPointer, "p1").Val(fnLoader).Typ(tyIntPointer).Index(1, false).Val(nil).Val(1).Call(2).EndInit(1).
+		NewVarStart(tyIntPointer, "p2").Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Val(nil).Val(1).Call(2).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+import foo "foo"
+
+func main() {
+	var v1 int = foo.Sum([]int{1, 2, 3})
+	var v2 int = foo.Sum[int]([]int{1, 2, 3})
+	var v3 int = foo.At([]int{1, 2, 3}, 1)
+	var v4 int = foo.At[[]int]([]int{1, 2, 3}, 1)
+	var v5 int = foo.At[[]int, int]([]int{1, 2, 3}, 1)
+	var p1 *int = foo.Loader[*int](nil, 1)
+	var p2 *int = foo.Loader[*int, int](nil, 1)
+}
+`)
+}
+
 func TestTypeParamsErrorInstantiate(t *testing.T) {
 	const src = `package foo
 
