@@ -337,7 +337,7 @@ var	SumInt = Sum[int]
 		End()
 }
 
-func TestTypeParamsErrorInfer(t *testing.T) {
+func TestTypeParamsErrorMatch(t *testing.T) {
 	const src = `package foo
 
 func At[T interface{ ~[]E }, E any](x T, i int) E {
@@ -364,6 +364,28 @@ var	AtInt = At[[]int]
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyInt).Index(1, false, source(`foo.At[int]`, 5, 40)).EndInit(1).
+		End()
+}
+
+func TestTypeParamsErrInfer(t *testing.T) {
+	const src = `package foo
+
+func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
+	return p1
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnLoader := pkgRef.Ref("Loader")
+	tyInt := types.Typ[types.Int]
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`)()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
 		End()
 }
 
