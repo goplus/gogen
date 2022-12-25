@@ -222,6 +222,7 @@ var	AtInt = At[[]int]
 	tyInt := types.Typ[types.Int]
 	tyIntSlice := types.NewSlice(tyInt)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef(nil).Val(fnAt).Typ(tyIntSlice).Index(1, false).Assign(1, 1).
 		NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyIntSlice).Index(1, false).EndInit(1).
 		NewVarStart(tyInt, "v1").Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
 		NewVarStart(tyInt, "v2").Val(fnAt).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
@@ -231,6 +232,7 @@ var	AtInt = At[[]int]
 import foo "foo"
 
 func main() {
+	_ = foo.At[[]int]
 	var at func(x []int, i int) int = foo.At[[]int]
 	var v1 int = foo.Sum([]int{1, 2, 3})
 	var v2 int = foo.At([]int{1, 2, 3}, 1)
