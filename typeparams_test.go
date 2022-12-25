@@ -367,7 +367,7 @@ var	AtInt = At[[]int]
 		End()
 }
 
-func TestTypeParamsErrInfer(t *testing.T) {
+func TestTypeParamsErrInferFunc(t *testing.T) {
 	const src = `package foo
 
 func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
@@ -387,6 +387,30 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
 		End()
+}
+
+func TestTypeParamsErrInferType(t *testing.T) {
+	const src = `package foo
+
+type Data[T1 any, T2 any] struct {
+	v1 T1
+	v2 T2
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	tyData := pkgRef.Ref("Data").Type()
+	tyInt := types.Typ[types.Int]
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: got 1 type arguments but foo.Data[T1, T2 any] has 2 type parameters`)()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+		End()
+	domTest(t, pkg, ``)
 }
 
 func TestTypeParamsErrorCall(t *testing.T) {
