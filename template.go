@@ -212,6 +212,8 @@ func DefaultConv(pkg *Package, t types.Type, pv *Element) types.Type {
 				}
 			}
 		}
+	case *inferFuncType:
+		return typ.Instance()
 	case *overloadFuncType:
 		if len(typ.funcs) == 1 {
 			o := typ.funcs[0]
@@ -254,6 +256,8 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 		} else {
 			V = v.typ
 		}
+	case *inferFuncType:
+		V = v.Instance()
 	case *overloadFuncType:
 		if len(v.funcs) == 1 {
 			o := v.funcs[0]

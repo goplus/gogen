@@ -568,9 +568,14 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	var cval constant.Value
 retry:
 	switch t := fnType.(type) {
+	case *inferFuncType:
+		sig = t.InstanceWithArgs(args)
+		if debugMatch {
+			log.Println("==> InferFunc", sig)
+		}
 	case *types.Signature:
 		if enableTypeParams && funcHasTypeParams(t) {
-			rt, err := inferFunc(pkg, fn, t, args)
+			rt, err := inferFunc(pkg, fn.Val, t, nil, args)
 			if err != nil {
 				_, pos := pkg.cb.loadExpr(fn.Src)
 				pkg.cb.panicCodeErrorf(&pos, "%v", err)
@@ -1053,6 +1058,9 @@ func checkAssignType(pkg *Package, varRef types.Type, val *internal.Elem) {
 		}
 	} else if varRef == nil { // underscore
 		// do nothing
+		if t, ok := val.Type.(*inferFuncType); ok {
+			t.Instance()
+		}
 	} else {
 		panic("TODO: unassignable")
 	}

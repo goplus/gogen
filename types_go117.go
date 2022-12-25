@@ -18,6 +18,7 @@ package gox
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
 
 	"github.com/goplus/gox/internal"
@@ -25,8 +26,10 @@ import (
 
 const enableTypeParams = false
 
+const unsupported_typeparams = "type parameters are unsupported at this go version"
+
 func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
-	panic("type parameters are unsupported at this go version")
+	panic(unsupported_typeparams)
 }
 
 type typesContext struct{}
@@ -39,10 +42,37 @@ func toNamedType(pkg *Package, t *types.Named) ast.Expr {
 	return toObjectExpr(pkg, t.Obj())
 }
 
-func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem) (types.Type, error) {
-	panic("type parameters are unsupported at this go version")
+type positioner interface {
+	Pos() token.Pos
+}
+
+func inferFunc(pkg *Package, posn positioner, sig *types.Signature, targs []types.Type, args []*internal.Elem) (types.Type, error) {
+	panic(unsupported_typeparams)
 }
 
 func funcHasTypeParams(t *types.Signature) bool {
 	return false
+}
+
+type inferFuncType struct {
+}
+
+func (p *inferFuncType) Type() types.Type {
+	panic(unsupported_typeparams)
+}
+
+func (p *inferFuncType) Underlying() types.Type {
+	panic(unsupported_typeparams)
+}
+
+func (p *inferFuncType) String() string {
+	panic(unsupported_typeparams)
+}
+
+func (p *inferFuncType) Instance() *types.Signature {
+	panic(unsupported_typeparams)
+}
+
+func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem) *types.Signature {
+	panic(unsupported_typeparams)
 }

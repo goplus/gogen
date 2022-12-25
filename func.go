@@ -268,7 +268,7 @@ func HasAutoProperty(typ types.Type) bool {
 func IsFunc(typ types.Type) bool {
 retry:
 	switch t := typ.(type) {
-	case *types.Signature, *overloadFuncType:
+	case *types.Signature, *overloadFuncType, *inferFuncType:
 		return true
 	case *templateRecvMethodType:
 		typ = t.fn.Type()
@@ -315,6 +315,8 @@ func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, 
 // If nin == -2, it means param idx is a SliceLit.
 func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 	switch t := typ.(type) {
+	case *inferFuncType:
+		return t.Instance()
 	case *types.Signature:
 		if funcs, ok := CheckOverloadMethod(t); ok {
 			return checkOverloadFuncs(funcs, idx, nin)

@@ -30,6 +30,58 @@ import (
 
 const enableTypeParams = true
 
+type inferFuncType struct {
+	pkg   *Package
+	typ   *types.Signature
+	_sig  *types.Signature
+	targs []types.Type
+	src   ast.Node
+}
+
+func newInferFuncType(pkg *Package, typ *types.Signature, targs []types.Type, src ast.Node) *inferFuncType {
+	return &inferFuncType{pkg: pkg, typ: typ, targs: targs, src: src}
+}
+
+func (p *inferFuncType) Type() types.Type {
+	fatal("infer of type")
+	return p.typ
+}
+
+func (p *inferFuncType) Underlying() types.Type {
+	fatal("infer of type")
+	return nil
+}
+
+func (p *inferFuncType) String() string {
+	return fmt.Sprintf("inferFuncType{typ: %v, targs: %v}", p.typ, p.targs)
+}
+
+func (p *inferFuncType) Instance() *types.Signature {
+	if p._sig != nil {
+		return p._sig
+	}
+	tyRet, err := inferType(p.pkg, p.src, p.typ, p.targs)
+	if err != nil {
+		_, pos := p.pkg.cb.loadExpr(p.src)
+		p.pkg.cb.panicCodeErrorf(&pos, "%v", err)
+	}
+	p._sig = tyRet.(*types.Signature)
+	return p._sig
+}
+
+func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem) *types.Signature {
+	if p._sig != nil {
+		return p._sig
+	}
+	tyRet, err := inferFunc(p.pkg, p.src, p.typ, p.targs, args)
+	if err != nil {
+		_, pos := p.pkg.cb.loadExpr(p.src)
+		p.pkg.cb.panicCodeErrorf(&pos, "%v", err)
+	}
+	p._sig = tyRet.(*types.Signature)
+	return p._sig
+}
+
 func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
 	typ := args[0].Type
 	var tt bool
@@ -46,16 +98,20 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 		indices[i] = args[i+1].Val
 	}
 	srcExpr := getSrc(src)
-	tyRet, err := inferType(p.pkg, srcExpr, typ, targs)
-	if err != nil {
-		_, pos := p.loadExpr(srcExpr)
-		p.panicCodeErrorf(&pos, "%v", err)
+	var tyRet types.Type
+	if !tt {
+		tyRet = newInferFuncType(p.pkg, typ.(*types.Signature), targs, srcExpr)
+	} else {
+		var err error
+		tyRet, err = inferType(p.pkg, srcExpr, typ, targs)
+		if err != nil {
+			_, pos := p.loadExpr(srcExpr)
+			p.panicCodeErrorf(&pos, "%v", err)
+		}
+		tyRet = NewTypeType(tyRet)
 	}
 	if debugMatch {
 		log.Println("==> InferType", tyRet)
-	}
-	if tt {
-		tyRet = NewTypeType(tyRet)
 	}
 	elem := &internal.Elem{
 		Type: tyRet, Src: srcExpr,
@@ -130,7 +186,7 @@ type positioner interface {
 //go:linkname checker_infer go/types.(*Checker).infer
 func checker_infer(check *types.Checker, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type)
 
-func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem) (types.Type, error) {
+func inferFunc(pkg *Package, posn positioner, sig *types.Signature, targs []types.Type, args []*internal.Elem) (types.Type, error) {
 	xlist := make([]*operand, len(args))
 	for i, arg := range args {
 		xlist[i] = &operand{
@@ -146,7 +202,7 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*in
 	for i := 0; i < n; i++ {
 		tparams[i] = tp.At(i)
 	}
-	targs, err := infer(pkg, fn.Val, tparams, nil, sig.Params(), xlist)
+	targs, err := infer(pkg, posn, tparams, targs, sig.Params(), xlist)
 	if err != nil {
 		return nil, err
 	}
