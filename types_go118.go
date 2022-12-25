@@ -82,12 +82,32 @@ func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem) *types.Signature
 	return p._sig
 }
 
+func isGenericType(typ types.Type) bool {
+	switch t := typ.(type) {
+	case *types.Named:
+		return t.TypeParams() != nil
+	case *types.Signature:
+		return t.TypeParams() != nil
+	}
+	return false
+}
+
 func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
 	typ := args[0].Type
 	var tt bool
 	if t, ok := typ.(*TypeType); ok {
 		typ = t.Type()
 		tt = true
+	}
+	srcExpr := getSrc(src)
+	if !isGenericType(typ) {
+		args[0].Val.Pos()
+		_, pos := p.loadExpr(srcExpr)
+		if tt {
+			p.panicCodeErrorf(&pos, "%v is not a generic type", typ)
+		} else {
+			p.panicCodeErrorf(&pos, "invalid operation: cannot index %v (value of type %v)", args[0].Val, typ)
+		}
 	}
 	p.ensureLoaded(typ)
 	targs := make([]types.Type, nidx)
@@ -97,7 +117,6 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 		p.ensureLoaded(targs[i])
 		indices[i] = args[i+1].Val
 	}
-	srcExpr := getSrc(src)
 	var tyRet types.Type
 	if !tt {
 		tyRet = newInferFuncType(p.pkg, typ.(*types.Signature), targs, srcExpr)
