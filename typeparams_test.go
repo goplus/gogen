@@ -410,7 +410,6 @@ type Data[T1 any, T2 any] struct {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
 		End()
-	domTest(t, pkg, ``)
 }
 
 func TestTypeParamsErrorCall(t *testing.T) {
@@ -444,6 +443,49 @@ func Sum[T Number](vec []T) T {
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyUintSlice, 3).CallWith(1, 0, source(`foo.Sum([]uint{1,2,3})`, 5, 40)).EndInit(1).
+		End()
+}
+
+func TestTypeParamErrGenericType(t *testing.T) {
+	const src = `package foo
+
+type Data struct {
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	tyData := pkgRef.Ref("Data").Type()
+	tyInt := types.Typ[types.Int]
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: foo.Data is not a generic type`)()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+		End()
+}
+
+func TestTypeParamErrGenericFunc(t *testing.T) {
+	const src = `package foo
+
+func Loader(n int) string {
+	return ""
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnLoader := pkgRef.Ref("Loader")
+	tyInt := types.Typ[types.Int]
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: invalid operation: cannot index foo.Loader (value of type func(n int) string)`)()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
 		End()
 }
 
