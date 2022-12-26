@@ -452,6 +452,28 @@ func Sum[T Number](vec []T) T {
 		End()
 }
 
+func TestTypeParamsErrorInferCall(t *testing.T) {
+	const src = `package foo
+
+func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
+	return p1
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnLoader := pkgRef.Ref("Loader")
+	tyInt := types.Typ[types.Int]
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`)()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fnLoader).Typ(tyInt).Index(1, false, source(`foo.Loader[int]`, 5, 40)).Val(10).Val(nil).Call(2).EndStmt().
+		End()
+}
+
 func TestTypeParamErrGenericType(t *testing.T) {
 	const src = `package foo
 
