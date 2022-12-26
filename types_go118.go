@@ -36,7 +36,6 @@ const enableTypeParams = true
 type inferFuncType struct {
 	pkg   *Package
 	typ   *types.Signature
-	_sig  *types.Signature
 	targs []types.Type
 	src   ast.Node
 }
@@ -60,29 +59,21 @@ func (p *inferFuncType) String() string {
 }
 
 func (p *inferFuncType) Instance() *types.Signature {
-	if p._sig != nil {
-		return p._sig
-	}
 	tyRet, err := inferType(p.pkg, p.src, p.typ, p.targs)
 	if err != nil {
 		_, pos := p.pkg.cb.loadExpr(p.src)
 		p.pkg.cb.panicCodeErrorf(&pos, "%v", err)
 	}
-	p._sig = tyRet.(*types.Signature)
-	return p._sig
+	return tyRet.(*types.Signature)
 }
 
 func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem) *types.Signature {
-	if p._sig != nil {
-		return p._sig
-	}
 	tyRet, err := inferFunc(p.pkg, p.src, p.typ, p.targs, args)
 	if err != nil {
 		_, pos := p.pkg.cb.loadExpr(p.src)
 		p.pkg.cb.panicCodeErrorf(&pos, "%v", err)
 	}
-	p._sig = tyRet.(*types.Signature)
-	return p._sig
+	return tyRet.(*types.Signature)
 }
 
 func isGenericType(typ types.Type) bool {

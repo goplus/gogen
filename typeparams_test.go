@@ -276,6 +276,7 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	tyInt := types.Typ[types.Int]
 	tyIntSlice := types.NewSlice(tyInt)
 	tyIntPointer := types.NewPointer(tyInt)
+	var fn1 *types.Var
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tyInt, "v1").Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
 		NewVarStart(tyInt, "v2").Val(fnSum).Typ(tyInt).Index(1, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
@@ -284,6 +285,8 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 		NewVarStart(tyInt, "v5").Val(fnAt).Typ(tyIntSlice).Typ(tyInt).Index(2, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
 		NewVarStart(tyIntPointer, "p1").Val(fnLoader).Typ(tyIntPointer).Index(1, false).Val(nil).Val(1).Call(2).EndInit(1).
 		NewVarStart(tyIntPointer, "p2").Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Val(nil).Val(1).Call(2).EndInit(1).
+		NewAutoVar(0, "fn1", &fn1).VarRef(fn1).Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Assign(1, 1).EndStmt().
+		Val(fn1).Val(nil).Val(1).Call(2).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -297,6 +300,9 @@ func main() {
 	var v5 int = foo.At[[]int, int]([]int{1, 2, 3}, 1)
 	var p1 *int = foo.Loader[*int](nil, 1)
 	var p2 *int = foo.Loader[*int, int](nil, 1)
+	var fn1 func(p1 *int, p2 int) *int
+	fn1 = foo.Loader[*int, int]
+	fn1(nil, 1)
 }
 `)
 }
