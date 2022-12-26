@@ -495,6 +495,17 @@ type Data struct {
 		End()
 }
 
+func TestTypeParamErrGenericType2(t *testing.T) {
+	gt := newGoxTest()
+	pkg := gt.NewPackage("", "main")
+	tyInt := types.Typ[types.Int]
+	tyString := types.Typ[types.String]
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: string is not a generic type`)()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "v1").Typ(tyString).Typ(tyInt).Index(1, false, source(`string[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+		End()
+}
+
 func TestTypeParamErrGenericFunc(t *testing.T) {
 	const src = `package foo
 
