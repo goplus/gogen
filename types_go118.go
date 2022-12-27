@@ -17,7 +17,6 @@
 package gox
 
 import (
-	"bytes"
 	"fmt"
 	"go/ast"
 	"go/constant"
@@ -25,8 +24,6 @@ import (
 	"go/types"
 	"log"
 	_ "unsafe"
-
-	"github.com/goplus/gox/internal/go/printer"
 
 	"github.com/goplus/gox/internal"
 )
@@ -99,9 +96,7 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 		if tt {
 			p.panicCodeErrorf(&pos, "%v is not a generic type", typ)
 		} else {
-			var buf bytes.Buffer
-			printer.Fprint(&buf, p.pkg.Fset, args[0].Val)
-			p.panicCodeErrorf(&pos, "invalid operation: cannot index %v (value of type %v)", buf.String(), typ)
+			p.panicCodeErrorf(&pos, "invalid operation: cannot index %v (value of type %v)", types.ExprString(args[0].Val), typ)
 		}
 	}
 	p.ensureLoaded(typ)
