@@ -259,6 +259,10 @@ func IsCSignature(sig *types.Signature) bool {
 	return recv != nil && isCSigRecv(recv)
 }
 
+func IsMethodRecv(recv *types.Var) bool {
+	return recv != nil && !isCSigRecv(recv)
+}
+
 func isCSigRecv(recv *types.Var) bool {
 	return recv.Type() == types.Typ[types.UntypedNil]
 }
