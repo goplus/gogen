@@ -106,6 +106,7 @@ type CodeBuilder struct {
 	pkg       *Package
 	btiMap    *typeutil.Map
 	valDecl   *ValueDecl
+	ctxt      *typesContext
 	interp    NodeInterpreter
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
@@ -128,6 +129,7 @@ func (p *CodeBuilder) init(pkg *Package) {
 	if p.interp == nil {
 		p.interp = nodeInterp{}
 	}
+	p.ctxt = newTypesContext()
 	p.loadNamed = conf.LoadNamed
 	if p.loadNamed == nil {
 		p.loadNamed = defaultLoadNamed
@@ -1120,10 +1122,15 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 	if debugInstr {
 		log.Println("Index", nidx, twoValue)
 	}
+	args := p.stk.GetArgs(nidx + 1)
+	if enableTypeParams {
+		if _, ok := args[1].Type.(*TypeType); ok {
+			return p.inferType(nidx, args, src...)
+		}
+	}
 	if nidx != 1 {
 		panic("Index doesn't support a[i, j...] yet")
 	}
-	args := p.stk.GetArgs(2)
 	srcExpr := getSrc(src)
 	typs, allowTwoValue := p.getIdxValTypes(args[0].Type, false, srcExpr)
 	var tyRet types.Type
