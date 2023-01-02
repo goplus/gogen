@@ -76,7 +76,7 @@ func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem) *types.Signature
 func isGenericType(typ types.Type) bool {
 	switch t := typ.(type) {
 	case *types.Named:
-		return t.TypeParams() != nil
+		return t.Origin() == t && t.TypeParams() != nil
 	case *types.Signature:
 		return t.TypeParams() != nil
 	}
@@ -90,6 +90,7 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 		typ = t.Type()
 		tt = true
 	}
+	p.ensureLoaded(typ)
 	srcExpr := getSrc(src)
 	if !isGenericType(typ) {
 		_, pos := p.loadExpr(srcExpr)
@@ -99,7 +100,6 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 			p.panicCodeErrorf(&pos, "invalid operation: cannot index %v (value of type %v)", types.ExprString(args[0].Val), typ)
 		}
 	}
-	p.ensureLoaded(typ)
 	targs := make([]types.Type, nidx)
 	indices := make([]ast.Expr, nidx)
 	for i := 0; i < nidx; i++ {
