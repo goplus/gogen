@@ -315,8 +315,6 @@ func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, 
 // If nin == -2, it means param idx is a SliceLit.
 func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 	switch t := typ.(type) {
-	case *inferFuncType:
-		return t.Instance()
 	case *types.Signature:
 		if funcs, ok := CheckOverloadMethod(t); ok {
 			return checkOverloadFuncs(funcs, idx, nin)

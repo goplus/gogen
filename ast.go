@@ -162,6 +162,8 @@ retry:
 		}
 		typ = t.tBound
 		goto retry
+	case *TypeParam:
+		return toObjectExpr(pkg, t.Obj())
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil

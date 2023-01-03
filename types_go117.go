@@ -25,8 +25,16 @@ import (
 )
 
 const enableTypeParams = false
-
 const unsupported_typeparams = "type parameters are unsupported at this go version"
+
+type TypeParam struct{ types.Type }
+
+func (*TypeParam) String() string           { panic(unsupported_typeparams) }
+func (*TypeParam) Underlying() types.Type   { panic(unsupported_typeparams) }
+func (*TypeParam) Index() int               { panic(unsupported_typeparams) }
+func (*TypeParam) Constraint() types.Type   { panic(unsupported_typeparams) }
+func (*TypeParam) SetConstraint(types.Type) { panic(unsupported_typeparams) }
+func (*TypeParam) Obj() *types.TypeName     { panic(unsupported_typeparams) }
 
 func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
 	panic(unsupported_typeparams)
