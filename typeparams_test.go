@@ -207,60 +207,16 @@ func At[T interface{ ~[]E }, E any](x T, i int) E {
 	return x[i]
 }
 
-var	AtInt = At[[]int]
-`
-	gt := newGoxTest()
-	_, err := gt.LoadGoPackage("foo", "foo.go", src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pkg := gt.NewPackage("", "main")
-	pkgRef := pkg.Import("foo")
-	fnSum := pkgRef.Ref("Sum")
-	fnAt := pkgRef.Ref("At")
-	tyAtInt := pkgRef.Ref("AtInt").Type()
-	tyInt := types.Typ[types.Int]
-	tyIntSlice := types.NewSlice(tyInt)
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		VarRef(nil).Val(fnAt).Typ(tyIntSlice).Index(1, false).Assign(1, 1).
-		NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyIntSlice).Index(1, false).EndInit(1).
-		NewVarStart(tyInt, "v1").Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
-		NewVarStart(tyInt, "v2").Val(fnAt).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
-		End()
-	domTest(t, pkg, `package main
-
-import foo "foo"
-
-func main() {
-	_ = foo.At[[]int]
-	var at func(x []int, i int) int = foo.At[[]int]
-	var v1 int = foo.Sum([]int{1, 2, 3})
-	var v2 int = foo.At([]int{1, 2, 3}, 1)
-}
-`)
-}
-
-func TestTypeParamsCall(t *testing.T) {
-	const src = `package foo
-
-type Number interface {
-	~int | float64
-}
-
-func Sum[T Number](vec []T) T {
-	var sum T
-	for _, elt := range vec {
-		sum = sum + elt
-	}
-	return sum
-}
-
-func At[T interface{ ~[]E }, E any](x T, i int) E {
-	return x[i]
-}
-
 func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	return p1
+}
+
+func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
+	println(v1)
+	for _, v := range v2 {
+		sum += v
+	}
+	return sum
 }
 `
 	gt := newGoxTest()
@@ -273,16 +229,25 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	fnSum := pkgRef.Ref("Sum")
 	fnAt := pkgRef.Ref("At")
 	fnLoader := pkgRef.Ref("Loader")
+	fnAdd := pkgRef.Ref("Add")
 	tyInt := types.Typ[types.Int]
+	tyString := types.Typ[types.String]
 	tyIntSlice := types.NewSlice(tyInt)
 	tyIntPointer := types.NewPointer(tyInt)
 	var fn1 *types.Var
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVarStart(tyInt, "v1").Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
-		NewVarStart(tyInt, "v2").Val(fnSum).Typ(tyInt).Index(1, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
-		NewVarStart(tyInt, "v3").Val(fnAt).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
-		NewVarStart(tyInt, "v4").Val(fnAt).Typ(tyIntSlice).Index(1, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
-		NewVarStart(tyInt, "v5").Val(fnAt).Typ(tyIntSlice).Typ(tyInt).Index(2, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
+		VarRef(nil).Val(fnAt).Typ(tyIntSlice).Index(1, false).Assign(1, 1).
+		NewVarStart(tyInt, "s1").Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
+		NewVarStart(tyInt, "s2").Val(fnSum).Typ(tyInt).Index(1, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
+		NewVarStart(tyInt, "v1").Val(fnAt).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
+		NewVarStart(tyInt, "v2").Val(fnAt).Typ(tyIntSlice).Index(1, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
+		NewVarStart(tyInt, "v3").Val(fnAt).Typ(tyIntSlice).Typ(tyInt).Index(2, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
+		NewVarStart(tyInt, "n1").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
+		NewVarStart(tyInt, "n2").Val(fnAdd).Typ(tyString).Index(1, false).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
+		NewVarStart(tyInt, "n3").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
+		NewVarStart(tyInt, "n4").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n5").Val(fnAdd).Typ(tyString).Index(1, false).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n6").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
 		NewVarStart(tyIntPointer, "p1").Val(fnLoader).Typ(tyIntPointer).Index(1, false).Val(nil).Val(1).Call(2).EndInit(1).
 		NewVarStart(tyIntPointer, "p2").Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Val(nil).Val(1).Call(2).EndInit(1).
 		NewAutoVar(0, "fn1", &fn1).VarRef(fn1).Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Assign(1, 1).EndStmt().
@@ -293,11 +258,18 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 import foo "foo"
 
 func main() {
-	var v1 int = foo.Sum([]int{1, 2, 3})
-	var v2 int = foo.Sum[int]([]int{1, 2, 3})
-	var v3 int = foo.At([]int{1, 2, 3}, 1)
-	var v4 int = foo.At[[]int]([]int{1, 2, 3}, 1)
-	var v5 int = foo.At[[]int, int]([]int{1, 2, 3}, 1)
+	_ = foo.At[[]int]
+	var s1 int = foo.Sum([]int{1, 2, 3})
+	var s2 int = foo.Sum[int]([]int{1, 2, 3})
+	var v1 int = foo.At([]int{1, 2, 3}, 1)
+	var v2 int = foo.At[[]int]([]int{1, 2, 3}, 1)
+	var v3 int = foo.At[[]int, int]([]int{1, 2, 3}, 1)
+	var n1 int = foo.Add("hello", 1, 2, 3)
+	var n2 int = foo.Add[string]("hello", 1, 2, 3)
+	var n3 int = foo.Add[string, int]("hello", 1, 2, 3)
+	var n4 int = foo.Add("hello", []int{1, 2, 3}...)
+	var n5 int = foo.Add[string]("hello", []int{1, 2, 3}...)
+	var n6 int = foo.Add[string, int]("hello", []int{1, 2, 3}...)
 	var p1 *int = foo.Loader[*int](nil, 1)
 	var p2 *int = foo.Loader[*int, int](nil, 1)
 	var fn1 func(p1 *int, p2 int) *int
