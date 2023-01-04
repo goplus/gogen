@@ -118,7 +118,7 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 		}
 	} else {
 		sig := typ.(*types.Signature)
-		if sig.TypeParams().Len() == nidx {
+		if nidx >= sig.TypeParams().Len() {
 			tyRet, err = types.Instantiate(p.ctxt, typ, targs, true)
 		} else {
 			tyRet = newInferFuncType(p.pkg, sig, targs, srcExpr)
