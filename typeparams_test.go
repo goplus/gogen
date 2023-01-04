@@ -218,6 +218,9 @@ func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
 	}
 	return sum
 }
+
+type Int []int
+var MyInts = Int{1,2,3,4}
 `
 	gt := newGoxTest()
 	_, err := gt.LoadGoPackage("foo", "foo.go", src)
@@ -230,6 +233,7 @@ func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
 	fnAt := pkgRef.Ref("At")
 	fnLoader := pkgRef.Ref("Loader")
 	fnAdd := pkgRef.Ref("Add")
+	myInts := pkgRef.Ref("MyInts")
 	tyInt := types.Typ[types.Int]
 	tyString := types.Typ[types.String]
 	tyIntSlice := types.NewSlice(tyInt)
@@ -246,8 +250,9 @@ func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
 		NewVarStart(tyInt, "n2").Val(fnAdd).Typ(tyString).Index(1, false).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
 		NewVarStart(tyInt, "n3").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
 		NewVarStart(tyInt, "n4").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
-		NewVarStart(tyInt, "n5").Val(fnAdd).Typ(tyString).Index(1, false).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
-		NewVarStart(tyInt, "n6").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n5").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n6").Val(fnAdd).Typ(tyString).Index(1, false).Val("hello").Val(myInts).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n7").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
 		NewVarStart(tyIntPointer, "p1").Val(fnLoader).Typ(tyIntPointer).Index(1, false).Val(nil).Val(1).Call(2).EndInit(1).
 		NewVarStart(tyIntPointer, "p2").Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Val(nil).Val(1).Call(2).EndInit(1).
 		NewAutoVar(0, "fn1", &fn1).VarRef(fn1).Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Assign(1, 1).EndStmt().
@@ -268,8 +273,9 @@ func main() {
 	var n2 int = foo.Add[string]("hello", 1, 2, 3)
 	var n3 int = foo.Add[string, int]("hello", 1, 2, 3)
 	var n4 int = foo.Add("hello", []int{1, 2, 3}...)
-	var n5 int = foo.Add[string]("hello", []int{1, 2, 3}...)
-	var n6 int = foo.Add[string, int]("hello", []int{1, 2, 3}...)
+	var n5 int = foo.Add("hello", []int{1, 2, 3}...)
+	var n6 int = foo.Add[string]("hello", foo.MyInts...)
+	var n7 int = foo.Add[string, int]("hello", []int{1, 2, 3}...)
 	var p1 *int = foo.Loader[*int](nil, 1)
 	var p2 *int = foo.Loader[*int, int](nil, 1)
 	var fn1 func(p1 *int, p2 int) *int
@@ -427,15 +433,15 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	}
 	pkg := gt.NewPackage("", "main")
 	pkgRef := pkg.Import("foo")
-	tyTest := pkgRef.Ref("Test")
+	fnTest := pkgRef.Ref("Test")
 	tyInt := types.Typ[types.Int]
 	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: got 3 type arguments but func[T1, T2 any](t1 T1, t2 T2) has 2 type parameters`)()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(tyTest).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, false, source(`foo.Test[int,int,int]`, 5, 40)).Val(1).Val(1).Call(2).EndStmt().
+		Val(fnTest).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, false, source(`foo.Test[int,int,int]`, 5, 40)).Val(1).Val(1).Call(2).EndStmt().
 		End()
 }
 
-func TestTypeParamsErrArgumentsParameters4(t *testing.T) {
+func TestTypeParamsErrCallArguments1(t *testing.T) {
 	const src = `package foo
 
 func Test[T1 any, T2 any](t1 T1, t2 T2) {
@@ -449,12 +455,113 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	}
 	pkg := gt.NewPackage("", "main")
 	pkgRef := pkg.Import("foo")
-	tyTest := pkgRef.Ref("Test")
+	fnTest := pkgRef.Ref("Test")
 	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: not enough arguments in call to foo.Test
 	have (untyped int)
-	want (t1 T1, t2 T2)`)()
+	want (T1, T2)`)()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(tyTest).Val(1).CallWith(1, 0, source("foo.Test(1)", 5, 40)).EndStmt().
+		Val(fnTest).Val(1).CallWith(1, 0, source("foo.Test(1)", 5, 40)).EndStmt().
+		End()
+}
+
+func TestTypeParamsErrCallArguments2(t *testing.T) {
+	const src = `package foo
+
+func Test[T1 any, T2 any](t1 T1, t2 T2) {
+	println(t1,t2)
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnTest := pkgRef.Ref("Test")
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: too many arguments in call to foo.Test
+	have (untyped int, untyped int, untyped int)
+	want (T1, T2)`)()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fnTest).Val(1).Val(2).Val(3).CallWith(3, 0, source("foo.Test(1,2,3)", 5, 40)).EndStmt().
+		End()
+}
+
+func TestTypeParamsErrCallArguments3(t *testing.T) {
+	const src = `package foo
+
+func Test[T1 any, T2 any]() {
+	var t1 T1
+	var t2 T2
+	println(t1,t2)
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnTest := pkgRef.Ref("Test")
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: too many arguments in call to foo.Test
+	have (untyped int, untyped int)
+	want ()`)()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fnTest).Val(1).Val(2).CallWith(2, 0, source("foo.Test(1,2)", 5, 40)).EndStmt().
+		End()
+}
+
+func TestTypeParamsErrCallVariadicArguments1(t *testing.T) {
+	const src = `package foo
+
+func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
+	println(v1)
+	for _, v := range v2 {
+		sum += v
+	}
+	return sum
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnAdd := pkgRef.Ref("Add")
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: not enough arguments in call to foo.Add
+	have ()
+	want (T1, ...T2)`)()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fnAdd).CallWith(0, 0, source("foo.Add()", 5, 40)).EndStmt().
+		End()
+}
+
+func TestTypeParamsErrCallVariadicArguments2(t *testing.T) {
+	const src = `package foo
+
+func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
+	println(v1)
+	for _, v := range v2 {
+		sum += v
+	}
+	return sum
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	fnAdd := pkgRef.Ref("Add")
+	// not pass source to foo.Add
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: cannot infer T2 (-)`)()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fnAdd).Val(1).CallWith(1, 0, source("foo.Add(1)", 5, 40)).EndStmt().
 		End()
 }
 
