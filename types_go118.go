@@ -34,13 +34,14 @@ type TypeParam = types.TypeParam
 
 type inferFuncType struct {
 	pkg   *Package
+	fn    *internal.Elem
 	typ   *types.Signature
 	targs []types.Type
 	src   ast.Node
 }
 
-func newInferFuncType(pkg *Package, typ *types.Signature, targs []types.Type, src ast.Node) *inferFuncType {
-	return &inferFuncType{pkg: pkg, typ: typ, targs: targs, src: src}
+func newInferFuncType(pkg *Package, fn *internal.Elem, typ *types.Signature, targs []types.Type, src ast.Node) *inferFuncType {
+	return &inferFuncType{pkg: pkg, fn: fn, typ: typ, targs: targs, src: src}
 }
 
 func (p *inferFuncType) Type() types.Type {
@@ -58,7 +59,7 @@ func (p *inferFuncType) String() string {
 }
 
 func (p *inferFuncType) Instance() *types.Signature {
-	tyRet, err := inferFuncTargs(p.pkg, p.src, p.typ, p.targs)
+	tyRet, err := inferFuncTargs(p.pkg, p.fn, p.typ, p.targs)
 	if err != nil {
 		_, pos := p.pkg.cb.loadExpr(p.src)
 		p.pkg.cb.panicCodeErrorf(&pos, "%v", err)
@@ -66,8 +67,8 @@ func (p *inferFuncType) Instance() *types.Signature {
 	return tyRet.(*types.Signature)
 }
 
-func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem) *types.Signature {
-	tyRet, err := inferFunc(p.pkg, p.src, p.typ, p.targs, args)
+func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem, flags InstrFlags) *types.Signature {
+	tyRet, err := inferFunc(p.pkg, p.fn, p.typ, p.targs, args, flags)
 	if err != nil {
 		_, pos := p.pkg.cb.loadExpr(p.src)
 		p.pkg.cb.panicCodeErrorf(&pos, "%v", err)
@@ -121,7 +122,7 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 		if nidx >= sig.TypeParams().Len() {
 			tyRet, err = types.Instantiate(p.ctxt, typ, targs, true)
 		} else {
-			tyRet = newInferFuncType(p.pkg, sig, targs, srcExpr)
+			tyRet = newInferFuncType(p.pkg, args[0], sig, targs, srcExpr)
 		}
 	}
 	if err != nil {
@@ -218,7 +219,62 @@ func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []ty
 	return
 }
 
-func inferFunc(pkg *Package, posn positioner, sig *types.Signature, targs []types.Type, args []*internal.Elem) (types.Type, error) {
+func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem, flags InstrFlags) ([]*internal.Elem, error) {
+	nargs := len(args)
+	nreq := sig.Params().Len()
+	if sig.Variadic() {
+		if nargs < nreq-1 {
+			caller := types.ExprString(fn.Val)
+			return nil, fmt.Errorf(
+				"not enough arguments in call to %s\n\thave (%v)\n\twant %v", caller, getTypes(args), sig.Params())
+		}
+		if flags&InstrFlagEllipsis != 0 {
+			return args, nil
+		}
+		var typ types.Type
+		if nargs < nreq {
+			typ = sig.Params().At(nreq - 1).Type()
+			elem := elemType(pkg, typ)
+			if t, ok := elem.(*types.TypeParam); ok {
+				return nil, fmt.Errorf("cannot infer %v (%v)", elem, pkg.cb.position(t.Obj().Pos()))
+			}
+		} else {
+			typ = types.NewSlice(types.Default(args[nreq-1].Type))
+		}
+		res := make([]*internal.Elem, nreq)
+		for i := 0; i < nreq-1; i++ {
+			res[i] = args[i]
+		}
+		res[nreq-1] = &internal.Elem{Type: typ}
+		return res, nil
+	} else if nreq != nargs {
+		fewOrMany := "not enough"
+		if nargs > nreq {
+			fewOrMany = "too many"
+		}
+		caller := types.ExprString(fn.Val)
+		return nil, fmt.Errorf(
+			"%s arguments in call to %s\n\thave (%v)\n\twant %v", fewOrMany, caller, getTypes(args), sig.Params())
+	}
+	return args, nil
+}
+
+func elemType(pkg *Package, typ types.Type) types.Type {
+	var t *types.Slice
+	switch tt := typ.(type) {
+	case *types.Named:
+		t = pkg.cb.getUnderlying(tt).(*types.Slice)
+	case *types.Slice:
+		t = tt
+	}
+	return t.Elem()
+}
+
+func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type, args []*internal.Elem, flags InstrFlags) (types.Type, error) {
+	args, err := checkInferArgs(pkg, fn, sig, args, flags)
+	if err != nil {
+		return nil, err
+	}
 	xlist := make([]*operand, len(args))
 	for i, arg := range args {
 		xlist[i] = &operand{
@@ -234,21 +290,21 @@ func inferFunc(pkg *Package, posn positioner, sig *types.Signature, targs []type
 	for i := 0; i < n; i++ {
 		tparams[i] = tp.At(i)
 	}
-	targs, err := infer(pkg, posn, tparams, targs, sig.Params(), xlist)
+	targs, err = infer(pkg, fn.Val, tparams, targs, sig.Params(), xlist)
 	if err != nil {
 		return nil, err
 	}
 	return types.Instantiate(pkg.cb.ctxt, sig, targs, true)
 }
 
-func inferFuncTargs(pkg *Package, posn positioner, sig *types.Signature, targs []types.Type) (types.Type, error) {
+func inferFuncTargs(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type) (types.Type, error) {
 	tp := sig.TypeParams()
 	n := tp.Len()
 	tparams := make([]*types.TypeParam, n)
 	for i := 0; i < n; i++ {
 		tparams[i] = tp.At(i)
 	}
-	targs, err := infer(pkg, posn, tparams, targs, nil, nil)
+	targs, err := infer(pkg, fn.Val, tparams, targs, nil, nil)
 	if err != nil {
 		return nil, err
 	}

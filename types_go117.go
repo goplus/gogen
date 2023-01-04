@@ -54,7 +54,7 @@ type positioner interface {
 	Pos() token.Pos
 }
 
-func inferFunc(pkg *Package, posn positioner, sig *types.Signature, targs []types.Type, args []*internal.Elem) (types.Type, error) {
+func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type, args []*internal.Elem, flags InstrFlags) (types.Type, error) {
 	panic(unsupported_typeparams)
 }
 
@@ -81,6 +81,6 @@ func (p *inferFuncType) Instance() *types.Signature {
 	panic(unsupported_typeparams)
 }
 
-func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem) *types.Signature {
+func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem, flags InstrFlags) *types.Signature {
 	panic(unsupported_typeparams)
 }
