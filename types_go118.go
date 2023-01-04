@@ -23,6 +23,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"strings"
 	_ "unsafe"
 
 	"github.com/goplus/gox/internal"
@@ -219,6 +220,21 @@ func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []ty
 	return
 }
 
+func getParamsTypes(pkg *Package, tuple *types.Tuple, variadic bool) string {
+	n := tuple.Len()
+	if n == 0 {
+		return ""
+	}
+	typs := make([]string, n)
+	for i := 0; i < n; i++ {
+		typs[i] = tuple.At(i).Type().String()
+	}
+	if variadic {
+		typs[n-1] = "..." + tuple.At(n-1).Type().(*types.Slice).Elem().String()
+	}
+	return strings.Join(typs, ", ")
+}
+
 func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem, flags InstrFlags) ([]*internal.Elem, error) {
 	nargs := len(args)
 	nreq := sig.Params().Len()
@@ -226,7 +242,7 @@ func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args 
 		if nargs < nreq-1 {
 			caller := types.ExprString(fn.Val)
 			return nil, fmt.Errorf(
-				"not enough arguments in call to %s\n\thave (%v)\n\twant %v", caller, getTypes(args), sig.Params())
+				"not enough arguments in call to %s\n\thave (%v)\n\twant (%v)", caller, getTypes(args), getParamsTypes(pkg, sig.Params(), true))
 		}
 		if flags&InstrFlagEllipsis != 0 {
 			return args, nil
@@ -234,7 +250,7 @@ func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args 
 		var typ types.Type
 		if nargs < nreq {
 			typ = sig.Params().At(nreq - 1).Type()
-			elem := elemType(pkg, typ)
+			elem := typ.(*types.Slice).Elem()
 			if t, ok := elem.(*types.TypeParam); ok {
 				return nil, fmt.Errorf("cannot infer %v (%v)", elem, pkg.cb.position(t.Obj().Pos()))
 			}
@@ -254,20 +270,9 @@ func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args 
 		}
 		caller := types.ExprString(fn.Val)
 		return nil, fmt.Errorf(
-			"%s arguments in call to %s\n\thave (%v)\n\twant %v", fewOrMany, caller, getTypes(args), sig.Params())
+			"%s arguments in call to %s\n\thave (%v)\n\twant (%v)", fewOrMany, caller, getTypes(args), getParamsTypes(pkg, sig.Params(), false))
 	}
 	return args, nil
-}
-
-func elemType(pkg *Package, typ types.Type) types.Type {
-	var t *types.Slice
-	switch tt := typ.(type) {
-	case *types.Named:
-		t = pkg.cb.getUnderlying(tt).(*types.Slice)
-	case *types.Slice:
-		t = tt
-	}
-	return t.Elem()
 }
 
 func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type, args []*internal.Elem, flags InstrFlags) (types.Type, error) {
