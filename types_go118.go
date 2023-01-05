@@ -80,7 +80,7 @@ func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem, flags InstrFlags
 func isGenericType(typ types.Type) bool {
 	switch t := typ.(type) {
 	case *types.Named:
-		return t.TypeArgs() == nil && t.TypeParams() != nil
+		return t.Obj() != nil && t.TypeArgs() == nil && t.TypeParams() != nil
 	case *types.Signature:
 		return t.TypeParams() != nil
 	}
