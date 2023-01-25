@@ -412,3 +412,7 @@ func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams [
 	}
 	spec.TypeParams = &ast.FieldList{List: flds}
 }
+
+func interfaceIsImplicit(t *types.Interface) bool {
+	return t.IsImplicit()
+}

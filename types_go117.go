@@ -148,3 +148,7 @@ func (p *Package) NewFuncType(recv *Param, name string, recvTypeParams, typePara
 
 func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams []*TypeParam) {
 }
+
+func interfaceIsImplicit(t *types.Interface) bool {
+	return false
+}

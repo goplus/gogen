@@ -214,6 +214,9 @@ func toMapType(pkg *Package, t *types.Map) ast.Expr {
 }
 
 func toInterface(pkg *Package, t *types.Interface) ast.Expr {
+	if interfaceIsImplicit(t) && t.NumEmbeddeds() == 1 {
+		return toType(pkg, t.EmbeddedType(0))
+	}
 	var flds []*ast.Field
 	for i, n := 0, t.NumEmbeddeds(); i < n; i++ {
 		typ := toType(pkg, t.EmbeddedType(i))
