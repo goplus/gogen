@@ -33,3 +33,9 @@ func (p *printer) signature(sig *ast.FuncType) {
 		p.parameters(res, funcParam)
 	}
 }
+
+const TILDE = token.TILDE
+
+func specTypeParams(spec *ast.TypeSpec) *ast.FieldList {
+	return spec.TypeParams
+}

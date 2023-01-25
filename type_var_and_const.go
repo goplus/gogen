@@ -91,7 +91,7 @@ func (p *TypeDecl) Inited() bool {
 }
 
 // InitType initializes a uncompleted type.
-func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
+func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam) *types.Named {
 	if debugInstr {
 		log.Println("InitType", p.typ.Obj().Name(), typ)
 	}
@@ -104,6 +104,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 	} else {
 		p.typ.SetUnderlying(typ)
 	}
+	setTypeParams(pkg, p.typ, spec, tparams)
 	spec.Type = toType(pkg, typ)
 	pkg.appendGenDecl(p.scope, p.decl)
 	return p.typ

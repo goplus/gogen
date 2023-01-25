@@ -426,7 +426,7 @@ func isTypeElem(x ast.Expr) bool {
 	case *ast.ArrayType, *ast.StructType, *ast.FuncType, *ast.InterfaceType, *ast.MapType, *ast.ChanType:
 		return true
 	case *ast.UnaryExpr:
-		return x.Op == token.TILDE
+		return x.Op == TILDE
 	case *ast.BinaryExpr:
 		return isTypeElem(x.X) || isTypeElem(x.Y)
 	case *ast.ParenExpr:
@@ -1629,6 +1629,9 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 	case *ast.TypeSpec:
 		p.setComment(s.Doc)
 		p.expr(s.Name)
+		if tparams := specTypeParams(s); tparams != nil {
+			p.parameters(tparams, typeTParam)
+		}
 		if n == 1 {
 			p.print(blank)
 		} else {

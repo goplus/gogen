@@ -33,6 +33,8 @@ const enableTypeParams = true
 
 type TypeParam = types.TypeParam
 type Union = types.Union
+type Term = types.Term
+type TypeParamList = types.TypeParamList
 
 type inferFuncType struct {
 	pkg   *Package
@@ -381,4 +383,32 @@ func toUnionType(pkg *Package, t *types.Union) ast.Expr {
 		}
 	}
 	return v
+}
+
+// NewFuncType creates a new function type for the given receiver, name,
+// receiver type parameters, type parameters, parameters, and results.
+func (p *Package) NewFuncType(recv *Param, name string, recvTypeParams, typeParams []*TypeParam, params, results *Tuple, variadic bool) *Func {
+	sig := types.NewSignatureType(recv, recvTypeParams, typeParams, params, results, variadic)
+	f, err := p.NewFuncWith(token.NoPos, name, sig, nil)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams []*TypeParam) {
+	typ.SetTypeParams(tparams)
+	n := len(tparams)
+	if n == 0 {
+		spec.TypeParams = nil
+		return
+	}
+	flds := make([]*ast.Field, n)
+	for i := 0; i < n; i++ {
+		item := tparams[i]
+		names := []*ast.Ident{ast.NewIdent(item.Obj().Name())}
+		typ := toType(pkg, item.Constraint())
+		flds[i] = &ast.Field{Names: names, Type: typ}
+	}
+	spec.TypeParams = &ast.FieldList{List: flds}
 }

@@ -27,7 +27,7 @@ func (*IndexListExpr) End() token.Pos { unsupported(); return token.NoPos }
 
 func (p *printer) signature(sig *ast.FuncType) {
 	if sig.Params != nil {
-		p.parameters(sig.Params)
+		p.parameters(sig.Params, funcParam)
 	} else {
 		p.print(token.LPAREN, token.RPAREN)
 	}
@@ -41,6 +41,12 @@ func (p *printer) signature(sig *ast.FuncType) {
 			p.expr(stripParensAlways(result.List[0].Type))
 			return
 		}
-		p.parameters(result)
+		p.parameters(result, funcParam)
 	}
+}
+
+const TILDE = token.VAR + 1
+
+func specTypeParams(spec *ast.TypeSpec) *ast.FieldList {
+	return nil
 }

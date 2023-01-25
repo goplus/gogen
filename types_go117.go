@@ -68,8 +68,7 @@ func (*Union) Term(i int) *Term       { panic(unsupported_typeparams) }
 
 // NewUnion is unsupported at this Go version, and panics.
 func NewUnion(terms []*Term) *Union {
-	unsupported()
-	return nil
+	panic(unsupported_typeparams)
 }
 
 func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
@@ -139,4 +138,13 @@ func toFuncType(pkg *Package, sig *types.Signature) *ast.FuncType {
 
 func toUnionType(pkg *Package, t *Union) ast.Expr {
 	panic(unsupported_typeparams)
+}
+
+// NewFuncType creates a new function type for the given receiver, name,
+// receiver type parameters, type parameters, parameters, and results.
+func (p *Package) NewFuncType(recv *Param, name string, recvTypeParams, typeParams []*TypeParam, params, results *Tuple, variadic bool) *Func {
+	panic(unsupported_typeparams)
+}
+
+func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams []*TypeParam) {
 }
