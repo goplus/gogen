@@ -115,22 +115,6 @@ func toVariadic(fld *ast.Field) {
 	fld.Type = &ast.Ellipsis{Elt: t.Elt}
 }
 
-func toFuncType(pkg *Package, sig *types.Signature) *ast.FuncType {
-	params := toFieldList(pkg, sig.Params())
-	results := toFieldList(pkg, sig.Results())
-	if sig.Variadic() {
-		n := len(params)
-		if n == 0 {
-			panic("TODO: toFuncType error")
-		}
-		toVariadic(params[n-1])
-	}
-	return &ast.FuncType{
-		Params:  &ast.FieldList{List: params},
-		Results: &ast.FieldList{List: results},
-	}
-}
-
 // -----------------------------------------------------------------------------
 
 func toType(pkg *Package, typ types.Type) ast.Expr {
@@ -164,6 +148,8 @@ retry:
 		goto retry
 	case *TypeParam:
 		return toObjectExpr(pkg, t.Obj())
+	case *Union:
+		return toUnionType(pkg, t)
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil

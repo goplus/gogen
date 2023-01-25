@@ -32,6 +32,7 @@ import (
 const enableTypeParams = true
 
 type TypeParam = types.TypeParam
+type Union = types.Union
 
 type inferFuncType struct {
 	pkg   *Package
@@ -318,4 +319,66 @@ func inferFuncTargs(pkg *Package, fn *internal.Elem, sig *types.Signature, targs
 
 func funcHasTypeParams(t *types.Signature) bool {
 	return t.TypeParams() != nil
+}
+
+func toFieldListX(pkg *Package, t *types.TypeParamList) *ast.FieldList {
+	if t == nil {
+		return nil
+	}
+	n := t.Len()
+	flds := make([]*ast.Field, n)
+	for i := 0; i < n; i++ {
+		item := t.At(i)
+		names := []*ast.Ident{ast.NewIdent(item.Obj().Name())}
+		typ := toType(pkg, item.Constraint())
+		flds[i] = &ast.Field{Names: names, Type: typ}
+	}
+	return &ast.FieldList{
+		List: flds,
+	}
+}
+
+func toFuncType(pkg *Package, sig *types.Signature) *ast.FuncType {
+	params := toFieldList(pkg, sig.Params())
+	results := toFieldList(pkg, sig.Results())
+	if sig.Variadic() {
+		n := len(params)
+		if n == 0 {
+			panic("TODO: toFuncType error")
+		}
+		toVariadic(params[n-1])
+	}
+	return &ast.FuncType{
+		TypeParams: toFieldListX(pkg, sig.TypeParams()),
+		Params:     &ast.FieldList{List: params},
+		Results:    &ast.FieldList{List: results},
+	}
+}
+
+func toUnionType(pkg *Package, t *types.Union) ast.Expr {
+	var v ast.Expr
+	n := t.Len()
+	for i := 0; i < n; i++ {
+		term := t.Term(i)
+		typ := toType(pkg, term.Type())
+		if term.Tilde() {
+			typ = &ast.UnaryExpr{
+				Op: token.TILDE,
+				X:  typ,
+			}
+		}
+		if n == 1 {
+			return typ
+		}
+		if i == 0 {
+			v = typ
+		} else {
+			v = &ast.BinaryExpr{
+				X:  v,
+				Op: token.OR,
+				Y:  typ,
+			}
+		}
+	}
+	return v
 }
