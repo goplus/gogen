@@ -659,3 +659,97 @@ func checkErrorMessage(pkg *gox.Package, t *testing.T, msgs ...string) func() {
 		}
 	}
 }
+
+func TestGenTypeParamsFunc(t *testing.T) {
+	pkg := newMainPackage()
+	ut := types.NewUnion([]*types.Term{types.NewTerm(true, types.Typ[types.Int]), types.NewTerm(false, types.Typ[types.Uint])})
+	it := pkg.NewType("T").InitType(pkg, types.NewInterfaceType(nil, []types.Type{ut}))
+	tp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T1", nil), types.Universe.Lookup("any").Type())
+	tp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T2", nil), ut)
+	tp3 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T3", nil), it)
+	p1 := types.NewParam(token.NoPos, pkg.Types, "p1", tp1)
+	p2 := types.NewParam(token.NoPos, pkg.Types, "p2", tp2)
+	p3 := types.NewParam(token.NoPos, pkg.Types, "p3", tp3)
+	sig := types.NewSignatureType(nil, nil, []*types.TypeParam{tp1, tp2, tp3}, types.NewTuple(p1, p2, p3), nil, false)
+	fn1 := pkg.NewFuncDecl(token.NoPos, "test", sig)
+	fn1.BodyStart(pkg).End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fn1).Val("hello").Val(100).Val(200).Call(3).EndStmt().
+		Val(fn1).Typ(types.Typ[types.String]).Typ(types.Typ[types.Int]).Typ(types.Typ[types.Uint]).Index(3, false).Val("hello").Val(100).Val(200).Call(3).EndStmt().
+		Val(fn1).Typ(types.Typ[types.String]).Typ(types.Typ[types.Int]).Index(2, false).Val("hello").Val(100).Val(200).Call(3).EndStmt().
+		Val(fn1).Typ(types.Typ[types.String]).Index(1, false).Val("hello").Val(100).Val(200).Call(3).EndStmt().
+		End()
+
+	domTest(t, pkg, `package main
+
+type T interface {
+	~int | uint
+}
+
+func test[T1 any, T2 ~int | uint, T3 T](p1 T1, p2 T2, p3 T3) {
+}
+func main() {
+	test("hello", 100, 200)
+	test[string, int, uint]("hello", 100, 200)
+	test[string, int]("hello", 100, 200)
+	test[string]("hello", 100, 200)
+}
+`)
+}
+
+func TestGenTypeParamsType(t *testing.T) {
+	pkg := newMainPackage()
+	ut := types.NewUnion([]*types.Term{types.NewTerm(true, types.Typ[types.Int]), types.NewTerm(false, types.Typ[types.Uint])})
+	it := pkg.NewType("T").InitType(pkg, types.NewInterfaceType(nil, []types.Type{ut}))
+
+	sp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T1", nil), types.Universe.Lookup("any").Type())
+	sp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T2", nil), ut)
+	sp3 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T3", nil), it)
+
+	tp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T1", nil), types.Universe.Lookup("any").Type())
+	tp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T2", nil), ut)
+	tp3 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T3", nil), it)
+	p1 := types.NewParam(token.NoPos, pkg.Types, "p1", tp1)
+	p2 := types.NewParam(token.NoPos, pkg.Types, "p2", tp2)
+	p3 := types.NewParam(token.NoPos, pkg.Types, "p3", tp3)
+
+	st := types.NewStruct([]*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "f1", sp1, false),
+		types.NewField(token.NoPos, pkg.Types, "f2", sp2, false),
+		types.NewField(token.NoPos, pkg.Types, "f3", sp3, false),
+	}, nil)
+	named := pkg.NewType("S").InitType(pkg, st, sp1, sp2, sp3)
+
+	sig := types.NewSignatureType(types.NewVar(token.NoPos, pkg.Types, "r1", types.NewPointer(named)), []*types.TypeParam{tp1, tp2, tp3}, nil, types.NewTuple(p1, p2, p3), nil, false)
+	fn1 := pkg.NewFuncDecl(token.NoPos, "test", sig)
+	fn1.BodyStart(pkg).End()
+	inst, err := types.Instantiate(nil, named, []types.Type{types.Typ[types.String], types.Typ[types.Int], types.Typ[types.Uint]}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "s").StructLit(inst, 0, false).UnaryOp(token.AND).EndInit(1).
+		Val(ctxRef(pkg, "s")).MemberVal("test").Val("hello").Val(100).Val(200).Call(3, false).EndStmt().
+		Val(pkg.Builtin().Ref("println")).Val(ctxRef(pkg, "s")).MemberVal("f1").Call(1, false).EndStmt().
+		End()
+
+	domTest(t, pkg, `package main
+
+type T interface {
+	~int | uint
+}
+type S[T1 any, T2 ~int | uint, T3 T] struct {
+	f1 T1
+	f2 T2
+	f3 T3
+}
+
+func (r1 *S[T1, T2, T3]) test(p1 T1, p2 T2, p3 T3) {
+}
+func main() {
+	s := &S[string, int, uint]{}
+	s.test("hello", 100, 200)
+	println(s.f1)
+}
+`)
+}
