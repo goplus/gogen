@@ -154,29 +154,6 @@ func newTypesContext() *typesContext {
 	return types.NewContext()
 }
 
-func toRecvNamedType(pkg *Package, t *types.Named) ast.Expr {
-	expr := toObjectExpr(pkg, t.Obj())
-	if targs := t.TypeParams(); targs != nil {
-		n := targs.Len()
-		indices := make([]ast.Expr, n)
-		for i := 0; i < n; i++ {
-			indices[i] = toType(pkg, targs.At(i))
-		}
-		if n == 1 {
-			expr = &ast.IndexExpr{
-				X:     expr,
-				Index: indices[0],
-			}
-		} else {
-			expr = &ast.IndexListExpr{
-				X:       expr,
-				Indices: indices,
-			}
-		}
-	}
-	return expr
-}
-
 func toRecvType(pkg *Package, typ types.Type) ast.Expr {
 	var star bool
 	if t, ok := typ.(*types.Pointer); ok {

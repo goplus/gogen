@@ -662,10 +662,11 @@ func checkErrorMessage(pkg *gox.Package, t *testing.T, msgs ...string) func() {
 
 func TestGenTypeParamsFunc(t *testing.T) {
 	pkg := newMainPackage()
-	ut := types.NewUnion([]*types.Term{types.NewTerm(true, types.Typ[types.Int]), types.NewTerm(false, types.Typ[types.Uint])})
-	it := pkg.NewType("T").InitType(pkg, types.NewInterfaceType(nil, []types.Type{ut}))
+	ut1 := types.NewUnion([]*types.Term{types.NewTerm(true, types.Typ[types.Int]), types.NewTerm(false, types.Typ[types.Uint])})
+	ut2 := types.NewUnion([]*types.Term{types.NewTerm(true, types.Typ[types.Int])})
+	it := pkg.NewType("T").InitType(pkg, types.NewInterfaceType(nil, []types.Type{ut1}))
 	tp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T1", nil), types.Universe.Lookup("any").Type())
-	tp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T2", nil), ut)
+	tp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T2", nil), ut2)
 	tp3 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T3", nil), it)
 	p1 := types.NewParam(token.NoPos, pkg.Types, "p1", tp1)
 	p2 := types.NewParam(token.NoPos, pkg.Types, "p2", tp2)
@@ -686,7 +687,7 @@ type T interface {
 	~int | uint
 }
 
-func test[T1 any, T2 ~int | uint, T3 T](p1 T1, p2 T2, p3 T3) {
+func test[T1 any, T2 ~int, T3 T](p1 T1, p2 T2, p3 T3) {
 }
 func main() {
 	test("hello", 100, 200)
@@ -702,16 +703,18 @@ func TestGenTypeParamsType(t *testing.T) {
 	ut := types.NewUnion([]*types.Term{types.NewTerm(true, types.Typ[types.Int]), types.NewTerm(false, types.Typ[types.Uint])})
 	it := pkg.NewType("T").InitType(pkg, types.NewInterfaceType(nil, []types.Type{ut}))
 
+	// type M
+	mp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), ut)
+	mp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), ut)
+	mt1 := pkg.NewType("M").InitType(pkg, types.NewStruct(nil, nil), mp1)
+	msig1 := types.NewSignatureType(types.NewVar(token.NoPos, pkg.Types, "m1", types.NewPointer(mt1)), []*types.TypeParam{mp2}, nil, nil, nil, false)
+	mfn1 := pkg.NewFuncDecl(token.NoPos, "test", msig1)
+	mfn1.BodyStart(pkg).End()
+
+	// type S
 	sp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T1", nil), types.Universe.Lookup("any").Type())
 	sp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T2", nil), ut)
 	sp3 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T3", nil), it)
-
-	tp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T1", nil), types.Universe.Lookup("any").Type())
-	tp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T2", nil), ut)
-	tp3 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T3", nil), it)
-	p1 := types.NewParam(token.NoPos, pkg.Types, "p1", tp1)
-	p2 := types.NewParam(token.NoPos, pkg.Types, "p2", tp2)
-	p3 := types.NewParam(token.NoPos, pkg.Types, "p3", tp3)
 
 	st := types.NewStruct([]*types.Var{
 		types.NewField(token.NoPos, pkg.Types, "f1", sp1, false),
@@ -720,9 +723,17 @@ func TestGenTypeParamsType(t *testing.T) {
 	}, nil)
 	named := pkg.NewType("S").InitType(pkg, st, sp1, sp2, sp3)
 
+	tp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T1", nil), types.Universe.Lookup("any").Type())
+	tp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T2", nil), ut)
+	tp3 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T3", nil), it)
+	p1 := types.NewParam(token.NoPos, pkg.Types, "p1", tp1)
+	p2 := types.NewParam(token.NoPos, pkg.Types, "p2", tp2)
+	p3 := types.NewParam(token.NoPos, pkg.Types, "p3", tp3)
+
 	sig := types.NewSignatureType(types.NewVar(token.NoPos, pkg.Types, "r1", types.NewPointer(named)), []*types.TypeParam{tp1, tp2, tp3}, nil, types.NewTuple(p1, p2, p3), nil, false)
 	fn1 := pkg.NewFuncDecl(token.NoPos, "test", sig)
 	fn1.BodyStart(pkg).End()
+
 	inst, err := types.Instantiate(nil, named, []types.Type{types.Typ[types.String], types.Typ[types.Int], types.Typ[types.Uint]}, true)
 	if err != nil {
 		t.Fatal(err)
@@ -738,6 +749,12 @@ func TestGenTypeParamsType(t *testing.T) {
 type T interface {
 	~int | uint
 }
+type M[T ~int | uint] struct {
+}
+
+func (m1 *M[T]) test() {
+}
+
 type S[T1 any, T2 ~int | uint, T3 T] struct {
 	f1 T1
 	f2 T2
