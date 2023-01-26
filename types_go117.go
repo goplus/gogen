@@ -152,3 +152,7 @@ func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams [
 func interfaceIsImplicit(t *types.Interface) bool {
 	return false
 }
+
+func toRecvType(pkg *Package, typ types.Type) ast.Expr {
+	return toType(pkg, typ)
+}

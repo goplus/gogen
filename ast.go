@@ -63,7 +63,7 @@ func toRecv(pkg *Package, recv *types.Var) *ast.FieldList {
 	if name := recv.Name(); name != "" {
 		names = []*ast.Ident{ident(name)}
 	}
-	fld := &ast.Field{Names: names, Type: toType(pkg, recv.Type())}
+	fld := &ast.Field{Names: names, Type: toRecvType(pkg, recv.Type())}
 	return &ast.FieldList{List: []*ast.Field{fld}}
 }
 
