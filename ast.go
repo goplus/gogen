@@ -213,9 +213,17 @@ func toMapType(pkg *Package, t *types.Map) ast.Expr {
 	return &ast.MapType{Key: toType(pkg, t.Key()), Value: toType(pkg, t.Elem())}
 }
 
+var (
+	universeAny = types.Universe.Lookup("any")
+)
+
 func toInterface(pkg *Package, t *types.Interface) ast.Expr {
-	if interfaceIsImplicit(t) && t.NumEmbeddeds() == 1 {
-		return toType(pkg, t.EmbeddedType(0))
+	if enableTypeParams {
+		if t == universeAny.Type() {
+			return ast.NewIdent("any")
+		} else if interfaceIsImplicit(t) && t.NumEmbeddeds() == 1 {
+			return toType(pkg, t.EmbeddedType(0))
+		}
 	}
 	var flds []*ast.Field
 	for i, n := 0, t.NumEmbeddeds(); i < n; i++ {
