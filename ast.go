@@ -63,7 +63,7 @@ func toRecv(pkg *Package, recv *types.Var) *ast.FieldList {
 	if name := recv.Name(); name != "" {
 		names = []*ast.Ident{ident(name)}
 	}
-	fld := &ast.Field{Names: names, Type: toType(pkg, recv.Type())}
+	fld := &ast.Field{Names: names, Type: toRecvType(pkg, recv.Type())}
 	return &ast.FieldList{List: []*ast.Field{fld}}
 }
 
@@ -115,22 +115,6 @@ func toVariadic(fld *ast.Field) {
 	fld.Type = &ast.Ellipsis{Elt: t.Elt}
 }
 
-func toFuncType(pkg *Package, sig *types.Signature) *ast.FuncType {
-	params := toFieldList(pkg, sig.Params())
-	results := toFieldList(pkg, sig.Results())
-	if sig.Variadic() {
-		n := len(params)
-		if n == 0 {
-			panic("TODO: toFuncType error")
-		}
-		toVariadic(params[n-1])
-	}
-	return &ast.FuncType{
-		Params:  &ast.FieldList{List: params},
-		Results: &ast.FieldList{List: results},
-	}
-}
-
 // -----------------------------------------------------------------------------
 
 func toType(pkg *Package, typ types.Type) ast.Expr {
@@ -164,6 +148,8 @@ retry:
 		goto retry
 	case *TypeParam:
 		return toObjectExpr(pkg, t.Obj())
+	case *Union:
+		return toUnionType(pkg, t)
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil
@@ -227,7 +213,18 @@ func toMapType(pkg *Package, t *types.Map) ast.Expr {
 	return &ast.MapType{Key: toType(pkg, t.Key()), Value: toType(pkg, t.Elem())}
 }
 
+var (
+	universeAny = types.Universe.Lookup("any")
+)
+
 func toInterface(pkg *Package, t *types.Interface) ast.Expr {
+	if enableTypeParams {
+		if t == universeAny.Type() {
+			return ast.NewIdent("any")
+		} else if interfaceIsImplicit(t) && t.NumEmbeddeds() == 1 {
+			return toType(pkg, t.EmbeddedType(0))
+		}
+	}
 	var flds []*ast.Field
 	for i, n := 0, t.NumEmbeddeds(); i < n; i++ {
 		typ := toType(pkg, t.EmbeddedType(i))

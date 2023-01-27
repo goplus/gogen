@@ -32,6 +32,9 @@ import (
 const enableTypeParams = true
 
 type TypeParam = types.TypeParam
+type Union = types.Union
+type Term = types.Term
+type TypeParamList = types.TypeParamList
 
 type inferFuncType struct {
 	pkg   *Package
@@ -149,6 +152,41 @@ type typesContext = types.Context
 
 func newTypesContext() *typesContext {
 	return types.NewContext()
+}
+
+func toRecvType(pkg *Package, typ types.Type) ast.Expr {
+	var star bool
+	if t, ok := typ.(*types.Pointer); ok {
+		typ = t.Elem()
+		star = true
+	}
+	t, ok := typ.(*types.Named)
+	if !ok {
+		panic("unexpected: recv type must types.Named")
+	}
+	expr := toObjectExpr(pkg, t.Obj())
+	if tparams := t.TypeParams(); tparams != nil {
+		n := tparams.Len()
+		indices := make([]ast.Expr, n)
+		for i := 0; i < n; i++ {
+			indices[i] = toObjectExpr(pkg, tparams.At(i).Obj())
+		}
+		if n == 1 {
+			expr = &ast.IndexExpr{
+				X:     expr,
+				Index: indices[0],
+			}
+		} else {
+			expr = &ast.IndexListExpr{
+				X:       expr,
+				Indices: indices,
+			}
+		}
+	}
+	if star {
+		expr = &ast.StarExpr{X: expr}
+	}
+	return expr
 }
 
 func toNamedType(pkg *Package, t *types.Named) ast.Expr {
@@ -318,4 +356,87 @@ func inferFuncTargs(pkg *Package, fn *internal.Elem, sig *types.Signature, targs
 
 func funcHasTypeParams(t *types.Signature) bool {
 	return t.TypeParams() != nil
+}
+
+func toFieldListX(pkg *Package, t *types.TypeParamList) *ast.FieldList {
+	if t == nil {
+		return nil
+	}
+	n := t.Len()
+	flds := make([]*ast.Field, n)
+	for i := 0; i < n; i++ {
+		item := t.At(i)
+		names := []*ast.Ident{ast.NewIdent(item.Obj().Name())}
+		typ := toType(pkg, item.Constraint())
+		flds[i] = &ast.Field{Names: names, Type: typ}
+	}
+	return &ast.FieldList{
+		List: flds,
+	}
+}
+
+func toFuncType(pkg *Package, sig *types.Signature) *ast.FuncType {
+	params := toFieldList(pkg, sig.Params())
+	results := toFieldList(pkg, sig.Results())
+	if sig.Variadic() {
+		n := len(params)
+		if n == 0 {
+			panic("TODO: toFuncType error")
+		}
+		toVariadic(params[n-1])
+	}
+	return &ast.FuncType{
+		TypeParams: toFieldListX(pkg, sig.TypeParams()),
+		Params:     &ast.FieldList{List: params},
+		Results:    &ast.FieldList{List: results},
+	}
+}
+
+func toUnionType(pkg *Package, t *types.Union) ast.Expr {
+	var v ast.Expr
+	n := t.Len()
+	for i := 0; i < n; i++ {
+		term := t.Term(i)
+		typ := toType(pkg, term.Type())
+		if term.Tilde() {
+			typ = &ast.UnaryExpr{
+				Op: token.TILDE,
+				X:  typ,
+			}
+		}
+		if n == 1 {
+			return typ
+		}
+		if i == 0 {
+			v = typ
+		} else {
+			v = &ast.BinaryExpr{
+				X:  v,
+				Op: token.OR,
+				Y:  typ,
+			}
+		}
+	}
+	return v
+}
+
+func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams []*TypeParam) {
+	typ.SetTypeParams(tparams)
+	n := len(tparams)
+	if n == 0 {
+		spec.TypeParams = nil
+		return
+	}
+	flds := make([]*ast.Field, n)
+	for i := 0; i < n; i++ {
+		item := tparams[i]
+		names := []*ast.Ident{ast.NewIdent(item.Obj().Name())}
+		typ := toType(pkg, item.Constraint())
+		flds[i] = &ast.Field{Names: names, Type: typ}
+	}
+	spec.TypeParams = &ast.FieldList{List: flds}
+}
+
+func interfaceIsImplicit(t *types.Interface) bool {
+	return t.IsImplicit()
 }

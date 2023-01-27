@@ -36,6 +36,41 @@ func (*TypeParam) Constraint() types.Type   { panic(unsupported_typeparams) }
 func (*TypeParam) SetConstraint(types.Type) { panic(unsupported_typeparams) }
 func (*TypeParam) Obj() *types.TypeName     { panic(unsupported_typeparams) }
 
+// Term holds information about a structural type restriction.
+type Term struct {
+	tilde bool
+	typ   types.Type
+}
+
+func (m *Term) Tilde() bool      { return m.tilde }
+func (m *Term) Type() types.Type { return m.typ }
+func (m *Term) String() string {
+	pre := ""
+	if m.tilde {
+		pre = "~"
+	}
+	return pre + m.typ.String()
+}
+
+// NewTerm creates a new placeholder term type.
+func NewTerm(tilde bool, typ types.Type) *Term {
+	return &Term{tilde, typ}
+}
+
+// Union is a placeholder type, as type parameters are not supported at this Go
+// version. Its methods panic on use.
+type Union struct{ types.Type }
+
+func (*Union) String() string         { panic(unsupported_typeparams) }
+func (*Union) Underlying() types.Type { panic(unsupported_typeparams) }
+func (*Union) Len() int               { return 0 }
+func (*Union) Term(i int) *Term       { panic(unsupported_typeparams) }
+
+// NewUnion is unsupported at this Go version, and panics.
+func NewUnion(terms []*Term) *Union {
+	panic(unsupported_typeparams)
+}
+
 func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
 	panic(unsupported_typeparams)
 }
@@ -83,4 +118,35 @@ func (p *inferFuncType) Instance() *types.Signature {
 
 func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem, flags InstrFlags) *types.Signature {
 	panic(unsupported_typeparams)
+}
+
+func toFuncType(pkg *Package, sig *types.Signature) *ast.FuncType {
+	params := toFieldList(pkg, sig.Params())
+	results := toFieldList(pkg, sig.Results())
+	if sig.Variadic() {
+		n := len(params)
+		if n == 0 {
+			panic("TODO: toFuncType error")
+		}
+		toVariadic(params[n-1])
+	}
+	return &ast.FuncType{
+		Params:  &ast.FieldList{List: params},
+		Results: &ast.FieldList{List: results},
+	}
+}
+
+func toUnionType(pkg *Package, t *Union) ast.Expr {
+	panic(unsupported_typeparams)
+}
+
+func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams []*TypeParam) {
+}
+
+func interfaceIsImplicit(t *types.Interface) bool {
+	return false
+}
+
+func toRecvType(pkg *Package, typ types.Type) ast.Expr {
+	return toType(pkg, typ)
 }
