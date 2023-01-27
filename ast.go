@@ -162,6 +162,8 @@ retry:
 		}
 		typ = t.tBound
 		goto retry
+	case *TypeParam:
+		return toObjectExpr(pkg, t.Obj())
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil
@@ -569,13 +571,13 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 retry:
 	switch t := fnType.(type) {
 	case *inferFuncType:
-		sig = t.InstanceWithArgs(args)
+		sig = t.InstanceWithArgs(args, flags)
 		if debugMatch {
 			log.Println("==> InferFunc", sig)
 		}
 	case *types.Signature:
 		if enableTypeParams && funcHasTypeParams(t) {
-			rt, err := inferFunc(pkg, fn.Val, t, nil, args)
+			rt, err := inferFunc(pkg, fn, t, nil, args, flags)
 			if err != nil {
 				_, pos := pkg.cb.loadExpr(fn.Src)
 				pkg.cb.panicCodeErrorf(&pos, "%v", err)
