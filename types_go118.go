@@ -23,6 +23,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"strings"
 	_ "unsafe"
 
 	"github.com/goplus/gox/internal"
@@ -30,15 +31,21 @@ import (
 
 const enableTypeParams = true
 
+type TypeParam = types.TypeParam
+type Union = types.Union
+type Term = types.Term
+type TypeParamList = types.TypeParamList
+
 type inferFuncType struct {
 	pkg   *Package
+	fn    *internal.Elem
 	typ   *types.Signature
 	targs []types.Type
 	src   ast.Node
 }
 
-func newInferFuncType(pkg *Package, typ *types.Signature, targs []types.Type, src ast.Node) *inferFuncType {
-	return &inferFuncType{pkg: pkg, typ: typ, targs: targs, src: src}
+func newInferFuncType(pkg *Package, fn *internal.Elem, typ *types.Signature, targs []types.Type, src ast.Node) *inferFuncType {
+	return &inferFuncType{pkg: pkg, fn: fn, typ: typ, targs: targs, src: src}
 }
 
 func (p *inferFuncType) Type() types.Type {
@@ -56,7 +63,7 @@ func (p *inferFuncType) String() string {
 }
 
 func (p *inferFuncType) Instance() *types.Signature {
-	tyRet, err := inferType(p.pkg, p.src, p.typ, p.targs)
+	tyRet, err := inferFuncTargs(p.pkg, p.fn, p.typ, p.targs)
 	if err != nil {
 		_, pos := p.pkg.cb.loadExpr(p.src)
 		p.pkg.cb.panicCodeErrorf(&pos, "%v", err)
@@ -64,8 +71,8 @@ func (p *inferFuncType) Instance() *types.Signature {
 	return tyRet.(*types.Signature)
 }
 
-func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem) *types.Signature {
-	tyRet, err := inferFunc(p.pkg, p.src, p.typ, p.targs, args)
+func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem, flags InstrFlags) *types.Signature {
+	tyRet, err := inferFunc(p.pkg, p.fn, p.typ, p.targs, args, flags)
 	if err != nil {
 		_, pos := p.pkg.cb.loadExpr(p.src)
 		p.pkg.cb.panicCodeErrorf(&pos, "%v", err)
@@ -76,7 +83,7 @@ func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem) *types.Signature
 func isGenericType(typ types.Type) bool {
 	switch t := typ.(type) {
 	case *types.Named:
-		return t.Origin() == t && t.TypeParams() != nil
+		return t.Obj() != nil && t.TypeArgs() == nil && t.TypeParams() != nil
 	case *types.Signature:
 		return t.TypeParams() != nil
 	}
@@ -108,16 +115,23 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 		indices[i] = args[i+1].Val
 	}
 	var tyRet types.Type
-	if !tt {
-		tyRet = newInferFuncType(p.pkg, typ.(*types.Signature), targs, srcExpr)
-	} else {
-		var err error
-		tyRet, err = inferType(p.pkg, srcExpr, typ, targs)
-		if err != nil {
-			_, pos := p.loadExpr(srcExpr)
-			p.panicCodeErrorf(&pos, "%v", err)
+	var err error
+	if tt {
+		tyRet, err = types.Instantiate(p.ctxt, typ, targs, true)
+		if err == nil {
+			tyRet = NewTypeType(tyRet)
 		}
-		tyRet = NewTypeType(tyRet)
+	} else {
+		sig := typ.(*types.Signature)
+		if nidx >= sig.TypeParams().Len() {
+			tyRet, err = types.Instantiate(p.ctxt, typ, targs, true)
+		} else {
+			tyRet = newInferFuncType(p.pkg, args[0], sig, targs, srcExpr)
+		}
+	}
+	if err != nil {
+		_, pos := p.loadExpr(srcExpr)
+		p.panicCodeErrorf(&pos, "%v", err)
 	}
 	if debugMatch {
 		log.Println("==> InferType", tyRet)
@@ -138,6 +152,41 @@ type typesContext = types.Context
 
 func newTypesContext() *typesContext {
 	return types.NewContext()
+}
+
+func toRecvType(pkg *Package, typ types.Type) ast.Expr {
+	var star bool
+	if t, ok := typ.(*types.Pointer); ok {
+		typ = t.Elem()
+		star = true
+	}
+	t, ok := typ.(*types.Named)
+	if !ok {
+		panic("unexpected: recv type must types.Named")
+	}
+	expr := toObjectExpr(pkg, t.Obj())
+	if tparams := t.TypeParams(); tparams != nil {
+		n := tparams.Len()
+		indices := make([]ast.Expr, n)
+		for i := 0; i < n; i++ {
+			indices[i] = toObjectExpr(pkg, tparams.At(i).Obj())
+		}
+		if n == 1 {
+			expr = &ast.IndexExpr{
+				X:     expr,
+				Index: indices[0],
+			}
+		} else {
+			expr = &ast.IndexListExpr{
+				X:       expr,
+				Indices: indices,
+			}
+		}
+	}
+	if star {
+		expr = &ast.StarExpr{X: expr}
+	}
+	return expr
 }
 
 func toNamedType(pkg *Package, t *types.Named) ast.Expr {
@@ -195,7 +244,80 @@ type positioner interface {
 //go:linkname checker_infer go/types.(*Checker).infer
 func checker_infer(check *types.Checker, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type)
 
-func inferFunc(pkg *Package, posn positioner, sig *types.Signature, targs []types.Type, args []*internal.Elem) (types.Type, error) {
+func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type, err error) {
+	conf := &types.Config{
+		Error: func(e error) {
+			err = e
+			if terr, ok := e.(types.Error); ok {
+				err = fmt.Errorf("%s", terr.Msg)
+			}
+		},
+	}
+	checker := types.NewChecker(conf, pkg.Fset, pkg.Types, nil)
+	result = checker_infer(checker, posn, tparams, targs, params, args)
+	return
+}
+
+func getParamsTypes(pkg *Package, tuple *types.Tuple, variadic bool) string {
+	n := tuple.Len()
+	if n == 0 {
+		return ""
+	}
+	typs := make([]string, n)
+	for i := 0; i < n; i++ {
+		typs[i] = tuple.At(i).Type().String()
+	}
+	if variadic {
+		typs[n-1] = "..." + tuple.At(n-1).Type().(*types.Slice).Elem().String()
+	}
+	return strings.Join(typs, ", ")
+}
+
+func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem, flags InstrFlags) ([]*internal.Elem, error) {
+	nargs := len(args)
+	nreq := sig.Params().Len()
+	if sig.Variadic() {
+		if nargs < nreq-1 {
+			caller := types.ExprString(fn.Val)
+			return nil, fmt.Errorf(
+				"not enough arguments in call to %s\n\thave (%v)\n\twant (%v)", caller, getTypes(args), getParamsTypes(pkg, sig.Params(), true))
+		}
+		if flags&InstrFlagEllipsis != 0 {
+			return args, nil
+		}
+		var typ types.Type
+		if nargs < nreq {
+			typ = sig.Params().At(nreq - 1).Type()
+			elem := typ.(*types.Slice).Elem()
+			if t, ok := elem.(*types.TypeParam); ok {
+				return nil, fmt.Errorf("cannot infer %v (%v)", elem, pkg.cb.position(t.Obj().Pos()))
+			}
+		} else {
+			typ = types.NewSlice(types.Default(args[nreq-1].Type))
+		}
+		res := make([]*internal.Elem, nreq)
+		for i := 0; i < nreq-1; i++ {
+			res[i] = args[i]
+		}
+		res[nreq-1] = &internal.Elem{Type: typ}
+		return res, nil
+	} else if nreq != nargs {
+		fewOrMany := "not enough"
+		if nargs > nreq {
+			fewOrMany = "too many"
+		}
+		caller := types.ExprString(fn.Val)
+		return nil, fmt.Errorf(
+			"%s arguments in call to %s\n\thave (%v)\n\twant (%v)", fewOrMany, caller, getTypes(args), getParamsTypes(pkg, sig.Params(), false))
+	}
+	return args, nil
+}
+
+func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type, args []*internal.Elem, flags InstrFlags) (types.Type, error) {
+	args, err := checkInferArgs(pkg, fn, sig, args, flags)
+	if err != nil {
+		return nil, err
+	}
 	xlist := make([]*operand, len(args))
 	for i, arg := range args {
 		xlist[i] = &operand{
@@ -211,46 +333,110 @@ func inferFunc(pkg *Package, posn positioner, sig *types.Signature, targs []type
 	for i := 0; i < n; i++ {
 		tparams[i] = tp.At(i)
 	}
-	targs, err := infer(pkg, posn, tparams, targs, sig.Params(), xlist)
+	targs, err = infer(pkg, fn.Val, tparams, targs, sig.Params(), xlist)
 	if err != nil {
 		return nil, err
 	}
 	return types.Instantiate(pkg.cb.ctxt, sig, targs, true)
 }
 
-func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type, err error) {
-	conf := &types.Config{
-		Error: func(e error) {
-			err = e
-			if terr, ok := e.(types.Error); ok {
-				err = fmt.Errorf("%s", terr.Msg)
-			}
-		},
+func inferFuncTargs(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type) (types.Type, error) {
+	tp := sig.TypeParams()
+	n := tp.Len()
+	tparams := make([]*types.TypeParam, n)
+	for i := 0; i < n; i++ {
+		tparams[i] = tp.At(i)
 	}
-	checker := types.NewChecker(conf, pkg.Fset, pkg.Types, nil)
-	result = checker_infer(checker, posn, tparams, targs, params, args)
-	return
-}
-
-func inferType(pkg *Package, posn positioner, typ types.Type, targs []types.Type) (types.Type, error) {
-	if sig, ok := typ.(*types.Signature); ok {
-		tp := sig.TypeParams()
-		n := tp.Len()
-		if len(targs) < n {
-			tparams := make([]*types.TypeParam, n)
-			for i := 0; i < n; i++ {
-				tparams[i] = tp.At(i)
-			}
-			var err error
-			targs, err = infer(pkg, posn, tparams, targs, nil, nil)
-			if err != nil {
-				return nil, err
-			}
-		}
+	targs, err := infer(pkg, fn.Val, tparams, targs, nil, nil)
+	if err != nil {
+		return nil, err
 	}
-	return types.Instantiate(pkg.cb.ctxt, typ, targs, true)
+	return types.Instantiate(pkg.cb.ctxt, sig, targs, true)
 }
 
 func funcHasTypeParams(t *types.Signature) bool {
 	return t.TypeParams() != nil
+}
+
+func toFieldListX(pkg *Package, t *types.TypeParamList) *ast.FieldList {
+	if t == nil {
+		return nil
+	}
+	n := t.Len()
+	flds := make([]*ast.Field, n)
+	for i := 0; i < n; i++ {
+		item := t.At(i)
+		names := []*ast.Ident{ast.NewIdent(item.Obj().Name())}
+		typ := toType(pkg, item.Constraint())
+		flds[i] = &ast.Field{Names: names, Type: typ}
+	}
+	return &ast.FieldList{
+		List: flds,
+	}
+}
+
+func toFuncType(pkg *Package, sig *types.Signature) *ast.FuncType {
+	params := toFieldList(pkg, sig.Params())
+	results := toFieldList(pkg, sig.Results())
+	if sig.Variadic() {
+		n := len(params)
+		if n == 0 {
+			panic("TODO: toFuncType error")
+		}
+		toVariadic(params[n-1])
+	}
+	return &ast.FuncType{
+		TypeParams: toFieldListX(pkg, sig.TypeParams()),
+		Params:     &ast.FieldList{List: params},
+		Results:    &ast.FieldList{List: results},
+	}
+}
+
+func toUnionType(pkg *Package, t *types.Union) ast.Expr {
+	var v ast.Expr
+	n := t.Len()
+	for i := 0; i < n; i++ {
+		term := t.Term(i)
+		typ := toType(pkg, term.Type())
+		if term.Tilde() {
+			typ = &ast.UnaryExpr{
+				Op: token.TILDE,
+				X:  typ,
+			}
+		}
+		if n == 1 {
+			return typ
+		}
+		if i == 0 {
+			v = typ
+		} else {
+			v = &ast.BinaryExpr{
+				X:  v,
+				Op: token.OR,
+				Y:  typ,
+			}
+		}
+	}
+	return v
+}
+
+func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams []*TypeParam) {
+	typ.SetTypeParams(tparams)
+	n := len(tparams)
+	if n == 0 {
+		spec.TypeParams = nil
+		return
+	}
+	flds := make([]*ast.Field, n)
+	for i := 0; i < n; i++ {
+		item := tparams[i]
+		names := []*ast.Ident{ast.NewIdent(item.Obj().Name())}
+		typ := toType(pkg, item.Constraint())
+		flds[i] = &ast.Field{Names: names, Type: typ}
+	}
+	spec.TypeParams = &ast.FieldList{List: flds}
+}
+
+func interfaceIsImplicit(t *types.Interface) bool {
+	return t.IsImplicit()
 }
