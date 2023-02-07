@@ -706,6 +706,19 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 		fnVal = &ast.ParenExpr{X: fnVal}
 	}
 	if len(args) == 1 && ConvertibleTo(pkg, args[0].Type, typ) {
+		if args[0].CVal != nil {
+			if t, ok := typ.(*types.Named); ok {
+				o := t.Obj()
+				if at := o.Pkg(); at != nil {
+					tname := o.Name()
+					if checkUntypedOverflows(pkg, at.Scope(), tname, args[0]) {
+						src, pos := pkg.cb.loadExpr(args[0].Src)
+						err = pkg.cb.newCodeError(&pos, fmt.Sprintf("cannot convert %v (untyped int constant %v) to type %v", src, args[0].CVal, tname))
+						return
+					}
+				}
+			}
+		}
 		goto finish
 	}
 
@@ -723,7 +736,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 			scope := at.Scope()
 			name := tname + "_Cast"
 			if cast := scope.Lookup(name); cast != nil {
-				if len(args) == 1 && args[0].Type == types.Typ[types.UntypedInt] {
+				if len(args) == 1 && args[0].CVal != nil {
 					if checkUntypedOverflows(pkg, scope, tname, args[0]) {
 						src, pos := pkg.cb.loadExpr(args[0].Src)
 						err = pkg.cb.newCodeError(&pos, fmt.Sprintf("cannot convert %v (untyped int constant %v) to type %v", src, args[0].CVal, tname))
@@ -732,6 +745,9 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 				}
 				castFn := &internal.Elem{Val: toObjectExpr(pkg, cast), Type: cast.Type()}
 				if ret, err = matchFuncCall(pkg, castFn, args, flags); err == nil {
+					if ret.CVal == nil && len(args) == 1 && checkUntypedType(scope, tname) {
+						ret.CVal = args[0].CVal
+					}
 					return
 				}
 			}
@@ -1232,6 +1248,16 @@ func constantToBigInt(v constant.Value) (*big.Int, bool) {
 		return new(big.Int).SetString(v.String(), 10)
 	}
 	return nil, false
+}
+
+func checkUntypedType(scope *types.Scope, tname string) bool {
+	c, ok := scope.Lookup(tname + "_IsUntyped").(*types.Const)
+	if ok {
+		if val := c.Val(); val != nil && val.Kind() == constant.Bool {
+			return constant.BoolVal(val)
+		}
+	}
+	return false
 }
 
 func checkUntypedOverflows(pkg *Package, scope *types.Scope, tname string, arg *internal.Elem) bool {
