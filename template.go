@@ -186,7 +186,6 @@ func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 // Default returns the default "typed" type for an "untyped" type;
 // it returns the incoming type for all other types. The default type
 // for untyped nil is untyped nil.
-//
 func Default(pkg *Package, t types.Type) types.Type {
 	return DefaultConv(pkg, t, nil)
 }
@@ -363,8 +362,10 @@ var (
 func assignable(pkg *Package, v types.Type, t *types.Named, pv *internal.Elem) bool {
 	o := t.Obj()
 	if at := o.Pkg(); at != nil {
-		name := o.Name() + "_Init"
-		if ini := at.Scope().Lookup(name); ini != nil {
+		tname := o.Name()
+		scope := at.Scope()
+		name := tname + "_Init"
+		if ini := scope.Lookup(name); ini != nil {
 			if v == types.Typ[types.UntypedInt] {
 				switch t {
 				case pkg.utBigInt, pkg.utBigRat:
@@ -376,6 +377,10 @@ func assignable(pkg *Package, v types.Type, t *types.Named, pv *internal.Elem) b
 						}
 					}
 					return true
+				default:
+					if checkUntypedOverflows(pkg, scope, tname, pv) {
+						return false
+					}
 				}
 			}
 			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
