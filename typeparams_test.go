@@ -21,6 +21,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"runtime"
 	"testing"
 
 	"github.com/goplus/gox/packages"
@@ -267,12 +268,20 @@ var	SumInt = Sum[int]
 	fnSum := pkgRef.Ref("Sum")
 	tyUint := types.Typ[types.Uint]
 
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: uint does not implement foo.Number`,
-		`./foo.gop:5:40: uint does not satisfy foo.Number (uint missing in ~int | float64)`)()
-
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart(0, "sum").Val(fnSum).Typ(tyUint).Index(1, false, source(`foo.Sum[uint]`, 5, 40)).EndInit(1).
-		End()
+	var msg string
+	switch runtime.Version()[:6] {
+	case "go1.18":
+		msg = `./foo.gop:5:40: uint does not implement foo.Number`
+	case "go1.19":
+		msg = `./foo.gop:5:40: uint does not implement foo.Number (uint missing in ~int | float64)`
+	default:
+		msg = `./foo.gop:5:40: uint does not satisfy foo.Number (uint missing in ~int | float64)`
+	}
+	codeErrorTestEx(t, pkg, msg, func(pkg *gox.Package) {
+		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+			DefineVarStart(0, "sum").Val(fnSum).Typ(tyUint).Index(1, false, source(`foo.Sum[uint]`, 5, 40)).EndInit(1).
+			End()
+	})
 }
 
 func TestTypeParamsErrorMatch(t *testing.T) {
@@ -297,12 +306,18 @@ var	AtInt = At[[]int]
 	tyAtInt := pkgRef.Ref("AtInt").Type()
 	tyInt := types.Typ[types.Int]
 
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: T does not match ~[]E`,
-		`./foo.gop:5:40: int does not match ~[]E`)()
-
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyInt).Index(1, false, source(`foo.At[int]`, 5, 40)).EndInit(1).
-		End()
+	var msg string
+	switch runtime.Version()[:6] {
+	case "go1.18", "go1.19":
+		msg = `./foo.gop:5:40: T does not match ~[]E`
+	default:
+		msg = `./foo.gop:5:40: int does not match ~[]E`
+	}
+	codeErrorTestEx(t, pkg, msg, func(pkg *gox.Package) {
+		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+			NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyInt).Index(1, false, source(`foo.At[int]`, 5, 40)).EndInit(1).
+			End()
+	})
 }
 
 func TestTypeParamsErrInferFunc(t *testing.T) {
@@ -321,10 +336,12 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	pkgRef := pkg.Import("foo")
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
-		End()
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
+				End()
+		})
 }
 
 func TestTypeParamsErrArgumentsParameters1(t *testing.T) {
@@ -344,10 +361,12 @@ type Data[T1 any, T2 any] struct {
 	pkgRef := pkg.Import("foo")
 	tyData := pkgRef.Ref("Data").Type()
 	tyInt := types.Typ[types.Int]
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: got 1 type arguments but foo.Data[T1, T2 any] has 2 type parameters`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
-		End()
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: got 1 type arguments but foo.Data[T1, T2 any] has 2 type parameters`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+				End()
+		})
 }
 
 func TestTypeParamsErrArgumentsParameters2(t *testing.T) {
@@ -367,10 +386,12 @@ type Data[T1 any, T2 any] struct {
 	pkgRef := pkg.Import("foo")
 	tyData := pkgRef.Ref("Data").Type()
 	tyInt := types.Typ[types.Int]
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: got 3 type arguments but foo.Data[T1, T2 any] has 2 type parameters`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, false, source(`foo.Data[int,int,int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
-		End()
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: got 3 type arguments but foo.Data[T1, T2 any] has 2 type parameters`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, false, source(`foo.Data[int,int,int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+				End()
+		})
 }
 
 func TestTypeParamsErrArgumentsParameters3(t *testing.T) {
@@ -389,10 +410,12 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	pkgRef := pkg.Import("foo")
 	fnTest := pkgRef.Ref("Test")
 	tyInt := types.Typ[types.Int]
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: got 3 type arguments but func[T1, T2 any](t1 T1, t2 T2) has 2 type parameters`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(fnTest).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, false, source(`foo.Test[int,int,int]`, 5, 40)).Val(1).Val(1).Call(2).EndStmt().
-		End()
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: got 3 type arguments but func[T1, T2 any](t1 T1, t2 T2) has 2 type parameters`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(fnTest).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, false, source(`foo.Test[int,int,int]`, 5, 40)).Val(1).Val(1).Call(2).EndStmt().
+				End()
+		})
 }
 
 func TestTypeParamsErrCallArguments1(t *testing.T) {
@@ -410,12 +433,14 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	pkg := gt.NewPackage("", "main")
 	pkgRef := pkg.Import("foo")
 	fnTest := pkgRef.Ref("Test")
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: not enough arguments in call to foo.Test
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: not enough arguments in call to foo.Test
 	have (untyped int)
-	want (T1, T2)`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(fnTest).Val(1).CallWith(1, 0, source("foo.Test(1)", 5, 40)).EndStmt().
-		End()
+	want (T1, T2)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(fnTest).Val(1).CallWith(1, 0, source("foo.Test(1)", 5, 40)).EndStmt().
+				End()
+		})
 }
 
 func TestTypeParamsErrCallArguments2(t *testing.T) {
@@ -433,12 +458,15 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	pkg := gt.NewPackage("", "main")
 	pkgRef := pkg.Import("foo")
 	fnTest := pkgRef.Ref("Test")
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: too many arguments in call to foo.Test
+
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: too many arguments in call to foo.Test
 	have (untyped int, untyped int, untyped int)
-	want (T1, T2)`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(fnTest).Val(1).Val(2).Val(3).CallWith(3, 0, source("foo.Test(1,2,3)", 5, 40)).EndStmt().
-		End()
+	want (T1, T2)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(fnTest).Val(1).Val(2).Val(3).CallWith(3, 0, source("foo.Test(1,2,3)", 5, 40)).EndStmt().
+				End()
+		})
 }
 
 func TestTypeParamsErrCallArguments3(t *testing.T) {
@@ -458,12 +486,14 @@ func Test[T1 any, T2 any]() {
 	pkg := gt.NewPackage("", "main")
 	pkgRef := pkg.Import("foo")
 	fnTest := pkgRef.Ref("Test")
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: too many arguments in call to foo.Test
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: too many arguments in call to foo.Test
 	have (untyped int, untyped int)
-	want ()`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(fnTest).Val(1).Val(2).CallWith(2, 0, source("foo.Test(1,2)", 5, 40)).EndStmt().
-		End()
+	want ()`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(fnTest).Val(1).Val(2).CallWith(2, 0, source("foo.Test(1,2)", 5, 40)).EndStmt().
+				End()
+		})
 }
 
 func TestTypeParamsErrCallVariadicArguments1(t *testing.T) {
@@ -485,12 +515,15 @@ func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
 	pkg := gt.NewPackage("", "main")
 	pkgRef := pkg.Import("foo")
 	fnAdd := pkgRef.Ref("Add")
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: not enough arguments in call to foo.Add
+
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: not enough arguments in call to foo.Add
 	have ()
-	want (T1, ...T2)`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(fnAdd).CallWith(0, 0, source("foo.Add()", 5, 40)).EndStmt().
-		End()
+	want (T1, ...T2)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(fnAdd).CallWith(0, 0, source("foo.Add()", 5, 40)).EndStmt().
+				End()
+		})
 }
 
 func TestTypeParamsErrCallVariadicArguments2(t *testing.T) {
@@ -512,11 +545,14 @@ func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
 	pkg := gt.NewPackage("", "main")
 	pkgRef := pkg.Import("foo")
 	fnAdd := pkgRef.Ref("Add")
+
 	// not pass source to foo.Add
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: cannot infer T2 (-)`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(fnAdd).Val(1).CallWith(1, 0, source("foo.Add(1)", 5, 40)).EndStmt().
-		End()
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: cannot infer T2 (-)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(fnAdd).Val(1).CallWith(1, 0, source("foo.Add(1)", 5, 40)).EndStmt().
+				End()
+		})
 }
 
 func TestTypeParamsErrorCall(t *testing.T) {
@@ -545,12 +581,20 @@ func Sum[T Number](vec []T) T {
 	tyUint := types.Typ[types.Uint]
 	tyUintSlice := types.NewSlice(tyUint)
 
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: uint does not satisfy foo.Number (uint missing in ~int | float64)`,
-		`./foo.gop:5:40: uint does not implement foo.Number`)()
-
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyUintSlice, 3).CallWith(1, 0, source(`foo.Sum([]uint{1,2,3})`, 5, 40)).EndInit(1).
-		End()
+	var msg string
+	switch runtime.Version()[:6] {
+	case "go1.18":
+		msg = `./foo.gop:5:40: uint does not implement foo.Number`
+	case "go1.19":
+		msg = `./foo.gop:5:40: uint does not implement foo.Number (uint missing in ~int | float64)`
+	default:
+		msg = `./foo.gop:5:40: uint does not satisfy foo.Number (uint missing in ~int | float64)`
+	}
+	codeErrorTestEx(t, pkg, msg, func(pkg *gox.Package) {
+		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+			Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyUintSlice, 3).CallWith(1, 0, source(`foo.Sum([]uint{1,2,3})`, 5, 40)).EndInit(1).
+			End()
+	})
 }
 
 func TestTypeParamsErrorInferCall(t *testing.T) {
@@ -569,10 +613,12 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	pkgRef := pkg.Import("foo")
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(fnLoader).Typ(tyInt).Index(1, false, source(`foo.Loader[int]`, 5, 40)).Val(10).Val(nil).CallWith(2, 0, source(`foo.Loader[int]`, 5, 40)).EndStmt().
-		End()
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(fnLoader).Typ(tyInt).Index(1, false, source(`foo.Loader[int]`, 5, 40)).Val(10).Val(nil).CallWith(2, 0, source(`foo.Loader[int]`, 5, 40)).EndStmt().
+				End()
+		})
 }
 
 func TestTypeParamErrGenericType(t *testing.T) {
@@ -590,10 +636,12 @@ type Data struct {
 	pkgRef := pkg.Import("foo")
 	tyData := pkgRef.Ref("Data").Type()
 	tyInt := types.Typ[types.Int]
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: foo.Data is not a generic type`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
-		End()
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: foo.Data is not a generic type`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+				End()
+		})
 }
 
 func TestTypeParamErrGenericType2(t *testing.T) {
@@ -601,10 +649,13 @@ func TestTypeParamErrGenericType2(t *testing.T) {
 	pkg := gt.NewPackage("", "main")
 	tyInt := types.Typ[types.Int]
 	tyString := types.Typ[types.String]
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: string is not a generic type`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart(0, "v1").Typ(tyString).Typ(tyInt).Index(1, false, source(`string[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
-		End()
+
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: string is not a generic type`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				DefineVarStart(0, "v1").Typ(tyString).Typ(tyInt).Index(1, false, source(`string[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+				End()
+		})
 }
 
 func TestTypeParamErrGenericFunc(t *testing.T) {
@@ -623,41 +674,19 @@ func Loader(n int) string {
 	pkgRef := pkg.Import("foo")
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: invalid operation: cannot index foo.Loader (value of type func(n int) string)`)()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
-		End()
+
+	codeErrorTestEx(t, pkg, `./foo.gop:5:40: invalid operation: cannot index foo.Loader (value of type func(n int) string)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
+				End()
+		})
 }
 
-func checkErrorMessage(pkg *gox.Package, t *testing.T, msgs ...string) func() {
-	return func() {
-		if e := recover(); e != nil {
-			switch err := e.(type) {
-			case *gox.CodeError, *gox.MatchError:
-				defer recover()
-				pkg.CB().ResetStmt()
-				ret := err.(error).Error()
-				for _, msg := range msgs {
-					if ret == msg {
-						return
-					}
-				}
-				t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msgs)
-			case *gox.ImportError:
-				ret := err.Error()
-				for _, msg := range msgs {
-					if ret == msg {
-						return
-					}
-				}
-				t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msgs)
-			default:
-				t.Fatal("Unexpected error:", e)
-			}
-		} else {
-			t.Fatal("no error?")
-		}
-	}
+func codeErrorTestEx(t *testing.T, pkg *gox.Package, msg string, source func(pkg *gox.Package), disableRecover ...bool) {
+	t.Run(msg, func(t *testing.T) {
+		codeErrorTestDo(t, pkg, msg, source, disableRecover...)
+	})
 }
 
 func TestGenTypeParamsFunc(t *testing.T) {
