@@ -268,7 +268,7 @@ var	SumInt = Sum[int]
 	tyUint := types.Typ[types.Uint]
 
 	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: uint does not implement foo.Number`,
-		`./foo.gop:5:40: uint does not implement foo.Number (uint missing in ~int | float64)`)()
+		`./foo.gop:5:40: uint does not satisfy foo.Number (uint missing in ~int | float64)`)()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "sum").Val(fnSum).Typ(tyUint).Index(1, false, source(`foo.Sum[uint]`, 5, 40)).EndInit(1).
@@ -545,7 +545,7 @@ func Sum[T Number](vec []T) T {
 	tyUint := types.Typ[types.Uint]
 	tyUintSlice := types.NewSlice(tyUint)
 
-	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: uint does not implement foo.Number (uint missing in ~int | float64)`,
+	defer checkErrorMessage(pkg, t, `./foo.gop:5:40: uint does not satisfy foo.Number (uint missing in ~int | float64)`,
 		`./foo.gop:5:40: uint does not implement foo.Number`)()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
