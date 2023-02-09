@@ -377,10 +377,11 @@ func assignable(pkg *Package, v types.Type, t *types.Named, pv *internal.Elem) b
 						}
 					}
 					return true
-				default:
-					if checkUntypedOverflows(pkg, scope, tname, pv) {
-						return false
-					}
+				}
+			}
+			if pv.CVal != nil {
+				if checkUntypedOverflows(pkg, scope, tname, pv) {
+					return false
 				}
 			}
 			fn := &internal.Elem{Val: toObjectExpr(pkg, ini), Type: ini.Type()}
