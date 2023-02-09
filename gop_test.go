@@ -1085,8 +1085,10 @@ func TestInt128(t *testing.T) {
 	uint128 := builtin.Ref("Uint128").Type()
 	int128 := builtin.Ref("Int128").Type()
 	pkg.CB().NewVarStart(int128, "a").UntypedBigInt(n1).EndInit(1)
-	pkg.CB().NewVarStart(int128, "b").Typ(int128).UntypedBigInt(n2).Call(1).EndInit(1)
-	pkg.CB().NewVarStart(int128, "c").Typ(int128).Typ(uint128).Val(1).Call(1).Call(1).EndInit(1)
+	pkg.CB().NewVarStart(int128, "b").Val(1).EndInit(1)
+	pkg.CB().NewVarStart(int128, "c").Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e30"}).EndInit(1)
+	pkg.CB().NewVarStart(int128, "d").Typ(int128).UntypedBigInt(n2).Call(1).EndInit(1)
+	pkg.CB().NewVarStart(int128, "e").Typ(int128).Typ(uint128).Val(1).Call(1).Call(1).EndInit(1)
 	domTest(t, pkg, `package main
 
 import (
@@ -1098,11 +1100,16 @@ var a builtin.Int128 = builtin.Int128_Init__1(func() *big.Int {
 	v, _ := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
 	return v
 }())
-var b builtin.Int128 = builtin.Int128_Cast__1(func() *big.Int {
+var b builtin.Int128 = builtin.Int128_Init__0(1)
+var c builtin.Int128 = builtin.Int128_Init__1(func() *big.Int {
+	v, _ := new(big.Int).SetString("1000000000000000000000000000000", 10)
+	return v
+}())
+var d builtin.Int128 = builtin.Int128_Cast__1(func() *big.Int {
 	v, _ := new(big.Int).SetString("-170141183460469231731687303715884105728", 10)
 	return v
 }())
-var c builtin.Int128 = builtin.Int128(builtin.Uint128_Cast__0(1))
+var e builtin.Int128 = builtin.Int128(builtin.Uint128_Cast__0(1))
 `)
 }
 
@@ -1115,7 +1122,8 @@ func TestUint128(t *testing.T) {
 	int128 := builtin.Ref("Int128").Type()
 	pkg.CB().NewVarStart(uint128, "a").UntypedBigInt(n1).EndInit(1)
 	pkg.CB().NewVarStart(uint128, "b").Val(0).EndInit(1)
-	pkg.CB().NewVarStart(uint128, "c").Typ(uint128).Typ(int128).Val(1).Call(1).Call(1).EndInit(1)
+	pkg.CB().NewVarStart(uint128, "c").Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e30"}).EndInit(1)
+	pkg.CB().NewVarStart(uint128, "d").Typ(uint128).Typ(int128).Val(1).Call(1).Call(1).EndInit(1)
 	domTest(t, pkg, `package main
 
 import (
@@ -1128,7 +1136,11 @@ var a builtin.Uint128 = builtin.Uint128_Init__1(func() *big.Int {
 	return v
 }())
 var b builtin.Uint128 = builtin.Uint128_Init__0(0)
-var c builtin.Uint128 = builtin.Uint128(builtin.Int128_Cast__0(1))
+var c builtin.Uint128 = builtin.Uint128_Init__1(func() *big.Int {
+	v, _ := new(big.Int).SetString("1000000000000000000000000000000", 10)
+	return v
+}())
+var d builtin.Uint128 = builtin.Uint128(builtin.Int128_Cast__0(1))
 `)
 }
 
@@ -1147,6 +1159,19 @@ func TestErrInt128(t *testing.T) {
 		n.Lsh(n, 127)
 		int128 := builtin.Ref("Int128").Type()
 		pkg.CB().NewVarStart(int128, "a").UntypedBigInt(n).EndInit(1)
+	})
+	t.Run("Int128_Max_Float", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("Int128_Max_Float: no error?")
+			} else {
+				t.Log(e)
+			}
+		}()
+		pkg := newGopMainPackage()
+		builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+		int128 := builtin.Ref("Int128").Type()
+		pkg.CB().NewVarStart(int128, "a").Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e60"}).EndInit(1)
 	})
 	t.Run("Int128_Min", func(t *testing.T) {
 		defer func() {
@@ -1177,7 +1202,7 @@ func TestErrInt128(t *testing.T) {
 		n.Lsh(n, 127)
 		int128 := builtin.Ref("Int128").Type()
 		uint128 := builtin.Ref("Uint128").Type()
-		pkg.CB().NewVarStart(int128, "c").Typ(int128).Typ(uint128).UntypedBigInt(n).Call(1).Call(1).EndInit(1)
+		pkg.CB().NewVarStart(int128, "a").Typ(int128).Typ(uint128).UntypedBigInt(n).Call(1).Call(1).EndInit(1)
 	})
 }
 
@@ -1196,6 +1221,19 @@ func TestErrUint128(t *testing.T) {
 		n.Lsh(n, 128)
 		uint128 := builtin.Ref("Uint128").Type()
 		pkg.CB().NewVarStart(uint128, "a").UntypedBigInt(n).EndInit(1)
+	})
+	t.Run("Uint128_Max_Float", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("Uint128_Max_Float: no error?")
+			} else {
+				t.Log(e)
+			}
+		}()
+		pkg := newGopMainPackage()
+		builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+		uint128 := builtin.Ref("Uint128").Type()
+		pkg.CB().NewVarStart(uint128, "a").Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e60"}).EndInit(1)
 	})
 	t.Run("Uint128_Min", func(t *testing.T) {
 		defer func() {
@@ -1222,7 +1260,7 @@ func TestErrUint128(t *testing.T) {
 		builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
 		int128 := builtin.Ref("Int128").Type()
 		uint128 := builtin.Ref("Uint128").Type()
-		pkg.CB().NewVarStart(uint128, "c").Typ(uint128).Typ(int128).Val(-1).Call(1).Call(1).EndInit(1)
+		pkg.CB().NewVarStart(uint128, "a").Typ(uint128).Typ(int128).Val(-1).Call(1).Call(1).EndInit(1)
 	})
 }
 

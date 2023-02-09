@@ -7,7 +7,8 @@ const (
 )
 
 type Uint128 struct {
-	hi, lo uint64
+	hi uint64
+	lo uint64
 }
 
 // Uint128_Init: func uint128.init(v int) uint128
