@@ -1075,4 +1075,155 @@ func main() {
 `)
 }
 
+func TestInt128(t *testing.T) {
+	pkg := newGopMainPackage()
+	builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+	n1 := big.NewInt(1)
+	n1.Lsh(n1, 127).Sub(n1, big.NewInt(1))
+	n2 := big.NewInt(-1)
+	n2.Lsh(n2, 127)
+	uint128 := builtin.Ref("Uint128").Type()
+	int128 := builtin.Ref("Int128").Type()
+	pkg.CB().NewVarStart(int128, "a").UntypedBigInt(n1).EndInit(1)
+	pkg.CB().NewVarStart(int128, "b").Typ(int128).UntypedBigInt(n2).Call(1).EndInit(1)
+	pkg.CB().NewVarStart(int128, "c").Typ(int128).Typ(uint128).Val(1).Call(1).Call(1).EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a builtin.Int128 = builtin.Int128_Init__1(func() *big.Int {
+	v, _ := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
+	return v
+}())
+var b builtin.Int128 = builtin.Int128_Cast__1(func() *big.Int {
+	v, _ := new(big.Int).SetString("-170141183460469231731687303715884105728", 10)
+	return v
+}())
+var c builtin.Int128 = builtin.Int128(builtin.Uint128_Cast__0(1))
+`)
+}
+
+func TestUint128(t *testing.T) {
+	pkg := newGopMainPackage()
+	builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+	n1 := big.NewInt(1)
+	n1.Lsh(n1, 128).Sub(n1, big.NewInt(1))
+	uint128 := builtin.Ref("Uint128").Type()
+	int128 := builtin.Ref("Int128").Type()
+	pkg.CB().NewVarStart(uint128, "a").UntypedBigInt(n1).EndInit(1)
+	pkg.CB().NewVarStart(uint128, "b").Val(0).EndInit(1)
+	pkg.CB().NewVarStart(uint128, "c").Typ(uint128).Typ(int128).Val(1).Call(1).Call(1).EndInit(1)
+	domTest(t, pkg, `package main
+
+import (
+	builtin "github.com/goplus/gox/internal/builtin"
+	big "math/big"
+)
+
+var a builtin.Uint128 = builtin.Uint128_Init__1(func() *big.Int {
+	v, _ := new(big.Int).SetString("340282366920938463463374607431768211455", 10)
+	return v
+}())
+var b builtin.Uint128 = builtin.Uint128_Init__0(0)
+var c builtin.Uint128 = builtin.Uint128(builtin.Int128_Cast__0(1))
+`)
+}
+
+func TestErrInt128(t *testing.T) {
+	t.Run("Int128_Max", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("Int128_Max: no error?")
+			} else {
+				t.Log(e)
+			}
+		}()
+		pkg := newGopMainPackage()
+		builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+		n := big.NewInt(1)
+		n.Lsh(n, 127)
+		int128 := builtin.Ref("Int128").Type()
+		pkg.CB().NewVarStart(int128, "a").UntypedBigInt(n).EndInit(1)
+	})
+	t.Run("Int128_Min", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("Int128_Min: no error?")
+			} else {
+				t.Log(e)
+			}
+		}()
+		pkg := newGopMainPackage()
+		builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+		n := big.NewInt(-1)
+		n.Lsh(n, 127).Sub(n, big.NewInt(1))
+		int128 := builtin.Ref("Int128").Type()
+		pkg.CB().NewVarStart(int128, "a").Typ(int128).UntypedBigInt(n).Call(1).EndInit(1)
+	})
+	t.Run("Int128_Uint128", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("Int128_Uint128: no error?")
+			} else {
+				t.Log(e)
+			}
+		}()
+		pkg := newGopMainPackage()
+		builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+		n := big.NewInt(1)
+		n.Lsh(n, 127)
+		int128 := builtin.Ref("Int128").Type()
+		uint128 := builtin.Ref("Uint128").Type()
+		pkg.CB().NewVarStart(int128, "c").Typ(int128).Typ(uint128).UntypedBigInt(n).Call(1).Call(1).EndInit(1)
+	})
+}
+
+func TestErrUint128(t *testing.T) {
+	t.Run("Uint128_Max", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("Uint128_Max: no error?")
+			} else {
+				t.Log(e)
+			}
+		}()
+		pkg := newGopMainPackage()
+		builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+		n := big.NewInt(1)
+		n.Lsh(n, 128)
+		uint128 := builtin.Ref("Uint128").Type()
+		pkg.CB().NewVarStart(uint128, "a").UntypedBigInt(n).EndInit(1)
+	})
+	t.Run("Uint128_Min", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("Uint128_Min: no error?")
+			} else {
+				t.Log(e)
+			}
+		}()
+		pkg := newGopMainPackage()
+		builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+		uint128 := builtin.Ref("Uint128").Type()
+		pkg.CB().NewVarStart(uint128, "a").Typ(uint128).Val(-1).Call(1).EndInit(1)
+	})
+	t.Run("Unt128_Int128", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("Unt128_Int128: no error?")
+			} else {
+				t.Log(e)
+			}
+		}()
+		pkg := newGopMainPackage()
+		builtin := pkg.Import("github.com/goplus/gox/internal/builtin")
+		int128 := builtin.Ref("Int128").Type()
+		uint128 := builtin.Ref("Uint128").Type()
+		pkg.CB().NewVarStart(uint128, "c").Typ(uint128).Typ(int128).Val(-1).Call(1).Call(1).EndInit(1)
+	})
+}
+
 // ----------------------------------------------------------------------------
