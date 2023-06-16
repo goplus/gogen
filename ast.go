@@ -706,6 +706,19 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 		fnVal = &ast.ParenExpr{X: fnVal}
 	}
 	if len(args) == 1 && ConvertibleTo(pkg, args[0].Type, typ) {
+		if args[0].CVal != nil {
+			if t, ok := typ.(*types.Named); ok {
+				o := t.Obj()
+				if at := o.Pkg(); at != nil {
+					tname := o.Name()
+					if checkUntypedOverflows(pkg, at.Scope(), tname, args[0]) {
+						src, pos := pkg.cb.loadExpr(args[0].Src)
+						err = pkg.cb.newCodeError(&pos, fmt.Sprintf("cannot convert %v (untyped int constant %v) to type %v", src, args[0].CVal, tname))
+						return
+					}
+				}
+			}
+		}
 		goto finish
 	}
 
@@ -719,10 +732,22 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 	case *types.Named:
 		o := t.Obj()
 		if at := o.Pkg(); at != nil {
-			name := o.Name() + "_Cast"
-			if cast := at.Scope().Lookup(name); cast != nil {
+			tname := o.Name()
+			scope := at.Scope()
+			name := tname + "_Cast"
+			if cast := scope.Lookup(name); cast != nil {
+				if len(args) == 1 && args[0].CVal != nil {
+					if checkUntypedOverflows(pkg, scope, tname, args[0]) {
+						src, pos := pkg.cb.loadExpr(args[0].Src)
+						err = pkg.cb.newCodeError(&pos, fmt.Sprintf("cannot convert %v (untyped int constant %v) to type %v", src, args[0].CVal, tname))
+						return
+					}
+				}
 				castFn := &internal.Elem{Val: toObjectExpr(pkg, cast), Type: cast.Type()}
 				if ret, err = matchFuncCall(pkg, castFn, args, flags); err == nil {
+					if ret.CVal == nil && len(args) == 1 && checkUntypedType(scope, tname) {
+						ret.CVal = args[0].CVal
+					}
 					return
 				}
 			}
@@ -1216,6 +1241,50 @@ func boundElementType(pkg *Package, elts []*internal.Elem, base, max, step int) 
 		}
 	}
 	return tBound
+}
+
+func constantToBigInt(v constant.Value) (*big.Int, bool) {
+	if v.Kind() == constant.Int {
+		return new(big.Int).SetString(v.String(), 10)
+	} else {
+		return new(big.Int).SetString(v.ExactString(), 10)
+	}
+	return nil, false
+}
+
+func checkUntypedType(scope *types.Scope, tname string) bool {
+	c, ok := scope.Lookup(tname + "_IsUntyped").(*types.Const)
+	if ok {
+		if val := c.Val(); val != nil && val.Kind() == constant.Bool {
+			return constant.BoolVal(val)
+		}
+	}
+	return false
+}
+
+func checkUntypedOverflows(pkg *Package, scope *types.Scope, tname string, arg *internal.Elem) bool {
+	cmax, ok1 := scope.Lookup(tname + "_Max").(*types.Const)
+	cmin, ok2 := scope.Lookup(tname + "_Min").(*types.Const)
+	if ok1 || ok2 {
+		cv, ok := constantToBigInt(arg.CVal)
+		if ok {
+			if ok1 {
+				if max, ok := constantToBigInt(cmax.Val()); ok {
+					if cv.Cmp(max) > 0 {
+						return true
+					}
+				}
+			}
+			if ok2 {
+				if min, ok := constantToBigInt(cmin.Val()); ok {
+					if cv.Cmp(min) < 0 {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 // -----------------------------------------------------------------------------
