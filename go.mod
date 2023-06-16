@@ -2,4 +2,4 @@ module github.com/goplus/gox
 
 go 1.16
 
-require golang.org/x/tools v0.9.3
+require golang.org/x/tools v0.10.0
