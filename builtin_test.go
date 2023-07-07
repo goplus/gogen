@@ -1039,4 +1039,16 @@ func TestSubstVar(t *testing.T) {
 	Lookup(scope, "b")
 }
 
+func TestToTag(t *testing.T) {
+	if v := toTag(`json:"mytag"`).Value; v != "`json:\"mytag\"`" {
+		t.Fatal(v)
+	}
+	if v := toTag("json:\"mytag\"").Value; v != "`json:\"mytag\"`" {
+		t.Fatal(v)
+	}
+	if v := toTag("json:`mytag`").Value; v != "\"json:`mytag`\"" {
+		t.Fatal(v)
+	}
+}
+
 // ----------------------------------------------------------------------------
