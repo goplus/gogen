@@ -100,11 +100,21 @@ func toFields(pkg *Package, t *types.Struct) []*ast.Field {
 		typ := toType(pkg, item.Type())
 		fld := &ast.Field{Names: names, Type: typ}
 		if tag := t.Tag(i); tag != "" {
-			fld.Tag = &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(tag)}
+			fld.Tag = toTag(tag)
 		}
 		flds[i] = fld
 	}
 	return flds
+}
+
+func toTag(tag string) *ast.BasicLit {
+	var s string
+	if strings.ContainsAny(tag, "`\r\n") {
+		s = strconv.Quote(tag)
+	} else {
+		s = "`" + tag + "`"
+	}
+	return &ast.BasicLit{Kind: token.STRING, Value: s}
 }
 
 func toVariadic(fld *ast.Field) {
