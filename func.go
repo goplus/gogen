@@ -19,6 +19,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"strings"
 
 	"github.com/goplus/gox/internal"
 )
@@ -281,9 +282,15 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 	return types.NewTypeName(pos, pkg, name, &overloadFuncType{funcs})
 }
 
+const gop_overload = "__gop_overload__"
+
 func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
 	oft := &overloadFuncType{funcs}
-	recv := types.NewParam(token.NoPos, pkg, "", oft)
+	var nameList []string
+	for _, f := range funcs {
+		nameList = append(nameList, f.Name())
+	}
+	recv := types.NewParam(token.NoPos, pkg, "__gop_overload__"+strings.Join(nameList, ";"), oft)
 	sig := types.NewSignature(recv, nil, nil, false)
 	ofn := types.NewFunc(pos, pkg, name, sig)
 	typ.AddMethod(ofn)
