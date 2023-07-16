@@ -799,3 +799,58 @@ func main() {
 }
 `)
 }
+
+func TestTypeParamsOverload(t *testing.T) {
+	const src = `package foo
+
+const GopPackage = true
+
+type Data[T any] struct {
+	v T
+}
+
+func (p *Data[T]) Foo__0() {
+}
+func (p *Data[T]) Foo__1(a string, t T) {
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	//gox.InitGopPkg(fooPkg)
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	tyData := pkgRef.Ref("Data").Type()
+	tyInt := types.Typ[types.Int]
+	tyDataInt, err := types.Instantiate(nil, tyData, []types.Type{tyInt}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.NewPointer(tyDataInt), "data").
+		Val(ctxRef(pkg, "data")).
+		Debug(
+			func(cb *gox.CodeBuilder) {
+				cb.Member("foo", gox.MemberFlagMethodAlias)
+			}).
+		Call(0).EndStmt().
+		Val(ctxRef(pkg, "data")).
+		Debug(
+			func(cb *gox.CodeBuilder) {
+				cb.Member("foo", gox.MemberFlagMethodAlias)
+			}).
+		Val("hello").Val(100).Call(2).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import foo "foo"
+
+func main() {
+	var data *foo.Data[int]
+	data.Foo__0()
+	data.Foo__1("hello", 100)
+}
+`)
+}
