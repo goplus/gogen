@@ -282,7 +282,7 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 	return types.NewTypeName(pos, pkg, name, &overloadFuncType{funcs})
 }
 
-const gop_overload = "__gop_overload__"
+const gop_overload = "__gop_overload__:"
 
 func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
 	oft := &overloadFuncType{funcs}
@@ -290,7 +290,7 @@ func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name
 	for _, f := range funcs {
 		nameList = append(nameList, f.Name())
 	}
-	recv := types.NewParam(token.NoPos, pkg, "__gop_overload__"+strings.Join(nameList, ";"), oft)
+	recv := types.NewParam(token.NoPos, pkg, gop_overload+strings.Join(nameList, ";"), oft)
 	sig := types.NewSignature(recv, nil, nil, false)
 	ofn := types.NewFunc(pos, pkg, name, sig)
 	typ.AddMethod(ofn)
