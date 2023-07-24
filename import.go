@@ -99,7 +99,7 @@ func isOverloadFunc(name string) bool {
 	return n > 3 && name[n-3:n-1] == "__"
 }
 
-func initGopPkg(pkg *types.Package) {
+func InitGopPkg(pkg *types.Package) {
 	scope := pkg.Scope()
 	if scope.Lookup(gopPackage) == nil { // not is a Go+ package
 		return
