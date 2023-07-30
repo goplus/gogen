@@ -317,12 +317,12 @@ func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 	switch t := typ.(type) {
 	case *types.Signature:
 		if funcs, ok := CheckOverloadMethod(t); ok {
-			return checkOverloadFuncs(funcs, idx, nin)
+			return checkOverloadFunc(funcs, idx, nin)
 		} else {
 			return t
 		}
 	case *overloadFuncType:
-		return checkOverloadFuncs(t.funcs, idx, nin)
+		return checkOverloadFunc(t.funcs, idx, nin)
 	case *templateRecvMethodType:
 		if sig, ok := t.fn.Type().(*types.Signature); ok {
 			params := sig.Params()
@@ -337,7 +337,7 @@ func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 	return nil
 }
 
-func checkOverloadFuncs(funcs []types.Object, idx, nin int) *types.Signature {
+func checkOverloadFunc(funcs []types.Object, idx, nin int) *types.Signature {
 	for _, v := range funcs {
 		if sig, ok := v.Type().(*types.Signature); ok {
 			params := sig.Params()
@@ -347,6 +347,42 @@ func checkOverloadFuncs(funcs []types.Object, idx, nin int) *types.Signature {
 		}
 	}
 	return nil
+}
+
+func CheckSignatures(typ types.Type, idx, nin int) []*types.Signature {
+	switch t := typ.(type) {
+	case *types.Signature:
+		if funcs, ok := CheckOverloadMethod(t); ok {
+			return checkOverloadFuncs(funcs, idx, nin)
+		} else {
+			return []*types.Signature{t}
+		}
+	case *overloadFuncType:
+		return checkOverloadFuncs(t.funcs, idx, nin)
+	case *templateRecvMethodType:
+		if sig, ok := t.fn.Type().(*types.Signature); ok {
+			params := sig.Params()
+			n := params.Len()
+			mparams := make([]*types.Var, n-1)
+			for i := range mparams {
+				mparams[i] = params.At(i + 1)
+			}
+			return []*types.Signature{types.NewSignature(nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())}
+		}
+	}
+	return nil
+}
+
+func checkOverloadFuncs(funcs []types.Object, idx, nin int) (sigs []*types.Signature) {
+	for _, v := range funcs {
+		if sig, ok := v.Type().(*types.Signature); ok {
+			params := sig.Params()
+			if idx < params.Len() && checkSigParam(params.At(idx).Type(), nin) {
+				sigs = append(sigs, sig)
+			}
+		}
+	}
+	return
 }
 
 func checkSigParam(typ types.Type, nin int) bool {
