@@ -822,6 +822,46 @@ func TestCheckSignature(t *testing.T) {
 	}
 }
 
+func TestCheckSignatures(t *testing.T) {
+	denoteRecv(&ast.SelectorExpr{Sel: ident("x")})
+	if CheckSignatures(nil, 0, 0) != nil {
+		t.Fatal("TestCheckSignatures failed: CheckSignatures(nil) != nil")
+	}
+	sig := types.NewSignature(nil, nil, nil, false)
+	if v := CheckSignatures(sig, 0, 0); len(v) != 1 || v[0] != sig {
+		t.Fatal("TestCheckSignatures failed: CheckSignatures(sig)[0] != sig")
+	}
+	pkg := types.NewPackage("", "foo")
+	arg := types.NewParam(token.NoPos, pkg, "", sig)
+	sig2 := types.NewSignature(nil, types.NewTuple(arg, arg), nil, false)
+	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
+	if CheckSignatures(&templateRecvMethodType{fn: o}, 0, 0) == nil {
+		t.Fatal("TestCheckSignatures failed: CheckSignatures == nil")
+	}
+	sig3 := types.NewSignature(nil, types.NewTuple(arg, arg, arg), nil, false)
+	o2 := types.NewFunc(token.NoPos, pkg, "bar", sig3)
+	of := NewOverloadFunc(token.NoPos, pkg, "bar", o, o2)
+	if v := CheckSignatures(of.Type(), 0, 0); len(v) != 2 {
+		t.Fatal("TestCheckSignatures failed: OverloadFunc CheckSignatures ==", len(v))
+	}
+
+	if HasAutoProperty(of.Type()) {
+		t.Fatal("func bar has autoprop?")
+	}
+
+	o3 := types.NewFunc(token.NoPos, pkg, "bar2", sig)
+	of2 := NewOverloadFunc(token.NoPos, pkg, "bar3", o3)
+	if !HasAutoProperty(of2.Type()) {
+		t.Fatal("func bar3 has autoprop?")
+	}
+
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "t", nil), types.Typ[types.Int], nil)
+	om := NewOverloadMethod(typ, token.NoPos, pkg, "bar", o, o2)
+	if CheckSignatures(om.Type(), 0, 1) != nil {
+		t.Fatal("TestCheckSignatures failed: OverloadMethod CheckSignatures != nil")
+	}
+}
+
 func TestCheckSigParam(t *testing.T) {
 	if checkSigParam(types.NewPointer(types.Typ[types.Int]), -1) {
 		t.Fatal("TestCheckSigParam failed: checkSigParam *int should return false")
