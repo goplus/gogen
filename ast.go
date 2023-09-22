@@ -878,9 +878,7 @@ func restoreArgs(args []*internal.Elem, backup []backupElem) {
 
 func copyArgs(args []*internal.Elem) []*internal.Elem {
 	backup := make([]*internal.Elem, len(args))
-	for i, arg := range args {
-		backup[i] = arg
-	}
+	copy(backup, args)
 	return backup
 }
 
@@ -1256,10 +1254,8 @@ func boundElementType(pkg *Package, elts []*internal.Elem, base, max, step int) 
 func constantToBigInt(v constant.Value) (*big.Int, bool) {
 	if v.Kind() == constant.Int {
 		return new(big.Int).SetString(v.String(), 10)
-	} else {
-		return new(big.Int).SetString(v.ExactString(), 10)
 	}
-	return nil, false
+	return new(big.Int).SetString(v.ExactString(), 10)
 }
 
 func checkUntypedType(scope *types.Scope, tname string) bool {

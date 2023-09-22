@@ -213,14 +213,15 @@ func toNamedType(pkg *Package, t *types.Named) ast.Expr {
 }
 
 type operandMode byte
-type builtinId int
+
+//type builtinId int
 
 type operand struct {
 	mode operandMode
 	expr ast.Expr
 	typ  types.Type
 	val  constant.Value
-	id   builtinId
+	//id   builtinId
 }
 
 const (
