@@ -29,14 +29,15 @@ type controlFlow interface {
 // ----------------------------------------------------------------------------
 //
 // block
-//   ...
-// end
 //
+//	...
+//
+// end
 type blockStmt struct {
 	old codeBlockCtx
 }
 
-func (p *blockStmt) End(cb *CodeBuilder) {
+func (p *blockStmt) End(cb *CodeBuilder, src ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
 	cb.emitStmt(&ast.BlockStmt{List: stmts})
@@ -45,25 +46,29 @@ func (p *blockStmt) End(cb *CodeBuilder) {
 // ----------------------------------------------------------------------------
 //
 // vblock
-//   ...
-// end
 //
+//	...
+//
+// end
 type vblockStmt struct {
 	old vblockCtx
 }
 
-func (p *vblockStmt) End(cb *CodeBuilder) {
+func (p *vblockStmt) End(cb *CodeBuilder, src ast.Node) {
 	cb.endVBlockStmt(&p.old)
 }
 
 // ----------------------------------------------------------------------------
 //
 // if init; cond then
-//   ...
-// else
-//   ...
-// end
 //
+//	...
+//
+// else
+//
+//	...
+//
+// end
 type ifStmt struct {
 	init ast.Stmt
 	cond ast.Expr
@@ -101,7 +106,7 @@ func (p *ifStmt) Else(cb *CodeBuilder) {
 	cb.startBlockStmt(p, "else body", &p.old2)
 }
 
-func (p *ifStmt) End(cb *CodeBuilder) {
+func (p *ifStmt) End(cb *CodeBuilder, src ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old2)
 	cb.current.flows |= flows
 
@@ -124,14 +129,15 @@ func (p *ifStmt) End(cb *CodeBuilder) {
 // ----------------------------------------------------------------------------
 //
 // switch init; tag then
-//   expr1, expr2, ..., exprN case(N)
-//     ...
-//     end
-//   expr1, expr2, ..., exprM case(M)
-//     ...
-//     end
-// end
 //
+//	expr1, expr2, ..., exprN case(N)
+//	  ...
+//	  end
+//	expr1, expr2, ..., exprM case(M)
+//	  ...
+//	  end
+//
+// end
 type switchStmt struct {
 	init ast.Stmt
 	tag  *internal.Elem
@@ -175,7 +181,7 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int) {
 	cb.startBlockStmt(stmt, "case statement", &stmt.old)
 }
 
-func (p *switchStmt) End(cb *CodeBuilder) {
+func (p *switchStmt) End(cb *CodeBuilder, src ast.Node) {
 	if p.tag == nil {
 		return
 	}
@@ -195,7 +201,7 @@ func (p *caseStmt) Fallthrough(cb *CodeBuilder) {
 	cb.emitStmt(&ast.BranchStmt{Tok: token.FALLTHROUGH})
 }
 
-func (p *caseStmt) End(cb *CodeBuilder) {
+func (p *caseStmt) End(cb *CodeBuilder, src ast.Node) {
 	body, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
 	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
@@ -205,11 +211,15 @@ func (p *caseStmt) End(cb *CodeBuilder) {
 //
 // select
 // commStmt1 commCase()
-//    ...
-//    end
+//
+//	...
+//	end
+//
 // commStmt2 commCase()
-//    ...
-//    end
+//
+//	...
+//	end
+//
 // end
 type selectStmt struct {
 	old codeBlockCtx
@@ -224,7 +234,7 @@ func (p *selectStmt) CommCase(cb *CodeBuilder, n int) {
 	cb.startBlockStmt(stmt, "comm case statement", &stmt.old)
 }
 
-func (p *selectStmt) End(cb *CodeBuilder) {
+func (p *selectStmt) End(cb *CodeBuilder, src ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ flowFlagBreak)
 	cb.emitStmt(&ast.SelectStmt{Body: &ast.BlockStmt{List: stmts}})
@@ -235,7 +245,7 @@ type commCase struct {
 	old  codeBlockCtx
 }
 
-func (p *commCase) End(cb *CodeBuilder) {
+func (p *commCase) End(cb *CodeBuilder, src ast.Node) {
 	body, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
 	cb.emitStmt(&ast.CommClause{Comm: p.comm, Body: body})
@@ -245,13 +255,16 @@ func (p *commCase) End(cb *CodeBuilder) {
 //
 // typeSwitch(name) init; expr typeAssertThen
 // type1, type2, ... typeN typeCase(N)
-//    ...
-//    end
-// type1, type2, ... typeM typeCase(M)
-//    ...
-//    end
-// end
 //
+//	...
+//	end
+//
+// type1, type2, ... typeM typeCase(M)
+//
+//	...
+//	end
+//
+// end
 type typeSwitchStmt struct {
 	init  ast.Stmt
 	name  string
@@ -316,7 +329,7 @@ func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
 	}
 }
 
-func (p *typeSwitchStmt) End(cb *CodeBuilder) {
+func (p *typeSwitchStmt) End(cb *CodeBuilder, src ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ flowFlagBreak)
 
@@ -340,7 +353,7 @@ type typeCaseStmt struct {
 	old  codeBlockCtx
 }
 
-func (p *typeCaseStmt) End(cb *CodeBuilder) {
+func (p *typeCaseStmt) End(cb *CodeBuilder, src ast.Node) {
 	body, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
 	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
@@ -373,10 +386,11 @@ func InsertStmtFront(body *ast.BlockStmt, stmt ast.Stmt) {
 // ----------------------------------------------------------------------------
 //
 // for init; cond then
-//   body
-//   post
-// end
 //
+//	body
+//	post
+//
+// end
 type forStmt struct {
 	init ast.Stmt
 	cond ast.Expr
@@ -411,7 +425,7 @@ func (p *forStmt) Post(cb *CodeBuilder) {
 	p.body = &ast.BlockStmt{List: stmts}
 }
 
-func (p *forStmt) End(cb *CodeBuilder) {
+func (p *forStmt) End(cb *CodeBuilder, src ast.Node) {
 	var post ast.Stmt
 	if p.body != nil { // has post stmt
 		stmts, _ := cb.endBlockStmt(&p.old)
@@ -433,13 +447,16 @@ func (p *forStmt) End(cb *CodeBuilder) {
 // ----------------------------------------------------------------------------
 //
 // forRange names... exprX rangeAssignThen
-//   ...
+//
+//	...
+//
 // end
 //
 // forRange exprKey exprVal exprX rangeAssignThen
-//   ...
-// end
 //
+//	...
+//
+// end
 type forRangeStmt struct {
 	names []string
 	stmt  *ast.RangeStmt
@@ -640,7 +657,7 @@ const (
 	cantUseFlows = "can't use return/continue/break/goto in for range of udt.Gop_Enum(callback)"
 )
 
-func (p *forRangeStmt) End(cb *CodeBuilder) {
+func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 	if p.stmt == nil {
 		return
 	}

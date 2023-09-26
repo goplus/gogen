@@ -194,7 +194,7 @@ func (p *ValueDecl) Ref(name string) Ref {
 
 // End is provided for internal usage.
 // Don't call it at any time. Please use (*CodeBuilder).EndInit instead.
-func (p *ValueDecl) End(cb *CodeBuilder) {
+func (p *ValueDecl) End(cb *CodeBuilder, src ast.Node) {
 	fatal("don't call End(), please use EndInit() instead")
 }
 

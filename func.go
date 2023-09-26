@@ -102,7 +102,7 @@ func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 }
 
 // End is for internal use.
-func (p *Func) End(cb *CodeBuilder) {
+func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	if p.isInline() {
 		p.inlineClosureEnd(cb)
 		return
@@ -112,7 +112,7 @@ func (p *Func) End(cb *CodeBuilder) {
 	t, _ := toNormalizeSignature(nil, p.Type().(*types.Signature))
 	if fn := p.decl; fn == nil { // is closure
 		expr := &ast.FuncLit{Type: toFuncType(pkg, t), Body: body}
-		cb.stk.Push(&internal.Elem{Val: expr, Type: t})
+		cb.stk.Push(&internal.Elem{Val: expr, Type: t, Src: src})
 	} else {
 		fn.Name, fn.Type, fn.Body = ident(p.Name()), toFuncType(pkg, t), body
 		if recv := t.Recv(); IsMethodRecv(recv) {
