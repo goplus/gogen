@@ -569,7 +569,7 @@ func TestVarDeclEnd(t *testing.T) {
 			t.Fatal("TestVarDeclEnd failed: no error?")
 		}
 	}()
-	decl.End(nil)
+	decl.End(nil, nil)
 }
 
 func TestCheckParenExpr(t *testing.T) {
@@ -935,7 +935,7 @@ func TestForRangeStmtPanic(t *testing.T) {
 		}
 	}()
 	var s forRangeStmt
-	s.End(nil)
+	s.End(nil, nil)
 }
 
 func TestNewFuncDeclPanic(t *testing.T) {
@@ -969,7 +969,7 @@ func TestSwitchStmtPanic(t *testing.T) {
 		}
 	}()
 	var s switchStmt
-	s.End(nil)
+	s.End(nil, nil)
 }
 
 func TestCallIncDec(t *testing.T) {
