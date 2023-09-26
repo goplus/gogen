@@ -40,7 +40,7 @@ func getSrc(node []ast.Node) ast.Node {
 // ----------------------------------------------------------------------------
 
 type codeBlock interface {
-	End(cb *CodeBuilder)
+	End(cb *CodeBuilder, src ast.Node)
 }
 
 type vblockCtx struct {
@@ -314,9 +314,10 @@ func (p *CodeBuilder) startStmtAt(stmt ast.Stmt) int {
 }
 
 // Usage:
-//   idx := cb.startStmtAt(stmt)
-//   ...
-//   cb.commitStmt(idx)
+//
+//	idx := cb.startStmtAt(stmt)
+//	...
+//	cb.commitStmt(idx)
 func (p *CodeBuilder) commitStmt(idx int) {
 	stmts := p.current.stmts
 	n := len(stmts) - 1
@@ -751,7 +752,7 @@ retry:
 }
 
 // MapLit func
-func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
+func (p *CodeBuilder) MapLit(typ types.Type, arity int, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("MapLit", typ, arity)
 	}
@@ -777,7 +778,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 			typExpr = toMapType(pkg, t)
 		}
 		ret := &ast.CompositeLit{Type: typExpr}
-		p.stk.Push(&internal.Elem{Type: typ, Val: ret})
+		p.stk.Push(&internal.Elem{Type: typ, Val: ret, Src: getSrc(src)})
 		return p
 	}
 	if (arity & 1) != 0 {
@@ -810,7 +811,9 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int) *CodeBuilder {
 			}
 		}
 	}
-	p.stk.Ret(arity, &internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, &internal.Elem{
+		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
+	})
 	return p
 }
 
@@ -860,10 +863,15 @@ func (p *CodeBuilder) indexElemExpr(args []*internal.Elem, i int) ast.Expr {
 
 // SliceLit func
 func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeBuilder {
-	var elts []ast.Expr
 	var keyValMode = (keyVal != nil && keyVal[0])
+	return p.SliceLitEx(typ, arity, keyValMode)
+}
+
+// SliceLitEx func
+func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
+	var elts []ast.Expr
 	if debugInstr {
-		log.Println("SliceLit", typ, arity, keyValMode)
+		log.Println("SliceLit", typ, arity, keyVal)
 	}
 	var t *types.Slice
 	var typExpr ast.Expr
@@ -880,7 +888,7 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			log.Panicln("SliceLit: typ isn't a slice type -", reflect.TypeOf(typ))
 		}
 	}
-	if keyValMode { // in keyVal mode
+	if keyVal { // in keyVal mode
 		if (arity & 1) != 0 {
 			log.Panicln("SliceLit: invalid arity, can't be odd in keyVal mode -", arity)
 		}
@@ -904,7 +912,9 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 				typ = t
 				typExpr = toSliceType(pkg, t)
 			}
-			p.stk.Push(&internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr}})
+			p.stk.Push(&internal.Elem{
+				Type: typ, Val: &ast.CompositeLit{Type: typExpr}, Src: getSrc(src),
+			})
 			return p
 		}
 		var val types.Type
@@ -930,16 +940,23 @@ func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			}
 		}
 	}
-	p.stk.Ret(arity, &internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, &internal.Elem{
+		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
+	})
 	return p
 }
 
 // ArrayLit func
 func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeBuilder {
-	var elts []ast.Expr
 	var keyValMode = (keyVal != nil && keyVal[0])
+	return p.ArrayLitEx(typ, arity, keyValMode)
+}
+
+// ArrayLitEx func
+func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
+	var elts []ast.Expr
 	if debugInstr {
-		log.Println("ArrayLit", typ, arity, keyValMode)
+		log.Println("ArrayLit", typ, arity, keyVal)
 	}
 	var t *types.Array
 	var typExpr ast.Expr
@@ -954,7 +971,7 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 	default:
 		log.Panicln("ArrayLit: typ isn't a array type -", reflect.TypeOf(typ))
 	}
-	if keyValMode { // in keyVal mode
+	if keyVal { // in keyVal mode
 		if (arity & 1) != 0 {
 			log.Panicln("ArrayLit: invalid arity, can't be odd in keyVal mode -", arity)
 		}
@@ -995,12 +1012,14 @@ func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeB
 			}
 		}
 	}
-	p.stk.Ret(arity, &internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, &internal.Elem{
+		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
+	})
 	return p
 }
 
 // StructLit func
-func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBuilder {
+func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("StructLit", typ, arity, keyVal)
 	}
@@ -1062,7 +1081,9 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool) *CodeBui
 			}
 		}
 	}
-	p.stk.Ret(arity, &internal.Elem{Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}})
+	p.stk.Ret(arity, &internal.Elem{
+		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
+	})
 	return p
 }
 
@@ -2059,9 +2080,9 @@ func (p *CodeBuilder) CompareNil(op token.Token, src ...ast.Node) *CodeBuilder {
 }
 
 // UnaryOp:
-//  - cb.UnaryOp(op token.Token)
-//  - cb.UnaryOp(op token.Token, twoValue bool)
-//  - cb.UnaryOp(op token.Token, twoValue bool, src ast.Node)
+//   - cb.UnaryOp(op token.Token)
+//   - cb.UnaryOp(op token.Token, twoValue bool)
+//   - cb.UnaryOp(op token.Token, twoValue bool, src ast.Node)
 func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilder {
 	var src ast.Node
 	var flags InstrFlags
@@ -2194,14 +2215,17 @@ func (p *CodeBuilder) Else() *CodeBuilder {
 // <pre>
 // typeSwitch(name) init; expr typeAssertThen
 // type1, type2, ... typeN typeCase(N)
-//    ...
-//    end
+//
+//	...
+//	end
+//
 // type1, type2, ... typeM typeCase(M)
-//    ...
-//    end
+//
+//	...
+//	end
+//
 // end
 // </pre>
-//
 func (p *CodeBuilder) TypeSwitch(name string) *CodeBuilder {
 	if debugInstr {
 		log.Println("TypeSwitch")
@@ -2491,7 +2515,7 @@ func (p *CodeBuilder) EndStmt() *CodeBuilder {
 }
 
 // End func
-func (p *CodeBuilder) End() *CodeBuilder {
+func (p *CodeBuilder) End(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		typ := reflect.TypeOf(p.current.codeBlock)
 		if typ.Kind() == reflect.Ptr {
@@ -2503,7 +2527,7 @@ func (p *CodeBuilder) End() *CodeBuilder {
 			panic("forget to call EndStmt()?")
 		}
 	}
-	p.current.End(p)
+	p.current.End(p, getSrc(src))
 	return p
 }
 
