@@ -44,6 +44,11 @@ func init() {
 	gblImp = packages.NewImporter(gblFset)
 }
 
+func ctxRef(pkg *gox.Package, name string) gox.Ref {
+	_, o := pkg.CB().Scope().LookupParent(name, token.NoPos)
+	return o
+}
+
 func newMainPackage(
 	implicitCast ...func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool) *gox.Package {
 	conf := &gox.Config{
@@ -114,17 +119,17 @@ func TestBTIMethod(t *testing.T) {
 		NewVar(types.NewSlice(types.Typ[types.String]), "c").
 		NewVar(types.NewMap(types.Typ[types.String], types.Typ[types.Int]), "d").
 		NewVar(types.Typ[types.Int64], "e").
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "a")).MemberVal("Len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "b")).MemberVal("Len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "c")).MemberVal("Len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "d")).MemberVal("Len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "c")).MemberVal("Join").Val(",").Call(1).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("a").MemberVal("Len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("b").MemberVal("Len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("c").MemberVal("Len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("d").MemberVal("Len").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("c").MemberVal("Join").Val(",").Call(1).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val("Hi").MemberVal("Len").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val("100").MemberVal("Int").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val("100").MemberVal("Uint64").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(100).MemberVal("String").Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(1.34).MemberVal("String").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(ctxRef(pkg, "e")).Debug(
+		Val(fmt.Ref("Println")).VarVal("e").Debug(
 		func(cb *gox.CodeBuilder) {
 			cb.Member("string", gox.MemberFlagAutoProperty)
 		}).Call(1).EndStmt().
@@ -378,7 +383,7 @@ func TestTypeConvBool(t *testing.T) { // TypeCast
 	tyInt := types.Typ[types.Uint32]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tyBool, "a").Val(false).EndInit(1).
-		NewVarStart(tyInt, "b").Typ(tyInt).Val(ctxRef(pkg, "a")).Call(1).EndInit(1).
+		NewVarStart(tyInt, "b").Typ(tyInt).VarVal("a").Call(1).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -426,7 +431,7 @@ func TestSend(t *testing.T) {
 	tyChan := types.NewChan(types.SendRecv, types.Typ[types.Uint])
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyChan, "a").
-		Val(ctxRef(pkg, "a")).Val(1).Send().
+		VarVal("a").Val(1).Send().
 		End()
 	domTest(t, pkg, `package main
 
@@ -442,8 +447,8 @@ func TestRecv(t *testing.T) {
 	tyChan := types.NewChan(types.SendRecv, types.Typ[types.Uint])
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyChan, "a").
-		NewVarStart(types.Typ[types.Uint], "b").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW).EndInit(1).
-		DefineVarStart(0, "c", "ok").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW, true, nil).EndInit(1).
+		NewVarStart(types.Typ[types.Uint], "b").VarVal("a").UnaryOp(token.ARROW).EndInit(1).
+		DefineVarStart(0, "c", "ok").VarVal("a").UnaryOp(token.ARROW, true, nil).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -461,8 +466,8 @@ func TestRecv2(t *testing.T) {
 	typ := pkg.NewType("T").InitType(pkg, tyChan)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(typ, "a").
-		NewVarStart(types.Typ[types.Uint], "b").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW).EndInit(1).
-		DefineVarStart(0, "c", "ok").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW, true).EndInit(1).
+		NewVarStart(types.Typ[types.Uint], "b").VarVal("a").UnaryOp(token.ARROW).EndInit(1).
+		DefineVarStart(0, "c", "ok").VarVal("a").UnaryOp(token.ARROW, true).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -483,8 +488,8 @@ func TestRecv3(t *testing.T) {
 	typ := pkg.NewType("T").InitType(pkg, tyChan)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(typ, "a").
-		NewVarStart(tyUint, "b").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW).EndInit(1).
-		DefineVarStart(0, "c", "ok").Val(ctxRef(pkg, "a")).UnaryOp(token.ARROW, true).EndInit(1).
+		NewVarStart(tyUint, "b").VarVal("a").UnaryOp(token.ARROW).EndInit(1).
+		DefineVarStart(0, "c", "ok").VarVal("a").UnaryOp(token.ARROW, true).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -742,8 +747,8 @@ func TestAssignUserInterface(t *testing.T) {
 	pkg.NewFunc(nil, "f", vfoo, nil, true).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(pbar, "v").
-		Val(ctxRef(pkg, "f")).
-		Val(ctxRef(pkg, "v")).Val(ctxRef(pkg, "v")).Call(2).EndStmt().
+		VarVal("f").
+		VarVal("v").VarVal("v").Call(2).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -768,8 +773,8 @@ func TestTypeAssert(t *testing.T) {
 	pkg := newMainPackage()
 	params := types.NewTuple(pkg.NewParam(token.NoPos, "v", gox.TyEmptyInterface))
 	pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
-		DefineVarStart(0, "x").Val(ctxRef(pkg, "v")).TypeAssert(types.Typ[types.Int], false).EndInit(1).
-		DefineVarStart(0, "y", "ok").Val(ctxRef(pkg, "v")).TypeAssert(types.Typ[types.String], true).EndInit(1).
+		DefineVarStart(0, "x").VarVal("v").TypeAssert(types.Typ[types.Int], false).EndInit(1).
+		DefineVarStart(0, "y", "ok").VarVal("v").TypeAssert(types.Typ[types.String], true).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -1467,7 +1472,7 @@ func TestNamedFuncAsParam(t *testing.T) {
 	typ := pkg.NewType("foo").InitType(pkg, typesutil.NewSignatureType(nil, nil, nil, nil, nil, false))
 	v := pkg.NewParam(token.NoPos, "v", typ)
 	pkg.NewFunc(nil, "bar", gox.NewTuple(v), nil, false).BodyStart(pkg).
-		Val(ctxRef(pkg, "v")).Call(0).EndStmt().
+		VarVal("v").Call(0).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -1540,10 +1545,10 @@ func TestComplex(t *testing.T) {
 		Val(ctxRef(pkg, "complex")).Val(1).Val(2).Call(2).
 		EndInit(1)
 	pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "b").
-		Val(ctxRef(pkg, "real")).Val(ctxRef(pkg, "a")).Call(1).
+		Val(ctxRef(pkg, "real")).VarVal("a").Call(1).
 		EndInit(1)
 	pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "c").
-		Val(ctxRef(pkg, "imag")).Val(ctxRef(pkg, "a")).Call(1).
+		Val(ctxRef(pkg, "imag")).VarVal("a").Call(1).
 		EndInit(1)
 	domTest(t, pkg, `package main
 
@@ -1557,7 +1562,7 @@ func TestClose(t *testing.T) {
 	pkg := newMainPackage()
 	tyChan := types.NewChan(types.SendOnly, types.Typ[types.Int])
 	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "c", tyChan)), nil, false).BodyStart(pkg).
-		Val(ctxRef(pkg, "close")).Val(ctxRef(pkg, "c")).Call(1).EndStmt().
+		Val(ctxRef(pkg, "close")).VarVal("c").Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -1573,7 +1578,7 @@ func TestAppend(t *testing.T) {
 	tySlice := types.NewSlice(types.Typ[types.Int])
 	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
 		NewVar(tySlice, "b").VarRef(ctxRef(pkg, "b")).Val(builtin.Ref("append")).
-		Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "a")).Call(2, true).Assign(1).EndStmt().
+		VarVal("b").VarVal("a").Call(2, true).Assign(1).EndStmt().
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -1593,7 +1598,7 @@ func TestAppend2(t *testing.T) {
 	tySlice := pkg.NewType("T").InitType(pkg, types.NewSlice(types.Typ[types.Int]))
 	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
 		NewVar(tySlice, "b").VarRef(ctxRef(pkg, "b")).Val(builtin.Ref("append")).
-		Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "a")).Call(2, true).Assign(1).EndStmt().
+		VarVal("b").VarVal("a").Call(2, true).Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -1612,7 +1617,7 @@ func TestAppendString(t *testing.T) {
 	tySlice := types.NewSlice(types.Typ[types.Byte])
 	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
 		VarRef(ctxRef(pkg, "a")).Val(builtin.Ref("append")).
-		Val(ctxRef(pkg, "a")).Val("Hi").Call(2, true).Assign(1).EndStmt().
+		VarVal("a").Val("Hi").Call(2, true).Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -1628,7 +1633,7 @@ func TestCopyString(t *testing.T) {
 	tySlice := types.NewSlice(types.Typ[types.Byte])
 	pkg.NewFunc(nil, "foo", gox.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
 		NewVarStart(types.Typ[types.Int], "n").Val(builtin.Ref("copy")).
-		Val(ctxRef(pkg, "a")).Val("Hi").Call(2).EndInit(1).
+		VarVal("a").Val("Hi").Call(2).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -1650,9 +1655,9 @@ func TestUnsafeFunc(t *testing.T) {
 	builtin := pkg.Builtin()
 	pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
 		NewVar(tyT, "a").NewVar(tyUintptr, "r").
-		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Sizeof")).Val(ctxRef(pkg, "a")).Call(1).Assign(1).EndStmt().
-		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Alignof")).Val(ctxRef(pkg, "a")).Call(1).Assign(1).EndStmt().
-		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "a")).MemberVal("y").Call(1).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Sizeof")).VarVal("a").Call(1).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Alignof")).VarVal("a").Call(1).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Offsetof")).VarVal("a").MemberVal("y").Call(1).Assign(1).EndStmt().
 		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -1685,7 +1690,7 @@ func TestUnsafeFunc2(t *testing.T) {
 		NewVarStart(nil, "ar").
 		Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
 		NewVar(types.NewSlice(tyInt), "r2").
-		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a")).Val(10).Call(2).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r")).Val(builtin.Ref("Add")).VarVal("a").Val(10).Call(2).Assign(1).EndStmt().
 		VarRef(ctxRef(pkg, "r2")).Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val(3).Call(2).Assign(1).EndStmt().
 		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).VarRef(ctxRef(pkg, "r2")).Call(2).EndStmt().
 		End()
@@ -2194,7 +2199,7 @@ func TestForRange(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
-		/**/ ForRange("i").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
+		/**/ ForRange("i").VarVal("a").RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -2216,7 +2221,7 @@ func TestForRange2(t *testing.T) {
 	typ := pkg.NewType("T").InitType(pkg, types.NewSlice(types.Typ[types.Float64]))
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).SliceLit(typ, 3).EndInit(1).
-		/**/ ForRange("i").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
+		/**/ ForRange("i").VarVal("a").RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -2253,7 +2258,7 @@ func TestForRangeChan(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewChan(types.SendRecv, types.Typ[types.Int]), "a").
-		/**/ ForRange("_", "i").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
+		/**/ ForRange("_", "i").VarVal("a").RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -2274,7 +2279,7 @@ func TestForRangeKV(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).ArrayLit(types.NewArray(types.Typ[types.Float64], 3), 3).EndInit(1).
-		/**/ ForRange("_", "x").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
+		/**/ ForRange("_", "x").VarVal("a").RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "x")).Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -2295,7 +2300,7 @@ func TestForRangeArrayPointer(t *testing.T) {
 	pkg := newMainPackage()
 	v := pkg.NewParam(token.NoPos, "a", types.NewPointer(types.NewArray(types.Typ[types.Float64], 3)))
 	pkg.NewFunc(nil, "foo", gox.NewTuple(v), nil, false).BodyStart(pkg).
-		/**/ ForRange("_", "x").Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
+		/**/ ForRange("_", "x").VarVal("a").RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "x")).Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -2318,7 +2323,7 @@ func TestForRangeNoAssign(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a").Val(1).Val(1.2).Val(3).SliceLit(nil, 3).EndInit(1).
-		/**/ ForRange().Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
+		/**/ ForRange().VarVal("a").RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -2342,8 +2347,8 @@ func TestForRangeAssignKV(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyString, "k").NewVar(tyInt, "v").
 		DefineVarStart(0, "a").Val("a").Val(1).Val("b").Val(3).MapLit(nil, 4).EndInit(1).
-		/**/ ForRange().VarRef(ctxRef(pkg, "k")).VarRef(ctxRef(pkg, "v")).Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
-		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "k")).Val(ctxRef(pkg, "v")).Call(2).EndStmt().
+		/**/ ForRange().VarRef(ctxRef(pkg, "k")).VarRef(ctxRef(pkg, "v")).VarVal("a").RangeAssignThen(token.NoPos).
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "k")).VarVal("v").Call(2).EndStmt().
 		/**/ End().
 		End()
 	domTest(t, pkg, `package main
@@ -2367,7 +2372,7 @@ func TestForRangeAssign(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyBool, "k").
 		NewVar(types.NewChan(types.SendRecv, tyBool), "a").
-		/**/ ForRange().VarRef(ctxRef(pkg, "k")).Val(ctxRef(pkg, "a")).RangeAssignThen(token.NoPos).
+		/**/ ForRange().VarRef(ctxRef(pkg, "k")).VarVal("a").RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "k")).Call(1).EndStmt().
 		/**/ End().
 		End()
@@ -2645,7 +2650,7 @@ func TestStructMember(t *testing.T) {
 		Val(123).Val("Hi").
 		StructLit(typ, 2, false).EndInit(1)
 	pkg.CB().NewVarStart(nil, "b").
-		Val(ctxRef(pkg, "a")).
+		VarVal("a").
 		Debug(func(cb *gox.CodeBuilder) {
 			kind, err := cb.Member("unknown", gox.MemberFlagVal, source("a.unknown", 1, 5))
 			if kind != gox.MemberInvalid ||
@@ -2658,18 +2663,18 @@ func TestStructMember(t *testing.T) {
 		Val(123).Val("Hi").
 		StructLit(foo, 2, false).EndInit(1)
 	pkg.CB().NewVarStart(nil, "d").
-		Val(ctxRef(pkg, "c")).MemberVal("x").EndInit(1)
+		VarVal("c").MemberVal("x").EndInit(1)
 	pkg.CB().NewVarStart(nil, "e").
-		Val(ctxRef(pkg, "a")).UnaryOp(token.AND).EndInit(1)
+		VarVal("a").UnaryOp(token.AND).EndInit(1)
 	pkg.CB().NewVarStart(nil, "f").
-		Val(ctxRef(pkg, "e")).MemberVal("x").EndInit(1)
+		VarVal("e").MemberVal("x").EndInit(1)
 	pkg.CB().NewVarStart(nil, "g").
-		Val(ctxRef(pkg, "c")).UnaryOp(token.AND).EndInit(1)
+		VarVal("c").UnaryOp(token.AND).EndInit(1)
 	pkg.CB().NewVarStart(nil, "h").
-		Val(ctxRef(pkg, "g")).MemberVal("y").EndInit(1)
+		VarVal("g").MemberVal("y").EndInit(1)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(ctxRef(pkg, "c")).MemberRef("x").Val(1).Assign(1).
-		Val(ctxRef(pkg, "a")).MemberRef("y").Val("1").Assign(1).
+		VarVal("c").MemberRef("x").Val(1).Assign(1).
+		VarVal("a").MemberRef("y").Val("1").Assign(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -2791,7 +2796,7 @@ func TestStar(t *testing.T) {
 	tyInt := types.Typ[types.Uint32]
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a").Typ(tyInt).Star().Val(nil).Call(1).EndInit(1).
-		NewVarStart(tyInt, "b").Val(ctxRef(pkg, "a")).Star().EndInit(1).
+		NewVarStart(tyInt, "b").VarVal("a").Star().EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -2806,7 +2811,7 @@ func TestAssignOp(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.String], "a", "b").
-		VarRef(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).AssignOp(token.ADD_ASSIGN).
+		VarRef(ctxRef(pkg, "a")).VarVal("b").AssignOp(token.ADD_ASSIGN).
 		End()
 	domTest(t, pkg, `package main
 
@@ -2952,7 +2957,7 @@ func TestBinaryOpSHL(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.Int32], "a").
 		NewVar(types.Typ[types.Int], "b").
-		Val(ctxRef(pkg, "b")).Val(1).Val(ctxRef(pkg, "a")).BinaryOp(token.SHL).BinaryOp(token.AND).EndStmt().
+		VarVal("b").Val(1).VarVal("a").BinaryOp(token.SHL).BinaryOp(token.AND).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -2973,7 +2978,7 @@ func TestImplicitCast(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.Int32], "a").
 		NewVar(types.Typ[types.Int64], "b").
-		VarRef(ctxRef(pkg, "b")).Val(ctxRef(pkg, "a")).AssignOp(token.ADD_ASSIGN).
+		VarRef(ctxRef(pkg, "b")).VarVal("a").AssignOp(token.ADD_ASSIGN).
 		End()
 	domTest(t, pkg, `package main
 
@@ -2991,9 +2996,9 @@ func TestBinaryOpCmpNil(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(typ, "a").
 		NewVarStart(types.Typ[types.Bool], "b").
-		Val(ctxRef(pkg, "a")).Val(nil).BinaryOp(token.NEQ).EndInit(1).
+		VarVal("a").Val(nil).BinaryOp(token.NEQ).EndInit(1).
 		NewVarStart(types.Typ[types.Bool], "c").
-		Val(nil).Val(ctxRef(pkg, "a")).BinaryOp(token.EQL).EndInit(1).
+		Val(nil).VarVal("a").BinaryOp(token.EQL).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -3180,11 +3185,6 @@ func main() {
 
 // ----------------------------------------------------------------------------
 
-func ctxRef(pkg *gox.Package, name string) gox.Ref {
-	_, o := pkg.CB().Scope().LookupParent(name, token.NoPos)
-	return o
-}
-
 func TestExample(t *testing.T) {
 	pkg := newMainPackage()
 
@@ -3194,10 +3194,10 @@ func TestExample(t *testing.T) {
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a", "b").Val("Hi").Val(3).EndInit(2). // a, b := "Hi", 3
-		NewVarStart(nil, "c").Val(ctxRef(pkg, "b")).EndInit(1).  // var c = b
+		NewVarStart(nil, "c").VarVal("b").EndInit(1).            // var c = b
 		NewVar(gox.TyEmptyInterface, "x", "y").                  // var x, y interface{}
 		Val(fmt.Ref("Println")).
-		/**/ Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).Val(ctxRef(pkg, "c")). // fmt.Println(a, b, c)
+		/**/ VarVal("a").VarVal("b").VarVal("c"). // fmt.Println(a, b, c)
 		/**/ Call(3).EndStmt().
 		NewClosure(gox.NewTuple(v), nil, false).BodyStart(pkg).
 		/**/ Val(fmt.Ref("Println")).Val(v).Call(1).EndStmt(). // fmt.Println(v)
@@ -3243,7 +3243,7 @@ func TestInterfaceMethodVarCall(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "v").Val(ctxRef(pkg, "foo")).MemberVal("bar").EndInit(1).
 		NewVarStart(tt, "tt").Val(123).EndInit(1).
-		Val(ctxRef(pkg, "v")).Val(ctxRef(pkg, "tt")).Val("hello").Call(2, false).
+		VarVal("v").Val(ctxRef(pkg, "tt")).Val("hello").Call(2, false).
 		EndStmt().End()
 	domTest(t, pkg, `package main
 
