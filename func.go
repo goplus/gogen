@@ -19,8 +19,10 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"unsafe"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/outline"
 	"github.com/goplus/gox/typesutil"
 )
 
@@ -64,6 +66,11 @@ type Func struct {
 	decl   *ast.FuncDecl
 	old    funcBodyCtx
 	arity1 int // 0 for normal, (arity+1) for inlineClosure
+}
+
+// Comments returns associated documentation.
+func (p *Func) Comments() *ast.CommentGroup {
+	return p.decl.Doc
 }
 
 // SetComments sets associated documentation.
@@ -149,6 +156,12 @@ func getRecv(recvTypePos func() token.Pos) token.Pos {
 	return token.NoPos
 }
 
+func init() {
+	outline.MethodFrom = func(fn *types.Func) outline.Func {
+		return (*Func)(unsafe.Pointer(fn))
+	}
+}
+
 // NewFuncWith func
 func (p *Package) NewFuncWith(
 	pos token.Pos, name string, sig *types.Signature, recvTypePos func() token.Pos) (*Func, error) {
@@ -189,7 +202,7 @@ func (p *Package) NewFuncWith(
 				pos, "func init must have no arguments and no return values")
 		}
 	} else if name != "_" { // skip underscore
-		old := p.Types.Scope().Insert(fn)
+		old := outline.From(p.Types).Scope().InsertFunc(fn)
 		if old != nil {
 			oldPos := cb.position(old.Pos())
 			return nil, cb.newCodePosErrorf(

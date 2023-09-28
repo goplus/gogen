@@ -27,6 +27,7 @@ import (
 	"unsafe"
 
 	"github.com/goplus/gox"
+	"github.com/goplus/gox/outline"
 	"github.com/goplus/gox/packages"
 	"github.com/goplus/gox/typesutil"
 	"golang.org/x/tools/go/gcexportdata"
@@ -679,10 +680,14 @@ func TestTypeMethods(t *testing.T) {
 	foo := pkg.NewType("foo").InitType(pkg, typ)
 	recv := pkg.NewParam(token.NoPos, "a", foo)
 	precv := pkg.NewParam(token.NoPos, "p", types.NewPointer(foo))
-	pkg.NewFunc(recv, "Bar", nil, nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(recv, "Bar", nil, nil, false).SetComments(comment("\n// abc")).BodyStart(pkg).End()
 	pkg.NewFunc(precv, "Print", nil, nil, false).BodyStart(pkg).End()
 	if foo.NumMethods() != 2 {
 		t.Fatal("foo.NumMethods != 2")
+	}
+	m := pkg.Ref("foo").Type().(*types.Named).Method(0)
+	if c := outline.MethodFrom(m).Comments(); c == nil {
+		t.Fatal("MethodDoc:", c)
 	}
 	domTest(t, pkg, `package main
 
@@ -691,6 +696,7 @@ type foo struct {
 	y string
 }
 
+// abc
 func (a foo) Bar() {
 }
 func (p *foo) Print() {
@@ -1386,6 +1392,9 @@ func TestFuncDoc(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).SetComments(comment("\n//go:noinline")).
 		BodyStart(pkg).End()
+	if c := outline.FuncFrom(pkg.Ref("main")).Comments(); c == nil {
+		t.Fatal("FuncDoc:", c)
+	}
 	domTest(t, pkg, `package main
 
 //go:noinline
