@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/goplus/gox"
+	"github.com/goplus/gox/typesutil"
 )
 
 func initGopBuiltin(big *gox.PkgRef, conf *gox.Config) {
@@ -1047,7 +1048,7 @@ func main() {
 func TestUntypedBigIntToInterface(t *testing.T) {
 	pkg := newGopMainPackage()
 	methods := []*types.Func{
-		types.NewFunc(token.NoPos, pkg.Types, "Int64", types.NewSignature(nil, nil,
+		types.NewFunc(token.NoPos, pkg.Types, "Int64", typesutil.NewSignatureType(nil, nil, nil, nil,
 			types.NewTuple(types.NewVar(token.NoPos, nil, "v", types.Typ[types.Int64])), false)),
 	}
 	tyInterf := types.NewInterfaceType(methods, nil).Complete()

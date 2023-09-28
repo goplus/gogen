@@ -19,8 +19,10 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"unsafe"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -59,10 +61,16 @@ func NewTuple(x ...*Param) *Tuple {
 
 // Func type
 type Func struct {
-	*types.Func
+	types.Func // must be the first member
+
 	decl   *ast.FuncDecl
 	old    funcBodyCtx
 	arity1 int // 0 for normal, (arity+1) for inlineClosure
+}
+
+// Comments returns associated documentation.
+func (p *Func) Comments() *ast.CommentGroup {
+	return p.decl.Doc
 }
 
 // SetComments sets associated documentation.
@@ -133,7 +141,7 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 
 // NewFunc func
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
-	sig := types.NewSignature(recv, params, results, variadic)
+	sig := typesutil.NewSignatureType(recv, nil, nil, params, results, variadic)
 	f, err := p.NewFuncWith(token.NoPos, name, sig, nil)
 	if err != nil {
 		panic(err)
@@ -148,6 +156,16 @@ func getRecv(recvTypePos func() token.Pos) token.Pos {
 	return token.NoPos
 }
 
+// FuncFrom returns instance of a global function.
+func FuncFrom(o types.Object) *Func {
+	return o.(*Func)
+}
+
+// MethodFrom returns instance of a method function.
+func MethodFrom(fn *types.Func) *Func {
+	return (*Func)(unsafe.Pointer(fn))
+}
+
 // NewFuncWith func
 func (p *Package) NewFuncWith(
 	pos token.Pos, name string, sig *types.Signature, recvTypePos func() token.Pos) (*Func, error) {
@@ -155,7 +173,7 @@ func (p *Package) NewFuncWith(
 		panic("no func name")
 	}
 	cb := p.cb
-	fn := types.NewFunc(pos, p.Types, name, sig)
+	fn := &Func{Func: *types.NewFunc(pos, p.Types, name, sig)}
 	if recv := sig.Recv(); IsMethodRecv(recv) { // add method to this type
 		var t *types.Named
 		var ok bool
@@ -180,7 +198,7 @@ func (p *Package) NewFuncWith(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		if name != "_" { // skip underscore
-			t.AddMethod(fn)
+			t.AddMethod(&fn.Func)
 		}
 	} else if name == "init" { // init is not a normal func
 		if sig.Params() != nil || sig.Results() != nil {
@@ -188,26 +206,31 @@ func (p *Package) NewFuncWith(
 				pos, "func init must have no arguments and no return values")
 		}
 	} else if name != "_" { // skip underscore
-		p.Types.Scope().Insert(fn) // TODO: type checker if exists (use types.Identical)
+		old := p.Types.Scope().Insert(fn)
+		if old != nil {
+			oldPos := cb.position(old.Pos())
+			return nil, cb.newCodePosErrorf(
+				pos, "%s redeclared in this block\n\t%v: other declaration of %s", name, oldPos, name)
+		}
 	}
 
 	if isGopFunc(name) {
 		p.isGopPkg = true
 	}
 
-	decl := &ast.FuncDecl{}
-	p.file.decls = append(p.file.decls, decl)
-	return &Func{Func: fn, decl: decl}, nil
+	fn.decl = &ast.FuncDecl{}
+	p.file.decls = append(p.file.decls, fn.decl)
+	return fn, nil
 }
 
 func (p *Package) newClosure(sig *types.Signature) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
-	return &Func{Func: fn}
+	return &Func{Func: *fn}
 }
 
 func (p *Package) newInlineClosure(sig *types.Signature, arity int) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
-	return &Func{Func: fn, arity1: arity + 1}
+	return &Func{Func: *fn, arity1: arity + 1}
 }
 
 func (p *Func) isInline() bool {
@@ -284,7 +307,7 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
 	oft := &overloadFuncType{funcs}
 	recv := types.NewParam(token.NoPos, pkg, "", oft)
-	sig := types.NewSignature(recv, nil, nil, false)
+	sig := typesutil.NewSignatureType(recv, nil, nil, nil, nil, false)
 	ofn := types.NewFunc(pos, pkg, name, sig)
 	typ.AddMethod(ofn)
 	return ofn
@@ -303,7 +326,7 @@ func CheckOverloadMethod(sig *types.Signature) (funcs []types.Object, ok bool) {
 func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, fn types.Object) *types.Func {
 	trmt := &templateRecvMethodType{fn}
 	recv := types.NewParam(token.NoPos, pkg, "", trmt)
-	sig := types.NewSignature(recv, nil, nil, false)
+	sig := typesutil.NewSignatureType(recv, nil, nil, nil, nil, false)
 	ofn := types.NewFunc(pos, pkg, name, sig)
 	typ.AddMethod(ofn)
 	return ofn
@@ -331,7 +354,7 @@ func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 			for i := range mparams {
 				mparams[i] = params.At(i + 1)
 			}
-			return types.NewSignature(nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
+			return typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
 		}
 	}
 	return nil
@@ -367,7 +390,7 @@ func CheckSignatures(typ types.Type, idx, nin int) []*types.Signature {
 			for i := range mparams {
 				mparams[i] = params.At(i + 1)
 			}
-			return []*types.Signature{types.NewSignature(nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())}
+			return []*types.Signature{typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())}
 		}
 	}
 	return nil

@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -250,7 +251,7 @@ func (p *UnionFields) FieldRef(cb *CodeBuilder, tfld *types.Named, name string, 
 // NewCSignature creates prototype of a C function.
 func NewCSignature(params, results *types.Tuple, variadic bool) *types.Signature {
 	crecv := types.NewParam(token.NoPos, nil, "", types.Typ[types.UntypedNil])
-	return types.NewSignature(crecv, params, results, variadic)
+	return typesutil.NewSignatureType(crecv, nil, nil, params, results, variadic)
 }
 
 // IsCSignature checks a prototype is C function or not.
