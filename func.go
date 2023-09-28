@@ -21,6 +21,7 @@ import (
 	"log"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -133,7 +134,7 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 
 // NewFunc func
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
-	sig := types.NewSignatureType(recv, nil, nil, params, results, variadic)
+	sig := typesutil.NewSignatureType(recv, nil, nil, params, results, variadic)
 	f, err := p.NewFuncWith(token.NoPos, name, sig, nil)
 	if err != nil {
 		panic(err)
@@ -289,7 +290,7 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
 	oft := &overloadFuncType{funcs}
 	recv := types.NewParam(token.NoPos, pkg, "", oft)
-	sig := types.NewSignatureType(recv, nil, nil, nil, nil, false)
+	sig := typesutil.NewSignatureType(recv, nil, nil, nil, nil, false)
 	ofn := types.NewFunc(pos, pkg, name, sig)
 	typ.AddMethod(ofn)
 	return ofn
@@ -308,7 +309,7 @@ func CheckOverloadMethod(sig *types.Signature) (funcs []types.Object, ok bool) {
 func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, fn types.Object) *types.Func {
 	trmt := &templateRecvMethodType{fn}
 	recv := types.NewParam(token.NoPos, pkg, "", trmt)
-	sig := types.NewSignatureType(recv, nil, nil, nil, nil, false)
+	sig := typesutil.NewSignatureType(recv, nil, nil, nil, nil, false)
 	ofn := types.NewFunc(pos, pkg, name, sig)
 	typ.AddMethod(ofn)
 	return ofn
@@ -336,7 +337,7 @@ func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 			for i := range mparams {
 				mparams[i] = params.At(i + 1)
 			}
-			return types.NewSignatureType(nil, nil, nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
+			return typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
 		}
 	}
 	return nil
@@ -372,7 +373,7 @@ func CheckSignatures(typ types.Type, idx, nin int) []*types.Signature {
 			for i := range mparams {
 				mparams[i] = params.At(i + 1)
 			}
-			return []*types.Signature{types.NewSignatureType(nil, nil, nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())}
+			return []*types.Signature{typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())}
 		}
 	}
 	return nil

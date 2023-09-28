@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -613,7 +614,7 @@ retry:
 			}
 			return
 		} else if IsCSignature(t) {
-			sig = types.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
+			sig = typesutil.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
 		} else {
 			sig = t
 		}

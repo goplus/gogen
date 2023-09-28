@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/goplus/gox"
+	"github.com/goplus/gox/typesutil"
 )
 
 type txtNode struct {
@@ -125,7 +126,7 @@ func newFunc(
 	recv *gox.Param, name string, params, results *types.Tuple, variadic bool) *gox.Func {
 	pos := position(line, column)
 	fn, err := pkg.NewFuncWith(
-		pos, name, types.NewSignatureType(recv, nil, nil, params, results, variadic), func() token.Pos {
+		pos, name, typesutil.NewSignatureType(recv, nil, nil, params, results, variadic), func() token.Pos {
 			return position(rline, rcolumn)
 		})
 	if err != nil {
@@ -167,7 +168,7 @@ func TestErrTypeSwitch(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: impossible type switch case: v (type interface{Bar()}) cannot have dynamic type int (missing Bar method)",
 		func(pkg *gox.Package) {
 			methods := []*types.Func{
-				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
 			}
 			tyInterf := types.NewInterfaceType(methods, nil).Complete()
 			v := pkg.NewParam(token.NoPos, "v", tyInterf)
@@ -208,7 +209,7 @@ func TestErrBinaryOp(t *testing.T) {
 	codeErrorTest(t, `./foo.gop:2:9: invalid operation: v != 3 (mismatched types interface{Bar()} and untyped int)`,
 		func(pkg *gox.Package) {
 			methods := []*types.Func{
-				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
 			}
 			tyInterf := types.NewInterfaceType(methods, nil).Complete()
 			params := types.NewTuple(pkg.NewParam(token.NoPos, "v", tyInterf))
@@ -220,7 +221,7 @@ func TestErrBinaryOp(t *testing.T) {
 	codeErrorTest(t, `./foo.gop:2:9: invalid operation: sl == v (mismatched types []int and interface{Bar()})`,
 		func(pkg *gox.Package) {
 			methods := []*types.Func{
-				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
 			}
 			tyInterf := types.NewInterfaceType(methods, nil).Complete()
 			params := types.NewTuple(pkg.NewParam(token.NoPos, "v", tyInterf))
@@ -243,7 +244,7 @@ func TestErrTypeAssert(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: impossible type assertion:\n\tstring does not implement bar (missing Bar method)",
 		func(pkg *gox.Package) {
 			methods := []*types.Func{
-				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
 			}
 			tyInterf := types.NewInterfaceType(methods, nil).Complete()
 			bar := pkg.NewType("bar").InitType(pkg, tyInterf)
@@ -499,7 +500,7 @@ func TestErrFunc(t *testing.T) {
 	codeErrorTest(t, `./foo.gop:5:1: main redeclared in this block
 	./foo.gop:1:10: other declaration of main`,
 		func(pkg *gox.Package) {
-			sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+			sig := typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)
 			pkg.NewFuncDecl(position(1, 10), "main", sig).BodyStart(pkg).End()
 			pkg.NewFuncDecl(position(5, 1), "main", sig).BodyStart(pkg).End()
 		})
