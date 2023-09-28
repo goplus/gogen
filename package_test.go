@@ -27,7 +27,6 @@ import (
 	"unsafe"
 
 	"github.com/goplus/gox"
-	"github.com/goplus/gox/outline"
 	"github.com/goplus/gox/packages"
 	"github.com/goplus/gox/typesutil"
 	"golang.org/x/tools/go/gcexportdata"
@@ -686,7 +685,7 @@ func TestTypeMethods(t *testing.T) {
 		t.Fatal("foo.NumMethods != 2")
 	}
 	m := pkg.Ref("foo").Type().(*types.Named).Method(0)
-	if c := outline.MethodFrom(m).Comments(); c == nil {
+	if c := gox.MethodFrom(m).Comments(); c == nil {
 		t.Fatal("MethodDoc:", c)
 	}
 	domTest(t, pkg, `package main
@@ -1392,7 +1391,7 @@ func TestFuncDoc(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).SetComments(comment("\n//go:noinline")).
 		BodyStart(pkg).End()
-	if c := outline.FuncFrom(pkg.Ref("main")).Comments(); c == nil {
+	if c := gox.FuncFrom(pkg.Ref("main")).Comments(); c == nil {
 		t.Fatal("FuncDoc:", c)
 	}
 	domTest(t, pkg, `package main
