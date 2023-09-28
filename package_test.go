@@ -723,7 +723,7 @@ var err error = foo(0)
 func TestAssignUserInterface(t *testing.T) {
 	pkg := newMainPackage()
 	methods := []*types.Func{
-		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
 	}
 	tyInterf := types.NewInterfaceType(methods, nil).Complete()
 	typStruc := types.NewStruct(nil, nil)
@@ -776,7 +776,7 @@ func foo(v interface {
 }
 
 func newFuncDecl(pkg *gox.Package, name string, params, results *types.Tuple) *gox.Func {
-	sig := types.NewSignature(nil, params, results, false)
+	sig := types.NewSignatureType(nil, nil, nil, params, results, false)
 	return pkg.NewFuncDecl(token.NoPos, name, sig)
 }
 
@@ -1436,7 +1436,7 @@ func init() {
 
 func TestFuncAsParam(t *testing.T) {
 	pkg := newMainPackage()
-	v := pkg.NewParam(token.NoPos, "v", types.NewSignature(nil, nil, nil, false))
+	v := pkg.NewParam(token.NoPos, "v", types.NewSignatureType(nil, nil, nil, nil, nil, false))
 	x := pkg.NewParam(token.NoPos, "x", types.NewPointer(types.Typ[types.Bool]))
 	y := pkg.NewParam(token.NoPos, "y", types.NewChan(types.SendOnly, types.Typ[types.Bool]))
 	z := pkg.NewParam(token.NoPos, "z", types.Typ[types.UnsafePointer])
@@ -1455,7 +1455,7 @@ func main() {
 
 func TestNamedFuncAsParam(t *testing.T) {
 	pkg := newMainPackage()
-	typ := pkg.NewType("foo").InitType(pkg, types.NewSignature(nil, nil, nil, false))
+	typ := pkg.NewType("foo").InitType(pkg, types.NewSignatureType(nil, nil, nil, nil, nil, false))
 	v := pkg.NewParam(token.NoPos, "v", typ)
 	pkg.NewFunc(nil, "bar", gox.NewTuple(v), nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "v")).Call(0).EndStmt().
@@ -1817,7 +1817,7 @@ func main() {
 func TestInterfaceMethods(t *testing.T) {
 	pkg := newMainPackage()
 	methods := []*types.Func{
-		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
 	}
 	tyInterf := types.NewInterfaceType(methods, nil).Complete()
 	bar := pkg.NewType("bar").InitType(pkg, tyInterf)
@@ -3107,7 +3107,7 @@ func TestCallInlineClosureAssign(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	ret := pkg.NewAutoParam("ret")
-	sig := types.NewSignature(nil, nil, gox.NewTuple(ret), false)
+	sig := types.NewSignatureType(nil, nil, nil, nil, gox.NewTuple(ret), false)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).
 		CallInlineClosureStart(sig, 0, false).
@@ -3139,7 +3139,7 @@ func TestCallInlineClosureEllipsis(t *testing.T) {
 	fmt := pkg.Import("fmt")
 	x := pkg.NewParam(token.NoPos, "x", types.NewSlice(gox.TyEmptyInterface))
 	ret := pkg.NewAutoParam("ret")
-	sig := types.NewSignature(nil, types.NewTuple(x), types.NewTuple(ret), true)
+	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(x), types.NewTuple(ret), true)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).
 		Val(1).SliceLit(types.NewSlice(gox.TyEmptyInterface), 1).
@@ -3220,7 +3220,8 @@ func TestInterfaceMethodVarCall(t *testing.T) {
 	tyInt := types.Typ[types.Int]
 	tyString := types.Typ[types.String]
 	methods := []*types.Func{
-		types.NewFunc(token.NoPos, pkg.Types, "bar", types.NewSignature(nil, types.NewTuple(types.NewVar(token.NoPos, nil, "info", tyString)), nil, false)),
+		types.NewFunc(token.NoPos, pkg.Types, "bar", types.NewSignatureType(
+			nil, nil, nil, types.NewTuple(types.NewVar(token.NoPos, nil, "info", tyString)), nil, false)),
 	}
 	tyInterf := types.NewInterfaceType(methods, nil).Complete()
 	foo := pkg.NewType("foo").InitType(pkg, tyInterf)

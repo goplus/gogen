@@ -613,7 +613,7 @@ retry:
 			}
 			return
 		} else if IsCSignature(t) {
-			sig = types.NewSignature(nil, t.Params(), t.Results(), t.Variadic())
+			sig = types.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
 		} else {
 			sig = t
 		}

@@ -378,10 +378,10 @@ func initBuiltinFuncs(builtin *types.Package) {
 	emptyIntfSlice := types.NewSlice(TyEmptyInterface)
 	emptyIntfSliceVar := types.NewVar(token.NoPos, builtin, "args", emptyIntfSlice)
 	emptyIntfSliceTuple := types.NewTuple(emptyIntfSliceVar)
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, "panic", types.NewSignature(nil, emptyIntfTuple, nil, false)))
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, "recover", types.NewSignature(nil, nil, emptyIntfTuple, false)))
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, "print", types.NewSignature(nil, emptyIntfSliceTuple, nil, true)))
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, "println", types.NewSignature(nil, emptyIntfSliceTuple, nil, true)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "panic", types.NewSignatureType(nil, nil, nil, emptyIntfTuple, nil, false)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "recover", types.NewSignatureType(nil, nil, nil, nil, emptyIntfTuple, false)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "print", types.NewSignatureType(nil, nil, nil, emptyIntfSliceTuple, nil, true)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "println", types.NewSignatureType(nil, nil, nil, emptyIntfSliceTuple, nil, true)))
 
 	// new & make are special cases, they require to pass a type.
 	gbl.Insert(NewInstruction(token.NoPos, builtin, "new", newInstr{}))
@@ -406,7 +406,7 @@ func newBFunc(builtin *types.Package, name string, t typeBFunc) types.Object {
 		vars[i] = types.NewParam(token.NoPos, builtin, param.name, types.Typ[param.typ])
 	}
 	result := types.NewParam(token.NoPos, builtin, "", types.Typ[t.result])
-	sig := types.NewSignature(nil, types.NewTuple(vars...), types.NewTuple(result), false)
+	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), types.NewTuple(result), false)
 	return types.NewFunc(token.NoPos, builtin, name, sig)
 }
 

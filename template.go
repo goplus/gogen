@@ -462,7 +462,7 @@ func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type
 // is variadic, it must have at least one parameter, and the last parameter
 // must be of unnamed slice type.
 func NewSignature(recv *types.Var, params, results *types.Tuple, variadic bool) *types.Signature {
-	return types.NewSignature(recv, params, results, variadic)
+	return types.NewSignatureType(recv, nil, nil, params, results, variadic)
 }
 
 // NewSlice returns a new slice type for the given element type.
@@ -639,7 +639,7 @@ func toNormalizeSignature(
 	params, ok2 := toNormalizeTuple(tparams, sig.Params())
 	results, ok3 := toNormalizeTuple(tparams, sig.Results())
 	if ok1 || ok2 || ok3 {
-		return types.NewSignature(recv, params, results, sig.Variadic()), true
+		return types.NewSignatureType(recv, nil, nil, params, results, sig.Variadic()), true
 	}
 	return sig, false
 }
@@ -694,7 +694,7 @@ func NewTemplateSignature(
 	}
 	tsig := &TemplateSignature{
 		params:  templateParams,
-		sig:     types.NewSignature(recv, params, results, variadic),
+		sig:     types.NewSignatureType(recv, nil, nil, params, results, variadic),
 		tokFlag: tokFlag,
 	}
 	if tsig.isOp() {
@@ -790,7 +790,7 @@ func toInstantiateSignature(
 	params, ok2 := toInstantiateTuple(tparams, sig.Params())
 	results, ok3 := toInstantiateTuple(tparams, sig.Results())
 	if ok1 || ok2 || ok3 {
-		return types.NewSignature(recv, params, results, sig.Variadic()), true, ok3
+		return types.NewSignatureType(recv, nil, nil, params, results, sig.Variadic()), true, ok3
 	}
 	return sig, false, ok3
 }
