@@ -310,8 +310,10 @@ var	AtInt = At[[]int]
 	switch runtime.Version()[:6] {
 	case "go1.18", "go1.19":
 		msg = `./foo.gop:5:40: T does not match ~[]E`
-	default:
+	case "go1.20":
 		msg = `./foo.gop:5:40: int does not match ~[]E`
+	default:
+		msg = `./foo.gop:5:40: T (type int) does not satisfy interface{~[]E}`
 	}
 	codeErrorTestEx(t, pkg, msg, func(pkg *gox.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

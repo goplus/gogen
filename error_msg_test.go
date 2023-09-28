@@ -1177,8 +1177,13 @@ func TestErrUnsafe(t *testing.T) {
 }
 
 func TestImportPkgError(t *testing.T) {
+	where := "GOROOT"
+	ver := runtime.Version()[:6]
+	if ver >= "go1.21" {
+		where = "std"
+	}
 	codeErrorTest(t,
-		fmt.Sprintf(`./foo.gop:1:7: package bar2 is not in GOROOT (%v)
+		fmt.Sprintf(`./foo.gop:1:7: package bar2 is not in `+where+` (%v)
 `, filepath.Join(runtime.GOROOT(), "src", "bar2")),
 		func(pkg *gox.Package) {
 			spec := &ast.ImportSpec{

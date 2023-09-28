@@ -59,7 +59,7 @@ func NewTuple(x ...*Param) *Tuple {
 
 // Func type
 type Func struct {
-	*types.Func
+	types.Func
 	decl   *ast.FuncDecl
 	old    funcBodyCtx
 	arity1 int // 0 for normal, (arity+1) for inlineClosure
@@ -155,7 +155,7 @@ func (p *Package) NewFuncWith(
 		panic("no func name")
 	}
 	cb := p.cb
-	fn := types.NewFunc(pos, p.Types, name, sig)
+	fn := &Func{Func: *types.NewFunc(pos, p.Types, name, sig)}
 	if recv := sig.Recv(); IsMethodRecv(recv) { // add method to this type
 		var t *types.Named
 		var ok bool
@@ -180,7 +180,7 @@ func (p *Package) NewFuncWith(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		if name != "_" { // skip underscore
-			t.AddMethod(fn)
+			t.AddMethod(&fn.Func)
 		}
 	} else if name == "init" { // init is not a normal func
 		if sig.Params() != nil || sig.Results() != nil {
@@ -195,19 +195,19 @@ func (p *Package) NewFuncWith(
 		p.isGopPkg = true
 	}
 
-	decl := &ast.FuncDecl{}
-	p.file.decls = append(p.file.decls, decl)
-	return &Func{Func: fn, decl: decl}, nil
+	fn.decl = &ast.FuncDecl{}
+	p.file.decls = append(p.file.decls, fn.decl)
+	return fn, nil
 }
 
 func (p *Package) newClosure(sig *types.Signature) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
-	return &Func{Func: fn}
+	return &Func{Func: *fn}
 }
 
 func (p *Package) newInlineClosure(sig *types.Signature, arity int) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
-	return &Func{Func: fn, arity1: arity + 1}
+	return &Func{Func: *fn, arity1: arity + 1}
 }
 
 func (p *Func) isInline() bool {
