@@ -39,15 +39,15 @@ func TestBitFields(t *testing.T) {
 	cb := pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
 		NewVar(tyT, "a").
 		NewVarStart(types.Typ[types.Int], "z").
-		Val(ctxRef(pkg, "a")).MemberVal("z1").UnaryOp(token.SUB).
-		Val(ctxRef(pkg, "a")).MemberVal("z2").
+		VarVal("a").MemberVal("z1").UnaryOp(token.SUB).
+		VarVal("a").MemberVal("z2").
 		BinaryOp(token.MUL).EndInit(1).
 		NewVarStart(types.Typ[types.Uint], "u").
-		Val(ctxRef(pkg, "a")).MemberVal("u1").UnaryOp(token.XOR).
-		Val(ctxRef(pkg, "a")).MemberVal("u2").
+		VarVal("a").MemberVal("u1").UnaryOp(token.XOR).
+		VarVal("a").MemberVal("u2").
 		BinaryOp(token.MUL).EndInit(1).
-		Val(ctxRef(pkg, "a")).MemberRef("z1").Val(1).Assign(1).
-		Val(ctxRef(pkg, "a")).MemberRef("z2").Val(1).Assign(1).
+		VarVal("a").MemberRef("z1").Val(1).Assign(1).
+		VarVal("a").MemberRef("z2").Val(1).Assign(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -70,7 +70,7 @@ func test() {
 	}
 }
 `)
-	cb.NewVar(tyT, "a").Val(ctxRef(pkg, "a"))
+	cb.NewVar(tyT, "a").VarVal("a")
 	func() {
 		defer func() {
 			if e := recover(); e == nil {
@@ -109,15 +109,15 @@ func TestUnionFields(t *testing.T) {
 	cb := pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
 		NewVar(tyT, "a").NewVar(types.NewPointer(tyT), "b").
 		NewVar(tyBar, "bara").NewVar(types.NewPointer(tyBar), "barb").
-		NewVarStart(tyFlt, "z").Val(ctxRef(pkg, "a")).MemberVal("z").EndInit(1).
-		NewVarStart(tyFlt, "val").Val(ctxRef(pkg, "a")).MemberVal("val").EndInit(1).
-		NewVarStart(tyFlt, "z2").Val(ctxRef(pkg, "b")).MemberVal("z").EndInit(1).
-		NewVarStart(tyFlt, "val2").Val(ctxRef(pkg, "b")).MemberVal("val").EndInit(1).
+		NewVarStart(tyFlt, "z").VarVal("a").MemberVal("z").EndInit(1).
+		NewVarStart(tyFlt, "val").VarVal("a").MemberVal("val").EndInit(1).
+		NewVarStart(tyFlt, "z2").VarVal("b").MemberVal("z").EndInit(1).
+		NewVarStart(tyFlt, "val2").VarVal("b").MemberVal("val").EndInit(1).
 		NewVarStart(tyFlt, "barz").Val(ctxRef(pkg, "bara")).MemberVal("z").EndInit(1).
 		NewVarStart(tyFlt, "barval").Val(ctxRef(pkg, "bara")).MemberVal("val").EndInit(1).
 		NewVarStart(tyFlt, "barz2").Val(ctxRef(pkg, "barb")).MemberVal("z").EndInit(1).
 		NewVarStart(tyFlt, "barval2").Val(ctxRef(pkg, "barb")).MemberVal("val").EndInit(1).
-		Val(ctxRef(pkg, "a")).MemberRef("z").Val(1).Assign(1).
+		VarVal("a").MemberRef("z").Val(1).Assign(1).
 		Val(ctxRef(pkg, "barb")).MemberRef("val").Val(1.2).Assign(1).
 		End()
 	domTest(t, pkg, `package main
@@ -155,7 +155,7 @@ func test() {
 			t.Fatal("TestUnionFields: no error?")
 		}
 	}()
-	cb.NewVar(tyT, "a").Val(ctxRef(pkg, "a")).MemberVal("unknown")
+	cb.NewVar(tyT, "a").VarVal("a").MemberVal("unknown")
 }
 
 // ----------------------------------------------------------------------------
@@ -165,7 +165,7 @@ func TestCFunc(t *testing.T) {
 	cfn := gox.NewCSignature(nil, nil, false)
 	pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
 		NewVar(cfn, "f").
-		Val(ctxRef(pkg, "f")).Call(0).EndStmt().
+		VarVal("f").Call(0).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 

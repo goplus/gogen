@@ -920,6 +920,28 @@ func TestLookupLabel(t *testing.T) {
 	}
 }
 
+func TestVarVal(t *testing.T) {
+	defer func() {
+		if e := recover(); !isError(e, "VarVal: variable `unknown` not found\n") {
+			t.Fatal("TestVarVal:", e)
+		}
+	}()
+	var cb CodeBuilder
+	cb.VarVal("unknown")
+}
+
+func isError(e interface{}, msg string) bool {
+	if e != nil {
+		if err, ok := e.(error); ok {
+			return err.Error() == msg
+		}
+		if err, ok := e.(string); ok {
+			return err == msg
+		}
+	}
+	return false
+}
+
 func TestImportPkg(t *testing.T) {
 	pkg := NewPackage("github.com/goplus/gox", "gox", gblConf)
 	f := &File{importPkgs: make(map[string]*PkgRef)}

@@ -1301,6 +1301,14 @@ func (p *CodeBuilder) UntypedBigRat(v *big.Rat, src ...ast.Node) *CodeBuilder {
 	return p
 }
 
+func (p *CodeBuilder) VarVal(name string, src ...ast.Node) *CodeBuilder {
+	_, o := p.Scope().LookupParent(name, token.NoPos)
+	if o == nil {
+		log.Panicf("VarVal: variable `%v` not found\n", name)
+	}
+	return p.Val(o)
+}
+
 // Val func
 func (p *CodeBuilder) Val(v interface{}, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
