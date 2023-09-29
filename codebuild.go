@@ -1734,10 +1734,10 @@ func (p *CodeBuilder) field(
 func methodTypeOf(typ types.Type) types.Type {
 	sig := typ.(*types.Signature)
 	switch t := sig.Recv().Type(); t.(type) {
-	case *overloadFuncType:
+	case *TyOverloadMethod:
 		// is overload method
 		return typ
-	case *templateRecvMethodType:
+	case *TyTemplateRecvMethod:
 		// is template recv method
 		return t
 	}

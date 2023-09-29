@@ -596,23 +596,65 @@ retry:
 			}
 			break
 		}
-		if funcs, ok := CheckOverloadMethod(t); ok {
-			backup := backupArgs(args)
-			for _, o := range funcs {
-				mfn := *fn
-				mfn.Val.(*ast.SelectorExpr).Sel = ident(o.Name())
-				if (flags & instrFlagOpFunc) != 0 { // from callOpFunc
-					mfn.Type = o.Type()
-				} else {
-					mfn.Type = methodTypeOf(o.Type())
+		if fex, ok := CheckFuncEx(t); ok {
+			switch ft := fex.(type) {
+			case *TyOverloadFunc:
+				backup := backupArgs(args)
+				for _, o := range ft.Funcs {
+					if ret, err = matchFuncCall(pkg, toObject(pkg, o, fn.Src), args, flags); err == nil {
+						if ret.CVal == nil && isUntyped(pkg, ret.Type) {
+							ret.CVal = builtinCall(fn, args)
+						}
+						return
+					}
+					restoreArgs(args, backup)
 				}
-				if ret, err = matchFuncCall(pkg, &mfn, args, flags); err == nil {
-					fn.Val, fn.Type = mfn.Val, mfn.Type
-					return
+				return
+			case *TyOverloadMethod:
+				backup := backupArgs(args)
+				for _, o := range ft.Methods {
+					mfn := *fn
+					mfn.Val.(*ast.SelectorExpr).Sel = ident(o.Name())
+					if (flags & instrFlagOpFunc) != 0 { // from callOpFunc
+						mfn.Type = o.Type()
+					} else {
+						mfn.Type = methodTypeOf(o.Type())
+					}
+					if ret, err = matchFuncCall(pkg, &mfn, args, flags); err == nil {
+						fn.Val, fn.Type = mfn.Val, mfn.Type
+						return
+					}
+					restoreArgs(args, backup)
 				}
-				restoreArgs(args, backup)
+				return
+			case *TyTemplateRecvMethod:
+				if mth, ok := fn.Val.(*ast.SelectorExpr); ok {
+					if recv := denoteRecv(mth); recv != nil {
+						backup := backupArgs(args)
+						for i := 0; i < 2; i++ {
+							tfn := toObject(pkg, ft.Func, nil)
+							targs := make([]*internal.Elem, len(args)+1)
+							targ0 := *recv
+							if i == 1 {
+								targ0.Val = &ast.UnaryExpr{Op: token.AND, X: targ0.Val}
+								targ0.Type = types.NewPointer(targ0.Type)
+							}
+							targs[0] = &targ0
+							for j, arg := range args {
+								targs[j+1] = arg
+							}
+							if ret, err = matchFuncCall(pkg, tfn, targs, flags); err == nil {
+								return
+							}
+							if isPointer(targ0.Type) {
+								break
+							}
+							restoreArgs(args, backup)
+						}
+					}
+				}
+				fatal("TODO: unmatched TyTemplateRecvMethod")
 			}
-			return
 		} else if IsCSignature(t) {
 			sig = typesutil.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
 		} else {
@@ -629,45 +671,6 @@ retry:
 		} else if t.hasApproxType() {
 			flags |= instrFlagApproxType
 		}
-	case *overloadFuncType:
-		backup := backupArgs(args)
-		for _, o := range t.funcs {
-			if ret, err = matchFuncCall(pkg, toObject(pkg, o, fn.Src), args, flags); err == nil {
-				if ret.CVal == nil && isUntyped(pkg, ret.Type) {
-					ret.CVal = builtinCall(fn, args)
-				}
-				return
-			}
-			restoreArgs(args, backup)
-		}
-		return
-	case *templateRecvMethodType:
-		if mth, ok := fn.Val.(*ast.SelectorExpr); ok {
-			if recv := denoteRecv(mth); recv != nil {
-				backup := backupArgs(args)
-				for i := 0; i < 2; i++ {
-					tfn := toObject(pkg, t.fn, nil)
-					targs := make([]*internal.Elem, len(args)+1)
-					targ0 := *recv
-					if i == 1 {
-						targ0.Val = &ast.UnaryExpr{Op: token.AND, X: targ0.Val}
-						targ0.Type = types.NewPointer(targ0.Type)
-					}
-					targs[0] = &targ0
-					for j, arg := range args {
-						targs[j+1] = arg
-					}
-					if ret, err = matchFuncCall(pkg, tfn, targs, flags); err == nil {
-						return
-					}
-					if isPointer(targ0.Type) {
-						break
-					}
-					restoreArgs(args, backup)
-				}
-			}
-		}
-		fatal("TODO: unmatched templateRecvMethodType")
 	case *instructionType:
 		return t.instr.Call(pkg, args, flags, fn.Src)
 	case *types.Named:
