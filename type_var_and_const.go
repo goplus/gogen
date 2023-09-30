@@ -712,6 +712,7 @@ func isType(t types.Type) bool {
 	switch sig := t.(type) {
 	case *types.Signature:
 		if _, ok := CheckOverloadFunc(sig); ok {
+			// builtin may be implemented as OverloadFunc
 			return false
 		}
 	case *instructionType:

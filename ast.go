@@ -276,7 +276,7 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 			return &internal.Elem{
 				Val: toType(pkg, typ), Type: NewTypeType(typ), Src: src,
 			}
-		} else {
+		} else { // builtin
 			return toObject(pkg, v, src)
 		}
 	case *types.Builtin:

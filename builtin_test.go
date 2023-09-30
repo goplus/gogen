@@ -486,6 +486,12 @@ func TestMethodAutoProperty(t *testing.T) {
 	}
 }
 
+func TestIsType(t *testing.T) {
+	if isType(sigFuncEx(nil, &TyOverloadFunc{})) {
+		t.Fatal("TestIsType: isType(TyOverloadFunc)")
+	}
+}
+
 func TestUnderlying(t *testing.T) {
 	subst := &SubstType{}
 	bfReft := &bfRefType{typ: tyInt}
