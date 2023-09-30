@@ -1289,7 +1289,7 @@ const (
 
 func TestDeleteVarDecl(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.SetVarRedeclarable(true)
+	pkg.SetRedeclarable(true)
 	scope := pkg.CB().Scope()
 	defs := pkg.NewVarDefs(scope)
 	decl := defs.New(token.NoPos, types.Typ[types.Int], "a", "b")

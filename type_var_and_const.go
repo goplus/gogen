@@ -338,8 +338,8 @@ func (p *Package) newValueDecl(
 		}
 		if typ != nil && tok == token.VAR {
 			if old := scope.Insert(types.NewVar(pos, p.Types, name, typ)); old != nil {
-				allowVarRedecl := p.allowVarRedecl && scope == p.Types.Scope()
-				if !allowVarRedecl || !types.Identical(old.Type(), typ) {
+				allowRedecl := p.allowRedecl && scope == p.Types.Scope()
+				if !(allowRedecl && types.Identical(old.Type(), typ)) { // for c2go
 					oldpos := p.cb.position(old.Pos())
 					p.cb.panicCodePosErrorf(
 						pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
