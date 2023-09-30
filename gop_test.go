@@ -943,7 +943,7 @@ func TestTemplateRecvMethod(t *testing.T) {
 	bar := pkg.Import("github.com/goplus/gox/internal/bar")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(bar.Ref("Game").Type(), "g").
-		Val(ctxRef(pkg, "g")).MemberVal("Run").Val("Hi").Call(1).EndStmt().
+		VarVal("g").MemberVal("Run").Val("Hi").Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -966,7 +966,7 @@ func TestErrTemplateRecvMethod(t *testing.T) {
 	}()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewPointer(bar.Ref("Game").Type()), "g").
-		Val(ctxRef(pkg, "g")).MemberVal("Run").Call(0).EndStmt().
+		VarVal("g").MemberVal("Run").Call(0).EndStmt().
 		End()
 }
 

@@ -19,6 +19,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"log"
 	"math/big"
 	"testing"
 	"unsafe"
@@ -285,10 +286,6 @@ func TestIsFunc(t *testing.T) {
 	if !IsFunc(typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)) {
 		t.Fatal("func() is not func?")
 	}
-	fn := types.NewFunc(token.NoPos, nil, "fn", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false))
-	if !IsFunc(&templateRecvMethodType{fn: fn}) {
-		t.Fatal("templateRecvMethodType is not func?")
-	}
 	if HasAutoProperty(nil) {
 		t.Fatal("nil has autoprop?")
 	}
@@ -476,6 +473,25 @@ func typString(pkg *Package, t types.Type) string {
 	return b.String()
 }
 
+func TestMethodAutoProperty(t *testing.T) {
+	typs := []types.Type{
+		tyInt,
+		sigFuncEx(nil, &TyOverloadFunc{}),
+		sigFuncEx(nil, &TyTemplateRecvMethod{types.NewParam(0, nil, "", tyInt)}),
+	}
+	for _, typ := range typs {
+		if methodHasAutoProperty(typ, 0) {
+			t.Fatal("TestMethodAutoProperty:", typ)
+		}
+	}
+}
+
+func TestIsType(t *testing.T) {
+	if isType(sigFuncEx(nil, &TyOverloadFunc{})) {
+		t.Fatal("TestIsType: isType(TyOverloadFunc)")
+	}
+}
+
 func TestUnderlying(t *testing.T) {
 	subst := &SubstType{}
 	bfReft := &bfRefType{typ: tyInt}
@@ -488,8 +504,9 @@ func TestUnderlying(t *testing.T) {
 		bfReft,
 		&unboundType{},
 		&unboundMapElemType{},
-		&overloadFuncType{},
-		&templateRecvMethodType{},
+		&TyOverloadFunc{},
+		&TyOverloadMethod{},
+		&TyTemplateRecvMethod{},
 		&instructionType{},
 		&TypeType{},
 		&unboundFuncParam{},
@@ -510,7 +527,13 @@ func TestUnderlying(t *testing.T) {
 					t.Fatal("TestUnderlying failed: no error?")
 				}
 			}()
-			typ.Underlying()
+			log.Println("type:", typ.String())
+			if fex, ok := typ.(TyFuncEx); ok {
+				fex.funcEx()
+			}
+			if typ.Underlying() == typ {
+				panic("noop Underlying")
+			}
 		}()
 	}
 }
@@ -798,7 +821,7 @@ func TestCheckSignature(t *testing.T) {
 	arg := types.NewParam(token.NoPos, pkg, "", sig)
 	sig2 := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg), nil, false)
 	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
-	if CheckSignature(&templateRecvMethodType{fn: o}, 0, 0) == nil {
+	if CheckSignature(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: o}), 0, 0) == nil {
 		t.Fatal("TestCheckSignature failed: CheckSignature == nil")
 	}
 
@@ -836,7 +859,7 @@ func TestCheckSignatures(t *testing.T) {
 	arg := types.NewParam(token.NoPos, pkg, "", sig)
 	sig2 := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg), nil, false)
 	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
-	if CheckSignatures(&templateRecvMethodType{fn: o}, 0, 0) == nil {
+	if CheckSignatures(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: o}), 0, 0) == nil {
 		t.Fatal("TestCheckSignatures failed: CheckSignatures == nil")
 	}
 	sig3 := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg, arg), nil, false)

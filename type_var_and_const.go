@@ -688,38 +688,9 @@ func (p *unboundMapElemType) String() string {
 
 // ----------------------------------------------------------------------------
 
-// overloadFuncType: overload function type
-type overloadFuncType struct {
-	funcs []types.Object
-}
-
-func (p *overloadFuncType) Underlying() types.Type {
-	fatal("overload function type")
-	return nil
-}
-
-func (p *overloadFuncType) String() string {
-	return fmt.Sprintf("overloadFuncType{funcs: %v}", p.funcs)
-}
-
-// ----------------------------------------------------------------------------
-
 type btiMethodType struct {
 	types.Type
 	eargs []interface{}
-}
-
-type templateRecvMethodType struct {
-	fn types.Object
-}
-
-func (p *templateRecvMethodType) Underlying() types.Type {
-	fatal("template recv method type")
-	return nil
-}
-
-func (p *templateRecvMethodType) String() string {
-	return fmt.Sprintf("templateRecvMethodType{fn: %v}", p.fn)
 }
 
 // ----------------------------------------------------------------------------
@@ -738,9 +709,12 @@ func (p *instructionType) String() string {
 }
 
 func isType(t types.Type) bool {
-	switch t.(type) {
-	case *overloadFuncType:
-		return false
+	switch sig := t.(type) {
+	case *types.Signature:
+		if _, ok := CheckOverloadFunc(sig); ok {
+			// builtin may be implemented as OverloadFunc
+			return false
+		}
 	case *instructionType:
 		return false
 	}

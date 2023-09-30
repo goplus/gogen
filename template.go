@@ -214,15 +214,17 @@ func DefaultConv(pkg *Package, t types.Type, pv *Element) types.Type {
 		}
 	case *inferFuncType:
 		return typ.Instance()
-	case *overloadFuncType:
-		if len(typ.funcs) == 1 {
-			o := typ.funcs[0]
-			if pv != nil {
-				pv.Val = toObjectExpr(pkg, o)
+	case *types.Signature:
+		if funcs, ok := CheckOverloadFunc(typ); ok {
+			if len(funcs) == 1 {
+				o := funcs[0]
+				if pv != nil {
+					pv.Val = toObjectExpr(pkg, o)
+				}
+				return o.Type()
 			}
-			return o.Type()
+			log.Panicln("==> DefaultConv failed: overload functions have no default type")
 		}
-		log.Panicln("==> DefaultConv failed: overload functions have no default type")
 	default:
 		return types.Default(t)
 	}
@@ -258,13 +260,15 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 		}
 	case *inferFuncType:
 		V = v.Instance()
-	case *overloadFuncType:
-		if len(v.funcs) == 1 {
-			o := v.funcs[0]
-			V = o.Type()
-			if pv != nil {
-				pv.Val = toObjectExpr(pkg, o)
-				pv.Type = V
+	case *types.Signature:
+		if funcs, ok := CheckOverloadFunc(v); ok {
+			if len(funcs) == 1 {
+				o := funcs[0]
+				V = o.Type()
+				if pv != nil {
+					pv.Val = toObjectExpr(pkg, o)
+					pv.Type = V
+				}
 			}
 		}
 	default:
