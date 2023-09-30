@@ -19,8 +19,10 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"unsafe"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -59,10 +61,21 @@ func NewTuple(x ...*Param) *Tuple {
 
 // Func type
 type Func struct {
-	*types.Func
+	types.Func // must be the first member
+
 	decl   *ast.FuncDecl
 	old    funcBodyCtx
 	arity1 int // 0 for normal, (arity+1) for inlineClosure
+}
+
+// Obj returns this function object.
+func (p *Func) Obj() types.Object {
+	return p
+}
+
+// Comments returns associated documentation.
+func (p *Func) Comments() *ast.CommentGroup {
+	return p.decl.Doc
 }
 
 // SetComments sets associated documentation.
@@ -133,7 +146,7 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 
 // NewFunc func
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
-	sig := types.NewSignature(recv, params, results, variadic)
+	sig := typesutil.NewSignatureType(recv, nil, nil, params, results, variadic)
 	f, err := p.NewFuncWith(token.NoPos, name, sig, nil)
 	if err != nil {
 		panic(err)
@@ -148,6 +161,16 @@ func getRecv(recvTypePos func() token.Pos) token.Pos {
 	return token.NoPos
 }
 
+// FuncFrom returns instance of a global function.
+func FuncFrom(o types.Object) *Func {
+	return o.(*Func)
+}
+
+// MethodFrom returns instance of a method function.
+func MethodFrom(fn *types.Func) *Func {
+	return (*Func)(unsafe.Pointer(fn))
+}
+
 // NewFuncWith func
 func (p *Package) NewFuncWith(
 	pos token.Pos, name string, sig *types.Signature, recvTypePos func() token.Pos) (*Func, error) {
@@ -155,7 +178,7 @@ func (p *Package) NewFuncWith(
 		panic("no func name")
 	}
 	cb := p.cb
-	fn := types.NewFunc(pos, p.Types, name, sig)
+	fn := &Func{Func: *types.NewFunc(pos, p.Types, name, sig)}
 	if recv := sig.Recv(); IsMethodRecv(recv) { // add method to this type
 		var t *types.Named
 		var ok bool
@@ -180,7 +203,7 @@ func (p *Package) NewFuncWith(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		if name != "_" { // skip underscore
-			t.AddMethod(fn)
+			t.AddMethod(&fn.Func)
 		}
 	} else if name == "init" { // init is not a normal func
 		if sig.Params() != nil || sig.Results() != nil {
@@ -188,26 +211,31 @@ func (p *Package) NewFuncWith(
 				pos, "func init must have no arguments and no return values")
 		}
 	} else if name != "_" { // skip underscore
-		p.Types.Scope().Insert(fn) // TODO: type checker if exists (use types.Identical)
+		old := p.Types.Scope().Insert(fn.Obj())
+		if old != nil {
+			oldPos := cb.position(old.Pos())
+			return nil, cb.newCodePosErrorf(
+				pos, "%s redeclared in this block\n\t%v: other declaration of %s", name, oldPos, name)
+		}
 	}
 
 	if isGopFunc(name) {
 		p.isGopPkg = true
 	}
 
-	decl := &ast.FuncDecl{}
-	p.file.decls = append(p.file.decls, decl)
-	return &Func{Func: fn, decl: decl}, nil
+	fn.decl = &ast.FuncDecl{}
+	p.file.decls = append(p.file.decls, fn.decl)
+	return fn, nil
 }
 
 func (p *Package) newClosure(sig *types.Signature) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
-	return &Func{Func: fn}
+	return &Func{Func: *fn}
 }
 
 func (p *Package) newInlineClosure(sig *types.Signature, arity int) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
-	return &Func{Func: fn, arity1: arity + 1}
+	return &Func{Func: *fn, arity1: arity + 1}
 }
 
 func (p *Func) isInline() bool {
@@ -216,196 +244,6 @@ func (p *Func) isInline() bool {
 
 func (p *Func) getInlineCallArity() int {
 	return p.arity1 - 1
-}
-
-// ----------------------------------------------------------------------------
-
-func overloadFnHasAutoProperty(v *overloadFuncType, n int) bool {
-	for _, fn := range v.funcs {
-		if methodHasAutoProperty(fn.Type(), n) {
-			return true
-		}
-	}
-	return false
-}
-
-func methodHasAutoProperty(typ types.Type, n int) bool {
-	switch sig := typ.(type) {
-	case *types.Signature:
-		recv := sig.Recv()
-		if recv != nil {
-			switch t := recv.Type(); v := t.(type) {
-			case *overloadFuncType:
-				// is overload method
-				return overloadFnHasAutoProperty(v, n)
-			case *templateRecvMethodType:
-				// is template recv method
-				return methodHasAutoProperty(v.fn.Type(), 1)
-			}
-		}
-		return sig.Params().Len() == n
-	case *overloadFuncType:
-		return overloadFnHasAutoProperty(sig, n)
-	}
-	return false
-}
-
-func HasAutoProperty(typ types.Type) bool {
-	switch sig := typ.(type) {
-	case *types.Signature:
-		return sig.Params().Len() == 0
-	case *overloadFuncType:
-		// is overload func
-		for _, fn := range sig.funcs {
-			if HasAutoProperty(fn.Type()) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func IsFunc(typ types.Type) bool {
-retry:
-	switch t := typ.(type) {
-	case *types.Signature, *overloadFuncType, *inferFuncType:
-		return true
-	case *templateRecvMethodType:
-		typ = t.fn.Type()
-		goto retry
-	}
-	return false
-}
-
-func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.TypeName {
-	return types.NewTypeName(pos, pkg, name, &overloadFuncType{funcs})
-}
-
-func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
-	oft := &overloadFuncType{funcs}
-	recv := types.NewParam(token.NoPos, pkg, "", oft)
-	sig := types.NewSignature(recv, nil, nil, false)
-	ofn := types.NewFunc(pos, pkg, name, sig)
-	typ.AddMethod(ofn)
-	return ofn
-}
-
-func CheckOverloadMethod(sig *types.Signature) (funcs []types.Object, ok bool) {
-	if recv := sig.Recv(); recv != nil {
-		if oft, ok := recv.Type().(*overloadFuncType); ok {
-			return oft.funcs, true
-		}
-	}
-	return nil, false
-}
-
-// NewTemplateRecvMethod - https://github.com/goplus/gop/issues/811
-func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, fn types.Object) *types.Func {
-	trmt := &templateRecvMethodType{fn}
-	recv := types.NewParam(token.NoPos, pkg, "", trmt)
-	sig := types.NewSignature(recv, nil, nil, false)
-	ofn := types.NewFunc(pos, pkg, name, sig)
-	typ.AddMethod(ofn)
-	return ofn
-}
-
-// CheckSignature checks param idx of typ signature.
-// If nin >= 0, it means param idx is a function, and length of its params == nin;
-// If nin == -1, it means param idx is a CompositeLit;
-// If nin == -2, it means param idx is a SliceLit.
-func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
-	switch t := typ.(type) {
-	case *types.Signature:
-		if funcs, ok := CheckOverloadMethod(t); ok {
-			return checkOverloadFunc(funcs, idx, nin)
-		} else {
-			return t
-		}
-	case *overloadFuncType:
-		return checkOverloadFunc(t.funcs, idx, nin)
-	case *templateRecvMethodType:
-		if sig, ok := t.fn.Type().(*types.Signature); ok {
-			params := sig.Params()
-			n := params.Len()
-			mparams := make([]*types.Var, n-1)
-			for i := range mparams {
-				mparams[i] = params.At(i + 1)
-			}
-			return types.NewSignature(nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
-		}
-	}
-	return nil
-}
-
-func checkOverloadFunc(funcs []types.Object, idx, nin int) *types.Signature {
-	for _, v := range funcs {
-		if sig, ok := v.Type().(*types.Signature); ok {
-			params := sig.Params()
-			if idx < params.Len() && checkSigParam(params.At(idx).Type(), nin) {
-				return sig
-			}
-		}
-	}
-	return nil
-}
-
-func CheckSignatures(typ types.Type, idx, nin int) []*types.Signature {
-	switch t := typ.(type) {
-	case *types.Signature:
-		if funcs, ok := CheckOverloadMethod(t); ok {
-			return checkOverloadFuncs(funcs, idx, nin)
-		} else {
-			return []*types.Signature{t}
-		}
-	case *overloadFuncType:
-		return checkOverloadFuncs(t.funcs, idx, nin)
-	case *templateRecvMethodType:
-		if sig, ok := t.fn.Type().(*types.Signature); ok {
-			params := sig.Params()
-			n := params.Len()
-			mparams := make([]*types.Var, n-1)
-			for i := range mparams {
-				mparams[i] = params.At(i + 1)
-			}
-			return []*types.Signature{types.NewSignature(nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())}
-		}
-	}
-	return nil
-}
-
-func checkOverloadFuncs(funcs []types.Object, idx, nin int) (sigs []*types.Signature) {
-	for _, v := range funcs {
-		if sig, ok := v.Type().(*types.Signature); ok {
-			params := sig.Params()
-			if idx < params.Len() && checkSigParam(params.At(idx).Type(), nin) {
-				sigs = append(sigs, sig)
-			}
-		}
-	}
-	return
-}
-
-func checkSigParam(typ types.Type, nin int) bool {
-	switch nin {
-	case -1: // input is CompositeLit
-		if t, ok := typ.(*types.Pointer); ok {
-			typ = t.Elem()
-		}
-		switch typ.(type) {
-		case *types.Struct, *types.Named:
-			return true
-		}
-	case -2: // input is SliceLit
-		switch typ.(type) {
-		case *types.Slice, *types.Named:
-			return true
-		}
-	default:
-		if t, ok := typ.(*types.Signature); ok {
-			return t.Params().Len() == nin
-		}
-	}
-	return false
 }
 
 // ----------------------------------------------------------------------------

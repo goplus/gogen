@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/goplus/gox"
+	"github.com/goplus/gox/typesutil"
 )
 
 func initGopBuiltin(big *gox.PkgRef, conf *gox.Config) {
@@ -121,7 +122,7 @@ func TestBigInt(t *testing.T) {
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.CB().NewVar(big.Ref("Gop_bigint").Type(), "a", "b")
 	pkg.CB().NewVarStart(big.Ref("Gop_bigint").Type(), "c").
-		Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.ADD).EndInit(1)
+		VarVal("a").VarVal("b").BinaryOp(token.ADD).EndInit(1)
 	domTest(t, pkg, `package main
 
 import builtin "github.com/goplus/gox/internal/builtin"
@@ -136,9 +137,9 @@ func TestBigRat(t *testing.T) {
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
 	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "c").
-		Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.QUO).EndInit(1)
+		VarVal("a").VarVal("b").BinaryOp(token.QUO).EndInit(1)
 	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "d").
-		Val(ctxRef(pkg, "a")).UnaryOp(token.SUB).EndInit(1)
+		VarVal("a").UnaryOp(token.SUB).EndInit(1)
 	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "e").
 		Val(big.Ref("Gop_bigrat_Cast")).Call(0).EndInit(1)
 	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "f").
@@ -356,7 +357,7 @@ func TestErrBigRatAssignOp(t *testing.T) {
 	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		VarRef(ctxRef(pkg, "a")).
-		Val(ctxRef(pkg, "b")).
+		VarVal("b").
 		AssignOp(token.SUB_ASSIGN).
 		End()
 }
@@ -367,7 +368,7 @@ func TestBigRatAssignOp(t *testing.T) {
 	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		VarRef(ctxRef(pkg, "a")).
-		Val(ctxRef(pkg, "b")).
+		VarVal("b").
 		AssignOp(token.ADD_ASSIGN).
 		End()
 	domTest(t, pkg, `package main
@@ -555,7 +556,7 @@ func TestUntypedBigRatAdd4(t *testing.T) {
 	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.NewVar(token.NoPos, mbig.Ref("Gop_bigrat").Type(), "a")
 	pkg.CB().NewVarStart(nil, "b").
-		Val(ctxRef(pkg, "a")).
+		VarVal("a").
 		UntypedBigRat(big.NewRat(1, 6)).
 		BinaryOp(token.ADD).
 		EndInit(1)
@@ -576,7 +577,7 @@ func TestUntypedBigRatAdd5(t *testing.T) {
 	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.NewVar(token.NoPos, mbig.Ref("Gop_bigrat").Type(), "a")
 	pkg.CB().NewVarStart(nil, "b").
-		Val(ctxRef(pkg, "a")).
+		VarVal("a").
 		Val(100).
 		BinaryOp(token.ADD).
 		EndInit(1)
@@ -595,7 +596,7 @@ func TestUntypedBigRatAdd6(t *testing.T) {
 	pkg.NewVar(token.NoPos, mbig.Ref("Gop_bigrat").Type(), "a")
 	pkg.CB().NewVarStart(nil, "b").
 		Val(100).
-		Val(ctxRef(pkg, "a")).
+		VarVal("a").
 		BinaryOp(token.ADD).
 		EndInit(1)
 	domTest(t, pkg, `package main
@@ -630,7 +631,7 @@ func TestUntypedBigRatSub2(t *testing.T) {
 	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.NewVar(token.NoPos, mbig.Ref("Gop_bigrat").Type(), "a")
 	pkg.CB().NewVarStart(nil, "b").
-		Val(ctxRef(pkg, "a")).
+		VarVal("a").
 		UntypedBigRat(big.NewRat(1, 6)).
 		BinaryOp(token.SUB).
 		EndInit(1)
@@ -663,7 +664,7 @@ func TestUntypedBigRat(t *testing.T) {
 	pkg := newGopMainPackage()
 	mbig := pkg.Import("github.com/goplus/gox/internal/builtin")
 	pkg.CB().NewVarStart(nil, "a").UntypedBigRat(big.NewRat(6, 63)).EndInit(1)
-	pkg.CB().NewVarStart(mbig.Ref("Gop_bigrat").Type(), "b").Val(ctxRef(pkg, "a")).EndInit(1)
+	pkg.CB().NewVarStart(mbig.Ref("Gop_bigrat").Type(), "b").VarVal("a").EndInit(1)
 	domTest(t, pkg, `package main
 
 import (
@@ -942,7 +943,7 @@ func TestTemplateRecvMethod(t *testing.T) {
 	bar := pkg.Import("github.com/goplus/gox/internal/bar")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(bar.Ref("Game").Type(), "g").
-		Val(ctxRef(pkg, "g")).MemberVal("Run").Val("Hi").Call(1).EndStmt().
+		VarVal("g").MemberVal("Run").Val("Hi").Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -965,7 +966,7 @@ func TestErrTemplateRecvMethod(t *testing.T) {
 	}()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewPointer(bar.Ref("Game").Type()), "g").
-		Val(ctxRef(pkg, "g")).MemberVal("Run").Call(0).EndStmt().
+		VarVal("g").MemberVal("Run").Call(0).EndStmt().
 		End()
 }
 
@@ -1047,7 +1048,7 @@ func main() {
 func TestUntypedBigIntToInterface(t *testing.T) {
 	pkg := newGopMainPackage()
 	methods := []*types.Func{
-		types.NewFunc(token.NoPos, pkg.Types, "Int64", types.NewSignature(nil, nil,
+		types.NewFunc(token.NoPos, pkg.Types, "Int64", typesutil.NewSignatureType(nil, nil, nil, nil,
 			types.NewTuple(types.NewVar(token.NoPos, nil, "v", types.Typ[types.Int64])), false)),
 	}
 	tyInterf := types.NewInterfaceType(methods, nil).Complete()
@@ -1055,7 +1056,7 @@ func TestUntypedBigIntToInterface(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tyA, "a").UntypedBigInt(big.NewInt(1)).EndInit(1).
 		Val(ctxRef(pkg, "println")).
-		Val(ctxRef(pkg, "a")).MemberVal("Int64").Call(0).Call(1).EndStmt().End()
+		VarVal("a").MemberVal("Int64").Call(0).Call(1).EndStmt().End()
 	domTest(t, pkg, `package main
 
 import (

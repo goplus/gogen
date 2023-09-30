@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/goplus/gox"
+	"github.com/goplus/gox/typesutil"
 )
 
 type txtNode struct {
@@ -125,7 +126,7 @@ func newFunc(
 	recv *gox.Param, name string, params, results *types.Tuple, variadic bool) *gox.Func {
 	pos := position(line, column)
 	fn, err := pkg.NewFuncWith(
-		pos, name, types.NewSignature(recv, params, results, variadic), func() token.Pos {
+		pos, name, typesutil.NewSignatureType(recv, nil, nil, params, results, variadic), func() token.Pos {
 			return position(rline, rcolumn)
 		})
 	if err != nil {
@@ -167,7 +168,7 @@ func TestErrTypeSwitch(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: impossible type switch case: v (type interface{Bar()}) cannot have dynamic type int (missing Bar method)",
 		func(pkg *gox.Package) {
 			methods := []*types.Func{
-				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
 			}
 			tyInterf := types.NewInterfaceType(methods, nil).Complete()
 			v := pkg.NewParam(token.NoPos, "v", tyInterf)
@@ -194,7 +195,7 @@ func TestErrBinaryOp(t *testing.T) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.Int], "a").
 				NewVar(types.Typ[types.Float64], "b").
-				Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.MUL).EndStmt().
+				VarVal("a").VarVal("b").BinaryOp(token.MUL).EndStmt().
 				End()
 		})
 	codeErrorTest(t, `./foo.gop:2:9: invalid operation: a * b (mismatched types int and float64)`,
@@ -202,31 +203,31 @@ func TestErrBinaryOp(t *testing.T) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.Int], "a").
 				NewVar(types.Typ[types.Float64], "b").
-				Val(ctxRef(pkg, "a")).Val(ctxRef(pkg, "b")).BinaryOp(token.MUL, source(`a * b`, 2, 9)).EndStmt().
+				VarVal("a").VarVal("b").BinaryOp(token.MUL, source(`a * b`, 2, 9)).EndStmt().
 				End()
 		})
 	codeErrorTest(t, `./foo.gop:2:9: invalid operation: v != 3 (mismatched types interface{Bar()} and untyped int)`,
 		func(pkg *gox.Package) {
 			methods := []*types.Func{
-				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
 			}
 			tyInterf := types.NewInterfaceType(methods, nil).Complete()
 			params := types.NewTuple(pkg.NewParam(token.NoPos, "v", tyInterf))
 			pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
-				/**/ If().Val(ctxRef(pkg, "v")).Val(3).BinaryOp(token.NEQ, source(`v != 3`, 2, 9)).Then().
+				/**/ If().VarVal("v").Val(3).BinaryOp(token.NEQ, source(`v != 3`, 2, 9)).Then().
 				/**/ End().
 				End()
 		})
 	codeErrorTest(t, `./foo.gop:2:9: invalid operation: sl == v (mismatched types []int and interface{Bar()})`,
 		func(pkg *gox.Package) {
 			methods := []*types.Func{
-				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
 			}
 			tyInterf := types.NewInterfaceType(methods, nil).Complete()
 			params := types.NewTuple(pkg.NewParam(token.NoPos, "v", tyInterf))
 			pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
 				NewVar(types.NewSlice(types.Typ[types.Int]), "sl").
-				/**/ If().Val(ctxRef(pkg, "sl")).Val(ctxRef(pkg, "v")).BinaryOp(token.EQL, source(`sl == v`, 2, 9)).Then().
+				/**/ If().Val(ctxRef(pkg, "sl")).VarVal("v").BinaryOp(token.EQL, source(`sl == v`, 2, 9)).Then().
 				/**/ End().
 				End()
 		})
@@ -243,13 +244,13 @@ func TestErrTypeAssert(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: impossible type assertion:\n\tstring does not implement bar (missing Bar method)",
 		func(pkg *gox.Package) {
 			methods := []*types.Func{
-				types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignature(nil, nil, nil, false)),
+				types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
 			}
 			tyInterf := types.NewInterfaceType(methods, nil).Complete()
 			bar := pkg.NewType("bar").InitType(pkg, tyInterf)
 			params := types.NewTuple(pkg.NewParam(token.NoPos, "v", bar))
 			pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
-				DefineVarStart(0, "x").Val(ctxRef(pkg, "v")).
+				DefineVarStart(0, "x").VarVal("v").
 				TypeAssert(types.Typ[types.String], false, source("v.(string)", 2, 9)).EndInit(1).
 				End()
 		})
@@ -257,7 +258,7 @@ func TestErrTypeAssert(t *testing.T) {
 		func(pkg *gox.Package) {
 			params := types.NewTuple(pkg.NewParam(token.NoPos, "v", types.Typ[types.Int]))
 			pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
-				DefineVarStart(0, "x").Val(ctxRef(pkg, "v")).
+				DefineVarStart(0, "x").VarVal("v").
 				TypeAssert(types.Typ[types.String], false, source("v.(string)", 2, 9)).EndInit(1).
 				End()
 		})
@@ -291,7 +292,7 @@ func TestErrConst(t *testing.T) {
 		func(pkg *gox.Package) {
 			pkg.NewVar(position(1, 5), types.NewSlice(types.Typ[types.Int]), "a")
 			pkg.NewConstStart(pkg.Types.Scope(), position(2, 7), nil, "b").
-				Val(ctxRef(pkg, "len")).Val(ctxRef(pkg, "a")).CallWith(1, 0, source("len(a)", 2, 10)).EndInit(1)
+				Val(ctxRef(pkg, "len")).VarVal("a").CallWith(1, 0, source("len(a)", 2, 10)).EndInit(1)
 		})
 	codeErrorTest(t, "./foo.gop:2:9: a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
 		func(pkg *gox.Package) {
@@ -495,19 +496,29 @@ func TestErrAssign(t *testing.T) {
 		})
 }
 
+func TestErrFunc(t *testing.T) {
+	codeErrorTest(t, `./foo.gop:5:1: main redeclared in this block
+	./foo.gop:1:10: other declaration of main`,
+		func(pkg *gox.Package) {
+			sig := typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)
+			pkg.NewFuncDecl(position(1, 10), "main", sig).BodyStart(pkg).End()
+			pkg.NewFuncDecl(position(5, 1), "main", sig).BodyStart(pkg).End()
+		})
+}
+
 func TestErrFuncCall(t *testing.T) {
 	codeErrorTest(t, `./foo.gop:2:10: cannot call non-function a() (type int)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.Int], "a").
-				Val(ctxRef(pkg, "a")).CallWith(0, 0, source("a()", 2, 10)).
+				VarVal("a").CallWith(0, 0, source("a()", 2, 10)).
 				End()
 		})
 	codeErrorTest(t, `./foo.gop:2:10: invalid use of ... in call to foo(a...)`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "foo", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.Int], "a").
-				Val(ctxRef(pkg, "foo"), source("foo", 2, 2)).Val(ctxRef(pkg, "a")).CallWith(1, 1, source("foo(a...)", 2, 10)).
+				Val(ctxRef(pkg, "foo"), source("foo", 2, 2)).VarVal("a").CallWith(1, 1, source("foo(a...)", 2, 10)).
 				End()
 		})
 	codeErrorTest(t, `./foo.gop:3:5: cannot use a (type bool) as type int in argument to foo(a)`,
@@ -1109,7 +1120,7 @@ func TestErrUnsafe(t *testing.T) {
 			builtin := pkg.Builtin()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(foo, "a").
-				Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "a")).MemberVal("Bar").CallWith(1, 0, source("unsafe.Offsetof(a.Bar)", 14, 2)).EndStmt().
+				Val(builtin.Ref("Offsetof")).VarVal("a").MemberVal("Bar").CallWith(1, 0, source("unsafe.Offsetof(a.Bar)", 14, 2)).EndStmt().
 				EndStmt().
 				End()
 		})
@@ -1160,7 +1171,7 @@ func TestErrUnsafe(t *testing.T) {
 			builtin := pkg.Builtin()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyInt, "a").
-				Val(builtin.Ref("Slice")).Val(ctxRef(pkg, "a")).Val(10).CallWith(2, 0, source(`unsafe.Slice(a, 10)`, 7, 2)).EndStmt().
+				Val(builtin.Ref("Slice")).VarVal("a").Val(10).CallWith(2, 0, source(`unsafe.Slice(a, 10)`, 7, 2)).EndStmt().
 				End()
 		})
 	codeErrorTest(t,
@@ -1177,8 +1188,13 @@ func TestErrUnsafe(t *testing.T) {
 }
 
 func TestImportPkgError(t *testing.T) {
+	where := "GOROOT"
+	ver := runtime.Version()[:6]
+	if ver >= "go1.21" {
+		where = "std"
+	}
 	codeErrorTest(t,
-		fmt.Sprintf(`./foo.gop:1:7: package bar2 is not in GOROOT (%v)
+		fmt.Sprintf(`./foo.gop:1:7: package bar2 is not in `+where+` (%v)
 `, filepath.Join(runtime.GOROOT(), "src", "bar2")),
 		func(pkg *gox.Package) {
 			spec := &ast.ImportSpec{
@@ -1216,7 +1232,7 @@ func TestDivisionByZero(t *testing.T) {
 			typ := types.Typ[types.Int]
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(typ, "a").
-				Val(ctxRef(pkg, "a")).Val(0, source("0", 1, 3)).BinaryOp(token.QUO).
+				VarVal("a").Val(0, source("0", 1, 3)).BinaryOp(token.QUO).
 				End()
 		})
 	codeErrorTest(t,
@@ -1225,7 +1241,7 @@ func TestDivisionByZero(t *testing.T) {
 			typ := types.Typ[types.Int]
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(typ, "a").
-				Val(ctxRef(pkg, "a")).Val(0.0, source("0.0", 1, 3)).BinaryOp(token.QUO).
+				VarVal("a").Val(0.0, source("0.0", 1, 3)).BinaryOp(token.QUO).
 				End()
 		})
 	codeErrorTest(t,
@@ -1234,7 +1250,7 @@ func TestDivisionByZero(t *testing.T) {
 			typ := types.Typ[types.Int]
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(typ, "a").
-				Val(ctxRef(pkg, "a")).Val(&ast.BasicLit{Kind: token.IMAG, Value: "0i"}, source("0i", 1, 3)).BinaryOp(token.QUO).
+				VarVal("a").Val(&ast.BasicLit{Kind: token.IMAG, Value: "0i"}, source("0i", 1, 3)).BinaryOp(token.QUO).
 				End()
 		})
 	codeErrorTest(t,

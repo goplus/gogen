@@ -22,6 +22,7 @@ import (
 	"math/big"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -213,15 +214,17 @@ func DefaultConv(pkg *Package, t types.Type, pv *Element) types.Type {
 		}
 	case *inferFuncType:
 		return typ.Instance()
-	case *overloadFuncType:
-		if len(typ.funcs) == 1 {
-			o := typ.funcs[0]
-			if pv != nil {
-				pv.Val = toObjectExpr(pkg, o)
+	case *types.Signature:
+		if funcs, ok := CheckOverloadFunc(typ); ok {
+			if len(funcs) == 1 {
+				o := funcs[0]
+				if pv != nil {
+					pv.Val = toObjectExpr(pkg, o)
+				}
+				return o.Type()
 			}
-			return o.Type()
+			log.Panicln("==> DefaultConv failed: overload functions have no default type")
 		}
-		log.Panicln("==> DefaultConv failed: overload functions have no default type")
 	default:
 		return types.Default(t)
 	}
@@ -257,13 +260,15 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 		}
 	case *inferFuncType:
 		V = v.Instance()
-	case *overloadFuncType:
-		if len(v.funcs) == 1 {
-			o := v.funcs[0]
-			V = o.Type()
-			if pv != nil {
-				pv.Val = toObjectExpr(pkg, o)
-				pv.Type = V
+	case *types.Signature:
+		if funcs, ok := CheckOverloadFunc(v); ok {
+			if len(funcs) == 1 {
+				o := funcs[0]
+				V = o.Type()
+				if pv != nil {
+					pv.Val = toObjectExpr(pkg, o)
+					pv.Type = V
+				}
 			}
 		}
 	default:
@@ -462,7 +467,7 @@ func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type
 // is variadic, it must have at least one parameter, and the last parameter
 // must be of unnamed slice type.
 func NewSignature(recv *types.Var, params, results *types.Tuple, variadic bool) *types.Signature {
-	return types.NewSignature(recv, params, results, variadic)
+	return typesutil.NewSignatureType(recv, nil, nil, params, results, variadic)
 }
 
 // NewSlice returns a new slice type for the given element type.
@@ -639,7 +644,7 @@ func toNormalizeSignature(
 	params, ok2 := toNormalizeTuple(tparams, sig.Params())
 	results, ok3 := toNormalizeTuple(tparams, sig.Results())
 	if ok1 || ok2 || ok3 {
-		return types.NewSignature(recv, params, results, sig.Variadic()), true
+		return typesutil.NewSignatureType(recv, nil, nil, params, results, sig.Variadic()), true
 	}
 	return sig, false
 }
@@ -694,7 +699,7 @@ func NewTemplateSignature(
 	}
 	tsig := &TemplateSignature{
 		params:  templateParams,
-		sig:     types.NewSignature(recv, params, results, variadic),
+		sig:     typesutil.NewSignatureType(recv, nil, nil, params, results, variadic),
 		tokFlag: tokFlag,
 	}
 	if tsig.isOp() {
@@ -790,7 +795,7 @@ func toInstantiateSignature(
 	params, ok2 := toInstantiateTuple(tparams, sig.Params())
 	results, ok3 := toInstantiateTuple(tparams, sig.Results())
 	if ok1 || ok2 || ok3 {
-		return types.NewSignature(recv, params, results, sig.Variadic()), true, ok3
+		return typesutil.NewSignatureType(recv, nil, nil, params, results, sig.Variadic()), true, ok3
 	}
 	return sig, false, ok3
 }
