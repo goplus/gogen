@@ -19,6 +19,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"log"
 	"math/big"
 	"testing"
 	"unsafe"
@@ -472,6 +473,19 @@ func typString(pkg *Package, t types.Type) string {
 	return b.String()
 }
 
+func TestMethodAutoProperty(t *testing.T) {
+	typs := []types.Type{
+		tyInt,
+		sigFuncEx(nil, &TyOverloadFunc{}),
+		sigFuncEx(nil, &TyTemplateRecvMethod{types.NewParam(0, nil, "", tyInt)}),
+	}
+	for _, typ := range typs {
+		if methodHasAutoProperty(typ, 0) {
+			t.Fatal("TestMethodAutoProperty:", typ)
+		}
+	}
+}
+
 func TestUnderlying(t *testing.T) {
 	subst := &SubstType{}
 	bfReft := &bfRefType{typ: tyInt}
@@ -507,6 +521,10 @@ func TestUnderlying(t *testing.T) {
 					t.Fatal("TestUnderlying failed: no error?")
 				}
 			}()
+			log.Println("type:", typ.String())
+			if fex, ok := typ.(TyFuncEx); ok {
+				fex.funcEx()
+			}
 			if typ.Underlying() == typ {
 				panic("noop Underlying")
 			}

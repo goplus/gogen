@@ -1733,13 +1733,8 @@ func (p *CodeBuilder) field(
 
 func methodTypeOf(typ types.Type) types.Type {
 	sig := typ.(*types.Signature)
-	switch t := sig.Recv().Type(); t.(type) {
-	case *TyOverloadMethod:
-		// is overload method
+	if _, ok := CheckFuncEx(sig); ok {
 		return typ
-	case *TyTemplateRecvMethod:
-		// is template recv method
-		return t
 	}
 	return typesutil.NewSignatureType(nil, nil, nil, sig.Params(), sig.Results(), sig.Variadic())
 }
