@@ -68,6 +68,11 @@ type Func struct {
 	arity1 int // 0 for normal, (arity+1) for inlineClosure
 }
 
+// Obj returns this function object.
+func (p *Func) Obj() types.Object {
+	return p
+}
+
 // Comments returns associated documentation.
 func (p *Func) Comments() *ast.CommentGroup {
 	return p.decl.Doc
@@ -206,7 +211,7 @@ func (p *Package) NewFuncWith(
 				pos, "func init must have no arguments and no return values")
 		}
 	} else if name != "_" { // skip underscore
-		old := p.Types.Scope().Insert(fn)
+		old := p.Types.Scope().Insert(fn.Obj())
 		if old != nil {
 			oldPos := cb.position(old.Pos())
 			return nil, cb.newCodePosErrorf(
