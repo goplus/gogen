@@ -296,7 +296,7 @@ type Package struct {
 	autoIdx        int
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
-	allowVarRedecl bool
+	allowRedecl    bool // for c2go
 	isGopPkg       bool
 }
 
@@ -348,9 +348,9 @@ func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {
 	p.commentedStmts[stmt] = comments
 }
 
-// SetVarRedeclarable sets to allow redeclaration of variables or not.
-func (p *Package) SetVarRedeclarable(allowVarRedecl bool) {
-	p.allowVarRedecl = allowVarRedecl
+// SetRedeclarable sets to allow redeclaration of variables/functions or not.
+func (p *Package) SetRedeclarable(allowRedecl bool) {
+	p.allowRedecl = allowRedecl
 }
 
 // Sizeof returns sizeof typ in bytes.

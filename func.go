@@ -213,9 +213,11 @@ func (p *Package) NewFuncWith(
 	} else if name != "_" { // skip underscore
 		old := p.Types.Scope().Insert(fn.Obj())
 		if old != nil {
-			oldPos := cb.position(old.Pos())
-			return nil, cb.newCodePosErrorf(
-				pos, "%s redeclared in this block\n\t%v: other declaration of %s", name, oldPos, name)
+			if !(p.allowRedecl && types.Identical(old.Type(), sig)) { // for c2go
+				oldPos := cb.position(old.Pos())
+				return nil, cb.newCodePosErrorf(
+					pos, "%s redeclared in this block\n\t%v: other declaration of %s", name, oldPos, name)
+			}
 		}
 	}
 
