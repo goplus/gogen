@@ -126,8 +126,8 @@ func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, 
 
 // ----------------------------------------------------------------------------
 
-func overloadFnHasAutoProperty(v *TyOverloadMethod, n int) bool {
-	for _, fn := range v.Methods {
+func overloadFnHasAutoProperty(fns []types.Object, n int) bool {
+	for _, fn := range fns {
 		if methodHasAutoProperty(fn.Type(), n) {
 			return true
 		}
@@ -141,12 +141,13 @@ func methodHasAutoProperty(typ types.Type, n int) bool {
 			switch t := recv.Type().(type) {
 			case *TyOverloadMethod:
 				// is overload method
-				return overloadFnHasAutoProperty(t, n)
+				return overloadFnHasAutoProperty(t.Methods, n)
 			case *TyTemplateRecvMethod:
 				// is template recv method
 				return methodHasAutoProperty(t.Func.Type(), 1)
 			case *TyOverloadFunc:
-				return false
+				// is overload func
+				return overloadFnHasAutoProperty(t.Funcs, n)
 			}
 		}
 		return sig.Params().Len() == n
