@@ -88,10 +88,11 @@ func shouldAddGopPkg(pkg *Package) bool {
 }
 
 func isGopFunc(name string) bool {
-	if strings.HasPrefix(name, goptPrefix) {
-		return true
-	}
-	return isOverloadFunc(name)
+	return isOverloadFunc(name) || isGoptFunc(name)
+}
+
+func isGoptFunc(name string) bool {
+	return strings.HasPrefix(name, goptPrefix)
 }
 
 func isOverloadFunc(name string) bool {
