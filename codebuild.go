@@ -590,7 +590,7 @@ func (p *CodeBuilder) NewType(name string, pos ...token.Pos) *TypeDecl {
 	if debugInstr {
 		log.Println("NewType", name)
 	}
-	return p.pkg.doNewType(p.current.scope, getPos(pos), name, nil, 0)
+	return p.typeDefs().NewType(name, pos...)
 }
 
 // AliasType func
@@ -598,7 +598,7 @@ func (p *CodeBuilder) AliasType(name string, typ types.Type, pos ...token.Pos) *
 	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
-	decl := p.pkg.doNewType(p.current.scope, getPos(pos), name, typ, 1)
+	decl := p.typeDefs().AliasType(name, typ, pos...)
 	return decl.typ
 }
 

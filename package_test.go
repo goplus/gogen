@@ -601,7 +601,9 @@ func main() {
 func TestTypeDoc(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)
-	pkg.NewType("foo").SetComments(comment("\n//go:notinheap")).InitType(pkg, typ)
+	def := pkg.NewTypeDefs()
+	def.NewType("foo").SetComments(comment("\n//go:notinheap")).InitType(pkg, typ)
+	def.Complete()
 	domTest(t, pkg, `package main
 
 //go:notinheap
@@ -613,7 +615,8 @@ type foo struct {
 func TestDeleteType(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)
-	decl := pkg.NewType("foo")
+	def := pkg.NewTypeDefs()
+	decl := def.NewType("foo")
 	if decl.State() != gox.TyStateUninited {
 		t.Fatal("TypeDecl.State failed")
 	}
@@ -625,7 +628,12 @@ func TestDeleteType(t *testing.T) {
 	if decl.State() != gox.TyStateDeleted {
 		t.Fatal("TypeDecl.State failed")
 	}
+	def.NewType("t").InitType(def.Pkg(), gox.TyByte)
+	def.NewType("bar").Delete()
+	def.Complete()
 	domTest(t, pkg, `package main
+
+type t byte
 `)
 }
 
@@ -666,11 +674,11 @@ func TestTypeCycleDef(t *testing.T) {
 	foo.InitType(pkg, types.NewStruct(fields, nil))
 	domTest(t, pkg, `package main
 
-type a = foo
-type b = a
 type foo struct {
 	p *b
 }
+type a = foo
+type b = a
 `)
 }
 

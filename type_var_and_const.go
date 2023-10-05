@@ -48,14 +48,13 @@ const (
 
 // TypeDecl type
 type TypeDecl struct {
-	typ   *types.Named
-	decl  *ast.GenDecl
-	scope *types.Scope
+	typ  *types.Named
+	spec *ast.TypeSpec
 }
 
 // SetComments sets associated documentation.
 func (p *TypeDecl) SetComments(doc *ast.CommentGroup) *TypeDecl {
-	p.decl.Doc = doc
+	p.spec.Doc = doc
 	return p
 }
 
@@ -69,8 +68,9 @@ func (p *TypeDecl) Type() *types.Named {
 // If InitType is called (but not deleted), it returns TyStateInited.
 // Otherwise it returns TyStateUninited.
 func (p *TypeDecl) State() TyState {
-	if spec := p.decl.Specs; len(spec) > 0 {
-		if spec[0].(*ast.TypeSpec).Type != nil {
+	spec := p.spec
+	if spec.Name != nil {
+		if spec.Type != nil {
 			return TyStateInited
 		}
 		return TyStateUninited
@@ -81,13 +81,13 @@ func (p *TypeDecl) State() TyState {
 // Delete deletes this type.
 // NOTE: It panics if you call InitType after Delete.
 func (p *TypeDecl) Delete() {
-	p.decl.Specs = p.decl.Specs[:0]
+	p.spec.Name = nil
 }
 
 // Inited checkes if InitType is called or not.
 // Will panic if this type is deleted (please use State to check).
 func (p *TypeDecl) Inited() bool {
-	return p.decl.Specs[0].(*ast.TypeSpec).Type != nil
+	return p.spec.Type != nil
 }
 
 // InitType initializes a uncompleted type.
@@ -95,7 +95,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam)
 	if debugInstr {
 		log.Println("InitType", p.typ.Obj().Name(), typ)
 	}
-	spec := p.decl.Specs[0].(*ast.TypeSpec)
+	spec := p.spec
 	if spec.Type != nil {
 		log.Panicln("TODO: type already defined -", typ)
 	}
@@ -106,25 +106,92 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam)
 	}
 	setTypeParams(pkg, p.typ, spec, tparams)
 	spec.Type = toType(pkg, typ)
-	pkg.appendGenDecl(p.scope, p.decl)
 	return p.typ
 }
 
-// AliasType gives a specified type with a new name
-func (p *Package) AliasType(name string, typ types.Type, pos ...token.Pos) *types.Named {
+// ----------------------------------------------------------------------------
+
+// TypeDefs represents a type declaration block.
+type TypeDefs struct {
+	decl  *ast.GenDecl
+	scope *types.Scope
+	pkg   *Package
+}
+
+// Pkg returns the package instance.
+func (p *TypeDefs) Pkg() *Package {
+	return p.pkg
+}
+
+// NewType creates a new type (which need to call InitType later).
+func (p *TypeDefs) NewType(name string, pos ...token.Pos) *TypeDecl {
+	if debugInstr {
+		log.Println("NewType", name)
+	}
+	return p.pkg.doNewType(p, getPos(pos), name, nil, 0)
+}
+
+// AliasType gives a specified type with a new name.
+func (p *TypeDefs) AliasType(name string, typ types.Type, pos ...token.Pos) *TypeDecl {
 	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
-	decl := p.doNewType(p.Types.Scope(), getPos(pos), name, typ, 1)
+	return p.pkg.doNewType(p, getPos(pos), name, typ, 1)
+}
+
+// Complete checks type declarations & marks completed.
+func (p *TypeDefs) Complete() {
+	decl := p.decl
+	specs := decl.Specs
+	if len(specs) == 1 && decl.Doc == nil {
+		if spec := specs[0].(*ast.TypeSpec); spec.Doc != nil {
+			decl.Doc, spec.Doc = spec.Doc, nil
+		}
+	}
+	for i, spec := range specs {
+		v := spec.(*ast.TypeSpec)
+		if v.Name == nil || v.Type == nil {
+			for j := i + 1; j < len(specs); j++ {
+				v = specs[j].(*ast.TypeSpec)
+				if v.Name != nil && v.Type != nil {
+					specs[i] = v
+					i++
+				}
+			}
+			decl.Specs = specs[:i]
+			return
+		}
+	}
+}
+
+// ----------------------------------------------------------------------------
+
+// AliasType gives a specified type with a new name.
+//
+// Deprecated: use NewTypeDefs instead.
+func (p *Package) AliasType(name string, typ types.Type, pos ...token.Pos) *types.Named {
+	decl := p.NewTypeDefs().AliasType(name, typ, pos...)
 	return decl.typ
 }
 
 // NewType creates a new type (which need to call InitType later).
+//
+// Deprecated: use NewTypeDefs instead.
 func (p *Package) NewType(name string, pos ...token.Pos) *TypeDecl {
-	if debugInstr {
-		log.Println("NewType", name)
-	}
-	return p.doNewType(p.Types.Scope(), getPos(pos), name, nil, 0)
+	return p.NewTypeDefs().NewType(name, pos...)
+}
+
+// NewTypeDefs starts a type declaration block.
+func (p *Package) NewTypeDefs() *TypeDefs {
+	decl := &ast.GenDecl{Tok: token.TYPE}
+	p.file.decls = append(p.file.decls, decl)
+	return &TypeDefs{decl: decl, scope: p.Types.Scope(), pkg: p}
+}
+
+func (p *CodeBuilder) typeDefs() *TypeDefs {
+	decl := &ast.GenDecl{Tok: token.TYPE}
+	p.emitStmt(&ast.DeclStmt{Decl: decl})
+	return &TypeDefs{decl: decl, scope: p.current.scope, pkg: p.pkg}
 }
 
 func getPos(pos []token.Pos) token.Pos {
@@ -134,31 +201,23 @@ func getPos(pos []token.Pos) token.Pos {
 	return pos[0]
 }
 
-func (p *Package) appendGenDecl(scope *types.Scope, decl *ast.GenDecl) {
-	if scope == p.Types.Scope() {
-		p.file.decls = append(p.file.decls, decl)
-	} else {
-		p.cb.emitStmt(&ast.DeclStmt{Decl: decl})
-	}
-}
-
-func (p *Package) doNewType(
-	scope *types.Scope, pos token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {
+func (p *Package) doNewType(tdecl *TypeDefs, pos token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {
+	scope := tdecl.scope
 	typName := types.NewTypeName(pos, p.Types, name, typ)
 	if old := scope.Insert(typName); old != nil {
 		oldPos := p.cb.position(old.Pos())
 		p.cb.panicCodePosErrorf(
 			pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
 	}
+	decl := tdecl.decl
 	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
-	decl := &ast.GenDecl{Tok: token.TYPE, Specs: []ast.Spec{spec}}
+	decl.Specs = append(decl.Specs, spec)
 	if alias != 0 { // alias don't need to call InitType
 		spec.Type = toType(p, typ)
 		typ = typ.Underlying() // typ.Underlying() may delay load and can be nil, it's reasonable
-		p.appendGenDecl(scope, decl)
 	}
 	named := types.NewNamed(typName, typ, nil)
-	return &TypeDecl{typ: named, decl: decl, scope: scope}
+	return &TypeDecl{typ: named, spec: spec}
 }
 
 // ----------------------------------------------------------------------------
@@ -359,6 +418,7 @@ func (p *Package) newValueDecl(
 	if vdecl != nil {
 		decl := vdecl.decl
 		decl.Specs = append(decl.Specs, spec)
+		at = vdecl.at
 	} else {
 		decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
 		if scope == p.Types.Scope() {
