@@ -309,7 +309,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 type VarDecl = ValueDecl
 
 func (p *Package) newValueDecl(
-	vdecl *ValueDefs, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
+	vdecl *valueDefs, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
 	n := len(names)
 	if tok == token.DEFINE { // a, b := expr
 		noNewVar := true
@@ -371,7 +371,7 @@ func (p *Package) newValueDecl(
 		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: at}
 }
 
-func (p *Package) newValueDefs(scope *types.Scope, tok token.Token) *ValueDefs {
+func (p *Package) newValueDefs(scope *types.Scope, tok token.Token) *valueDefs {
 	at := -1
 	decl := &ast.GenDecl{Tok: tok}
 	if scope == p.Types.Scope() {
@@ -379,7 +379,7 @@ func (p *Package) newValueDefs(scope *types.Scope, tok token.Token) *ValueDefs {
 	} else {
 		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
 	}
-	return &ValueDefs{pkg: p, scope: scope, decl: decl, at: at}
+	return &valueDefs{pkg: p, scope: scope, decl: decl, at: at}
 }
 
 // NewConstStart creates constants with names.
@@ -404,7 +404,7 @@ func (p *Package) NewConstDefs(scope *types.Scope) *ConstDefs {
 	if debugInstr {
 		log.Println("NewConstDefs")
 	}
-	return &ConstDefs{ValueDefs: *p.newValueDefs(scope, token.CONST)}
+	return &ConstDefs{valueDefs: *p.newValueDefs(scope, token.CONST)}
 }
 
 // NewVar starts a var declaration block and creates uninitialized variables with
@@ -453,21 +453,22 @@ func (p *Package) NewVarDefs(scope *types.Scope) *VarDefs {
 
 // ----------------------------------------------------------------------------
 
-type ValueDefs struct {
+type valueDefs struct {
 	decl  *ast.GenDecl
 	scope *types.Scope
 	pkg   *Package
 	at    int
 }
 
-type VarDefs ValueDefs
+// VarDefs represents a var declaration block.
+type VarDefs valueDefs
 
 // New creates uninitialized variables with specified `typ` (can be nil) and `names`.
 func (p *VarDefs) New(pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	return p.pkg.newValueDecl((*ValueDefs)(p), p.scope, pos, token.VAR, typ, names...)
+	return p.pkg.newValueDecl((*valueDefs)(p), p.scope, pos, token.VAR, typ, names...)
 }
 
 // NewAndInit creates variables with specified `typ` (can be nil) and `names`, and initializes them by `fn`.
@@ -475,7 +476,7 @@ func (p *VarDefs) NewAndInit(fn func(cb *CodeBuilder) int, pos token.Pos, typ ty
 	if debugInstr {
 		log.Println("NewAndInit", names)
 	}
-	decl := p.pkg.newValueDecl((*ValueDefs)(p), p.scope, pos, token.VAR, typ, names...)
+	decl := p.pkg.newValueDecl((*valueDefs)(p), p.scope, pos, token.VAR, typ, names...)
 	if fn != nil {
 		cb := decl.InitStart(p.pkg)
 		n := fn(cb)
@@ -509,8 +510,9 @@ func (p *VarDefs) Delete(name string) error {
 
 // ----------------------------------------------------------------------------
 
+// ConstDefs represents a const declaration block.
 type ConstDefs struct {
-	ValueDefs
+	valueDefs
 	fn  func(cb *CodeBuilder) int
 	typ types.Type
 }
@@ -524,19 +526,24 @@ func constInitFn(cb *CodeBuilder, iotav int, fn func(cb *CodeBuilder) int) int {
 	return fn(cb)
 }
 
+// New creates constants with specified `typ` (can be nil) and `names`.
+// The values of the constants is given by the callback `fn`.
 func (p *ConstDefs) New(
 	fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDefs {
 	if debugInstr {
 		log.Println("NewConst", names, iotav)
 	}
 	pkg := p.pkg
-	cb := pkg.newValueDecl(&p.ValueDefs, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
+	cb := pkg.newValueDecl(&p.valueDefs, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
 	n := constInitFn(cb, iotav, fn)
 	cb.EndInit(n)
 	p.fn, p.typ = fn, typ
 	return p
 }
 
+// Next creates constants with specified `typ` (can be nil) and `names`.
+// The values of the constants is given by the callback `fn` which is
+// specified by the last call to `New`.
 func (p *ConstDefs) Next(iotav int, pos token.Pos, names ...string) *ConstDefs {
 	pkg := p.pkg
 	cb := pkg.CB()
