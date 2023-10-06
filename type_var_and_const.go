@@ -123,6 +123,12 @@ func (p *TypeDefs) Pkg() *Package {
 	return p.pkg
 }
 
+// SetComments sets associated documentation.
+func (p *TypeDefs) SetComments(doc *ast.CommentGroup) *TypeDefs {
+	p.decl.Doc = doc
+	return p
+}
+
 // NewType creates a new type (which need to call InitType later).
 func (p *TypeDefs) NewType(name string, pos ...token.Pos) *TypeDecl {
 	if debugInstr {
@@ -523,6 +529,12 @@ type valueDefs struct {
 // VarDefs represents a var declaration block.
 type VarDefs valueDefs
 
+// SetComments sets associated documentation.
+func (p *VarDefs) SetComments(doc *ast.CommentGroup) *VarDefs {
+	p.decl.Doc = doc
+	return p
+}
+
 // New creates uninitialized variables with specified `typ` (can be nil) and `names`.
 func (p *VarDefs) New(pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
@@ -584,6 +596,12 @@ func constInitFn(cb *CodeBuilder, iotav int, fn func(cb *CodeBuilder) int) int {
 		cb.iotav = oldv
 	}()
 	return fn(cb)
+}
+
+// SetComments sets associated documentation.
+func (p *ConstDefs) SetComments(doc *ast.CommentGroup) *ConstDefs {
+	p.decl.Doc = doc
+	return p
 }
 
 // New creates constants with specified `typ` (can be nil) and `names`.

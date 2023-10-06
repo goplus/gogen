@@ -601,7 +601,7 @@ func main() {
 func TestTypeDoc(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)
-	def := pkg.NewTypeDefs()
+	def := pkg.NewTypeDefs().SetComments(nil)
 	def.NewType("foo").SetComments(comment("\n//go:notinheap")).InitType(pkg, typ)
 	def.Complete()
 	domTest(t, pkg, `package main
@@ -1217,7 +1217,7 @@ func TestConstLenCap(t *testing.T) {
 func TestConstDecl(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
-	pkg.NewConstDefs(pkg.CB().Scope()).New(func(cb *gox.CodeBuilder) int {
+	pkg.NewConstDefs(pkg.CB().Scope()).SetComments(nil).New(func(cb *gox.CodeBuilder) int {
 		cb.Val(1).Val(2).BinaryOp(token.ADD)
 		return 1
 	}, 0, token.NoPos, nil, "n")
@@ -1299,7 +1299,7 @@ func TestDeleteVarDecl(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.SetRedeclarable(true)
 	scope := pkg.CB().Scope()
-	defs := pkg.NewVarDefs(scope)
+	defs := pkg.NewVarDefs(scope).SetComments(nil)
 	decl := defs.New(token.NoPos, types.Typ[types.Int], "a", "b")
 	defs.New(token.NoPos, types.Typ[types.String], "c")
 	defs.New(token.NoPos, types.Typ[types.String], "s")
