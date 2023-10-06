@@ -602,8 +602,8 @@ func (p *VarDefs) Delete(name string) error {
 // ConstDefs represents a const declaration block.
 type ConstDefs struct {
 	valueDefs
-	fn  func(cb *CodeBuilder) int
 	typ types.Type
+	F   func(cb *CodeBuilder) int
 }
 
 func constInitFn(cb *CodeBuilder, iotav int, fn func(cb *CodeBuilder) int) int {
@@ -639,7 +639,7 @@ func (p *ConstDefs) NewAt(
 	cb := pkg.newValueDecl(at, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
 	n := constInitFn(cb, iotav, fn)
 	cb.EndInit(n)
-	p.fn, p.typ = fn, typ
+	p.F, p.typ = fn, typ
 	return p
 }
 
@@ -647,16 +647,17 @@ func (p *ConstDefs) NewAt(
 // The values of the constants are given by the callback `fn` which is
 // specified by the last call to `New`.
 func (p *ConstDefs) Next(iotav int, pos token.Pos, names ...string) *ConstDefs {
-	return p.NextAt(p.NewPos(), iotav, pos, names...)
+	return p.NextAt(p.NewPos(), p.F, iotav, pos, names...)
 }
 
 // NextAt creates constants with specified `names`.
 // The values of the constants are given by the callback `fn` which is
 // specified by the last call to `New`.
-func (p *ConstDefs) NextAt(at ValueAt, iotav int, pos token.Pos, names ...string) *ConstDefs {
+func (p *ConstDefs) NextAt(
+	at ValueAt, fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, names ...string) *ConstDefs {
 	pkg := p.pkg
 	cb := pkg.CB()
-	n := constInitFn(cb, iotav, p.fn)
+	n := constInitFn(cb, iotav, fn)
 	if len(names) != n {
 		if len(names) < n {
 			cb.panicCodePosError(pos, "extra expression in const declaration")
