@@ -652,8 +652,7 @@ func (p *ConstDefs) Next(iotav int, pos token.Pos, names ...string) *ConstDefs {
 }
 
 // NextAt creates constants with specified `names`.
-// The values of the constants are given by the callback `fn` which is
-// specified by the last call to `New`.
+// The values of the constants are given by the callback `fn`.
 func (p *ConstDefs) NextAt(at ValueAt, fn F, iotav int, pos token.Pos, names ...string) *ConstDefs {
 	pkg := p.pkg
 	cb := pkg.CB()
