@@ -587,6 +587,45 @@ func (p *ConstDecl) Init(defs *ConstDefs, iotav int) {
 	cb.EndInit(n)
 }
 
+// ConstNextDecl represents a const declaration without initial expression.
+type ConstNextDecl struct {
+	names []string
+	pos   token.Pos
+}
+
+// Init initializes values of the constants.
+// The values of the constants are given by the callback `fn` which is
+// specified by the last call to defs.New.
+func (p *ConstNextDecl) Init(defs *ConstDefs, iotav int) {
+	pkg := defs.pkg
+	cb := pkg.CB()
+	names := p.names
+	n := constInitFn(cb, iotav, defs.fn)
+	if len(names) != n {
+		if len(names) < n {
+			cb.panicCodePosError(p.pos, "extra expression in const declaration")
+		}
+		cb.panicCodePosError(p.pos, "missing value in const declaration")
+	}
+
+	ret := cb.stk.GetArgs(n)
+	defer cb.stk.PopN(n)
+
+	for i, name := range names {
+		typ := defs.typ
+		if typ == nil {
+			typ = ret[i].Type
+		}
+		if name != "_" {
+			if old := defs.scope.Insert(types.NewConst(p.pos, pkg.Types, name, typ, ret[i].CVal)); old != nil {
+				oldpos := cb.position(old.Pos())
+				cb.panicCodePosErrorf(
+					p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
+			}
+		}
+	}
+}
+
 // ConstDefs represents a const declaration block.
 type ConstDefs struct {
 	valueDefs
@@ -627,40 +666,22 @@ func (p *ConstDefs) NewAndInit(
 	return p
 }
 
-// Next creates constants with specified `typ` (can be nil) and `names`.
-// The values of the constants are given by the callback `fn` which is
-// specified by the last call to `New`.
-func (p *ConstDefs) Next(iotav int, pos token.Pos, names ...string) *ConstDefs {
-	pkg := p.pkg
-	cb := pkg.CB()
-	n := constInitFn(cb, iotav, p.fn)
-	if len(names) != n {
-		if len(names) < n {
-			cb.panicCodePosError(pos, "extra expression in const declaration")
-		}
-		cb.panicCodePosError(pos, "missing value in const declaration")
-	}
-
-	ret := cb.stk.GetArgs(n)
-	defer cb.stk.PopN(n)
-
-	idents := make([]*ast.Ident, n)
+// NewNext creates constants with specified `names`.
+func (p *ConstDefs) NewNext(pos token.Pos, names ...string) *ConstNextDecl {
+	idents := make([]*ast.Ident, len(names))
 	for i, name := range names {
-		typ := p.typ
-		if typ == nil {
-			typ = ret[i].Type
-		}
-		if name != "_" {
-			if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, typ, ret[i].CVal)); old != nil {
-				oldpos := cb.position(old.Pos())
-				cb.panicCodePosErrorf(
-					pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
-			}
-		}
 		idents[i] = ident(name)
 	}
 	spec := &ast.ValueSpec{Names: idents}
 	p.decl.Specs = append(p.decl.Specs, spec)
+	return &ConstNextDecl{names, pos}
+}
+
+// Next creates constants with specified `names`.
+// The values of the constants are given by the callback `fn` which is
+// specified by the last call to `New`.
+func (p *ConstDefs) Next(iotav int, pos token.Pos, names ...string) *ConstDefs {
+	p.NewNext(pos, names...).Init(p, iotav)
 	return p
 }
 
