@@ -458,13 +458,6 @@ func (p *Package) NewConstStart(scope *types.Scope, pos token.Pos, typ types.Typ
 	return p.newValueDecl(nil, scope, pos, token.CONST, typ, names...).InitStart(p)
 }
 
-// NewConstDecl starts a constant declaration block.
-//
-// Deprecated: Use NewConstDefs instead.
-func (p *Package) NewConstDecl(scope *types.Scope) *ConstDefs {
-	return p.NewConstDefs(scope)
-}
-
 // NewConstDefs starts a constant declaration block.
 func (p *Package) NewConstDefs(scope *types.Scope) *ConstDefs {
 	if debugInstr {
@@ -582,6 +575,18 @@ func (p *VarDefs) Delete(name string) error {
 
 // ----------------------------------------------------------------------------
 
+// ConstDecl represents a const declaration.
+type ConstDecl ValueDecl
+
+// Init initializes values of the constants.
+// The values of the constants are given by the callback `fn` which is
+// specified by the last call to defs.New.
+func (p *ConstDecl) Init(defs *ConstDefs, iotav int) {
+	cb := (*ValueDecl)(p).InitStart(defs.pkg)
+	n := constInitFn(cb, iotav, defs.fn)
+	cb.EndInit(n)
+}
+
 // ConstDefs represents a const declaration block.
 type ConstDefs struct {
 	valueDefs
@@ -605,22 +610,25 @@ func (p *ConstDefs) SetComments(doc *ast.CommentGroup) *ConstDefs {
 }
 
 // New creates constants with specified `typ` (can be nil) and `names`.
-// The values of the constants is given by the callback `fn`.
 func (p *ConstDefs) New(
-	fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDefs {
+	fn func(cb *CodeBuilder) int, pos token.Pos, typ types.Type, names ...string) *ConstDecl {
 	if debugInstr {
-		log.Println("NewConst", names, iotav)
+		log.Println("NewConst", names)
 	}
-	pkg := p.pkg
-	cb := pkg.newValueDecl(&p.valueDefs, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
-	n := constInitFn(cb, iotav, fn)
-	cb.EndInit(n)
 	p.fn, p.typ = fn, typ
+	return (*ConstDecl)(p.pkg.newValueDecl(&p.valueDefs, p.scope, pos, token.CONST, typ, names...))
+}
+
+// NewAndInit creates constants with specified `typ` (can be nil) and `names`.
+// The values of the constants are given by the callback `fn`.
+func (p *ConstDefs) NewAndInit(
+	fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDefs {
+	p.New(fn, pos, typ, names...).Init(p, iotav)
 	return p
 }
 
 // Next creates constants with specified `typ` (can be nil) and `names`.
-// The values of the constants is given by the callback `fn` which is
+// The values of the constants are given by the callback `fn` which is
 // specified by the last call to `New`.
 func (p *ConstDefs) Next(iotav int, pos token.Pos, names ...string) *ConstDefs {
 	pkg := p.pkg
@@ -655,11 +663,6 @@ func (p *ConstDefs) Next(iotav int, pos token.Pos, names ...string) *ConstDefs {
 	p.decl.Specs = append(p.decl.Specs, spec)
 	return p
 }
-
-// ConstDecl type
-//
-// Deprecated: Use ConstDefs instead.
-type ConstDecl = ConstDefs
 
 // ----------------------------------------------------------------------------
 

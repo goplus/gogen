@@ -297,8 +297,8 @@ func TestErrConst(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: a redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
 		func(pkg *gox.Package) {
 			pkg.NewVarStart(position(1, 5), nil, "a").Val(1).EndInit(1)
-			pkg.NewConstDecl(pkg.Types.Scope()).
-				New(func(cb *gox.CodeBuilder) int {
+			pkg.NewConstDefs(pkg.Types.Scope()).
+				NewAndInit(func(cb *gox.CodeBuilder) int {
 					cb.Val(2)
 					return 1
 				}, 0, position(2, 7), nil, "_").
@@ -306,8 +306,8 @@ func TestErrConst(t *testing.T) {
 		})
 	codeErrorTest(t, "./foo.gop:2:9: extra expression in const declaration",
 		func(pkg *gox.Package) {
-			pkg.NewConstDecl(pkg.Types.Scope()).
-				New(func(cb *gox.CodeBuilder) int {
+			pkg.NewConstDefs(pkg.Types.Scope()).
+				NewAndInit(func(cb *gox.CodeBuilder) int {
 					cb.Val(2)
 					cb.Val(ctxRef(pkg, "iota"))
 					return 2
@@ -316,8 +316,8 @@ func TestErrConst(t *testing.T) {
 		})
 	codeErrorTest(t, "./foo.gop:2:9: missing value in const declaration",
 		func(pkg *gox.Package) {
-			pkg.NewConstDecl(pkg.Types.Scope()).
-				New(func(cb *gox.CodeBuilder) int {
+			pkg.NewConstDefs(pkg.Types.Scope()).
+				NewAndInit(func(cb *gox.CodeBuilder) int {
 					cb.Val(2)
 					cb.Val(ctxRef(pkg, "iota"))
 					return 2
