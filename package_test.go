@@ -1217,7 +1217,7 @@ func TestConstLenCap(t *testing.T) {
 func TestConstDecl(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
-	pkg.NewConstDefs(pkg.CB().Scope()).SetComments(nil).NewAndInit(func(cb *gox.CodeBuilder) int {
+	pkg.NewConstDefs(pkg.CB().Scope()).SetComments(nil).New(func(cb *gox.CodeBuilder) int {
 		cb.Val(1).Val(2).BinaryOp(token.ADD)
 		return 1
 	}, 0, token.NoPos, nil, "n")
@@ -1239,14 +1239,14 @@ func main() {
 func TestConstDecl2(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewConstDefs(pkg.Types.Scope()).
-		NewAndInit(func(cb *gox.CodeBuilder) int {
+		New(func(cb *gox.CodeBuilder) int {
 			cb.Val(ctxRef(pkg, "iota"))
 			return 1
 		}, 0, token.NoPos, nil, "a").
 		Next(1, token.NoPos, "_").
 		Next(2, token.NoPos, "_").
 		Next(3, token.NoPos, "b").
-		NewAndInit(func(cb *gox.CodeBuilder) int {
+		New(func(cb *gox.CodeBuilder) int {
 			cb.Val(ctxRef(pkg, "iota"))
 			return 1
 		}, 4, token.NoPos, nil, "c")
@@ -1273,7 +1273,7 @@ const (
 func TestConstDecl3(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewConstDefs(pkg.Types.Scope()).
-		NewAndInit(func(cb *gox.CodeBuilder) int {
+		New(func(cb *gox.CodeBuilder) int {
 			cb.Val(1).Val(ctxRef(pkg, "iota")).BinaryOp(token.SHL)
 			return 1
 		}, 0, token.NoPos, types.Typ[types.Uint16], "a").

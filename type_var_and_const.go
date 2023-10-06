@@ -374,7 +374,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 type VarDecl = ValueDecl
 
 func (p *Package) newValueDecl(
-	vdecl *valueDefs, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
+	spec ValueAt, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
 	n := len(names)
 	if tok == token.DEFINE { // a, b := expr
 		noNewVar := true
@@ -412,7 +412,7 @@ func (p *Package) newValueDecl(
 			}
 		}
 	}
-	spec := &ast.ValueSpec{Names: nameIdents}
+	spec.Names = nameIdents
 	if typ != nil {
 		if ut, ok := typ.(*unboundType); ok && ut.tBound == nil {
 			ut.ptypes = append(ut.ptypes, &spec.Type)
@@ -420,21 +420,8 @@ func (p *Package) newValueDecl(
 			spec.Type = toType(p, typ)
 		}
 	}
-	at := -1
-	if vdecl != nil {
-		decl := vdecl.decl
-		decl.Specs = append(decl.Specs, spec)
-		at = vdecl.at
-	} else {
-		decl := &ast.GenDecl{Tok: tok, Specs: []ast.Spec{spec}}
-		if scope == p.Types.Scope() {
-			p.file.decls = append(p.file.decls, decl)
-		} else {
-			at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
-		}
-	}
 	return &ValueDecl{
-		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: at}
+		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: spec.at}
 }
 
 func (p *Package) newValueDefs(scope *types.Scope, tok token.Token) *valueDefs {
@@ -448,6 +435,18 @@ func (p *Package) newValueDefs(scope *types.Scope, tok token.Token) *valueDefs {
 	return &valueDefs{pkg: p, scope: scope, decl: decl, at: at}
 }
 
+func (p *CodeBuilder) valueDefs(tok token.Token) *valueDefs {
+	at := -1
+	decl := &ast.GenDecl{Tok: tok}
+	pkg, scope := p.pkg, p.current.scope
+	if scope == pkg.Types.Scope() {
+		pkg.file.decls = append(pkg.file.decls, decl)
+	} else {
+		at = p.startStmtAt(&ast.DeclStmt{Decl: decl})
+	}
+	return &valueDefs{pkg: pkg, scope: scope, decl: decl, at: at}
+}
+
 // NewConstStart creates constants with names.
 //
 // Deprecated: Use NewConstDefs instead.
@@ -455,7 +454,8 @@ func (p *Package) NewConstStart(scope *types.Scope, pos token.Pos, typ types.Typ
 	if debugInstr {
 		log.Println("NewConst", names)
 	}
-	return p.newValueDecl(nil, scope, pos, token.CONST, typ, names...).InitStart(p)
+	at := p.newValueDefs(scope, token.CONST).NewPos()
+	return p.newValueDecl(at, scope, pos, token.CONST, typ, names...).InitStart(p)
 }
 
 // NewConstDefs starts a constant declaration block.
@@ -469,37 +469,42 @@ func (p *Package) NewConstDefs(scope *types.Scope) *ConstDefs {
 // NewVar starts a var declaration block and creates uninitialized variables with
 // specified `typ` (can be nil) and `names`.
 //
-// This is a shortcut for creating variables. `NewVarDefs` is more powerful and
+// Deprecated: This is a shortcut for creating variables. `NewVarDefs` is more powerful and
 // more recommended.
 func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	return p.newValueDecl(nil, p.Types.Scope(), pos, token.VAR, typ, names...)
+	scope := p.Types.Scope()
+	at := p.newValueDefs(scope, token.VAR).NewPos()
+	return p.newValueDecl(at, scope, pos, token.VAR, typ, names...)
 }
 
 // NewVarEx starts a var declaration block and creates uninitialized variables with
 // specified `typ` (can be nil) and `names`.
 //
-// This is a shortcut for creating variables. `NewVarDefs` is more powerful and
+// Deprecated: This is a shortcut for creating variables. `NewVarDefs` is more powerful and
 // more recommended.
 func (p *Package) NewVarEx(scope *types.Scope, pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	return p.newValueDecl(nil, scope, pos, token.VAR, typ, names...)
+	at := p.newValueDefs(scope, token.VAR).NewPos()
+	return p.newValueDecl(at, scope, pos, token.VAR, typ, names...)
 }
 
 // NewVarStart creates variables with specified `typ` (can be nil) and `names` and starts
 // to initialize them. You should call `CodeBuilder.EndInit` to end initialization.
 //
-// This is a shortcut for creating variables. `NewVarDefs` is more powerful and more
+// Deprecated: This is a shortcut for creating variables. `NewVarDefs` is more powerful and more
 // recommended.
 func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	return p.newValueDecl(nil, p.Types.Scope(), pos, token.VAR, typ, names...).InitStart(p)
+	scope := p.Types.Scope()
+	at := p.newValueDefs(scope, token.VAR).NewPos()
+	return p.newValueDecl(at, scope, pos, token.VAR, typ, names...).InitStart(p)
 }
 
 // NewVarDefs starts a var declaration block.
@@ -507,10 +512,15 @@ func (p *Package) NewVarDefs(scope *types.Scope) *VarDefs {
 	if debugInstr {
 		log.Println("NewVarDefs")
 	}
-	return (*VarDefs)(p.newValueDefs(scope, token.VAR))
+	return &VarDefs{*p.newValueDefs(scope, token.VAR)}
 }
 
 // ----------------------------------------------------------------------------
+
+type ValueAt struct {
+	*ast.ValueSpec
+	at int
+}
 
 type valueDefs struct {
 	decl  *ast.GenDecl
@@ -519,8 +529,17 @@ type valueDefs struct {
 	at    int
 }
 
+func (p *valueDefs) NewPos() ValueAt {
+	decl := p.decl
+	spec := &ast.ValueSpec{}
+	decl.Specs = append(decl.Specs, spec)
+	return ValueAt{spec, p.at}
+}
+
 // VarDefs represents a var declaration block.
-type VarDefs valueDefs
+type VarDefs struct {
+	valueDefs
+}
 
 // SetComments sets associated documentation.
 func (p *VarDefs) SetComments(doc *ast.CommentGroup) *VarDefs {
@@ -530,10 +549,15 @@ func (p *VarDefs) SetComments(doc *ast.CommentGroup) *VarDefs {
 
 // New creates uninitialized variables with specified `typ` (can be nil) and `names`.
 func (p *VarDefs) New(pos token.Pos, typ types.Type, names ...string) *VarDecl {
+	return p.NewAt(p.NewPos(), pos, typ, names...)
+}
+
+// NewAt creates uninitialized variables with specified `typ` (can be nil) and `names`.
+func (p *VarDefs) NewAt(at ValueAt, pos token.Pos, typ types.Type, names ...string) *VarDecl {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	return p.pkg.newValueDecl((*valueDefs)(p), p.scope, pos, token.VAR, typ, names...)
+	return p.pkg.newValueDecl(at, p.scope, pos, token.VAR, typ, names...)
 }
 
 // NewAndInit creates variables with specified `typ` (can be nil) and `names`, and initializes them by `fn`.
@@ -541,7 +565,7 @@ func (p *VarDefs) NewAndInit(fn func(cb *CodeBuilder) int, pos token.Pos, typ ty
 	if debugInstr {
 		log.Println("NewAndInit", names)
 	}
-	decl := p.pkg.newValueDecl((*valueDefs)(p), p.scope, pos, token.VAR, typ, names...)
+	decl := p.pkg.newValueDecl(p.NewPos(), p.scope, pos, token.VAR, typ, names...)
 	if fn != nil {
 		cb := decl.InitStart(p.pkg)
 		n := fn(cb)
@@ -575,57 +599,6 @@ func (p *VarDefs) Delete(name string) error {
 
 // ----------------------------------------------------------------------------
 
-// ConstDecl represents a const declaration.
-type ConstDecl ValueDecl
-
-// Init initializes values of the constants.
-// The values of the constants are given by the callback `fn` which is
-// specified by the last call to defs.New.
-func (p *ConstDecl) Init(defs *ConstDefs, iotav int) {
-	cb := (*ValueDecl)(p).InitStart(defs.pkg)
-	n := constInitFn(cb, iotav, defs.fn)
-	cb.EndInit(n)
-}
-
-// ConstNextDecl represents a const declaration without initial expression.
-type ConstNextDecl struct {
-	names []string
-	pos   token.Pos
-}
-
-// Init initializes values of the constants.
-// The values of the constants are given by the callback `fn` which is
-// specified by the last call to defs.New.
-func (p *ConstNextDecl) Init(defs *ConstDefs, iotav int) {
-	pkg := defs.pkg
-	cb := pkg.CB()
-	names := p.names
-	n := constInitFn(cb, iotav, defs.fn)
-	if len(names) != n {
-		if len(names) < n {
-			cb.panicCodePosError(p.pos, "extra expression in const declaration")
-		}
-		cb.panicCodePosError(p.pos, "missing value in const declaration")
-	}
-
-	ret := cb.stk.GetArgs(n)
-	defer cb.stk.PopN(n)
-
-	for i, name := range names {
-		typ := defs.typ
-		if typ == nil {
-			typ = ret[i].Type
-		}
-		if name != "_" {
-			if old := defs.scope.Insert(types.NewConst(p.pos, pkg.Types, name, typ, ret[i].CVal)); old != nil {
-				oldpos := cb.position(old.Pos())
-				cb.panicCodePosErrorf(
-					p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
-			}
-		}
-	}
-}
-
 // ConstDefs represents a const declaration block.
 type ConstDefs struct {
 	valueDefs
@@ -649,39 +622,67 @@ func (p *ConstDefs) SetComments(doc *ast.CommentGroup) *ConstDefs {
 }
 
 // New creates constants with specified `typ` (can be nil) and `names`.
-func (p *ConstDefs) New(
-	fn func(cb *CodeBuilder) int, pos token.Pos, typ types.Type, names ...string) *ConstDecl {
-	if debugInstr {
-		log.Println("NewConst", names)
-	}
-	p.fn, p.typ = fn, typ
-	return (*ConstDecl)(p.pkg.newValueDecl(&p.valueDefs, p.scope, pos, token.CONST, typ, names...))
-}
-
-// NewAndInit creates constants with specified `typ` (can be nil) and `names`.
 // The values of the constants are given by the callback `fn`.
-func (p *ConstDefs) NewAndInit(
+func (p *ConstDefs) New(
 	fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDefs {
-	p.New(fn, pos, typ, names...).Init(p, iotav)
-	return p
+	return p.NewAt(p.NewPos(), fn, iotav, pos, typ, names...)
 }
 
-// NewNext creates constants with specified `names`.
-func (p *ConstDefs) NewNext(pos token.Pos, names ...string) *ConstNextDecl {
-	idents := make([]*ast.Ident, len(names))
-	for i, name := range names {
-		idents[i] = ident(name)
+// NewAt creates constants with specified `typ` (can be nil) and `names`.
+// The values of the constants are given by the callback `fn`.
+func (p *ConstDefs) NewAt(
+	at ValueAt, fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDefs {
+	if debugInstr {
+		log.Println("NewConst", names, iotav)
 	}
-	spec := &ast.ValueSpec{Names: idents}
-	p.decl.Specs = append(p.decl.Specs, spec)
-	return &ConstNextDecl{names, pos}
+	pkg := p.pkg
+	cb := pkg.newValueDecl(at, p.scope, pos, token.CONST, typ, names...).InitStart(pkg)
+	n := constInitFn(cb, iotav, fn)
+	cb.EndInit(n)
+	p.fn, p.typ = fn, typ
+	return p
 }
 
 // Next creates constants with specified `names`.
 // The values of the constants are given by the callback `fn` which is
 // specified by the last call to `New`.
 func (p *ConstDefs) Next(iotav int, pos token.Pos, names ...string) *ConstDefs {
-	p.NewNext(pos, names...).Init(p, iotav)
+	return p.NextAt(p.NewPos(), iotav, pos, names...)
+}
+
+// NextAt creates constants with specified `names`.
+// The values of the constants are given by the callback `fn` which is
+// specified by the last call to `New`.
+func (p *ConstDefs) NextAt(at ValueAt, iotav int, pos token.Pos, names ...string) *ConstDefs {
+	pkg := p.pkg
+	cb := pkg.CB()
+	n := constInitFn(cb, iotav, p.fn)
+	if len(names) != n {
+		if len(names) < n {
+			cb.panicCodePosError(pos, "extra expression in const declaration")
+		}
+		cb.panicCodePosError(pos, "missing value in const declaration")
+	}
+
+	ret := cb.stk.GetArgs(n)
+	defer cb.stk.PopN(n)
+
+	idents := make([]*ast.Ident, n)
+	for i, name := range names {
+		typ := p.typ
+		if typ == nil {
+			typ = ret[i].Type
+		}
+		if name != "_" {
+			if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, typ, ret[i].CVal)); old != nil {
+				oldpos := cb.position(old.Pos())
+				cb.panicCodePosErrorf(
+					pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
+			}
+		}
+		idents[i] = ident(name)
+	}
+	at.Names = idents
 	return p
 }
 
