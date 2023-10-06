@@ -561,7 +561,7 @@ func (p *VarDefs) NewAt(at ValueAt, pos token.Pos, typ types.Type, names ...stri
 }
 
 // NewAndInit creates variables with specified `typ` (can be nil) and `names`, and initializes them by `fn`.
-func (p *VarDefs) NewAndInit(fn func(cb *CodeBuilder) int, pos token.Pos, typ types.Type, names ...string) *VarDefs {
+func (p *VarDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...string) *VarDefs {
 	if debugInstr {
 		log.Println("NewAndInit", names)
 	}
@@ -599,14 +599,17 @@ func (p *VarDefs) Delete(name string) error {
 
 // ----------------------------------------------------------------------------
 
+// F represents an initialization callback for constants/variables.
+type F = func(cb *CodeBuilder) int
+
 // ConstDefs represents a const declaration block.
 type ConstDefs struct {
 	valueDefs
 	typ types.Type
-	F   func(cb *CodeBuilder) int
+	F   F
 }
 
-func constInitFn(cb *CodeBuilder, iotav int, fn func(cb *CodeBuilder) int) int {
+func constInitFn(cb *CodeBuilder, iotav int, fn F) int {
 	oldv := cb.iotav
 	cb.iotav = iotav
 	defer func() {
@@ -623,15 +626,13 @@ func (p *ConstDefs) SetComments(doc *ast.CommentGroup) *ConstDefs {
 
 // New creates constants with specified `typ` (can be nil) and `names`.
 // The values of the constants are given by the callback `fn`.
-func (p *ConstDefs) New(
-	fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDefs {
+func (p *ConstDefs) New(fn F, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDefs {
 	return p.NewAt(p.NewPos(), fn, iotav, pos, typ, names...)
 }
 
 // NewAt creates constants with specified `typ` (can be nil) and `names`.
 // The values of the constants are given by the callback `fn`.
-func (p *ConstDefs) NewAt(
-	at ValueAt, fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDefs {
+func (p *ConstDefs) NewAt(at ValueAt, fn F, iotav int, pos token.Pos, typ types.Type, names ...string) *ConstDefs {
 	if debugInstr {
 		log.Println("NewConst", names, iotav)
 	}
@@ -653,8 +654,7 @@ func (p *ConstDefs) Next(iotav int, pos token.Pos, names ...string) *ConstDefs {
 // NextAt creates constants with specified `names`.
 // The values of the constants are given by the callback `fn` which is
 // specified by the last call to `New`.
-func (p *ConstDefs) NextAt(
-	at ValueAt, fn func(cb *CodeBuilder) int, iotav int, pos token.Pos, names ...string) *ConstDefs {
+func (p *ConstDefs) NextAt(at ValueAt, fn F, iotav int, pos token.Pos, names ...string) *ConstDefs {
 	pkg := p.pkg
 	cb := pkg.CB()
 	n := constInitFn(cb, iotav, fn)
