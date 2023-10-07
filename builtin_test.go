@@ -677,14 +677,41 @@ func TestBoundElementType(t *testing.T) {
 }
 
 func TestUnaryOp(t *testing.T) {
+	pkg := NewPackage("foo", "foo", gblConf)
 	a := constant.MakeFromLiteral("1e1", token.FLOAT, 0)
 	args := []*internal.Elem{
 		{CVal: a},
 	}
-	nega := unaryOp(token.SUB, args)
+	nega := unaryOp(pkg, token.SUB, args)
 	ret := doBinaryOp(nega, token.NEQ, constant.MakeInt64(-10))
 	if constant.BoolVal(ret) {
 		t.Fatal("TestUnaryOp failed:", nega)
+	}
+}
+
+func TestUnaryOpXor(t *testing.T) {
+	pkg := NewPackage("foo", "foo", gblConf)
+	type testinfo struct {
+		typ   types.Type
+		value constant.Value
+		check constant.Value
+	}
+	namedUint8 := types.NewNamed(types.NewTypeName(0, nil, "Uint", nil), types.Typ[types.Uint8], nil)
+	for _, info := range []testinfo{
+		{types.Typ[types.Uint8], constant.MakeInt64(0), constant.MakeUint64(255)},
+		{types.Typ[types.Uint16], constant.MakeInt64(1), constant.MakeUint64(65534)},
+		{types.Typ[types.Int8], constant.MakeInt64(0), constant.MakeInt64(-1)},
+		{types.Typ[types.Int16], constant.MakeInt64(1), constant.MakeInt64(-2)},
+		{types.Typ[types.Uint8], constant.MakeInt64(0), constant.MakeUint64(255)},
+		{namedUint8, constant.MakeInt64(0), constant.MakeUint64(255)},
+	} {
+		args := []*internal.Elem{
+			{Type: info.typ, CVal: info.value},
+		}
+		v := unaryOp(pkg, token.XOR, args)
+		if !constant.Compare(v, token.EQL, info.check) {
+			t.Fatalf("test xor failed: ^%v(%v) result %v, must %v", args[0].Type, info.value, v, info.check)
+		}
 	}
 }
 
