@@ -677,14 +677,38 @@ func TestBoundElementType(t *testing.T) {
 }
 
 func TestUnaryOp(t *testing.T) {
+	pkg := NewPackage("foo", "foo", gblConf)
 	a := constant.MakeFromLiteral("1e1", token.FLOAT, 0)
 	args := []*internal.Elem{
 		{CVal: a},
 	}
-	nega := unaryOp(token.SUB, args)
+	nega := unaryOp(pkg, token.SUB, args)
 	ret := doBinaryOp(nega, token.NEQ, constant.MakeInt64(-10))
 	if constant.BoolVal(ret) {
 		t.Fatal("TestUnaryOp failed:", nega)
+	}
+}
+
+func TestUnaryOpXor(t *testing.T) {
+	pkg := NewPackage("foo", "foo", gblConf)
+	type testinfo struct {
+		kind  types.BasicKind
+		value constant.Value
+		check constant.Value
+	}
+	for _, info := range []testinfo{
+		{types.Uint8, constant.MakeInt64(0), constant.MakeUint64(255)},
+		{types.Uint16, constant.MakeInt64(1), constant.MakeUint64(65534)},
+		{types.Int8, constant.MakeInt64(0), constant.MakeInt64(-1)},
+		{types.Int16, constant.MakeInt64(1), constant.MakeInt64(-2)},
+	} {
+		args := []*internal.Elem{
+			{Type: types.Typ[info.kind], CVal: info.value},
+		}
+		v := unaryOp(pkg, token.XOR, args)
+		if !constant.Compare(v, token.EQL, info.check) {
+			t.Fatalf("test xor failed: ^%v(%v) result %v, must %v", args[0].Type, info.value, v, info.check)
+		}
 	}
 }
 
