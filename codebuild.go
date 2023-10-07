@@ -590,7 +590,7 @@ func (p *CodeBuilder) NewType(name string, pos ...token.Pos) *TypeDecl {
 	if debugInstr {
 		log.Println("NewType", name)
 	}
-	return p.pkg.doNewType(p.current.scope, getPos(pos), name, nil, 0)
+	return p.typeDefs().NewType(name, pos...)
 }
 
 // AliasType func
@@ -598,7 +598,7 @@ func (p *CodeBuilder) AliasType(name string, typ types.Type, pos ...token.Pos) *
 	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
-	decl := p.pkg.doNewType(p.current.scope, getPos(pos), name, typ, 1)
+	decl := p.typeDefs().AliasType(name, typ, pos...)
 	return decl.typ
 }
 
@@ -607,7 +607,8 @@ func (p *CodeBuilder) NewConstStart(typ types.Type, names ...string) *CodeBuilde
 	if debugInstr {
 		log.Println("NewConstStart", names)
 	}
-	return p.pkg.newValueDecl(nil, p.current.scope, token.NoPos, token.CONST, typ, names...).InitStart(p.pkg)
+	defs := p.valueDefs(token.CONST)
+	return p.pkg.newValueDecl(defs.NewPos(), defs.scope, token.NoPos, token.CONST, typ, names...).InitStart(p.pkg)
 }
 
 // NewVar func
@@ -615,7 +616,8 @@ func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	p.pkg.newValueDecl(nil, p.current.scope, token.NoPos, token.VAR, typ, names...)
+	defs := p.valueDefs(token.VAR)
+	p.pkg.newValueDecl(defs.NewPos(), defs.scope, token.NoPos, token.VAR, typ, names...)
 	return p
 }
 
@@ -624,7 +626,8 @@ func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder 
 	if debugInstr {
 		log.Println("NewVarStart", names)
 	}
-	return p.pkg.newValueDecl(nil, p.current.scope, token.NoPos, token.VAR, typ, names...).InitStart(p.pkg)
+	defs := p.valueDefs(token.VAR)
+	return p.pkg.newValueDecl(defs.NewPos(), defs.scope, token.NoPos, token.VAR, typ, names...).InitStart(p.pkg)
 }
 
 // DefineVarStart func
@@ -632,7 +635,8 @@ func (p *CodeBuilder) DefineVarStart(pos token.Pos, names ...string) *CodeBuilde
 	if debugInstr {
 		log.Println("DefineVarStart", names)
 	}
-	return p.pkg.newValueDecl(nil, p.current.scope, pos, token.DEFINE, nil, names...).InitStart(p.pkg)
+	return p.pkg.newValueDecl(
+		ValueAt{}, p.current.scope, pos, token.DEFINE, nil, names...).InitStart(p.pkg)
 }
 
 // NewAutoVar func
