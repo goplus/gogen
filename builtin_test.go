@@ -692,18 +692,21 @@ func TestUnaryOp(t *testing.T) {
 func TestUnaryOpXor(t *testing.T) {
 	pkg := NewPackage("foo", "foo", gblConf)
 	type testinfo struct {
-		kind  types.BasicKind
+		typ   types.Type
 		value constant.Value
 		check constant.Value
 	}
+	namedUint8 := types.NewNamed(types.NewTypeName(0, nil, "Uint", nil), types.Typ[types.Uint8], nil)
 	for _, info := range []testinfo{
-		{types.Uint8, constant.MakeInt64(0), constant.MakeUint64(255)},
-		{types.Uint16, constant.MakeInt64(1), constant.MakeUint64(65534)},
-		{types.Int8, constant.MakeInt64(0), constant.MakeInt64(-1)},
-		{types.Int16, constant.MakeInt64(1), constant.MakeInt64(-2)},
+		{types.Typ[types.Uint8], constant.MakeInt64(0), constant.MakeUint64(255)},
+		{types.Typ[types.Uint16], constant.MakeInt64(1), constant.MakeUint64(65534)},
+		{types.Typ[types.Int8], constant.MakeInt64(0), constant.MakeInt64(-1)},
+		{types.Typ[types.Int16], constant.MakeInt64(1), constant.MakeInt64(-2)},
+		{types.Typ[types.Uint8], constant.MakeInt64(0), constant.MakeUint64(255)},
+		{namedUint8, constant.MakeInt64(0), constant.MakeUint64(255)},
 	} {
 		args := []*internal.Elem{
-			{Type: types.Typ[info.kind], CVal: info.value},
+			{Type: info.typ, CVal: info.value},
 		}
 		v := unaryOp(pkg, token.XOR, args)
 		if !constant.Compare(v, token.EQL, info.check) {
