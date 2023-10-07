@@ -601,7 +601,9 @@ func main() {
 func TestTypeDoc(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)
-	pkg.NewType("foo").SetComments(comment("\n//go:notinheap")).InitType(pkg, typ)
+	def := pkg.NewTypeDefs().SetComments(nil)
+	def.NewType("foo").SetComments(comment("\n//go:notinheap")).InitType(pkg, typ)
+	def.Complete()
 	domTest(t, pkg, `package main
 
 //go:notinheap
@@ -613,7 +615,8 @@ type foo struct {
 func TestDeleteType(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)
-	decl := pkg.NewType("foo")
+	def := pkg.NewTypeDefs()
+	decl := def.NewType("foo")
 	if decl.State() != gox.TyStateUninited {
 		t.Fatal("TypeDecl.State failed")
 	}
@@ -625,7 +628,12 @@ func TestDeleteType(t *testing.T) {
 	if decl.State() != gox.TyStateDeleted {
 		t.Fatal("TypeDecl.State failed")
 	}
+	def.NewType("t").InitType(def.Pkg(), gox.TyByte)
+	def.NewType("bar").Delete()
+	def.Complete()
 	domTest(t, pkg, `package main
+
+type t byte
 `)
 }
 
@@ -666,11 +674,11 @@ func TestTypeCycleDef(t *testing.T) {
 	foo.InitType(pkg, types.NewStruct(fields, nil))
 	domTest(t, pkg, `package main
 
-type a = foo
-type b = a
 type foo struct {
 	p *b
 }
+type a = foo
+type b = a
 `)
 }
 
@@ -1209,7 +1217,7 @@ func TestConstLenCap(t *testing.T) {
 func TestConstDecl(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
-	pkg.NewConstDefs(pkg.CB().Scope()).New(func(cb *gox.CodeBuilder) int {
+	pkg.NewConstDefs(pkg.CB().Scope()).SetComments(nil).New(func(cb *gox.CodeBuilder) int {
 		cb.Val(1).Val(2).BinaryOp(token.ADD)
 		return 1
 	}, 0, token.NoPos, nil, "n")
@@ -1230,7 +1238,7 @@ func main() {
 
 func TestConstDecl2(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewConstDecl(pkg.Types.Scope()).
+	pkg.NewConstDefs(pkg.Types.Scope()).
 		New(func(cb *gox.CodeBuilder) int {
 			cb.Val(ctxRef(pkg, "iota"))
 			return 1
@@ -1264,7 +1272,7 @@ const (
 
 func TestConstDecl3(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewConstDecl(pkg.Types.Scope()).
+	pkg.NewConstDefs(pkg.Types.Scope()).
 		New(func(cb *gox.CodeBuilder) int {
 			cb.Val(1).Val(ctxRef(pkg, "iota")).BinaryOp(token.SHL)
 			return 1
@@ -1291,7 +1299,7 @@ func TestDeleteVarDecl(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.SetRedeclarable(true)
 	scope := pkg.CB().Scope()
-	defs := pkg.NewVarDefs(scope)
+	defs := pkg.NewVarDefs(scope).SetComments(nil)
 	decl := defs.New(token.NoPos, types.Typ[types.Int], "a", "b")
 	defs.New(token.NoPos, types.Typ[types.String], "c")
 	defs.New(token.NoPos, types.Typ[types.String], "s")
