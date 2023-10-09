@@ -1281,3 +1281,26 @@ func TestDivisionByZero(t *testing.T) {
 				End()
 		})
 }
+
+func TestErrUsedNoValue(t *testing.T) {
+	codeErrorTest(t,
+		`./foo.gop:3:10: foo() (no value) used as value`,
+		func(pkg *gox.Package) {
+			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, nil, false).BodyStart(pkg).
+				End()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVarStart(types.Typ[types.Int], "a").
+				Val(ctxRef(pkg, "foo")).CallWith(0, 0, source("foo()", 3, 10)).EndInit(1).
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:3:10: foo() (no value) used as value`,
+		func(pkg *gox.Package) {
+			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, nil, false).BodyStart(pkg).
+				End()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				VarRef(ctxRef(pkg, "a")).Val(ctxRef(pkg, "foo")).CallWith(0, 0, source("foo()", 3, 10)).Assign(1, 1).
+				End()
+		})
+}
