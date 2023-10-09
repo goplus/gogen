@@ -1173,6 +1173,10 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 		}
 		log.Printf("==> MatchType %v%s, %v\n", arg.Type, cval, param)
 	}
+	if arg.Type == nil {
+		src, pos := pkg.cb.loadExpr(arg.Src)
+		return pkg.cb.newCodeError(&pos, fmt.Sprintf("%v (no value) used as value", src))
+	}
 	// check untyped big int/rat/flt => interface
 	switch arg.Type {
 	case pkg.utBigInt, pkg.utBigRat, pkg.utBigFlt:
