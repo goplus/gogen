@@ -849,7 +849,7 @@ func TestCheckSignature(t *testing.T) {
 	sig2 := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg), nil, false)
 	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
 	if CheckSignature(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: o}), 0, 0) == nil {
-		t.Fatal("TestCheckSignature failed: CheckSignature == nil")
+		t.Fatal("TestCheckSignature failed: TemplateRecvMethod CheckSignature == nil")
 	}
 
 	of := NewOverloadFunc(token.NoPos, pkg, "bar", o)
@@ -858,6 +858,10 @@ func TestCheckSignature(t *testing.T) {
 	}
 	if HasAutoProperty(of.Type()) {
 		t.Fatal("func bar has autoprop?")
+	}
+
+	if CheckSignature(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: of}), 0, 0) == nil {
+		t.Fatal("TestCheckSignature failed: TemplateRecvMethod OverloadFunc CheckSignature == nil")
 	}
 
 	o2 := types.NewFunc(token.NoPos, pkg, "bar2", sig)
@@ -887,7 +891,7 @@ func TestCheckSignatures(t *testing.T) {
 	sig2 := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg), nil, false)
 	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
 	if CheckSignatures(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: o}), 0, 0) == nil {
-		t.Fatal("TestCheckSignatures failed: CheckSignatures == nil")
+		t.Fatal("TestCheckSignatures failed: TemplateRecvMethod CheckSignatures == nil")
 	}
 	sig3 := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg, arg), nil, false)
 	o2 := types.NewFunc(token.NoPos, pkg, "bar", sig3)
@@ -898,6 +902,10 @@ func TestCheckSignatures(t *testing.T) {
 
 	if HasAutoProperty(of.Type()) {
 		t.Fatal("func bar has autoprop?")
+	}
+
+	if CheckSignatures(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: of}), 0, 0) == nil {
+		t.Fatal("TestCheckSignatures failed: TemplateRecvMethod OverloadFunc CheckSignatures == nil")
 	}
 
 	o3 := types.NewFunc(token.NoPos, pkg, "bar2", sig)
