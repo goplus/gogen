@@ -1648,11 +1648,21 @@ func denoteRecv(v *ast.SelectorExpr) *Element {
 	return nil
 }
 
+func (p *CodeBuilder) allowAccess(pkg *types.Package, name string) bool {
+	if !ast.IsExported(name) && pkg != nil && pkg.Path() != p.pkg.Path() {
+		return false
+	}
+	return true
+}
+
 func (p *CodeBuilder) method(
 	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) (kind MemberKind) {
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		v := method.Name()
+		if !p.allowAccess(method.Pkg(), v) {
+			continue
+		}
 		if v == name || (flag > 0 && v == aliasName) {
 			autoprop := flag == MemberFlagAutoProperty && v == aliasName
 			typ := method.Type()
@@ -1703,7 +1713,12 @@ func (p *CodeBuilder) btiMethod(
 func (p *CodeBuilder) normalField(
 	o *types.Struct, name string, arg *Element, src ast.Node) MemberKind {
 	for i, n := 0, o.NumFields(); i < n; i++ {
-		if fld := o.Field(i); fld.Name() == name {
+		fld := o.Field(i)
+		v := fld.Name()
+		if !p.allowAccess(fld.Pkg(), v) {
+			continue
+		}
+		if v == name {
 			p.stk.Ret(1, &internal.Elem{
 				Val:  selector(arg, name),
 				Type: fld.Type(),
