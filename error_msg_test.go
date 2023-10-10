@@ -92,6 +92,12 @@ func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package), disa
 	})
 }
 
+func codeErrorTestEx(t *testing.T, pkg *gox.Package, msg string, source func(pkg *gox.Package), disableRecover ...bool) {
+	t.Run(msg, func(t *testing.T) {
+		codeErrorTestDo(t, pkg, msg, source, disableRecover...)
+	})
+}
+
 func codeErrorTestDo(t *testing.T, pkg *gox.Package, msg string, source func(pkg *gox.Package), disableRecover ...bool) {
 	pos2Positions = map[token.Pos]token.Position{}
 	if !(disableRecover != nil && disableRecover[0]) {
@@ -1303,4 +1309,32 @@ func TestErrUsedNoValue(t *testing.T) {
 				VarRef(ctxRef(pkg, "a")).Val(ctxRef(pkg, "foo")).CallWith(0, 0, source("foo()", 3, 10)).Assign(1, 1).
 				End()
 		})
+}
+
+func TestErrFieldAccess(t *testing.T) {
+	const src = `package foo
+
+type M struct {
+	x int
+	y int
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	tyM := pkgRef.Ref("M").Type()
+
+	codeErrorTestEx(t, pkg, `./foo.gop:3:10: m.x undefined (type foo.M has no field or method x)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyM, "m").
+				VarVal("println").VarVal("m").
+				MemberVal("x", source("m.x", 3, 10)).Call(1).EndStmt().
+				End()
+		})
+
 }
