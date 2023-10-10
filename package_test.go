@@ -3286,6 +3286,7 @@ func TestTypeNamed(t *testing.T) {
 	t2 := pkg.NewType("T1").InitType(pkg, types.NewNamed(types.NewTypeName(token.NoPos, nil, "T", t1), t1.Underlying(), nil))
 	recv2 := pkg.NewParam(token.NoPos, "a", t2)
 	pkg.NewFunc(recv2, "Foo", nil, nil, false).BodyStart(pkg).End()
+	pkg.CB().NewType("X").InitType(pkg, gox.TyByte)
 	domTest(t, pkg, `package main
 
 type T struct {
@@ -3300,6 +3301,8 @@ type T1 T
 
 func (a T1) Foo() {
 }
+
+type X byte
 `)
 }
 

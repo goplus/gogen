@@ -195,9 +195,14 @@ func (p *Package) NewTypeDefs() *TypeDefs {
 }
 
 func (p *CodeBuilder) typeDefs() *TypeDefs {
+	pkg, scope := p.pkg, p.current.scope
 	decl := &ast.GenDecl{Tok: token.TYPE}
-	p.emitStmt(&ast.DeclStmt{Decl: decl})
-	return &TypeDefs{decl: decl, scope: p.current.scope, pkg: p.pkg}
+	if scope == pkg.Types.Scope() {
+		pkg.file.decls = append(pkg.file.decls, decl)
+	} else {
+		p.emitStmt(&ast.DeclStmt{Decl: decl})
+	}
+	return &TypeDefs{decl: decl, scope: scope, pkg: pkg}
 }
 
 func getPos(pos []token.Pos) token.Pos {
