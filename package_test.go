@@ -3303,4 +3303,43 @@ func (a T1) Foo() {
 `)
 }
 
+func TestMethodAccess(t *testing.T) {
+	const src = `package foo
+
+type M struct {
+}
+
+func (m *M) setValue() {
+}
+
+func (m *M) SetValue() {
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	tyM := pkgRef.Ref("M").Type()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyM, "m").VarVal("m").Debug(
+		func(cb *gox.CodeBuilder) {
+			cb.Member("setValue", gox.MemberFlagMethodAlias)
+		}).Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import foo "foo"
+
+func main() {
+	var m foo.M
+	m.SetValue()
+}
+`)
+
+}
+
 // ----------------------------------------------------------------------------
