@@ -190,8 +190,13 @@ func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
 			case *TyOverloadMethod:
 				return selOverloadFunc(t.Methods, idx, nin)
 			case *TyTemplateRecvMethod:
-				if sig, ok := t.Func.Type().(*types.Signature); ok {
-					return sigWithoutParam1(sig)
+				if tsig, ok := t.Func.Type().(*types.Signature); ok {
+					if trecv := tsig.Recv(); trecv != nil {
+						if t, ok := trecv.Type().(*TyOverloadFunc); ok {
+							return selOverloadFunc(t.Funcs, idx, nin)
+						}
+					}
+					return sigWithoutParam1(tsig)
 				}
 			}
 		}
@@ -214,6 +219,11 @@ func CheckSignatures(typ types.Type, idx, nin int) []*types.Signature {
 				return selOverloadFuncs(t.Methods, idx, nin)
 			case *TyTemplateRecvMethod:
 				if tsig, ok := t.Func.Type().(*types.Signature); ok {
+					if trecv := tsig.Recv(); trecv != nil {
+						if t, ok := trecv.Type().(*TyOverloadFunc); ok {
+							return selOverloadFuncs(t.Funcs, idx, nin)
+						}
+					}
 					sig = sigWithoutParam1(tsig)
 				}
 			}

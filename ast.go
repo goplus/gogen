@@ -444,13 +444,29 @@ func toFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags In
 	return ret
 }
 
-func unaryOp(tok token.Token, args []*internal.Elem) constant.Value {
+func unaryOp(pkg *Package, tok token.Token, args []*internal.Elem) constant.Value {
 	if len(args) == 1 {
 		if a := args[0].CVal; a != nil {
-			return constant.UnaryOp(tok, a, 0) // TODO: prec should not be 0
+			var prec uint
+			if isUnsigned(args[0].Type) {
+				prec = uint(pkg.Sizeof(args[0].Type) * 8)
+			}
+			return constant.UnaryOp(tok, a, prec)
 		}
 	}
 	return nil
+}
+
+func isUnsigned(typ types.Type) bool {
+retry:
+	switch t := typ.(type) {
+	case *types.Basic:
+		return (t.Info() & types.IsUnsigned) != 0
+	case *types.Named:
+		typ = t.Underlying()
+		goto retry
+	}
+	return false
 }
 
 func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.Value {
@@ -665,7 +681,7 @@ retry:
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
 		if t.isUnaryOp() {
-			cval = unaryOp(t.tok(), args)
+			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
 			cval = binaryOp(&pkg.cb, t.tok(), args)
 		} else if t.hasApproxType() {
@@ -1156,6 +1172,10 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 			cval = fmt.Sprintf(" (%v)", arg.CVal)
 		}
 		log.Printf("==> MatchType %v%s, %v\n", arg.Type, cval, param)
+	}
+	if arg.Type == nil {
+		src, pos := pkg.cb.loadExpr(arg.Src)
+		return pkg.cb.newCodeError(&pos, fmt.Sprintf("%v (no value) used as value", src))
 	}
 	// check untyped big int/rat/flt => interface
 	switch arg.Type {
