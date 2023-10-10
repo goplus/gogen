@@ -686,12 +686,6 @@ func Loader(n int) string {
 		})
 }
 
-func codeErrorTestEx(t *testing.T, pkg *gox.Package, msg string, source func(pkg *gox.Package), disableRecover ...bool) {
-	t.Run(msg, func(t *testing.T) {
-		codeErrorTestDo(t, pkg, msg, source, disableRecover...)
-	})
-}
-
 func TestGenTypeParamsFunc(t *testing.T) {
 	pkg := newMainPackage()
 	ut1 := types.NewUnion([]*types.Term{types.NewTerm(true, types.Typ[types.Int]), types.NewTerm(false, types.Typ[types.Uint])})
