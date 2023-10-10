@@ -83,6 +83,60 @@ func domTestEx(t *testing.T, pkg *gox.Package, expected string, fname string) {
 	log.Printf("====================== %s End =========================\n", t.Name())
 }
 
+type importer struct {
+	packages map[string]*types.Package
+	imp      types.Importer
+}
+
+func (i *importer) Import(path string) (*types.Package, error) {
+	if pkg, ok := i.packages[path]; ok {
+		return pkg, nil
+	}
+	return i.imp.Import(path)
+}
+
+type goxTest struct {
+	fset *token.FileSet
+	imp  *importer
+}
+
+func newGoxTest() *goxTest {
+	fset := token.NewFileSet()
+	return &goxTest{
+		fset: fset,
+		imp: &importer{
+			packages: make(map[string]*types.Package),
+			imp:      packages.NewImporter(fset),
+		},
+	}
+}
+
+func (p *goxTest) LoadGoPackage(pkgPath string, filename string, src string) (*types.Package, error) {
+	if src == "" {
+		return p.imp.imp.Import(pkgPath)
+	}
+	f, err := parser.ParseFile(p.fset, filename, src, 0)
+	if err != nil {
+		return nil, err
+	}
+	conf := types.Config{Importer: p.imp}
+	pkg, err := conf.Check(pkgPath, p.fset, []*ast.File{f}, nil)
+	if err != nil {
+		return nil, err
+	}
+	p.imp.packages[pkgPath] = pkg
+	return pkg, nil
+}
+
+func (p *goxTest) NewPackage(pkgPath string, name string) *gox.Package {
+	conf := &gox.Config{
+		Fset:            p.fset,
+		Importer:        p.imp,
+		NodeInterpreter: nodeInterp{},
+	}
+	return gox.NewPackage(pkgPath, name, conf)
+}
+
 type goxVar = types.Var
 
 // ----------------------------------------------------------------------------
@@ -3303,6 +3357,44 @@ func (a T1) Foo() {
 }
 
 type X byte
+`)
+}
+
+func TestMethodAccess(t *testing.T) {
+	const src = `package foo
+
+type M struct {
+}
+
+func (m *M) setValue() {
+}
+
+func (m *M) SetValue() {
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	tyM := pkgRef.Ref("M").Type()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyM, "m").VarVal("m").Debug(
+		func(cb *gox.CodeBuilder) {
+			cb.Member("setValue", gox.MemberFlagMethodAlias)
+		}).Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import foo "foo"
+
+func main() {
+	var m foo.M
+	m.SetValue()
+}
 `)
 }
 
