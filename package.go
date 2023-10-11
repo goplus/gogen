@@ -150,6 +150,12 @@ func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 			}
 			panic(e)
 		} else {
+			for _, v := range pkgImp.Imports() {
+				if !v.Complete() {
+					this.imp.Import(v.Path())
+				}
+				InitGopPkg(v)
+			}
 			InitGopPkg(pkgImp)
 		}
 		pkgImport = &PkgRef{Types: pkgImp}
