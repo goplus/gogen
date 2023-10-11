@@ -16,7 +16,6 @@ package gox
 import (
 	"fmt"
 	"go/ast"
-	"go/constant"
 	"go/token"
 	"go/types"
 	"log"
@@ -106,13 +105,9 @@ func InitGopPkg(pkg *types.Package) {
 	if scope.Lookup(gopPackage) == nil { // not is a Go+ package
 		return
 	}
-	if scope.Lookup(gopPackageInited) != nil {
-		return
-	}
 	if debugImport {
 		log.Println("==> Import", pkg.Path())
 	}
-	scope.Insert(types.NewConst(token.NoPos, pkg, gopPackageInited, types.Typ[types.UntypedBool], constant.MakeBool(true)))
 	type omthd struct {
 		named *types.Named
 		mthd  string
@@ -163,9 +158,8 @@ func InitGopPkg(pkg *types.Package) {
 }
 
 const (
-	goptPrefix       = "Gopt_"
-	gopPackage       = "GopPackage"
-	gopPackageInited = "__GopPackage__Inited__"
+	goptPrefix = "Gopt_"
+	gopPackage = "GopPackage"
 )
 
 func checkTemplateMethod(pkg *types.Package, name string, o types.Object) {

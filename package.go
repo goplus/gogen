@@ -150,17 +150,20 @@ func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 			}
 			panic(e)
 		} else {
-			for _, v := range pkgImp.Imports() {
-				if this.chkGopImports[v.Path()] {
-					continue
+			if !this.chkGopImports[pkgImp.Path()] {
+				this.chkGopImports[pkgImp.Path()] = true
+				for _, v := range pkgImp.Imports() {
+					if this.chkGopImports[v.Path()] {
+						continue
+					}
+					this.chkGopImports[v.Path()] = true
+					if !v.Complete() {
+						this.imp.Import(v.Path())
+					}
+					InitGopPkg(v)
 				}
-				this.chkGopImports[v.Path()] = true
-				if !v.Complete() {
-					this.imp.Import(v.Path())
-				}
-				InitGopPkg(v)
+				InitGopPkg(pkgImp)
 			}
-			InitGopPkg(pkgImp)
 		}
 		pkgImport = &PkgRef{Types: pkgImp}
 		p.importPkgs[pkgPath] = pkgImport
