@@ -150,7 +150,20 @@ func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 			}
 			panic(e)
 		} else {
-			InitGopPkg(pkgImp)
+			if !this.chkGopImports[pkgImp.Path()] {
+				this.chkGopImports[pkgImp.Path()] = true
+				for _, v := range pkgImp.Imports() {
+					if this.chkGopImports[v.Path()] {
+						continue
+					}
+					this.chkGopImports[v.Path()] = true
+					if !v.Complete() {
+						this.imp.Import(v.Path())
+					}
+					InitGopPkg(v)
+				}
+				InitGopPkg(pkgImp)
+			}
 		}
 		pkgImport = &PkgRef{Types: pkgImp}
 		p.importPkgs[pkgPath] = pkgImport
@@ -286,6 +299,7 @@ type Package struct {
 	cb             CodeBuilder
 	imp            types.Importer
 	files          map[string]*File
+	chkGopImports  map[string]bool
 	file           *File
 	conf           *Config
 	Fset           *token.FileSet
@@ -331,6 +345,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		conf:  conf,
 	}
 	pkg.imp = imp
+	pkg.chkGopImports = make(map[string]bool)
 	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.builtin = newBuiltin(pkg, conf)
 	pkg.implicitCast = conf.CanImplicitCast
