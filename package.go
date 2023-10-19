@@ -82,20 +82,23 @@ type NodeInterpreter interface {
 
 // Config type
 type Config struct {
-	// Fset provides source position information for syntax trees and types.
+	// Types provides type information for the package (optional).
+	Types *types.Package
+
+	// Fset provides source position information for syntax trees and types (optional).
 	// If Fset is nil, Load will use a new fileset, but preserve Fset's value.
 	Fset *token.FileSet
 
-	// HandleErr is called to handle errors.
+	// HandleErr is called to handle errors (optional).
 	HandleErr func(err error)
 
-	// NodeInterpreter is to interpret an ast.Node.
+	// NodeInterpreter is to interpret an ast.Node (optional).
 	NodeInterpreter NodeInterpreter
 
-	// LoadNamed is called to load a delay-loaded named type.
+	// LoadNamed is called to load a delay-loaded named type (optional).
 	LoadNamed LoadNamedFunc
 
-	// An Importer resolves import paths to Packages.
+	// An Importer resolves import paths to Packages (optional).
 	Importer types.Importer
 
 	// DefaultGoFile specifies default file name. It can be empty.
@@ -104,13 +107,13 @@ type Config struct {
 	// PkgPathIox specifies package path of github.com/goplus/gop/builtin/iox
 	PkgPathIox string
 
-	// NewBuiltin is to create the builin package.
+	// NewBuiltin is to create the builin package (optional).
 	NewBuiltin func(pkg *Package, conf *Config) *types.Package
 
-	// CanImplicitCast checkes can cast V to T implicitly.
+	// CanImplicitCast checkes can cast V to T implicitly (optional).
 	CanImplicitCast func(pkg *Package, V, T types.Type, pv *Element) bool
 
-	// untyped bigint, untyped bigrat, untyped bigfloat
+	// untyped bigint, untyped bigrat, untyped bigfloat (optional).
 	UntypedBigInt, UntypedBigRat, UntypedBigFloat *types.Named
 
 	// NoSkipConstant is to disable optimization of skipping constant
@@ -345,8 +348,11 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		conf:  conf,
 	}
 	pkg.imp = imp
+	pkg.Types = conf.Types
+	if pkg.Types == nil {
+		pkg.Types = types.NewPackage(pkgPath, name)
+	}
 	pkg.chkGopImports = make(map[string]bool)
-	pkg.Types = types.NewPackage(pkgPath, name)
 	pkg.builtin = newBuiltin(pkg, conf)
 	pkg.implicitCast = conf.CanImplicitCast
 	pkg.utBigInt = conf.UntypedBigInt
