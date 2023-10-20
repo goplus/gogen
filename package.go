@@ -69,6 +69,14 @@ func fatal(msg string) {
 
 // ----------------------------------------------------------------------------
 
+// Recorder represents a gox event recorder.
+type Recorder interface {
+	// Member maps identifiers to the objects they denote.
+	Member(id ast.Node, obj types.Object)
+}
+
+// ----------------------------------------------------------------------------
+
 type NodeInterpreter interface {
 	// Position gets position of a Pos.
 	Position(p token.Pos) token.Position
@@ -116,7 +124,10 @@ type Config struct {
 	// untyped bigint, untyped bigrat, untyped bigfloat (optional).
 	UntypedBigInt, UntypedBigRat, UntypedBigFloat *types.Named
 
-	// NoSkipConstant is to disable optimization of skipping constant
+	// A Recorder records selected objects such as methods, etc (optional).
+	Recorder Recorder
+
+	// NoSkipConstant is to disable optimization of skipping constant (optional).
 	NoSkipConstant bool
 }
 

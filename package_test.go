@@ -49,12 +49,18 @@ func ctxRef(pkg *gox.Package, name string) gox.Ref {
 	return o
 }
 
+type eventRecorder struct{}
+
+func (p eventRecorder) Member(id ast.Node, obj types.Object) {
+}
+
 func newMainPackage(
 	implicitCast ...func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool) *gox.Package {
 	conf := &gox.Config{
 		Fset:            gblFset,
 		Importer:        gblImp,
 		NodeInterpreter: nodeInterp{},
+		Recorder:        eventRecorder{},
 	}
 	if len(implicitCast) > 0 {
 		conf.CanImplicitCast = implicitCast[0]
