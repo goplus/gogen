@@ -984,7 +984,8 @@ func matchFuncType(
 		if (flags & InstrFlagEllipsis) == 0 {
 			n1 := getParamLen(sig) - 1
 			if n < n1 {
-				return errors.New("TODO: not enough function parameters")
+				_, pos := pkg.cb.loadExpr(fn.Src)
+				return pkg.cb.newCodeError(&pos, fmt.Sprintf("not enough arguments in call to %v", types.ExprString(fn.Val)))
 			}
 			tyVariadic, ok := getParam(sig, n1).Type().(*types.Slice)
 			if !ok {
