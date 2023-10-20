@@ -790,6 +790,18 @@ func TestUnsafe(t *testing.T) {
 	}
 }
 
+func TestTryImport(t *testing.T) {
+	defer func() {
+		if e := recover(); e != nil {
+			t.Fatal("TestTryImport: panic?")
+		}
+	}()
+	pkg := NewPackage("foo", "foo", gblConf)
+	if pkg.TryImport("not/exist") != nil {
+		t.Fatal("TryImport: exist?")
+	}
+}
+
 func TestUntypeBig(t *testing.T) {
 	pkg := NewPackage("foo", "foo", gblConf)
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")

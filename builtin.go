@@ -1275,53 +1275,61 @@ var (
 )
 
 func initBuiltinTIs(pkg *Package) {
-	strconv := pkg.Import("strconv")
-	strings := pkg.Import("strings")
-	os := pkg.Import("os")
-	ioxTI := (*builtinTI)(nil)
-	ioxPkg := pkg.conf.PkgPathIox
-	if debugImportIox && ioxPkg == "" {
-		ioxPkg = "github.com/goplus/gox/internal/iox"
-	}
-	if ioxPkg != "" {
-		iox := pkg.Import(ioxPkg)
-		ioxTI = &builtinTI{
-			typ: os.Ref("File").Type(),
-			methods: []*builtinMethod{
-				{"Gop_Enum", iox.Ref("EnumLines"), nil},
-			},
-		}
-	}
+	var (
+		float64TI, intTI, int64TI, uint64TI *builtinTI
+		ioxTI, stringTI, stringSliceTI      *builtinTI
+	)
 	btiMap := new(typeutil.Map)
+	strconv := pkg.TryImport("strconv")
+	strings := pkg.TryImport("strings")
 	btoLen := types.Universe.Lookup("len")
 	btoCap := types.Universe.Lookup("cap")
-	tis := []*builtinTI{
-		ioxTI,
-		{
+	{
+		ioxPkg := pkg.conf.PkgPathIox
+		if debugImportIox && ioxPkg == "" {
+			ioxPkg = "github.com/goplus/gox/internal/iox"
+		}
+		if ioxPkg != "" {
+			if os := pkg.TryImport("os"); os != nil {
+				if iox := pkg.TryImport(ioxPkg); iox != nil {
+					ioxTI = &builtinTI{
+						typ: os.Ref("File").Type(),
+						methods: []*builtinMethod{
+							{"Gop_Enum", iox.Ref("EnumLines"), nil},
+						},
+					}
+				}
+			}
+		}
+	}
+	if strconv != nil {
+		float64TI = &builtinTI{
 			typ: types.Typ[types.Float64],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("FormatFloat"), bmExargs{'g', -1, 64}},
 			},
-		},
-		{
+		}
+		intTI = &builtinTI{
 			typ: types.Typ[types.Int],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("Itoa"), nil},
 			},
-		},
-		{
+		}
+		int64TI = &builtinTI{
 			typ: types.Typ[types.Int64],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("FormatInt"), bmExargs{10}},
 			},
-		},
-		{
+		}
+		uint64TI = &builtinTI{
 			typ: types.Typ[types.Uint64],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("FormatUint"), bmExargs{10}},
 			},
-		},
-		{
+		}
+	}
+	if strings != nil && strconv != nil {
+		stringTI = &builtinTI{
 			typ: types.Typ[types.String],
 			methods: []*builtinMethod{
 				{"Len", btoLen, nil},
@@ -1364,15 +1372,26 @@ func initBuiltinTIs(pkg *Package) {
 				{"TrimPrefix", strings.Ref("TrimPrefix"), nil},
 				{"TrimSuffix", strings.Ref("TrimSuffix"), nil},
 			},
-		},
-		{
+		}
+	}
+	if strings != nil {
+		stringSliceTI = &builtinTI{
 			typ: types.NewSlice(types.Typ[types.String]),
 			methods: []*builtinMethod{
 				{"Len", btoLen, nil},
 				{"Cap", btoCap, nil},
 				{"Join", strings.Ref("Join"), nil},
 			},
-		},
+		}
+	}
+	tis := []*builtinTI{
+		ioxTI,
+		float64TI,
+		intTI,
+		int64TI,
+		uint64TI,
+		stringTI,
+		stringSliceTI,
 		{
 			typ: tySlice,
 			methods: []*builtinMethod{
