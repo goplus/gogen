@@ -520,7 +520,7 @@ func TestErrFuncCall(t *testing.T) {
 				VarVal("a").CallWith(0, 0, source("a()", 2, 10)).
 				End()
 		})
-	codeErrorTest(t, `./foo.gop:2:10: invalid use of ... in call to foo(a...)`,
+	codeErrorTest(t, `./foo.gop:2:10: cannot use ... in call to non-variadic foo`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "foo", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.Int], "a").
