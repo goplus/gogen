@@ -560,7 +560,7 @@ func TestErrFuncCall(t *testing.T) {
 			argInt2 := pkg.NewParam(position(1, 15), "", types.Typ[types.Int])
 			pkg.NewFunc(nil, "foo", types.NewTuple(argInt1, argInt2), nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.Int], "a").
-				Val(ctxRef(pkg, "foo"), source("foo", 2, 2)).VarVal("a").Val(1).Val(2).CallWith(3, 0, source("foo(a)", 2, 10)).
+				Val(ctxRef(pkg, "foo"), source("foo", 2, 2)).VarVal("a").Val(1).Val(2).CallWith(3, 0, source("foo(a, 1, 2)", 2, 10)).
 				End()
 
 		})
