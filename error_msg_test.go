@@ -520,7 +520,7 @@ func TestErrFuncCall(t *testing.T) {
 				VarVal("a").CallWith(0, 0, source("a()", 2, 10)).
 				End()
 		})
-	codeErrorTest(t, `./foo.gop:2:10: invalid use of ... in call to foo(a...)`,
+	codeErrorTest(t, `./foo.gop:2:10: cannot use ... in call to non-variadic foo`,
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "foo", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.Int], "a").
@@ -538,6 +538,42 @@ func TestErrFuncCall(t *testing.T) {
 				}).
 				Val(ctxRef(pkg, "foo")).Val(ctxRef(pkg, "a"), source("a", 3, 5)).
 				CallWith(1, 0, source("foo(a)", 3, 10)).
+				End()
+		})
+	codeErrorTest(t, `./foo.gop:2:10: not enough arguments in call to foo
+	have (int)
+	want (int, int)`,
+		func(pkg *gox.Package) {
+			argInt1 := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+			argInt2 := pkg.NewParam(position(1, 15), "", types.Typ[types.Int])
+			pkg.NewFunc(nil, "foo", types.NewTuple(argInt1, argInt2), nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				Val(ctxRef(pkg, "foo"), source("foo", 2, 2)).VarVal("a").CallWith(1, 0, source("foo(a)", 2, 10)).
+				End()
+
+		})
+	codeErrorTest(t, `./foo.gop:2:10: too many arguments in call to foo
+	have (int, untyped int, untyped int)
+	want (int, int)`,
+		func(pkg *gox.Package) {
+			argInt1 := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+			argInt2 := pkg.NewParam(position(1, 15), "", types.Typ[types.Int])
+			pkg.NewFunc(nil, "foo", types.NewTuple(argInt1, argInt2), nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				Val(ctxRef(pkg, "foo"), source("foo", 2, 2)).VarVal("a").Val(1).Val(2).CallWith(3, 0, source("foo(a, 1, 2)", 2, 10)).
+				End()
+
+		})
+	codeErrorTest(t, `./foo.gop:2:10: not enough arguments in call to foo
+	have (int)
+	want (int, int, []int)`,
+		func(pkg *gox.Package) {
+			argInt1 := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+			argInt2 := pkg.NewParam(position(1, 15), "", types.Typ[types.Int])
+			argIntSlice3 := pkg.NewParam(position(1, 20), "", types.NewSlice(types.Typ[types.Int]))
+			pkg.NewFunc(nil, "foo", types.NewTuple(argInt1, argInt2, argIntSlice3), nil, true).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				Val(ctxRef(pkg, "foo"), source("foo", 2, 2)).VarVal("a").CallWith(1, 0, source("foo(a)", 2, 10)).
 				End()
 		})
 }
