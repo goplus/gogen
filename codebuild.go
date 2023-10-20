@@ -1149,7 +1149,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 		log.Println("Index", nidx, twoValue)
 	}
 	args := p.stk.GetArgs(nidx + 1)
-	if enableTypeParams {
+	if enableTypeParams && nidx > 0 {
 		if _, ok := args[1].Type.(*TypeType); ok {
 			return p.inferType(nidx, args, src...)
 		}
