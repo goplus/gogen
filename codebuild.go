@@ -109,6 +109,7 @@ type CodeBuilder struct {
 	valDecl   *ValueDecl
 	ctxt      *typesContext
 	interp    NodeInterpreter
+	rec       Recorder
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
 	closureParamInsts
@@ -126,6 +127,7 @@ func (p *CodeBuilder) init(pkg *Package) {
 	if p.handleErr == nil {
 		p.handleErr = defaultHandleErr
 	}
+	p.rec = conf.Recorder
 	p.interp = conf.NodeInterpreter
 	if p.interp == nil {
 		p.interp = nodeInterp{}
@@ -1674,6 +1676,9 @@ func (p *CodeBuilder) method(
 				Type: methodTypeOf(typ),
 				Src:  src,
 			})
+			if p.rec != nil {
+				p.rec.Member(src, method)
+			}
 			if autoprop {
 				p.Call(0)
 				return MemberAutoProperty
@@ -1699,6 +1704,9 @@ func (p *CodeBuilder) btiMethod(
 				this.Type = &btiMethodType{Type: this.Type, eargs: method.eargs}
 				p.Val(method.fn, src)
 				p.stk.Push(this)
+				if p.rec != nil {
+					p.rec.Member(src, method.fn)
+				}
 				if autoprop {
 					p.Call(0)
 					return MemberAutoProperty
@@ -1724,6 +1732,9 @@ func (p *CodeBuilder) normalField(
 				Type: fld.Type(),
 				Src:  src,
 			})
+			if p.rec != nil {
+				p.rec.Member(src, fld)
+			}
 			return MemberField
 		}
 	}
