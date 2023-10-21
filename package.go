@@ -261,13 +261,15 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			continue
 		}
 		pkgName, renamed := names.RequireName(pkgImport.Types.Name())
+		var name *ast.Ident
 		if renamed {
 			for _, nameRef := range pkgImport.nameRefs {
 				nameRef.Name = pkgName
 			}
+			name = ident(pkgName)
 		}
 		specs = append(specs, &ast.ImportSpec{
-			Name: ident(pkgName),
+			Name: name,
 			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkgPath)},
 		})
 	}
