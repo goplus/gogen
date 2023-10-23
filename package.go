@@ -268,8 +268,7 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			}
 			name = ident(pkgName)
 		} else {
-			paths := strings.Split(pkgImport.Types.Path(), "/")
-			if n := len(paths); n > 0 && paths[n-1] != pkgName {
+			if pkgName != path.Base(pkgImport.Types.Path()) {
 				name = ident(pkgName)
 			}
 		}
