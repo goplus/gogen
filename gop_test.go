@@ -62,7 +62,7 @@ func TestFmtPrintln(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	p := fmt.Println
@@ -95,7 +95,7 @@ func TestBigIntVar(t *testing.T) {
 	pkg.CB().NewVar(big.Ref("Gop_bigint").Type(), "a")
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import "github.com/goplus/gox/internal/builtin"
 
 var a builtin.Gop_bigint
 `)
@@ -109,8 +109,8 @@ func TestBigIntVarInit(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a builtin.Gop_bigint = builtin.Gop_bigint_Init__1(big.NewInt(6))
@@ -125,7 +125,7 @@ func TestBigInt(t *testing.T) {
 		VarVal("a").VarVal("b").BinaryOp(token.ADD).EndInit(1)
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import "github.com/goplus/gox/internal/builtin"
 
 var a, b builtin.Gop_bigint
 var c builtin.Gop_bigint = a.Gop_Add(b)
@@ -149,7 +149,7 @@ func TestBigRat(t *testing.T) {
 		Val(big.Ref("Gop_bigrat_Cast")).Val(ctxRef(pkg, "g")).Call(1).EndInit(1)
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import "github.com/goplus/gox/internal/builtin"
 
 var a, b builtin.Gop_bigrat
 var c builtin.Gop_bigrat = a.Gop_Quo(b)
@@ -170,8 +170,8 @@ func TestBigRatInit(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a builtin.Gop_bigrat = builtin.Gop_bigrat_Init__1(func() *big.Int {
@@ -190,8 +190,8 @@ func TestBigRatInit2(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a builtin.Gop_bigrat = builtin.Gop_bigrat_Init__1(func() *big.Int {
@@ -216,9 +216,9 @@ func TestBigRatCast(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	fmt "fmt"
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"fmt"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 func main() {
@@ -243,8 +243,8 @@ func TestCastIntTwoValue(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 func main() {
@@ -266,8 +266,8 @@ func TestCastBigIntTwoValue(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 func main() {
@@ -303,8 +303,8 @@ func TestUntypedBigIntAdd(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigint_Init__1(big.NewInt(69))
@@ -321,7 +321,7 @@ func TestBigRatIncDec(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import "github.com/goplus/gox/internal/builtin"
 
 var a builtin.Gop_bigrat
 
@@ -373,7 +373,7 @@ func TestBigRatAssignOp(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import "github.com/goplus/gox/internal/builtin"
 
 var a, b builtin.Gop_bigrat
 
@@ -394,7 +394,7 @@ func TestBigRatAssignOp2(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import "github.com/goplus/gox/internal/builtin"
 
 var a builtin.Gop_bigrat
 
@@ -414,8 +414,8 @@ func TestUntypedBigIntQuo(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigrat_Init__2(big.NewRat(2, 21))
@@ -432,8 +432,8 @@ func TestUntypedBigIntQuo2(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigrat_Init__2(big.NewRat(2, 21))
@@ -450,8 +450,8 @@ func TestUntypedBigIntQuo3(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigrat_Init__2(big.NewRat(21, 2))
@@ -468,8 +468,8 @@ func TestUntypedBigIntRem(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigint_Init__1(big.NewInt(2))
@@ -486,8 +486,8 @@ func TestUntypedBigIntShift(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigint_Init__1(func() *big.Int {
@@ -507,8 +507,8 @@ func TestUntypedBigRatAdd(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigrat_Init__2(big.NewRat(1, 2))
@@ -525,8 +525,8 @@ func TestUntypedBigRatAdd2(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigrat_Init__2(big.NewRat(19, 6))
@@ -543,8 +543,8 @@ func TestUntypedBigRatAdd3(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigrat_Init__2(big.NewRat(19, 6))
@@ -563,8 +563,8 @@ func TestUntypedBigRatAdd4(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a builtin.Gop_bigrat
@@ -583,7 +583,7 @@ func TestUntypedBigRatAdd5(t *testing.T) {
 		EndInit(1)
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import "github.com/goplus/gox/internal/builtin"
 
 var a builtin.Gop_bigrat
 var b = a.Gop_Add(builtin.Gop_bigrat_Init__0(100))
@@ -601,7 +601,7 @@ func TestUntypedBigRatAdd6(t *testing.T) {
 		EndInit(1)
 	domTest(t, pkg, `package main
 
-import builtin "github.com/goplus/gox/internal/builtin"
+import "github.com/goplus/gox/internal/builtin"
 
 var a builtin.Gop_bigrat
 var b = builtin.Gop_bigrat_Init__0(100) + a
@@ -618,8 +618,8 @@ func TestUntypedBigRatSub(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigrat_Init__2(big.NewRat(-1, 6))
@@ -638,8 +638,8 @@ func TestUntypedBigRatSub2(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a builtin.Gop_bigrat
@@ -668,8 +668,8 @@ func TestUntypedBigRat(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigrat_Init__2(big.NewRat(2, 21))
@@ -688,8 +688,8 @@ func TestUntypedBigRat2(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 func main() {
@@ -715,8 +715,8 @@ func TestForRangeUDT(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
+	"github.com/goplus/gox/internal/foo"
+	"fmt"
 )
 
 func bar(v foo.NodeSet) {
@@ -744,8 +744,8 @@ func TestForRangeUDT2(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
+	"github.com/goplus/gox/internal/foo"
+	"fmt"
 )
 
 func bar(v *foo.Bar) {
@@ -774,8 +774,8 @@ func TestForRangeUDT3_WithAssign(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
+	"github.com/goplus/gox/internal/foo"
+	"fmt"
 )
 
 func bar(v *foo.Bar) {
@@ -805,8 +805,8 @@ func TestForRangeUDT3_NoAssign(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
+	"github.com/goplus/gox/internal/foo"
+	"fmt"
 )
 
 func bar(v *foo.Bar) {
@@ -836,8 +836,8 @@ func TestForRangeUDT_UNDERLINE(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
+	"github.com/goplus/gox/internal/foo"
+	"fmt"
 )
 
 func bar(v *foo.Bar) {
@@ -866,8 +866,8 @@ func TestForRangeUDT_UNDERLINE2(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
+	"github.com/goplus/gox/internal/foo"
+	"fmt"
 )
 
 func bar(v foo.NodeSet) {
@@ -898,8 +898,8 @@ func TestForRangeUDT4(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
+	"github.com/goplus/gox/internal/foo"
+	"fmt"
 )
 
 func bar(v *foo.Foo) {
@@ -924,8 +924,8 @@ func TestForRangeUDT5(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	foo "github.com/goplus/gox/internal/foo"
-	fmt "fmt"
+	"github.com/goplus/gox/internal/foo"
+	"fmt"
 )
 
 func bar(v *foo.Foo2) {
@@ -947,7 +947,7 @@ func TestTemplateRecvMethod(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import bar "github.com/goplus/gox/internal/bar"
+import "github.com/goplus/gox/internal/bar"
 
 func main() {
 	var g bar.Game
@@ -979,8 +979,8 @@ func TestBigIntCastUntypedFloat(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a = builtin.Gop_bigint_Cast__1(func() *big.Int {
@@ -1014,9 +1014,9 @@ func TestUntypedBigDefault(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	fmt "fmt"
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"fmt"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 func main() {
@@ -1034,8 +1034,8 @@ func TestUntypedBigDefaultCall(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 func main() {
@@ -1060,9 +1060,9 @@ func TestUntypedBigIntToInterface(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	fmt "fmt"
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"fmt"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 type A interface {
@@ -1093,8 +1093,8 @@ func TestInt128(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a builtin.Int128 = builtin.Int128_Init__1(func() *big.Int {
@@ -1128,8 +1128,8 @@ func TestUint128(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	builtin "github.com/goplus/gox/internal/builtin"
-	big "math/big"
+	"github.com/goplus/gox/internal/builtin"
+	"math/big"
 )
 
 var a builtin.Uint128 = builtin.Uint128_Init__1(func() *big.Int {
