@@ -267,6 +267,11 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 				nameRef.Name = pkgName
 			}
 			name = ident(pkgName)
+		} else {
+			paths := strings.Split(pkgImport.Types.Path(), "/")
+			if n := len(paths); n > 0 && paths[n-1] != pkgName {
+				name = ident(pkgName)
+			}
 		}
 		specs = append(specs, &ast.ImportSpec{
 			Name: name,
