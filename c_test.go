@@ -122,7 +122,7 @@ func TestUnionFields(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 type T struct {
 	x int

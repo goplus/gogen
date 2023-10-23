@@ -160,8 +160,8 @@ func TestRedupPkgIssue796(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	context "context"
-	time "time"
+	"context"
+	"time"
 )
 
 func main() {
@@ -197,9 +197,9 @@ func TestBTIMethod(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	strconv "strconv"
-	strings "strings"
-	fmt "fmt"
+	"strconv"
+	"strings"
+	"fmt"
 )
 
 func main() {
@@ -231,7 +231,7 @@ func TestPrintlnPrintln(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	fmt.Println(fmt.Println())
@@ -611,7 +611,7 @@ func TestZeroLitAllTypes(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 func main() {
 	var a map[string]int = nil
@@ -1432,7 +1432,7 @@ func TestVarDeclInFunc(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var x, y string
@@ -1451,7 +1451,7 @@ func TestDefineVar(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var n int
@@ -1526,7 +1526,7 @@ func TestFuncAsParam(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 func foo(v func(), x *bool, y chan<- bool, z unsafe.Pointer) {
 }
@@ -1730,7 +1730,7 @@ func TestUnsafeFunc(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 type T struct {
 	x int
@@ -1764,7 +1764,7 @@ func TestUnsafeFunc2(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 func test17() {
 	var a unsafe.Pointer
@@ -1810,7 +1810,7 @@ func TestUnsafeConst(t *testing.T) {
 
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 type M struct {
 	m int
@@ -1935,7 +1935,7 @@ func TestFuncCall(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	fmt.Println("Hello")
@@ -1953,7 +1953,7 @@ func TestFuncCallEllipsis(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func foo(v ...interface {
 }) {
@@ -1995,7 +1995,7 @@ func TestDelayedLoadUsed(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func foo(format string, args ...interface {
 }) (int, error) {
@@ -2014,7 +2014,7 @@ func TestIf(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	if x := 3; x > 1 {
@@ -2040,7 +2040,7 @@ func TestIfElse(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	if x := 3; x > 1 {
@@ -2116,7 +2116,7 @@ func TestGoDefer(t *testing.T) { // TODO: check invalid syntax
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	go fmt.Println("Hi")
@@ -2143,7 +2143,7 @@ func TestSwitch(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	switch x := 3; x {
@@ -2178,7 +2178,7 @@ func TestSwitchNoTag(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	x := 3
@@ -2207,7 +2207,7 @@ func TestFor(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	for i := 0; i < len("Hello"); i = i + 1 {
@@ -2226,7 +2226,7 @@ func TestLoopFor(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	for {
@@ -2251,7 +2251,7 @@ func TestLabeledFor(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 label:
@@ -2273,7 +2273,7 @@ func TestForRange(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	a := []float64{1, 1.2, 3}
@@ -2295,7 +2295,7 @@ func TestForRange2(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 type T []float64
 
@@ -2332,7 +2332,7 @@ func TestForRangeChan(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var a chan int
@@ -2353,7 +2353,7 @@ func TestForRangeKV(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	a := [3]float64{1, 1.2, 3}
@@ -2375,7 +2375,7 @@ func TestForRangeArrayPointer(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func foo(a *[3]float64) {
 	for _, x := range a {
@@ -2397,7 +2397,7 @@ func TestForRangeNoAssign(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	a := []float64{1, 1.2, 3}
@@ -2421,7 +2421,7 @@ func TestForRangeAssignKV(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var k string
@@ -2446,7 +2446,7 @@ func TestForRangeAssign(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var k bool
@@ -2470,7 +2470,7 @@ func TestReturn(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func foo(format string, args ...interface {
 }) (int, error) {
@@ -2604,7 +2604,7 @@ func TestImportAndCallMethod(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import strings "strings"
+import "strings"
 
 func main() {
 	var x string
@@ -2636,7 +2636,7 @@ func TestOverloadMethod(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import foo "github.com/goplus/gox/internal/foo"
+import "github.com/goplus/gox/internal/foo"
 
 func bar(v foo.NodeSet) {
 	val, err := v.Attr__0("key")
@@ -2654,7 +2654,7 @@ func TestPkgVar(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import flag "flag"
+import "flag"
 
 func main() {
 	flag.Usage = nil
@@ -2674,7 +2674,7 @@ func TestEmbbedMember(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import testing "testing"
+import "testing"
 
 func foo(t *testing.T) {
 	t.Fatal()
@@ -2698,7 +2698,7 @@ func TestMemberAutoProperty(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import testing "testing"
+import "testing"
 
 func foo(t *testing.T) {
 	t.Name()
@@ -2931,7 +2931,7 @@ func TestAssignFnCall(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var n int
@@ -2953,7 +2953,7 @@ func TestAssignUnderscore(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var err error
@@ -3096,7 +3096,7 @@ func TestClosure(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	func(v string) {
@@ -3167,7 +3167,7 @@ func TestCallInlineClosure(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func foo() error {
 	var _autoGo_1 int
@@ -3201,7 +3201,7 @@ func TestCallInlineClosureAssign(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var _autoGo_1 int
@@ -3233,7 +3233,7 @@ func TestCallInlineClosureEllipsis(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var _autoGo_1 int
@@ -3274,7 +3274,7 @@ func TestExample(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	a, b := "Hi", 3
@@ -3315,7 +3315,7 @@ func TestInterfaceMethodVarCall(t *testing.T) {
 		EndStmt().End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 type foo interface {
 	bar(info string)
@@ -3395,7 +3395,7 @@ func (m *M) SetValue() {
 		End()
 	domTest(t, pkg, `package main
 
-import foo "foo"
+import "foo"
 
 func main() {
 	var m foo.M

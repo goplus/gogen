@@ -72,7 +72,7 @@ type (
 		End()
 	domTest(t, pkg, `package main
 
-import foo "foo"
+import "foo"
 
 func main() {
 	var data *foo.Data[int] = (*foo.Data[int])(nil)
@@ -156,7 +156,7 @@ var MyInts = Int{1,2,3,4}
 		End()
 	domTest(t, pkg, `package main
 
-import foo "foo"
+import "foo"
 
 func main() {
 	_ = foo.At[[]int]
