@@ -2337,12 +2337,12 @@ func (p *CodeBuilder) TypeAssertThen() *CodeBuilder {
 }
 
 // TypeCase starts case body of a type switch statement.
-func (p *CodeBuilder) TypeCase(n int) *CodeBuilder { // n=0 means default case
+func (p *CodeBuilder) TypeCase(n int, src ...ast.Node) *CodeBuilder { // n=0 means default case
 	if debugInstr {
 		log.Println("TypeCase", n)
 	}
 	if flow, ok := p.current.codeBlock.(*typeSwitchStmt); ok {
-		flow.TypeCase(p, n)
+		flow.TypeCase(p, n, src...)
 		return p
 	}
 	panic("use switch x.(type) .. case please")
@@ -2359,7 +2359,7 @@ func (p *CodeBuilder) Select(src ...ast.Node) *CodeBuilder {
 }
 
 // CommCase starts case body of a select..case statement.
-func (p *CodeBuilder) CommCase(n int) *CodeBuilder {
+func (p *CodeBuilder) CommCase(n int, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("CommCase", n)
 	}
@@ -2367,7 +2367,7 @@ func (p *CodeBuilder) CommCase(n int) *CodeBuilder {
 		panic("TODO: multi commStmt in select..case?")
 	}
 	if flow, ok := p.current.codeBlock.(*selectStmt); ok {
-		flow.CommCase(p, n)
+		flow.CommCase(p, n, src...)
 		return p
 	}
 	panic("use select..case please")
@@ -2384,12 +2384,12 @@ func (p *CodeBuilder) Switch(src ...ast.Node) *CodeBuilder {
 }
 
 // Case starts case body of a switch..case statement.
-func (p *CodeBuilder) Case(n int) *CodeBuilder { // n=0 means default case
+func (p *CodeBuilder) Case(n int, src ...ast.Node) *CodeBuilder { // n=0 means default case
 	if debugInstr {
 		log.Println("Case", n)
 	}
 	if flow, ok := p.current.codeBlock.(*switchStmt); ok {
-		flow.Case(p, n)
+		flow.Case(p, n, src...)
 		return p
 	}
 	panic("use switch..case please")
