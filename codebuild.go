@@ -2237,12 +2237,12 @@ func (p *CodeBuilder) Then(src ...ast.Node) *CodeBuilder {
 }
 
 // Else starts else body of a if..else statement.
-func (p *CodeBuilder) Else() *CodeBuilder {
+func (p *CodeBuilder) Else(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Else")
 	}
 	if flow, ok := p.current.codeBlock.(*ifStmt); ok {
-		flow.Else(p)
+		flow.Else(p, src...)
 		return p
 	}
 	panic("use if..else please")
