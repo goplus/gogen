@@ -97,7 +97,7 @@ func (p *Func) Ancestor() *Func {
 }
 
 // BodyStart func
-func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
+func (p *Func) BodyStart(pkg *Package, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		var recv string
 		tag := "NewFunc "
@@ -111,7 +111,7 @@ func (p *Func) BodyStart(pkg *Package) *CodeBuilder {
 		}
 		log.Printf("%v%v%v %v\n", tag, name, recv, sig)
 	}
-	return pkg.cb.startFuncBody(p, &p.old)
+	return pkg.cb.startFuncBody(p, src, &p.old)
 }
 
 // End is for internal use.
