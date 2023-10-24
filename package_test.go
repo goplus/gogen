@@ -840,7 +840,7 @@ func main() {
 func TestTypeAssert(t *testing.T) {
 	pkg := newMainPackage()
 	params := types.NewTuple(pkg.NewParam(token.NoPos, "v", gox.TyEmptyInterface))
-	pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
+	pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg, source("{}", 1, 5)).
 		DefineVarStart(0, "x").VarVal("v").TypeAssert(types.Typ[types.Int], false).EndInit(1).
 		DefineVarStart(0, "y", "ok").VarVal("v").TypeAssert(types.Typ[types.String], true).EndInit(1).
 		End()
