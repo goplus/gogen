@@ -62,6 +62,21 @@ func TestExportFields(t *testing.T) {
 	}
 }
 
+func TestIsTypeEx(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	o := NewInstruction(0, pkg, "bar", lenInstr{})
+	if !IsTypeEx(o.Type()) {
+		t.Fatal("IsTypeEx: not Instruction?")
+	}
+	of := NewOverloadFunc(0, pkg, "bar")
+	if !IsTypeEx(of.Type()) {
+		t.Fatal("IsTypeEx: not OverloadFunc?")
+	}
+	if IsTypeEx(tyInt) {
+		t.Fatal("IsTypeEx: not tyInt?")
+	}
+}
+
 func TestGetBuiltinTI(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	cb := &pkg.cb

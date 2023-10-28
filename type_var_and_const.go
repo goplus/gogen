@@ -901,3 +901,17 @@ func Lookup(scope *types.Scope, name string) (obj types.Object) {
 }
 
 // ----------------------------------------------------------------------------
+
+// IsTypeEx returns if t is a gox extended type or not.
+func IsTypeEx(t types.Type) (ok bool) {
+	switch v := t.(type) {
+	case *instructionType:
+		return true
+	case *types.Signature:
+		_, ok = CheckFuncEx(v)
+		return
+	}
+	return false
+}
+
+// ----------------------------------------------------------------------------
