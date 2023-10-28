@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
-	"github.com/goplus/gox/typesutil"
 	"golang.org/x/tools/go/types/typeutil"
 )
 
@@ -573,7 +572,7 @@ func (p *CodeBuilder) emitVar(pkg *Package, closure *Func, param *types.Var, wit
 
 // NewClosure func
 func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
-	sig := typesutil.NewSignatureType(nil, nil, nil, params, results, variadic)
+	sig := types.NewSignatureType(nil, nil, nil, params, results, variadic)
 	return p.NewClosureWith(sig)
 }
 
@@ -1529,7 +1528,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 					for i := 0; i < spLen; i++ {
 						vars[i+1] = sp.At(i)
 					}
-					e.Type = typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+					e.Type = types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
 					return
 				}
 			}
@@ -1770,7 +1769,7 @@ func methodTypeOf(typ types.Type) types.Type {
 	if _, ok := CheckFuncEx(sig); ok {
 		return typ
 	}
-	return typesutil.NewSignatureType(nil, nil, nil, sig.Params(), sig.Results(), sig.Variadic())
+	return types.NewSignatureType(nil, nil, nil, sig.Params(), sig.Results(), sig.Variadic())
 }
 
 func indirect(typ types.Type) types.Type {

@@ -22,7 +22,6 @@ import (
 	"unsafe"
 
 	"github.com/goplus/gox/internal"
-	"github.com/goplus/gox/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -146,7 +145,7 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 
 // NewFunc func
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
-	sig := typesutil.NewSignatureType(recv, nil, nil, params, results, variadic)
+	sig := types.NewSignatureType(recv, nil, nil, params, results, variadic)
 	f, err := p.NewFuncWith(token.NoPos, name, sig, nil)
 	if err != nil {
 		panic(err)

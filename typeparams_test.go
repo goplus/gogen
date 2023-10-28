@@ -22,8 +22,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/goplus/gox/typesutil"
-
 	"github.com/goplus/gox"
 )
 
@@ -640,7 +638,7 @@ func TestGenTypeParamsFunc(t *testing.T) {
 	p1 := types.NewParam(token.NoPos, pkg.Types, "p1", tp1)
 	p2 := types.NewParam(token.NoPos, pkg.Types, "p2", tp2)
 	p3 := types.NewParam(token.NoPos, pkg.Types, "p3", tp3)
-	sig := typesutil.NewSignatureType(nil, nil, []*types.TypeParam{tp1, tp2, tp3}, types.NewTuple(p1, p2, p3), nil, false)
+	sig := types.NewSignatureType(nil, nil, []*types.TypeParam{tp1, tp2, tp3}, types.NewTuple(p1, p2, p3), nil, false)
 	fn1 := pkg.NewFuncDecl(token.NoPos, "test", sig)
 	fn1.BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -676,7 +674,7 @@ func TestGenTypeParamsType(t *testing.T) {
 	mp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), ut)
 	mp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), ut)
 	mt1 := pkg.NewType("M").InitType(pkg, types.NewStruct(nil, nil), mp1)
-	msig1 := typesutil.NewSignatureType(types.NewVar(token.NoPos, pkg.Types, "m1", types.NewPointer(mt1)), []*types.TypeParam{mp2}, nil, nil, nil, false)
+	msig1 := types.NewSignatureType(types.NewVar(token.NoPos, pkg.Types, "m1", types.NewPointer(mt1)), []*types.TypeParam{mp2}, nil, nil, nil, false)
 	mfn1 := pkg.NewFuncDecl(token.NoPos, "test", msig1)
 	mfn1.BodyStart(pkg).End()
 
@@ -699,7 +697,7 @@ func TestGenTypeParamsType(t *testing.T) {
 	p2 := types.NewParam(token.NoPos, pkg.Types, "p2", tp2)
 	p3 := types.NewParam(token.NoPos, pkg.Types, "p3", tp3)
 
-	sig := typesutil.NewSignatureType(types.NewVar(token.NoPos, pkg.Types, "r1", types.NewPointer(named)), []*types.TypeParam{tp1, tp2, tp3}, nil, types.NewTuple(p1, p2, p3), nil, false)
+	sig := types.NewSignatureType(types.NewVar(token.NoPos, pkg.Types, "r1", types.NewPointer(named)), []*types.TypeParam{tp1, tp2, tp3}, nil, types.NewTuple(p1, p2, p3), nil, false)
 	fn1 := pkg.NewFuncDecl(token.NoPos, "test", sig)
 	fn1.BodyStart(pkg).End()
 
