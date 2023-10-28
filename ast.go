@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
-	"github.com/goplus/gox/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -672,7 +671,7 @@ retry:
 				fatal("TODO: unmatched TyTemplateRecvMethod")
 			}
 		} else if IsCSignature(t) {
-			sig = typesutil.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
+			sig = types.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
 		} else {
 			sig = t
 		}
