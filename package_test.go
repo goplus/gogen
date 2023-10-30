@@ -661,7 +661,7 @@ func TestTypeDoc(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)
 	def := pkg.NewTypeDefs().SetComments(nil)
-	def.NewType("foo").SetComments(comment("\n//go:notinheap")).InitType(pkg, typ)
+	def.NewType("foo").SetComments(pkg, comment("\n//go:notinheap")).InitType(pkg, typ)
 	def.Complete()
 	domTest(t, pkg, `package main
 
@@ -751,14 +751,10 @@ func TestTypeMethods(t *testing.T) {
 	foo := pkg.NewType("foo").InitType(pkg, typ)
 	recv := pkg.NewParam(token.NoPos, "a", foo)
 	precv := pkg.NewParam(token.NoPos, "p", types.NewPointer(foo))
-	pkg.NewFunc(recv, "Bar", nil, nil, false).SetComments(comment("\n// abc")).BodyStart(pkg).End()
+	pkg.NewFunc(recv, "Bar", nil, nil, false).SetComments(pkg, comment("\n// abc")).BodyStart(pkg).End()
 	pkg.NewFunc(precv, "Print", nil, nil, false).BodyStart(pkg).End()
 	if foo.NumMethods() != 2 {
 		t.Fatal("foo.NumMethods != 2")
-	}
-	m := pkg.Ref("foo").Type().(*types.Named).Method(0)
-	if c := gox.MethodFrom(m).Comments(); c == nil {
-		t.Fatal("MethodDoc:", c)
 	}
 	domTest(t, pkg, `package main
 
@@ -1461,10 +1457,10 @@ func main() {
 
 func TestFuncDoc(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewFunc(nil, "main", nil, nil, false).SetComments(comment("\n//go:noinline")).
-		BodyStart(pkg).End()
-	if c := gox.FuncFrom(pkg.Ref("main")).Comments(); c == nil {
-		t.Fatal("FuncDoc:", c)
+	fn := pkg.NewFunc(nil, "main", nil, nil, false).SetComments(pkg, comment("\n//go:noinline"))
+	fn.BodyStart(pkg).End()
+	if fn.Comments() == nil {
+		t.Fatal("TestFuncDoc failed: no doc?")
 	}
 	domTest(t, pkg, `package main
 

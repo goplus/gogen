@@ -53,8 +53,9 @@ type TypeDecl struct {
 }
 
 // SetComments sets associated documentation.
-func (p *TypeDecl) SetComments(doc *ast.CommentGroup) *TypeDecl {
+func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 	p.spec.Doc = doc
+	pkg.setDoc(p.typ.Obj(), doc)
 	return p
 }
 
