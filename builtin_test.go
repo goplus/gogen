@@ -615,6 +615,10 @@ func TestCheckParenExpr(t *testing.T) {
 	if _, ok := x.(*ast.ParenExpr); !ok {
 		t.Fatal("TestCheckParenExpr failed:", x)
 	}
+	x = checkParenExpr(&ast.SelectorExpr{X: &ast.CompositeLit{}, Sel: ast.NewIdent("sel")})
+	if _, ok := x.(*ast.SelectorExpr).X.(*ast.ParenExpr); !ok {
+		t.Fatal("TestCheckParenExpr failed:", x)
+	}
 }
 
 func TestNoFuncName(t *testing.T) {

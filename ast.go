@@ -870,8 +870,11 @@ func isPointer(typ types.Type) bool {
 }
 
 func checkParenExpr(x ast.Expr) ast.Expr {
-	if _, ok := x.(*ast.CompositeLit); ok {
+	switch v := x.(type) {
+	case *ast.CompositeLit:
 		return &ast.ParenExpr{X: x}
+	case *ast.SelectorExpr:
+		v.X = checkParenExpr(v.X)
 	}
 	return x
 }
