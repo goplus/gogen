@@ -313,9 +313,14 @@ func (p *File) unsafe(this *Package) *PkgRef {
 
 // ----------------------------------------------------------------------------
 
+// ObjectDocs maps an object to its document.
+type ObjectDocs = map[types.Object]*ast.CommentGroup
+
 // Package type
 type Package struct {
 	PkgRef
+	Docs ObjectDocs
+
 	cb             CodeBuilder
 	imp            types.Importer
 	files          map[string]*File
@@ -377,6 +382,13 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	pkg.utBigFlt = conf.UntypedBigFloat
 	pkg.cb.init(pkg)
 	return pkg
+}
+
+func (p *Package) setDoc(o types.Object, doc *ast.CommentGroup) {
+	if p.Docs == nil {
+		p.Docs = make(ObjectDocs)
+	}
+	p.Docs[o] = doc
 }
 
 func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {

@@ -19,7 +19,6 @@ import (
 	"go/token"
 	"go/types"
 	"log"
-	"unsafe"
 
 	"github.com/goplus/gox/internal"
 )
@@ -60,8 +59,7 @@ func NewTuple(x ...*Param) *Tuple {
 
 // Func type
 type Func struct {
-	types.Func // must be the first member
-
+	*types.Func
 	decl   *ast.FuncDecl
 	old    funcBodyCtx
 	arity1 int // 0 for normal, (arity+1) for inlineClosure
@@ -69,7 +67,7 @@ type Func struct {
 
 // Obj returns this function object.
 func (p *Func) Obj() types.Object {
-	return p
+	return p.Func
 }
 
 // Comments returns associated documentation.
@@ -78,8 +76,9 @@ func (p *Func) Comments() *ast.CommentGroup {
 }
 
 // SetComments sets associated documentation.
-func (p *Func) SetComments(doc *ast.CommentGroup) *Func {
+func (p *Func) SetComments(pkg *Package, doc *ast.CommentGroup) *Func {
 	p.decl.Doc = doc
+	pkg.setDoc(p.Func, doc)
 	return p
 }
 
@@ -160,16 +159,6 @@ func getRecv(recvTypePos func() token.Pos) token.Pos {
 	return token.NoPos
 }
 
-// FuncFrom returns instance of a global function.
-func FuncFrom(o types.Object) *Func {
-	return o.(*Func)
-}
-
-// MethodFrom returns instance of a method function.
-func MethodFrom(fn *types.Func) *Func {
-	return (*Func)(unsafe.Pointer(fn))
-}
-
 // NewFuncWith func
 func (p *Package) NewFuncWith(
 	pos token.Pos, name string, sig *types.Signature, recvTypePos func() token.Pos) (*Func, error) {
@@ -177,7 +166,7 @@ func (p *Package) NewFuncWith(
 		panic("no func name")
 	}
 	cb := p.cb
-	fn := &Func{Func: *types.NewFunc(pos, p.Types, name, sig)}
+	fn := &Func{Func: types.NewFunc(pos, p.Types, name, sig)}
 	if recv := sig.Recv(); IsMethodRecv(recv) { // add method to this type
 		var t *types.Named
 		var ok bool
@@ -202,7 +191,7 @@ func (p *Package) NewFuncWith(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		if name != "_" { // skip underscore
-			t.AddMethod(&fn.Func)
+			t.AddMethod(fn.Func)
 		}
 	} else if name == "init" { // init is not a normal func
 		if sig.Params() != nil || sig.Results() != nil {
@@ -231,12 +220,12 @@ func (p *Package) NewFuncWith(
 
 func (p *Package) newClosure(sig *types.Signature) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
-	return &Func{Func: *fn}
+	return &Func{Func: fn}
 }
 
 func (p *Package) newInlineClosure(sig *types.Signature, arity int) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
-	return &Func{Func: *fn, arity1: arity + 1}
+	return &Func{Func: fn, arity1: arity + 1}
 }
 
 func (p *Func) isInline() bool {
