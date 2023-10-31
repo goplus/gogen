@@ -23,6 +23,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/goplus/gox"
@@ -30,18 +31,19 @@ import (
 
 type txtNode struct {
 	Msg string
-	pos *token.Position
+	pos token.Pos
 }
 
 func (p *txtNode) Pos() token.Pos {
-	return 1
+	return p.pos
 }
 
 func (p *txtNode) End() token.Pos {
-	return 2
+	return p.pos + token.Pos(len(p.Msg))
 }
 
 var (
+	mutex         sync.Mutex
 	pos2Positions = map[token.Pos]token.Position{}
 )
 
@@ -50,12 +52,20 @@ func source(text string, args ...interface{}) ast.Node {
 	if len(args) < 2 {
 		return &txtNode{Msg: text}
 	}
-	pos := &token.Position{Filename: "./foo.gop", Line: args[0].(int), Column: args[1].(int)}
+	pos := position(args[0].(int), args[1].(int))
 	return &txtNode{Msg: text, pos: pos}
 }
 
+const (
+	posBits = 16
+	posMask = (1 << posBits) - 1
+)
+
 func position(line, column int) token.Pos {
-	pos := token.Pos(len(pos2Positions) + 1)
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	pos := token.Pos(len(pos2Positions)+1) << posBits
 	pos2Positions[pos] = token.Position{Filename: "./foo.gop", Line: line, Column: column}
 	return pos
 }
@@ -63,7 +73,11 @@ func position(line, column int) token.Pos {
 type nodeInterp struct{}
 
 func (p nodeInterp) Position(pos token.Pos) (ret token.Position) {
-	return pos2Positions[pos]
+	mutex.Lock()
+	defer mutex.Unlock()
+	ret = pos2Positions[(pos &^ posMask)]
+	ret.Column += int(pos & posMask)
+	return
 }
 
 func (p nodeInterp) Caller(node ast.Node) string {
@@ -75,13 +89,9 @@ func (p nodeInterp) Caller(node ast.Node) string {
 	return t.Msg
 }
 
-func (p nodeInterp) LoadExpr(node ast.Node) (src string, pos token.Position) {
+func (p nodeInterp) LoadExpr(node ast.Node) string {
 	t := node.(*txtNode)
-	if t.pos != nil {
-		pos = *t.pos
-	}
-	src = t.Msg
-	return
+	return t.Msg
 }
 
 func codeErrorTest(t *testing.T, msg string, source func(pkg *gox.Package), disableRecover ...bool) {

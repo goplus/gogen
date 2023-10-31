@@ -590,7 +590,7 @@ func callIncDec(pkg *Package, args []*Element, tok token.Token) (ret *Element, e
 	cb := &pkg.cb
 	if !isNumeric(cb, t.typ) {
 		text, pos := cb.loadExpr(args[0].Src)
-		cb.panicCodeErrorf(&pos, "invalid operation: %s%v (non-numeric type %v)", text, tok, t.typ)
+		cb.panicCodeErrorf(pos, "invalid operation: %s%v (non-numeric type %v)", text, tok, t.typ)
 	}
 	cb.emitStmt(&ast.IncDecStmt{X: args[0].Val, Tok: tok})
 	return
@@ -715,11 +715,13 @@ func checkArgsCount(pkg *Package, fn string, n int, args int, src ast.Node) {
 	}
 	cb := &pkg.cb
 	text, pos := cb.loadExpr(src)
-	pos.Column += len(fn)
-	if args < n {
-		cb.panicCodeErrorf(&pos, "missing argument to function call: %v", text)
+	if pos != token.NoPos {
+		pos += token.Pos(len(fn))
 	}
-	cb.panicCodeErrorf(&pos, "too many arguments to function call: %v", text)
+	if args < n {
+		cb.panicCodeErrorf(pos, "missing argument to function call: %v", text)
+	}
+	cb.panicCodeErrorf(pos, "too many arguments to function call: %v", text)
 }
 
 var (
@@ -778,13 +780,17 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 	var ok bool
 	if sel, ok = args[0].Val.(*ast.SelectorExpr); !ok {
 		s, pos := pkg.cb.loadExpr(src)
-		pos.Column += len("unsafe.Offsetof")
-		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v", s)
+		if pos != token.NoPos {
+			pos += token.Pos(len("unsafe.Offsetof"))
+		}
+		pkg.cb.panicCodeErrorf(pos, "invalid expression %v", s)
 	}
 	if _, ok = args[0].Type.(*types.Signature); ok {
 		s, pos := pkg.cb.loadExpr(src)
-		pos.Column += len("unsafe.Offsetof")
-		pkg.cb.panicCodeErrorf(&pos, "invalid expression %v: argument is a method value", s)
+		if pos != token.NoPos {
+			pos += token.Pos(len("unsafe.Offsetof"))
+		}
+		pkg.cb.panicCodeErrorf(pos, "invalid expression %v: argument is a method value", s)
 	}
 	recv := denoteRecv(sel)
 	typ := getStruct(pkg, recv.Type)
@@ -792,8 +798,10 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 	offset, err := offsetof(pkg, typ, index, recv.Src, sel.Sel.Name)
 	if err != nil {
 		_, pos := pkg.cb.loadExpr(src)
-		pos.Column += len("unsafe.Offsetof")
-		pkg.cb.panicCodeErrorf(&pos, "%v", err)
+		if pos != token.NoPos {
+			pos += token.Pos(len("unsafe.Offsetof"))
+		}
+		pkg.cb.panicCodeErrorf(pos, "%v", err)
 	}
 	//var offset int64
 	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Offsetof"))
@@ -868,15 +876,19 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags, sr
 
 	if ts := args[0].Type.String(); ts != "unsafe.Pointer" {
 		s, _ := pkg.cb.loadExpr(args[0].Src)
-		_, pos := pkg.cb.loadExpr(src)
-		pos.Column += len("unsafe.Add")
-		pkg.cb.panicCodeErrorf(&pos, "cannot use %v (type %v) as type unsafe.Pointer in argument to unsafe.Add", s, ts)
+		pos := getSrcPos(src)
+		if pos != token.NoPos {
+			pos += token.Pos(len("unsafe.Add"))
+		}
+		pkg.cb.panicCodeErrorf(pos, "cannot use %v (type %v) as type unsafe.Pointer in argument to unsafe.Add", s, ts)
 	}
 	if t := args[1].Type; !ninteger.Match(pkg, t) {
 		s, _ := pkg.cb.loadExpr(args[1].Src)
-		_, pos := pkg.cb.loadExpr(src)
-		pos.Column += len("unsafe.Add")
-		pkg.cb.panicCodeErrorf(&pos, "cannot use %v (type %v) as type int", s, t)
+		pos := getSrcPos(src)
+		if pos != token.NoPos {
+			pos += token.Pos(len("unsafe.Add"))
+		}
+		pkg.cb.panicCodeErrorf(pos, "cannot use %v (type %v) as type int", s, t)
 	}
 	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Sizeof")).(*ast.SelectorExpr)
 	fn.Sel.Name = "Add" // only in go v1.7+
@@ -895,14 +907,18 @@ func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, 
 
 	t0, ok := args[0].Type.(*types.Pointer)
 	if !ok {
-		_, pos := pkg.cb.loadExpr(src)
-		pos.Column += len("unsafe.Slice")
-		pkg.cb.panicCodeErrorf(&pos, "first argument to unsafe.Slice must be pointer; have %v", args[0].Type)
+		pos := getSrcPos(src)
+		if pos != token.NoPos {
+			pos += token.Pos(len("unsafe.Slice"))
+		}
+		pkg.cb.panicCodeErrorf(pos, "first argument to unsafe.Slice must be pointer; have %v", args[0].Type)
 	}
 	if t := args[1].Type; !ninteger.Match(pkg, t) {
-		_, pos := pkg.cb.loadExpr(src)
-		pos.Column += len("unsafe.Slice")
-		pkg.cb.panicCodeErrorf(&pos, "non-integer len argument in unsafe.Slice - %v", t)
+		pos := getSrcPos(src)
+		if pos != token.NoPos {
+			pos += token.Pos(len("unsafe.Slice"))
+		}
+		pkg.cb.panicCodeErrorf(pos, "non-integer len argument in unsafe.Slice - %v", t)
 	}
 	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Sizeof")).(*ast.SelectorExpr)
 	fn.Sel.Name = "Slice" // only in go v1.7+

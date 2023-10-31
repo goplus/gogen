@@ -43,6 +43,12 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestGetSrcPos(t *testing.T) {
+	if getSrcPos(nil) != token.NoPos {
+		t.Fatal("TestGetSrcPos: not nopos?")
+	}
+}
+
 func TestExportFields(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	fields := []*types.Var{
@@ -319,14 +325,11 @@ func TestCheckUdt(t *testing.T) {
 
 func TestNodeInterp(t *testing.T) {
 	interp := nodeInterp{}
-	if pos := interp.Position(1); pos.Line != 0 {
-		t.Fatal("TestNodeInterp interp.Position failed:", pos)
-	}
 	if interp.Caller(nil) != "the function call" {
 		t.Fatal("TestNodeInterp interp.Caller failed")
 	}
-	if src, pos := interp.LoadExpr(nil); src != "" || pos.Line != 0 {
-		t.Fatal("TestNodeInterp interp.LoadExpr failed:", src, pos)
+	if src := interp.LoadExpr(nil); src != "" {
+		t.Fatal("TestNodeInterp interp.LoadExpr failed:", src)
 	}
 	var cb CodeBuilder
 	if cb.getCaller(nil) != "" {
@@ -986,7 +989,7 @@ func TestErrWriteFile(t *testing.T) {
 
 func TestLoadExpr(t *testing.T) {
 	var cb CodeBuilder
-	if src, pos := cb.loadExpr(nil); src != "" || pos.Filename != "" {
+	if src, pos := cb.loadExpr(nil); src != "" || pos != token.NoPos {
 		t.Fatal("TestLoadExpr failed")
 	}
 }
