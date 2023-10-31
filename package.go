@@ -97,6 +97,9 @@ type Config struct {
 	// If Fset is nil, Load will use a new fileset, but preserve Fset's value.
 	Fset *token.FileSet
 
+	// Context represents all things between packages (optional).
+	Context *Context
+
 	// HandleErr is called to handle errors (optional).
 	HandleErr func(err error)
 
@@ -164,20 +167,7 @@ func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 			}
 			panic(e)
 		} else {
-			if !this.chkGopImports[pkgImp.Path()] {
-				this.chkGopImports[pkgImp.Path()] = true
-				for _, v := range pkgImp.Imports() {
-					if this.chkGopImports[v.Path()] {
-						continue
-					}
-					this.chkGopImports[v.Path()] = true
-					if !v.Complete() {
-						this.imp.Import(v.Path())
-					}
-					InitGopPkg(v)
-				}
-				InitGopPkg(pkgImp)
-			}
+			this.ctx.InitGopPkg(pkgImp)
 		}
 		pkgImport = &PkgRef{Types: pkgImp}
 		p.importPkgs[pkgPath] = pkgImport
@@ -324,9 +314,9 @@ type Package struct {
 	cb             CodeBuilder
 	imp            types.Importer
 	files          map[string]*File
-	chkGopImports  map[string]bool
 	file           *File
 	conf           *Config
+	ctx            *Context
 	Fset           *token.FileSet
 	builtin        *types.Package
 	utBigInt       *types.Named
@@ -352,6 +342,10 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if fset == nil {
 		fset = token.NewFileSet()
 	}
+	ctx := conf.Context
+	if ctx == nil {
+		ctx = NewContext()
+	}
 	imp := conf.Importer
 	if imp == nil {
 		imp = packages.NewImporter(fset)
@@ -368,13 +362,13 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		file:  file,
 		files: files,
 		conf:  conf,
+		ctx:   ctx,
 	}
 	pkg.imp = imp
 	pkg.Types = conf.Types
 	if pkg.Types == nil {
 		pkg.Types = types.NewPackage(pkgPath, name)
 	}
-	pkg.chkGopImports = make(map[string]bool)
 	pkg.builtin = newBuiltin(pkg, conf)
 	pkg.implicitCast = conf.CanImplicitCast
 	pkg.utBigInt = conf.UntypedBigInt
