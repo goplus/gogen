@@ -24,7 +24,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/goplus/gox/typesutil"
 	"golang.org/x/tools/go/types/typeutil"
 )
 
@@ -379,10 +378,10 @@ func initBuiltinFuncs(builtin *types.Package) {
 	emptyIntfSlice := types.NewSlice(TyEmptyInterface)
 	emptyIntfSliceVar := types.NewVar(token.NoPos, builtin, "args", emptyIntfSlice)
 	emptyIntfSliceTuple := types.NewTuple(emptyIntfSliceVar)
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, "panic", typesutil.NewSignatureType(nil, nil, nil, emptyIntfTuple, nil, false)))
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, "recover", typesutil.NewSignatureType(nil, nil, nil, nil, emptyIntfTuple, false)))
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, "print", typesutil.NewSignatureType(nil, nil, nil, emptyIntfSliceTuple, nil, true)))
-	gbl.Insert(types.NewFunc(token.NoPos, builtin, "println", typesutil.NewSignatureType(nil, nil, nil, emptyIntfSliceTuple, nil, true)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "panic", types.NewSignatureType(nil, nil, nil, emptyIntfTuple, nil, false)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "recover", types.NewSignatureType(nil, nil, nil, nil, emptyIntfTuple, false)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "print", types.NewSignatureType(nil, nil, nil, emptyIntfSliceTuple, nil, true)))
+	gbl.Insert(types.NewFunc(token.NoPos, builtin, "println", types.NewSignatureType(nil, nil, nil, emptyIntfSliceTuple, nil, true)))
 
 	// new & make are special cases, they require to pass a type.
 	gbl.Insert(NewInstruction(token.NoPos, builtin, "new", newInstr{}))
@@ -407,7 +406,7 @@ func newBFunc(builtin *types.Package, name string, t typeBFunc) types.Object {
 		vars[i] = types.NewParam(token.NoPos, builtin, param.name, types.Typ[param.typ])
 	}
 	result := types.NewParam(token.NoPos, builtin, "", types.Typ[t.result])
-	sig := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), types.NewTuple(result), false)
+	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), types.NewTuple(result), false)
 	return types.NewFunc(token.NoPos, builtin, name, sig)
 }
 
@@ -1275,53 +1274,61 @@ var (
 )
 
 func initBuiltinTIs(pkg *Package) {
-	strconv := pkg.Import("strconv")
-	strings := pkg.Import("strings")
-	os := pkg.Import("os")
-	ioxTI := (*builtinTI)(nil)
-	ioxPkg := pkg.conf.PkgPathIox
-	if debugImportIox && ioxPkg == "" {
-		ioxPkg = "github.com/goplus/gox/internal/iox"
-	}
-	if ioxPkg != "" {
-		iox := pkg.Import(ioxPkg)
-		ioxTI = &builtinTI{
-			typ: os.Ref("File").Type(),
-			methods: []*builtinMethod{
-				{"Gop_Enum", iox.Ref("EnumLines"), nil},
-			},
-		}
-	}
+	var (
+		float64TI, intTI, int64TI, uint64TI *builtinTI
+		ioxTI, stringTI, stringSliceTI      *builtinTI
+	)
 	btiMap := new(typeutil.Map)
+	strconv := pkg.TryImport("strconv")
+	strings := pkg.TryImport("strings")
 	btoLen := types.Universe.Lookup("len")
 	btoCap := types.Universe.Lookup("cap")
-	tis := []*builtinTI{
-		ioxTI,
-		{
+	{
+		ioxPkg := pkg.conf.PkgPathIox
+		if debugImportIox && ioxPkg == "" {
+			ioxPkg = "github.com/goplus/gox/internal/iox"
+		}
+		if ioxPkg != "" {
+			if os := pkg.TryImport("os"); os != nil {
+				if iox := pkg.TryImport(ioxPkg); iox != nil {
+					ioxTI = &builtinTI{
+						typ: os.Ref("File").Type(),
+						methods: []*builtinMethod{
+							{"Gop_Enum", iox.Ref("EnumLines"), nil},
+						},
+					}
+				}
+			}
+		}
+	}
+	if strconv != nil {
+		float64TI = &builtinTI{
 			typ: types.Typ[types.Float64],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("FormatFloat"), bmExargs{'g', -1, 64}},
 			},
-		},
-		{
+		}
+		intTI = &builtinTI{
 			typ: types.Typ[types.Int],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("Itoa"), nil},
 			},
-		},
-		{
+		}
+		int64TI = &builtinTI{
 			typ: types.Typ[types.Int64],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("FormatInt"), bmExargs{10}},
 			},
-		},
-		{
+		}
+		uint64TI = &builtinTI{
 			typ: types.Typ[types.Uint64],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("FormatUint"), bmExargs{10}},
 			},
-		},
-		{
+		}
+	}
+	if strings != nil && strconv != nil {
+		stringTI = &builtinTI{
 			typ: types.Typ[types.String],
 			methods: []*builtinMethod{
 				{"Len", btoLen, nil},
@@ -1364,15 +1371,26 @@ func initBuiltinTIs(pkg *Package) {
 				{"TrimPrefix", strings.Ref("TrimPrefix"), nil},
 				{"TrimSuffix", strings.Ref("TrimSuffix"), nil},
 			},
-		},
-		{
+		}
+	}
+	if strings != nil {
+		stringSliceTI = &builtinTI{
 			typ: types.NewSlice(types.Typ[types.String]),
 			methods: []*builtinMethod{
 				{"Len", btoLen, nil},
 				{"Cap", btoCap, nil},
 				{"Join", strings.Ref("Join"), nil},
 			},
-		},
+		}
+	}
+	tis := []*builtinTI{
+		ioxTI,
+		float64TI,
+		intTI,
+		int64TI,
+		uint64TI,
+		stringTI,
+		stringSliceTI,
 		{
 			typ: tySlice,
 			methods: []*builtinMethod{

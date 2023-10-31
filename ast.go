@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
-	"github.com/goplus/gox/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -672,7 +671,7 @@ retry:
 				fatal("TODO: unmatched TyTemplateRecvMethod")
 			}
 		} else if IsCSignature(t) {
-			sig = typesutil.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
+			sig = types.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
 		} else {
 			sig = t
 		}
@@ -871,8 +870,11 @@ func isPointer(typ types.Type) bool {
 }
 
 func checkParenExpr(x ast.Expr) ast.Expr {
-	if _, ok := x.(*ast.CompositeLit); ok {
+	switch v := x.(type) {
+	case *ast.CompositeLit:
 		return &ast.ParenExpr{X: x}
+	case *ast.SelectorExpr:
+		v.X = checkParenExpr(v.X)
 	}
 	return x
 }
@@ -947,10 +949,21 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
+func getCaller(pkg *Package, fn *internal.Elem) (caller string, pos token.Position) {
+	if fn != nil {
+		_, pos = pkg.cb.loadExpr(fn.Src)
+		caller = types.ExprString(fn.Val)
+	}
+	return
+}
+
 func matchFuncType(
 	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, fn *internal.Elem) error {
-	if (flags&InstrFlagTwoValue) != 0 && sig.Results().Len() != 2 {
-		return errors.New("TODO: should return two values")
+	if (flags & InstrFlagTwoValue) != 0 {
+		if n := sig.Results().Len(); n != 2 {
+			caller, pos := getCaller(pkg, fn)
+			return pkg.cb.newCodeError(&pos, fmt.Sprintf("assignment mismatch: 2 variables but %v returns %v values", caller, n))
+		}
 	}
 	var t *types.Tuple
 	n := len(args)
@@ -981,7 +994,9 @@ func matchFuncType(
 		if (flags & InstrFlagEllipsis) == 0 {
 			n1 := getParamLen(sig) - 1
 			if n < n1 {
-				return errors.New("TODO: not enough function parameters")
+				caller, pos := getCaller(pkg, fn)
+				return pkg.cb.newCodeError(&pos, fmt.Sprintf("not enough arguments in call to %v\n\thave (%v)\n\twant %v",
+					caller, getTypes(args), sig.Params()))
 			}
 			tyVariadic, ok := getParam(sig, n1).Type().(*types.Slice)
 			if !ok {
@@ -993,25 +1008,17 @@ func matchFuncType(
 			return matchElemType(pkg, args[n1:], tyVariadic.Elem(), at)
 		}
 	} else if (flags & InstrFlagEllipsis) != 0 {
-		var caller string
-		var pos token.Position
-		if fn != nil {
-			caller, pos = pkg.cb.loadExpr(fn.Src)
-		}
-		return pkg.cb.newCodeError(&pos, fmt.Sprintf("invalid use of ... in call to %v", caller))
+		caller, pos := getCaller(pkg, fn)
+		return pkg.cb.newCodeError(&pos, fmt.Sprintf("cannot use ... in call to non-variadic %v", caller))
 	}
 	if nreq := getParamLen(sig); nreq != n {
-		fewOrMany := "few"
+		fewOrMany := "not enough"
 		if n > nreq {
-			fewOrMany = "many"
+			fewOrMany = "too many"
 		}
-		var caller string
-		var pos token.Position
-		if fn != nil {
-			caller, pos = pkg.cb.loadExpr(fn.Src)
-		}
+		caller, pos := getCaller(pkg, fn)
 		return pkg.cb.newCodeError(&pos, fmt.Sprintf(
-			"too %s arguments in call to %s\n\thave (%v)\n\twant %v", fewOrMany, caller, getTypes(args), sig.Params()))
+			"%s arguments in call to %s\n\thave (%v)\n\twant %v", fewOrMany, caller, getTypes(args), sig.Params()))
 	}
 	return matchFuncArgs(pkg, args, sig, at)
 }

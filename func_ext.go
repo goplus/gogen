@@ -16,8 +16,6 @@ package gox
 import (
 	"go/token"
 	"go/types"
-
-	"github.com/goplus/gox/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -47,7 +45,7 @@ func CheckFuncEx(sig *types.Signature) (t TyFuncEx, ok bool) {
 
 func sigFuncEx(pkg *types.Package, t TyFuncEx) *types.Signature {
 	recv := types.NewParam(token.NoPos, pkg, "", t)
-	return typesutil.NewSignatureType(recv, nil, nil, nil, nil, false)
+	return types.NewSignatureType(recv, nil, nil, nil, nil, false)
 }
 
 func newFuncEx(pos token.Pos, pkg *types.Package, name string, t TyFuncEx) *types.Func {
@@ -240,7 +238,7 @@ func sigWithoutParam1(sig *types.Signature) *types.Signature {
 	for i := range mparams {
 		mparams[i] = params.At(i + 1)
 	}
-	return typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
+	return types.NewSignatureType(nil, nil, nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
 }
 
 func selOverloadFunc(funcs []types.Object, idx, nin int) *types.Signature {

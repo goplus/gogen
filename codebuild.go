@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
-	"github.com/goplus/gox/typesutil"
 	"golang.org/x/tools/go/types/typeutil"
 )
 
@@ -109,6 +108,7 @@ type CodeBuilder struct {
 	valDecl   *ValueDecl
 	ctxt      *typesContext
 	interp    NodeInterpreter
+	rec       Recorder
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
 	closureParamInsts
@@ -126,6 +126,7 @@ func (p *CodeBuilder) init(pkg *Package) {
 	if p.handleErr == nil {
 		p.handleErr = defaultHandleErr
 	}
+	p.rec = conf.Recorder
 	p.interp = conf.NodeInterpreter
 	if p.interp == nil {
 		p.interp = nodeInterp{}
@@ -235,10 +236,10 @@ func (p *CodeBuilder) Pkg() *Package {
 	return p.pkg
 }
 
-func (p *CodeBuilder) startFuncBody(fn *Func, old *funcBodyCtx) *CodeBuilder {
+func (p *CodeBuilder) startFuncBody(fn *Func, src []ast.Node, old *funcBodyCtx) *CodeBuilder {
 	p.current.fn, old.fn = fn, p.current.fn
 	p.current.labels, old.labels = nil, p.current.labels
-	p.startBlockStmt(fn, "func "+fn.Name(), &old.codeBlockCtx)
+	p.startBlockStmt(fn, src, "func "+fn.Name(), &old.codeBlockCtx)
 	scope := p.current.scope
 	sig := fn.Type().(*types.Signature)
 	insertParams(scope, sig.Params())
@@ -266,8 +267,12 @@ func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
 	return stmts
 }
 
-func (p *CodeBuilder) startBlockStmt(current codeBlock, comment string, old *codeBlockCtx) *CodeBuilder {
-	scope := types.NewScope(p.current.scope, token.NoPos, token.NoPos, comment)
+func (p *CodeBuilder) startBlockStmt(current codeBlock, src []ast.Node, comment string, old *codeBlockCtx) *CodeBuilder {
+	var start, end token.Pos
+	if src != nil {
+		start, end = src[0].Pos(), src[0].End()
+	}
+	scope := types.NewScope(p.current.scope, start, end, comment)
 	p.current.codeBlockCtx, *old = codeBlockCtx{current, scope, p.stk.Len(), nil, nil, 0}, p.current.codeBlockCtx
 	return p
 }
@@ -535,7 +540,7 @@ func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, el
 	for i, n := 0, results.Len(); i < n; i++ {
 		p.emitVar(pkg, closure, results.At(i), false)
 	}
-	p.startFuncBody(closure, &closure.old)
+	p.startFuncBody(closure, nil, &closure.old)
 	args := p.stk.GetArgs(arity)
 	var flags InstrFlags
 	if ellipsis {
@@ -567,7 +572,7 @@ func (p *CodeBuilder) emitVar(pkg *Package, closure *Func, param *types.Var, wit
 
 // NewClosure func
 func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
-	sig := typesutil.NewSignatureType(nil, nil, nil, params, results, variadic)
+	sig := types.NewSignatureType(nil, nil, nil, params, results, variadic)
 	return p.NewClosureWith(sig)
 }
 
@@ -1149,7 +1154,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 		log.Println("Index", nidx, twoValue)
 	}
 	args := p.stk.GetArgs(nidx + 1)
-	if enableTypeParams {
+	if enableTypeParams && nidx > 0 {
 		if _, ok := args[1].Type.(*TypeType); ok {
 			return p.inferType(nidx, args, src...)
 		}
@@ -1523,7 +1528,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 					for i := 0; i < spLen; i++ {
 						vars[i+1] = sp.At(i)
 					}
-					e.Type = typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+					e.Type = types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
 					return
 				}
 			}
@@ -1674,6 +1679,9 @@ func (p *CodeBuilder) method(
 				Type: methodTypeOf(typ),
 				Src:  src,
 			})
+			if p.rec != nil {
+				p.rec.Member(src, method)
+			}
 			if autoprop {
 				p.Call(0)
 				return MemberAutoProperty
@@ -1699,6 +1707,9 @@ func (p *CodeBuilder) btiMethod(
 				this.Type = &btiMethodType{Type: this.Type, eargs: method.eargs}
 				p.Val(method.fn, src)
 				p.stk.Push(this)
+				if p.rec != nil {
+					p.rec.Member(src, method.fn)
+				}
 				if autoprop {
 					p.Call(0)
 					return MemberAutoProperty
@@ -1724,6 +1735,9 @@ func (p *CodeBuilder) normalField(
 				Type: fld.Type(),
 				Src:  src,
 			})
+			if p.rec != nil {
+				p.rec.Member(src, fld)
+			}
 			return MemberField
 		}
 	}
@@ -1755,7 +1769,7 @@ func methodTypeOf(typ types.Type) types.Type {
 	if _, ok := CheckFuncEx(sig); ok {
 		return typ
 	}
-	return typesutil.NewSignatureType(nil, nil, nil, sig.Params(), sig.Results(), sig.Variadic())
+	return types.NewSignatureType(nil, nil, nil, sig.Params(), sig.Results(), sig.Variadic())
 }
 
 func indirect(typ types.Type) types.Type {
@@ -2171,12 +2185,12 @@ func (p *CodeBuilder) Go() *CodeBuilder {
 }
 
 // Block starts a block statement.
-func (p *CodeBuilder) Block() *CodeBuilder {
+func (p *CodeBuilder) Block(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Block")
 	}
 	stmt := &blockStmt{}
-	p.startBlockStmt(stmt, "block statement", &stmt.old)
+	p.startBlockStmt(stmt, src, "block statement", &stmt.old)
 	return p
 }
 
@@ -2197,17 +2211,17 @@ func (p *CodeBuilder) InVBlock() bool {
 }
 
 // Block starts a if statement.
-func (p *CodeBuilder) If() *CodeBuilder {
+func (p *CodeBuilder) If(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("If")
 	}
 	stmt := &ifStmt{}
-	p.startBlockStmt(stmt, "if statement", &stmt.old)
+	p.startBlockStmt(stmt, src, "if statement", &stmt.old)
 	return p
 }
 
 // Then starts body of a if/switch/for statement.
-func (p *CodeBuilder) Then() *CodeBuilder {
+func (p *CodeBuilder) Then(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Then")
 	}
@@ -2215,19 +2229,19 @@ func (p *CodeBuilder) Then() *CodeBuilder {
 		panic("use None() for empty expr")
 	}
 	if flow, ok := p.current.codeBlock.(controlFlow); ok {
-		flow.Then(p)
+		flow.Then(p, src...)
 		return p
 	}
 	panic("use if..then or switch..then or for..then please")
 }
 
 // Else starts else body of a if..else statement.
-func (p *CodeBuilder) Else() *CodeBuilder {
+func (p *CodeBuilder) Else(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Else")
 	}
 	if flow, ok := p.current.codeBlock.(*ifStmt); ok {
-		flow.Else(p)
+		flow.Else(p, src...)
 		return p
 	}
 	panic("use if..else please")
@@ -2249,12 +2263,12 @@ func (p *CodeBuilder) Else() *CodeBuilder {
 //
 // end
 // </pre>
-func (p *CodeBuilder) TypeSwitch(name string) *CodeBuilder {
+func (p *CodeBuilder) TypeSwitch(name string, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("TypeSwitch")
 	}
 	stmt := &typeSwitchStmt{name: name}
-	p.startBlockStmt(stmt, "type switch statement", &stmt.old)
+	p.startBlockStmt(stmt, src, "type switch statement", &stmt.old)
 	return p
 }
 
@@ -2322,29 +2336,29 @@ func (p *CodeBuilder) TypeAssertThen() *CodeBuilder {
 }
 
 // TypeCase starts case body of a type switch statement.
-func (p *CodeBuilder) TypeCase(n int) *CodeBuilder { // n=0 means default case
+func (p *CodeBuilder) TypeCase(n int, src ...ast.Node) *CodeBuilder { // n=0 means default case
 	if debugInstr {
 		log.Println("TypeCase", n)
 	}
 	if flow, ok := p.current.codeBlock.(*typeSwitchStmt); ok {
-		flow.TypeCase(p, n)
+		flow.TypeCase(p, n, src...)
 		return p
 	}
 	panic("use switch x.(type) .. case please")
 }
 
 // Select starts a select statement.
-func (p *CodeBuilder) Select() *CodeBuilder {
+func (p *CodeBuilder) Select(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Select")
 	}
 	stmt := &selectStmt{}
-	p.startBlockStmt(stmt, "select statement", &stmt.old)
+	p.startBlockStmt(stmt, src, "select statement", &stmt.old)
 	return p
 }
 
 // CommCase starts case body of a select..case statement.
-func (p *CodeBuilder) CommCase(n int) *CodeBuilder {
+func (p *CodeBuilder) CommCase(n int, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("CommCase", n)
 	}
@@ -2352,29 +2366,29 @@ func (p *CodeBuilder) CommCase(n int) *CodeBuilder {
 		panic("TODO: multi commStmt in select..case?")
 	}
 	if flow, ok := p.current.codeBlock.(*selectStmt); ok {
-		flow.CommCase(p, n)
+		flow.CommCase(p, n, src...)
 		return p
 	}
 	panic("use select..case please")
 }
 
 // Switch starts a switch statement.
-func (p *CodeBuilder) Switch() *CodeBuilder {
+func (p *CodeBuilder) Switch(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Switch")
 	}
 	stmt := &switchStmt{}
-	p.startBlockStmt(stmt, "switch statement", &stmt.old)
+	p.startBlockStmt(stmt, src, "switch statement", &stmt.old)
 	return p
 }
 
 // Case starts case body of a switch..case statement.
-func (p *CodeBuilder) Case(n int) *CodeBuilder { // n=0 means default case
+func (p *CodeBuilder) Case(n int, src ...ast.Node) *CodeBuilder { // n=0 means default case
 	if debugInstr {
 		log.Println("Case", n)
 	}
 	if flow, ok := p.current.codeBlock.(*switchStmt); ok {
-		flow.Case(p, n)
+		flow.Case(p, n, src...)
 		return p
 	}
 	panic("use switch..case please")
@@ -2472,12 +2486,12 @@ func (p *CodeBuilder) Fallthrough() *CodeBuilder {
 }
 
 // For func
-func (p *CodeBuilder) For() *CodeBuilder {
+func (p *CodeBuilder) For(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("For")
 	}
 	stmt := &forStmt{}
-	p.startBlockStmt(stmt, "for statement", &stmt.old)
+	p.startBlockStmt(stmt, src, "for statement", &stmt.old)
 	return p
 }
 
@@ -2495,11 +2509,16 @@ func (p *CodeBuilder) Post() *CodeBuilder {
 
 // ForRange func
 func (p *CodeBuilder) ForRange(names ...string) *CodeBuilder {
+	return p.ForRangeEx(names)
+}
+
+// ForRangeEx func
+func (p *CodeBuilder) ForRangeEx(names []string, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("ForRange", names)
 	}
 	stmt := &forRangeStmt{names: names}
-	p.startBlockStmt(stmt, "for range statement", &stmt.old)
+	p.startBlockStmt(stmt, src, "for range statement", &stmt.old)
 	return p
 }
 

@@ -208,9 +208,17 @@ func toIndex(c byte) int {
 
 // ----------------------------------------------------------------------------
 
-// Import func
+// Import imports a package by pkgPath. It will panic if pkgPath not found.
 func (p *Package) Import(pkgPath string, src ...ast.Node) *PkgRef {
 	return p.file.importPkg(p, pkgPath, getSrc(src))
+}
+
+// TryImport imports a package by pkgPath. It returns nil if pkgPath not found.
+func (p *Package) TryImport(pkgPath string) *PkgRef {
+	defer func() {
+		recover()
+	}()
+	return p.file.importPkg(p, pkgPath, nil)
 }
 
 func (p *Package) big() *PkgRef {

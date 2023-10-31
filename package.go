@@ -69,6 +69,14 @@ func fatal(msg string) {
 
 // ----------------------------------------------------------------------------
 
+// Recorder represents a gox event recorder.
+type Recorder interface {
+	// Member maps identifiers to the objects they denote.
+	Member(id ast.Node, obj types.Object)
+}
+
+// ----------------------------------------------------------------------------
+
 type NodeInterpreter interface {
 	// Position gets position of a Pos.
 	Position(p token.Pos) token.Position
@@ -82,20 +90,23 @@ type NodeInterpreter interface {
 
 // Config type
 type Config struct {
-	// Fset provides source position information for syntax trees and types.
+	// Types provides type information for the package (optional).
+	Types *types.Package
+
+	// Fset provides source position information for syntax trees and types (optional).
 	// If Fset is nil, Load will use a new fileset, but preserve Fset's value.
 	Fset *token.FileSet
 
-	// HandleErr is called to handle errors.
+	// HandleErr is called to handle errors (optional).
 	HandleErr func(err error)
 
-	// NodeInterpreter is to interpret an ast.Node.
+	// NodeInterpreter is to interpret an ast.Node (optional).
 	NodeInterpreter NodeInterpreter
 
-	// LoadNamed is called to load a delay-loaded named type.
+	// LoadNamed is called to load a delay-loaded named type (optional).
 	LoadNamed LoadNamedFunc
 
-	// An Importer resolves import paths to Packages.
+	// An Importer resolves import paths to Packages (optional).
 	Importer types.Importer
 
 	// DefaultGoFile specifies default file name. It can be empty.
@@ -104,16 +115,19 @@ type Config struct {
 	// PkgPathIox specifies package path of github.com/goplus/gop/builtin/iox
 	PkgPathIox string
 
-	// NewBuiltin is to create the builin package.
+	// NewBuiltin is to create the builin package (optional).
 	NewBuiltin func(pkg *Package, conf *Config) *types.Package
 
-	// CanImplicitCast checkes can cast V to T implicitly.
+	// CanImplicitCast checkes can cast V to T implicitly (optional).
 	CanImplicitCast func(pkg *Package, V, T types.Type, pv *Element) bool
 
-	// untyped bigint, untyped bigrat, untyped bigfloat
+	// untyped bigint, untyped bigrat, untyped bigfloat (optional).
 	UntypedBigInt, UntypedBigRat, UntypedBigFloat *types.Named
 
-	// NoSkipConstant is to disable optimization of skipping constant
+	// A Recorder records selected objects such as methods, etc (optional).
+	Recorder Recorder
+
+	// NoSkipConstant is to disable optimization of skipping constant (optional).
 	NoSkipConstant bool
 }
 
@@ -150,7 +164,20 @@ func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 			}
 			panic(e)
 		} else {
-			InitGopPkg(pkgImp)
+			if !this.chkGopImports[pkgImp.Path()] {
+				this.chkGopImports[pkgImp.Path()] = true
+				for _, v := range pkgImp.Imports() {
+					if this.chkGopImports[v.Path()] {
+						continue
+					}
+					this.chkGopImports[v.Path()] = true
+					if !v.Complete() {
+						this.imp.Import(v.Path())
+					}
+					InitGopPkg(v)
+				}
+				InitGopPkg(pkgImp)
+			}
 		}
 		pkgImport = &PkgRef{Types: pkgImp}
 		p.importPkgs[pkgPath] = pkgImport
@@ -234,13 +261,19 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			continue
 		}
 		pkgName, renamed := names.RequireName(pkgImport.Types.Name())
+		var name *ast.Ident
 		if renamed {
 			for _, nameRef := range pkgImport.nameRefs {
 				nameRef.Name = pkgName
 			}
+			name = ident(pkgName)
+		} else {
+			if pkgName != path.Base(pkgImport.Types.Path()) {
+				name = ident(pkgName)
+			}
 		}
 		specs = append(specs, &ast.ImportSpec{
-			Name: ident(pkgName),
+			Name: name,
 			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkgPath)},
 		})
 	}
@@ -280,12 +313,18 @@ func (p *File) unsafe(this *Package) *PkgRef {
 
 // ----------------------------------------------------------------------------
 
+// ObjectDocs maps an object to its document.
+type ObjectDocs = map[types.Object]*ast.CommentGroup
+
 // Package type
 type Package struct {
 	PkgRef
+	Docs ObjectDocs
+
 	cb             CodeBuilder
 	imp            types.Importer
 	files          map[string]*File
+	chkGopImports  map[string]bool
 	file           *File
 	conf           *Config
 	Fset           *token.FileSet
@@ -331,7 +370,11 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		conf:  conf,
 	}
 	pkg.imp = imp
-	pkg.Types = types.NewPackage(pkgPath, name)
+	pkg.Types = conf.Types
+	if pkg.Types == nil {
+		pkg.Types = types.NewPackage(pkgPath, name)
+	}
+	pkg.chkGopImports = make(map[string]bool)
 	pkg.builtin = newBuiltin(pkg, conf)
 	pkg.implicitCast = conf.CanImplicitCast
 	pkg.utBigInt = conf.UntypedBigInt
@@ -339,6 +382,13 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	pkg.utBigFlt = conf.UntypedBigFloat
 	pkg.cb.init(pkg)
 	return pkg
+}
+
+func (p *Package) setDoc(o types.Object, doc *ast.CommentGroup) {
+	if p.Docs == nil {
+		p.Docs = make(ObjectDocs)
+	}
+	p.Docs[o] = doc
 }
 
 func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {

@@ -28,7 +28,6 @@ import (
 
 	"github.com/goplus/gox"
 	"github.com/goplus/gox/packages"
-	"github.com/goplus/gox/typesutil"
 	"golang.org/x/tools/go/gcexportdata"
 )
 
@@ -49,12 +48,18 @@ func ctxRef(pkg *gox.Package, name string) gox.Ref {
 	return o
 }
 
+type eventRecorder struct{}
+
+func (p eventRecorder) Member(id ast.Node, obj types.Object) {
+}
+
 func newMainPackage(
 	implicitCast ...func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool) *gox.Package {
 	conf := &gox.Config{
 		Fset:            gblFset,
 		Importer:        gblImp,
 		NodeInterpreter: nodeInterp{},
+		Recorder:        eventRecorder{},
 	}
 	if len(implicitCast) > 0 {
 		conf.CanImplicitCast = implicitCast[0]
@@ -154,8 +159,8 @@ func TestRedupPkgIssue796(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	context "context"
-	time "time"
+	"context"
+	"time"
 )
 
 func main() {
@@ -191,9 +196,9 @@ func TestBTIMethod(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	strconv "strconv"
-	strings "strings"
-	fmt "fmt"
+	"strconv"
+	"strings"
+	"fmt"
 )
 
 func main() {
@@ -225,7 +230,7 @@ func TestPrintlnPrintln(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	fmt.Println(fmt.Println())
@@ -605,7 +610,7 @@ func TestZeroLitAllTypes(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 func main() {
 	var a map[string]int = nil
@@ -656,7 +661,7 @@ func TestTypeDoc(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)
 	def := pkg.NewTypeDefs().SetComments(nil)
-	def.NewType("foo").SetComments(comment("\n//go:notinheap")).InitType(pkg, typ)
+	def.NewType("foo").SetComments(pkg, comment("\n//go:notinheap")).InitType(pkg, typ)
 	def.Complete()
 	domTest(t, pkg, `package main
 
@@ -746,14 +751,10 @@ func TestTypeMethods(t *testing.T) {
 	foo := pkg.NewType("foo").InitType(pkg, typ)
 	recv := pkg.NewParam(token.NoPos, "a", foo)
 	precv := pkg.NewParam(token.NoPos, "p", types.NewPointer(foo))
-	pkg.NewFunc(recv, "Bar", nil, nil, false).SetComments(comment("\n// abc")).BodyStart(pkg).End()
+	pkg.NewFunc(recv, "Bar", nil, nil, false).SetComments(pkg, comment("\n// abc")).BodyStart(pkg).End()
 	pkg.NewFunc(precv, "Print", nil, nil, false).BodyStart(pkg).End()
 	if foo.NumMethods() != 2 {
 		t.Fatal("foo.NumMethods != 2")
-	}
-	m := pkg.Ref("foo").Type().(*types.Named).Method(0)
-	if c := gox.MethodFrom(m).Comments(); c == nil {
-		t.Fatal("MethodDoc:", c)
 	}
 	domTest(t, pkg, `package main
 
@@ -796,7 +797,7 @@ var err error = foo(0)
 func TestAssignUserInterface(t *testing.T) {
 	pkg := newMainPackage()
 	methods := []*types.Func{
-		types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
+		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
 	}
 	tyInterf := types.NewInterfaceType(methods, nil).Complete()
 	typStruc := types.NewStruct(nil, nil)
@@ -834,7 +835,7 @@ func main() {
 func TestTypeAssert(t *testing.T) {
 	pkg := newMainPackage()
 	params := types.NewTuple(pkg.NewParam(token.NoPos, "v", gox.TyEmptyInterface))
-	pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
+	pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg, source("{}", 1, 5)).
 		DefineVarStart(0, "x").VarVal("v").TypeAssert(types.Typ[types.Int], false).EndInit(1).
 		DefineVarStart(0, "y", "ok").VarVal("v").TypeAssert(types.Typ[types.String], true).EndInit(1).
 		End()
@@ -849,7 +850,7 @@ func foo(v interface {
 }
 
 func newFuncDecl(pkg *gox.Package, name string, params, results *types.Tuple) *gox.Func {
-	sig := typesutil.NewSignatureType(nil, nil, nil, params, results, false)
+	sig := types.NewSignatureType(nil, nil, nil, params, results, false)
 	return pkg.NewFuncDecl(token.NoPos, name, sig)
 }
 
@@ -1426,7 +1427,7 @@ func TestVarDeclInFunc(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var x, y string
@@ -1445,7 +1446,7 @@ func TestDefineVar(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var n int
@@ -1456,10 +1457,10 @@ func main() {
 
 func TestFuncDoc(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewFunc(nil, "main", nil, nil, false).SetComments(comment("\n//go:noinline")).
-		BodyStart(pkg).End()
-	if c := gox.FuncFrom(pkg.Ref("main")).Comments(); c == nil {
-		t.Fatal("FuncDoc:", c)
+	fn := pkg.NewFunc(nil, "main", nil, nil, false).SetComments(pkg, comment("\n//go:noinline"))
+	fn.BodyStart(pkg).End()
+	if fn.Comments() == nil {
+		t.Fatal("TestFuncDoc failed: no doc?")
 	}
 	domTest(t, pkg, `package main
 
@@ -1512,7 +1513,7 @@ func init() {
 
 func TestFuncAsParam(t *testing.T) {
 	pkg := newMainPackage()
-	v := pkg.NewParam(token.NoPos, "v", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false))
+	v := pkg.NewParam(token.NoPos, "v", types.NewSignatureType(nil, nil, nil, nil, nil, false))
 	x := pkg.NewParam(token.NoPos, "x", types.NewPointer(types.Typ[types.Bool]))
 	y := pkg.NewParam(token.NoPos, "y", types.NewChan(types.SendOnly, types.Typ[types.Bool]))
 	z := pkg.NewParam(token.NoPos, "z", types.Typ[types.UnsafePointer])
@@ -1520,7 +1521,7 @@ func TestFuncAsParam(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 func foo(v func(), x *bool, y chan<- bool, z unsafe.Pointer) {
 }
@@ -1531,7 +1532,7 @@ func main() {
 
 func TestNamedFuncAsParam(t *testing.T) {
 	pkg := newMainPackage()
-	typ := pkg.NewType("foo").InitType(pkg, typesutil.NewSignatureType(nil, nil, nil, nil, nil, false))
+	typ := pkg.NewType("foo").InitType(pkg, types.NewSignatureType(nil, nil, nil, nil, nil, false))
 	v := pkg.NewParam(token.NoPos, "v", typ)
 	pkg.NewFunc(nil, "bar", gox.NewTuple(v), nil, false).BodyStart(pkg).
 		VarVal("v").Call(0).EndStmt().
@@ -1724,7 +1725,7 @@ func TestUnsafeFunc(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 type T struct {
 	x int
@@ -1758,7 +1759,7 @@ func TestUnsafeFunc2(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 func test17() {
 	var a unsafe.Pointer
@@ -1804,7 +1805,7 @@ func TestUnsafeConst(t *testing.T) {
 
 	domTest(t, pkg, `package main
 
-import unsafe "unsafe"
+import "unsafe"
 
 type M struct {
 	m int
@@ -1893,7 +1894,7 @@ func main() {
 func TestInterfaceMethods(t *testing.T) {
 	pkg := newMainPackage()
 	methods := []*types.Func{
-		types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
+		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
 	}
 	tyInterf := types.NewInterfaceType(methods, nil).Complete()
 	bar := pkg.NewType("bar").InitType(pkg, tyInterf)
@@ -1929,7 +1930,7 @@ func TestFuncCall(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	fmt.Println("Hello")
@@ -1947,7 +1948,7 @@ func TestFuncCallEllipsis(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func foo(v ...interface {
 }) {
@@ -1989,7 +1990,7 @@ func TestDelayedLoadUsed(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func foo(format string, args ...interface {
 }) (int, error) {
@@ -2008,7 +2009,7 @@ func TestIf(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	if x := 3; x > 1 {
@@ -2034,7 +2035,7 @@ func TestIfElse(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	if x := 3; x > 1 {
@@ -2110,7 +2111,7 @@ func TestGoDefer(t *testing.T) { // TODO: check invalid syntax
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	go fmt.Println("Hi")
@@ -2137,7 +2138,7 @@ func TestSwitch(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	switch x := 3; x {
@@ -2172,7 +2173,7 @@ func TestSwitchNoTag(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	x := 3
@@ -2201,7 +2202,7 @@ func TestFor(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	for i := 0; i < len("Hello"); i = i + 1 {
@@ -2220,7 +2221,7 @@ func TestLoopFor(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	for {
@@ -2245,7 +2246,7 @@ func TestLabeledFor(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 label:
@@ -2267,7 +2268,7 @@ func TestForRange(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	a := []float64{1, 1.2, 3}
@@ -2289,7 +2290,7 @@ func TestForRange2(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 type T []float64
 
@@ -2326,7 +2327,7 @@ func TestForRangeChan(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var a chan int
@@ -2347,7 +2348,7 @@ func TestForRangeKV(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	a := [3]float64{1, 1.2, 3}
@@ -2369,7 +2370,7 @@ func TestForRangeArrayPointer(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func foo(a *[3]float64) {
 	for _, x := range a {
@@ -2391,7 +2392,7 @@ func TestForRangeNoAssign(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	a := []float64{1, 1.2, 3}
@@ -2415,7 +2416,7 @@ func TestForRangeAssignKV(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var k string
@@ -2440,7 +2441,7 @@ func TestForRangeAssign(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var k bool
@@ -2464,7 +2465,7 @@ func TestReturn(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func foo(format string, args ...interface {
 }) (int, error) {
@@ -2598,7 +2599,7 @@ func TestImportAndCallMethod(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import strings "strings"
+import "strings"
 
 func main() {
 	var x string
@@ -2630,7 +2631,7 @@ func TestOverloadMethod(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import foo "github.com/goplus/gox/internal/foo"
+import "github.com/goplus/gox/internal/foo"
 
 func bar(v foo.NodeSet) {
 	val, err := v.Attr__0("key")
@@ -2648,7 +2649,7 @@ func TestPkgVar(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import flag "flag"
+import "flag"
 
 func main() {
 	flag.Usage = nil
@@ -2668,7 +2669,7 @@ func TestEmbbedMember(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import testing "testing"
+import "testing"
 
 func foo(t *testing.T) {
 	t.Fatal()
@@ -2692,7 +2693,7 @@ func TestMemberAutoProperty(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import testing "testing"
+import "testing"
 
 func foo(t *testing.T) {
 	t.Name()
@@ -2925,7 +2926,7 @@ func TestAssignFnCall(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var n int
@@ -2947,7 +2948,7 @@ func TestAssignUnderscore(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var err error
@@ -3090,7 +3091,7 @@ func TestClosure(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	func(v string) {
@@ -3161,7 +3162,7 @@ func TestCallInlineClosure(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func foo() error {
 	var _autoGo_1 int
@@ -3183,7 +3184,7 @@ func TestCallInlineClosureAssign(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	ret := pkg.NewAutoParam("ret")
-	sig := typesutil.NewSignatureType(nil, nil, nil, nil, gox.NewTuple(ret), false)
+	sig := types.NewSignatureType(nil, nil, nil, nil, gox.NewTuple(ret), false)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).
 		CallInlineClosureStart(sig, 0, false).
@@ -3195,7 +3196,7 @@ func TestCallInlineClosureAssign(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var _autoGo_1 int
@@ -3215,7 +3216,7 @@ func TestCallInlineClosureEllipsis(t *testing.T) {
 	fmt := pkg.Import("fmt")
 	x := pkg.NewParam(token.NoPos, "x", types.NewSlice(gox.TyEmptyInterface))
 	ret := pkg.NewAutoParam("ret")
-	sig := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(x), types.NewTuple(ret), true)
+	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(x), types.NewTuple(ret), true)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).
 		Val(1).SliceLit(types.NewSlice(gox.TyEmptyInterface), 1).
@@ -3227,7 +3228,7 @@ func TestCallInlineClosureEllipsis(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	var _autoGo_1 int
@@ -3268,7 +3269,7 @@ func TestExample(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	a, b := "Hi", 3
@@ -3291,7 +3292,7 @@ func TestInterfaceMethodVarCall(t *testing.T) {
 	tyInt := types.Typ[types.Int]
 	tyString := types.Typ[types.String]
 	methods := []*types.Func{
-		types.NewFunc(token.NoPos, pkg.Types, "bar", typesutil.NewSignatureType(
+		types.NewFunc(token.NoPos, pkg.Types, "bar", types.NewSignatureType(
 			nil, nil, nil, types.NewTuple(types.NewVar(token.NoPos, nil, "info", tyString)), nil, false)),
 	}
 	tyInterf := types.NewInterfaceType(methods, nil).Complete()
@@ -3309,7 +3310,7 @@ func TestInterfaceMethodVarCall(t *testing.T) {
 		EndStmt().End()
 	domTest(t, pkg, `package main
 
-import fmt "fmt"
+import "fmt"
 
 type foo interface {
 	bar(info string)
@@ -3389,10 +3390,45 @@ func (m *M) SetValue() {
 		End()
 	domTest(t, pkg, `package main
 
-import foo "foo"
+import "foo"
 
 func main() {
 	var m foo.M
+	m.SetValue()
+}
+`)
+}
+
+func TestPackageName(t *testing.T) {
+	const src = `package foo2
+
+type M struct {
+}
+
+func (m *M) SetValue() {
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	tyM := pkgRef.Ref("M").Type()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyM, "m").VarVal("m").Debug(
+		func(cb *gox.CodeBuilder) {
+			cb.Member("SetValue", gox.MemberFlagMethodAlias)
+		}).Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import foo2 "foo"
+
+func main() {
+	var m foo2.M
 	m.SetValue()
 }
 `)

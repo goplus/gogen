@@ -27,7 +27,6 @@ import (
 	"github.com/goplus/gox/internal"
 	"github.com/goplus/gox/internal/go/format"
 	"github.com/goplus/gox/packages"
-	"github.com/goplus/gox/typesutil"
 )
 
 var (
@@ -60,6 +59,21 @@ func TestExportFields(t *testing.T) {
 	}
 	if CPubName("123") != "123" {
 		t.Fatal("CPubName(123) failed")
+	}
+}
+
+func TestIsTypeEx(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	o := NewInstruction(0, pkg, "bar", lenInstr{})
+	if !IsTypeEx(o.Type()) {
+		t.Fatal("IsTypeEx: not Instruction?")
+	}
+	of := NewOverloadFunc(0, pkg, "bar")
+	if !IsTypeEx(of.Type()) {
+		t.Fatal("IsTypeEx: not OverloadFunc?")
+	}
+	if IsTypeEx(tyInt) {
+		t.Fatal("IsTypeEx: not tyInt?")
 	}
 }
 
@@ -144,7 +158,7 @@ func TestContract(t *testing.T) {
 		{comparable, types.NewSlice(tyInt), false},
 		{comparable, types.NewMap(tyInt, tyInt), false},
 		{comparable, types.NewChan(0, tyInt), true},
-		{comparable, typesutil.NewSignatureType(nil, nil, nil, nil, nil, false), false},
+		{comparable, types.NewSignatureType(nil, nil, nil, nil, nil, false), false},
 		{comparable, NewTemplateSignature(nil, nil, nil, nil, false), false},
 		{addable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil), false},
 		{addable, tfoo, true},
@@ -189,10 +203,10 @@ func TestComparableTo(t *testing.T) {
 func TestComparableTo2(t *testing.T) {
 	pkg := NewPackage("foo", "foo", gblConf)
 	methods := []*types.Func{
-		types.NewFunc(token.NoPos, pkg.Types, "Bar", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
+		types.NewFunc(token.NoPos, pkg.Types, "Bar", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
 	}
 	methods2 := []*types.Func{
-		types.NewFunc(token.NoPos, pkg.Types, "F", typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)),
+		types.NewFunc(token.NoPos, pkg.Types, "F", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
 	}
 	tyInterf := types.NewInterfaceType(methods, nil).Complete()
 	tyInterfF := types.NewInterfaceType(methods2, nil).Complete()
@@ -273,7 +287,7 @@ func TestToIndex(t *testing.T) {
 }
 
 func TestCheckOverloadMethod(t *testing.T) {
-	sig := typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
 	if _, ok := CheckOverloadMethod(sig); ok {
 		t.Fatal("TestCheckOverloadMethod failed:")
 	}
@@ -283,13 +297,13 @@ func TestIsFunc(t *testing.T) {
 	if IsFunc(nil) {
 		t.Fatal("nil is func?")
 	}
-	if !IsFunc(typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)) {
+	if !IsFunc(types.NewSignatureType(nil, nil, nil, nil, nil, false)) {
 		t.Fatal("func() is not func?")
 	}
 	if HasAutoProperty(nil) {
 		t.Fatal("nil has autoprop?")
 	}
-	if !HasAutoProperty(typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)) {
+	if !HasAutoProperty(types.NewSignatureType(nil, nil, nil, nil, nil, false)) {
 		t.Fatal("func() has not autoprop?")
 	}
 }
@@ -601,6 +615,10 @@ func TestCheckParenExpr(t *testing.T) {
 	if _, ok := x.(*ast.ParenExpr); !ok {
 		t.Fatal("TestCheckParenExpr failed:", x)
 	}
+	x = checkParenExpr(&ast.SelectorExpr{X: &ast.CompositeLit{}, Sel: ast.NewIdent("sel")})
+	if _, ok := x.(*ast.SelectorExpr).X.(*ast.ParenExpr); !ok {
+		t.Fatal("TestCheckParenExpr failed:", x)
+	}
 }
 
 func TestNoFuncName(t *testing.T) {
@@ -790,6 +808,18 @@ func TestUnsafe(t *testing.T) {
 	}
 }
 
+func TestTryImport(t *testing.T) {
+	defer func() {
+		if e := recover(); e != nil {
+			t.Fatal("TestTryImport: panic?")
+		}
+	}()
+	pkg := NewPackage("foo", "foo", gblConf)
+	if pkg.TryImport("not/exist") != nil {
+		t.Fatal("TryImport: exist?")
+	}
+}
+
 func TestUntypeBig(t *testing.T) {
 	pkg := NewPackage("foo", "foo", gblConf)
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")
@@ -840,13 +870,13 @@ func TestCheckSignature(t *testing.T) {
 	if CheckSignature(nil, 0, 0) != nil {
 		t.Fatal("TestCheckSignature failed: CheckSignature(nil) != nil")
 	}
-	sig := typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
 	if CheckSignature(sig, 0, 0) != sig {
 		t.Fatal("TestCheckSignature failed: CheckSignature(sig) != sig")
 	}
 	pkg := types.NewPackage("", "foo")
 	arg := types.NewParam(token.NoPos, pkg, "", sig)
-	sig2 := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg), nil, false)
+	sig2 := types.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg), nil, false)
 	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
 	if CheckSignature(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: o}), 0, 0) == nil {
 		t.Fatal("TestCheckSignature failed: TemplateRecvMethod CheckSignature == nil")
@@ -882,18 +912,18 @@ func TestCheckSignatures(t *testing.T) {
 	if CheckSignatures(nil, 0, 0) != nil {
 		t.Fatal("TestCheckSignatures failed: CheckSignatures(nil) != nil")
 	}
-	sig := typesutil.NewSignatureType(nil, nil, nil, nil, nil, false)
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
 	if v := CheckSignatures(sig, 0, 0); len(v) != 1 || v[0] != sig {
 		t.Fatal("TestCheckSignatures failed: CheckSignatures(sig)[0] != sig")
 	}
 	pkg := types.NewPackage("", "foo")
 	arg := types.NewParam(token.NoPos, pkg, "", sig)
-	sig2 := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg), nil, false)
+	sig2 := types.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg), nil, false)
 	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
 	if CheckSignatures(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: o}), 0, 0) == nil {
 		t.Fatal("TestCheckSignatures failed: TemplateRecvMethod CheckSignatures == nil")
 	}
-	sig3 := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg, arg), nil, false)
+	sig3 := types.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg, arg), nil, false)
 	o2 := types.NewFunc(token.NoPos, pkg, "bar", sig3)
 	of := NewOverloadFunc(token.NoPos, pkg, "bar", o, o2)
 	if v := CheckSignatures(of.Type(), 0, 0); len(v) != 2 {
@@ -1027,7 +1057,7 @@ func TestNewFuncDeclPanic(t *testing.T) {
 	}()
 	pkg := NewPackage("", "foo", gblConf)
 	a := types.NewParam(token.NoPos, pkg.Types, "", types.Typ[types.Int])
-	sig := typesutil.NewSignatureType(nil, nil, nil, types.NewTuple(a), nil, false)
+	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(a), nil, false)
 	pkg.NewFuncDecl(token.NoPos, "init", sig)
 }
 

@@ -53,8 +53,9 @@ type TypeDecl struct {
 }
 
 // SetComments sets associated documentation.
-func (p *TypeDecl) SetComments(doc *ast.CommentGroup) *TypeDecl {
+func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 	p.spec.Doc = doc
+	pkg.setDoc(p.typ.Obj(), doc)
 	return p
 }
 
@@ -898,6 +899,20 @@ func Lookup(scope *types.Scope, name string) (obj types.Object) {
 		}
 	}
 	return
+}
+
+// ----------------------------------------------------------------------------
+
+// IsTypeEx returns if t is a gox extended type or not.
+func IsTypeEx(t types.Type) (ok bool) {
+	switch v := t.(type) {
+	case *instructionType:
+		return true
+	case *types.Signature:
+		_, ok = CheckFuncEx(v)
+		return
+	}
+	return false
 }
 
 // ----------------------------------------------------------------------------

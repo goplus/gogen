@@ -23,7 +23,7 @@ import (
 )
 
 type controlFlow interface {
-	Then(cb *CodeBuilder)
+	Then(cb *CodeBuilder, src ...ast.Node)
 }
 
 // ----------------------------------------------------------------------------
@@ -77,7 +77,7 @@ type ifStmt struct {
 	old2 codeBlockCtx
 }
 
-func (p *ifStmt) Then(cb *CodeBuilder) {
+func (p *ifStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	cond := cb.stk.Pop()
 	if !types.AssignableTo(cond.Type, types.Typ[types.Bool]) {
 		panic("TODO: if statement condition is not a boolean expr")
@@ -91,10 +91,10 @@ func (p *ifStmt) Then(cb *CodeBuilder) {
 	default:
 		panic("TODO: if statement has too many init statements")
 	}
-	cb.startBlockStmt(p, "if body", &p.old2)
+	cb.startBlockStmt(p, src, "if body", &p.old2)
 }
 
-func (p *ifStmt) Else(cb *CodeBuilder) {
+func (p *ifStmt) Else(cb *CodeBuilder, src ...ast.Node) {
 	if p.body != nil {
 		panic("TODO: else statement already exists")
 	}
@@ -103,7 +103,7 @@ func (p *ifStmt) Else(cb *CodeBuilder) {
 	cb.current.flows |= flows
 
 	p.body = &ast.BlockStmt{List: stmts}
-	cb.startBlockStmt(p, "else body", &p.old2)
+	cb.startBlockStmt(p, src, "else body", &p.old2)
 }
 
 func (p *ifStmt) End(cb *CodeBuilder, src ast.Node) {
@@ -144,7 +144,7 @@ type switchStmt struct {
 	old  codeBlockCtx
 }
 
-func (p *switchStmt) Then(cb *CodeBuilder) {
+func (p *switchStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	p.tag = cb.stk.Pop()
 	switch stmts := cb.clearBlockStmt(); len(stmts) {
 	case 0:
@@ -156,7 +156,7 @@ func (p *switchStmt) Then(cb *CodeBuilder) {
 	}
 }
 
-func (p *switchStmt) Case(cb *CodeBuilder, n int) {
+func (p *switchStmt) Case(cb *CodeBuilder, n int, src ...ast.Node) {
 	var list []ast.Expr
 	if n > 0 {
 		list = make([]ast.Expr, n)
@@ -178,7 +178,7 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int) {
 		cb.stk.PopN(n)
 	}
 	stmt := &caseStmt{list: list}
-	cb.startBlockStmt(stmt, "case statement", &stmt.old)
+	cb.startBlockStmt(stmt, src, "case statement", &stmt.old)
 }
 
 func (p *switchStmt) End(cb *CodeBuilder, src ast.Node) {
@@ -225,13 +225,13 @@ type selectStmt struct {
 	old codeBlockCtx
 }
 
-func (p *selectStmt) CommCase(cb *CodeBuilder, n int) {
+func (p *selectStmt) CommCase(cb *CodeBuilder, n int, src ...ast.Node) {
 	var comm ast.Stmt
 	if n == 1 {
 		comm = cb.popStmt()
 	}
 	stmt := &commCase{comm: comm}
-	cb.startBlockStmt(stmt, "comm case statement", &stmt.old)
+	cb.startBlockStmt(stmt, src, "comm case statement", &stmt.old)
 }
 
 func (p *selectStmt) End(cb *CodeBuilder, src ast.Node) {
@@ -291,7 +291,7 @@ func (p *typeSwitchStmt) TypeAssertThen(cb *CodeBuilder) {
 	p.x, p.xSrc, p.xType = x.Val, x.Src, xType
 }
 
-func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
+func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int, src ...ast.Node) {
 	var list []ast.Expr
 	var typ types.Type
 	if n > 0 {
@@ -318,7 +318,7 @@ func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int) {
 	}
 
 	stmt := &typeCaseStmt{list: list}
-	cb.startBlockStmt(stmt, "type case statement", &stmt.old)
+	cb.startBlockStmt(stmt, src, "type case statement", &stmt.old)
 
 	if p.name != "" {
 		if n != 1 { // default, or case with multi expr
@@ -400,7 +400,7 @@ type forStmt struct {
 	loopBodyHandler
 }
 
-func (p *forStmt) Then(cb *CodeBuilder) {
+func (p *forStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	cond := cb.stk.Pop()
 	if cond.Val != nil {
 		if !types.AssignableTo(cond.Type, types.Typ[types.Bool]) {
@@ -416,7 +416,7 @@ func (p *forStmt) Then(cb *CodeBuilder) {
 	default:
 		panic("TODO: for condition has too many init statements")
 	}
-	cb.startBlockStmt(p, "for body", &p.old2)
+	cb.startBlockStmt(p, src, "for body", &p.old2)
 }
 
 func (p *forStmt) Post(cb *CodeBuilder) {
