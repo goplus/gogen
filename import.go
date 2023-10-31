@@ -100,7 +100,7 @@ func isOverloadFunc(name string) bool {
 	return n > 3 && name[n-3:n-1] == "__"
 }
 
-func InitGopPkg(pkg *types.Package) {
+func initThisGopPkg(pkg *types.Package) {
 	scope := pkg.Scope()
 	if scope.Lookup(gopPackage) == nil { // not is a Go+ package
 		return
@@ -204,6 +204,36 @@ func toIndex(c byte) int {
 		return int(c - ('a' - 10))
 	}
 	panic("invalid character out of [0-9,a-z]")
+}
+
+// ----------------------------------------------------------------------------
+
+// Context represents all things between packages.
+type Context struct {
+	chkGopImports map[string]bool
+}
+
+func NewContext() *Context {
+	return &Context{
+		chkGopImports: make(map[string]bool),
+	}
+}
+
+// InitGopPkg initializes a Go+ packages.
+func (p *Context) InitGopPkg(pkgImp *types.Package) {
+	pkgPath := pkgImp.Path()
+	if stdPkg(pkgPath) || p.chkGopImports[pkgPath] {
+		return
+	}
+	initThisGopPkg(pkgImp)
+	p.chkGopImports[pkgPath] = true
+	for _, imp := range pkgImp.Imports() {
+		p.InitGopPkg(imp)
+	}
+}
+
+func stdPkg(pkgPath string) bool {
+	return strings.IndexByte(pkgPath, '.') < 0
 }
 
 // ----------------------------------------------------------------------------
