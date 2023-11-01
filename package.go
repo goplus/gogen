@@ -167,7 +167,7 @@ func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 			}
 			panic(e)
 		} else {
-			this.ctx.InitGopPkg(pkgImp)
+			this.ctx.InitGopPkg(this.imp, pkgImp)
 		}
 		pkgImport = &PkgRef{Types: pkgImp}
 		p.importPkgs[pkgPath] = pkgImport
