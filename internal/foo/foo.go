@@ -13,9 +13,17 @@
 
 package foo
 
+import (
+	"github.com/goplus/gox/internal/bar"
+)
+
 const (
 	GopPackage = true // to indicate this is a Go+ package
 )
+
+func CallBar() *bar.Game {
+	return nil
+}
 
 // -----------------------------------------------------------------------------
 
