@@ -58,8 +58,9 @@ func newMainPackage(
 	conf := &gox.Config{
 		Fset:            gblFset,
 		Importer:        gblImp,
-		NodeInterpreter: nodeInterp{},
 		Recorder:        eventRecorder{},
+		NodeInterpreter: nodeInterp{},
+		DbgPositioner:   nodeInterp{},
 	}
 	if len(implicitCast) > 0 {
 		conf.CanImplicitCast = implicitCast[0]
@@ -138,6 +139,7 @@ func (p *goxTest) NewPackage(pkgPath string, name string) *gox.Package {
 		Fset:            p.fset,
 		Importer:        p.imp,
 		NodeInterpreter: nodeInterp{},
+		DbgPositioner:   nodeInterp{},
 	}
 	return gox.NewPackage(pkgPath, name, conf)
 }

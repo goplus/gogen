@@ -324,7 +324,8 @@ func (p *autoNames) RequireName(name string) (ret string, renamed bool) {
 }
 
 type ImportError struct {
-	Pos  *token.Position
+	Fset dbgPositioner
+	Pos  token.Pos
 	Path string
 	Err  error
 }
@@ -334,10 +335,8 @@ func (p *ImportError) Unwrap() error {
 }
 
 func (p *ImportError) Error() string {
-	if p.Pos != nil {
-		return fmt.Sprintf("%v: %s", *p.Pos, p.Err.Error())
-	}
-	return p.Err.Error()
+	pos := p.Fset.Position(p.Pos)
+	return fmt.Sprintf("%v: %v", pos, p.Err)
 }
 
 // ----------------------------------------------------------------------------

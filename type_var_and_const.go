@@ -217,8 +217,8 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos token.Pos, name string, typ typ
 	scope := tdecl.scope
 	typName := types.NewTypeName(pos, p.Types, name, typ)
 	if old := scope.Insert(typName); old != nil {
-		oldPos := p.cb.position(old.Pos())
-		p.cb.panicCodePosErrorf(
+		oldPos := p.cb.fset.Position(old.Pos())
+		p.cb.panicCodeErrorf(
 			pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
 	}
 	decl := tdecl.decl
@@ -297,7 +297,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	if arity == 1 && checkTuple(&t, rets[0].Type) {
 		if n != t.Len() {
 			caller := cb.getCaller(rets[0].Src)
-			cb.panicCodePosErrorf(
+			cb.panicCodeErrorf(
 				p.pos, "assignment mismatch: %d variables but %s returns %d values", n, caller, t.Len())
 		}
 		*p.vals = []ast.Expr{rets[0].Val}
@@ -308,11 +308,11 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	} else if n != arity {
 		if p.tok == token.CONST {
 			if n > arity {
-				cb.panicCodePosError(p.pos, "missing value in const declaration")
+				cb.panicCodeError(p.pos, "missing value in const declaration")
 			}
-			cb.panicCodePosError(p.pos, "extra expression in const declaration")
+			cb.panicCodeError(p.pos, "extra expression in const declaration")
 		}
-		cb.panicCodePosErrorf(p.pos, "assignment mismatch: %d variables but %d values", n, arity)
+		cb.panicCodeErrorf(p.pos, "assignment mismatch: %d variables but %d values", n, arity)
 	} else {
 		values = make([]ast.Expr, arity)
 		for i, ret := range rets {
@@ -339,7 +339,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			tv := rets[i]
 			if tv.CVal == nil {
 				src, _ := cb.loadExpr(tv.Src)
-				cb.panicCodePosErrorf(
+				cb.panicCodeErrorf(
 					p.pos, "const initializer %s is not a constant", src)
 			}
 			tvType := typ
@@ -347,8 +347,8 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 				tvType = tv.Type
 			}
 			if old := p.scope.Insert(types.NewConst(p.pos, pkg.Types, name, tvType, tv.CVal)); old != nil {
-				oldpos := cb.position(old.Pos())
-				cb.panicCodePosErrorf(
+				oldpos := cb.fset.Position(old.Pos())
+				cb.panicCodeErrorf(
 					p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
 			}
 		} else if typ == nil {
@@ -363,8 +363,8 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			}
 			if old := p.scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {
-					oldpos := cb.position(old.Pos())
-					cb.panicCodePosErrorf(
+					oldpos := cb.fset.Position(old.Pos())
+					cb.panicCodeErrorf(
 						p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
 				}
 				if err := matchType(pkg, rets[i], old.Type(), "assignment"); err != nil {
@@ -392,8 +392,7 @@ func (p *Package) newValueDecl(
 			}
 		}
 		if noNewVar {
-			err := p.cb.newCodePosError(pos, "no new variables on left side of :=")
-			p.cb.handleErr(err)
+			p.cb.handleCodeError(pos, "no new variables on left side of :=")
 		}
 		stmt := &ast.AssignStmt{Tok: token.DEFINE, Lhs: nameIdents}
 		at := p.cb.startStmtAt(stmt)
@@ -411,8 +410,8 @@ func (p *Package) newValueDecl(
 			if old := scope.Insert(types.NewVar(pos, p.Types, name, typ)); old != nil {
 				allowRedecl := p.allowRedecl && scope == p.Types.Scope()
 				if !(allowRedecl && types.Identical(old.Type(), typ)) { // for c2go
-					oldpos := p.cb.position(old.Pos())
-					p.cb.panicCodePosErrorf(
+					oldpos := p.cb.fset.Position(old.Pos())
+					p.cb.panicCodeErrorf(
 						pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
 				}
 			}
@@ -665,9 +664,9 @@ func (p *ConstDefs) NextAt(at ValueAt, fn F, iotav int, pos token.Pos, names ...
 	n := constInitFn(cb, iotav, fn)
 	if len(names) != n {
 		if len(names) < n {
-			cb.panicCodePosError(pos, "extra expression in const declaration")
+			cb.panicCodeError(pos, "extra expression in const declaration")
 		}
-		cb.panicCodePosError(pos, "missing value in const declaration")
+		cb.panicCodeError(pos, "missing value in const declaration")
 	}
 
 	ret := cb.stk.GetArgs(n)
@@ -681,8 +680,8 @@ func (p *ConstDefs) NextAt(at ValueAt, fn F, iotav int, pos token.Pos, names ...
 		}
 		if name != "_" {
 			if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, typ, ret[i].CVal)); old != nil {
-				oldpos := cb.position(old.Pos())
-				cb.panicCodePosErrorf(
+				oldpos := cb.fset.Position(old.Pos())
+				cb.panicCodeErrorf(
 					pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
 			}
 		}

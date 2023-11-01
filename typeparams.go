@@ -62,8 +62,8 @@ func (p *inferFuncType) String() string {
 func (p *inferFuncType) Instance() *types.Signature {
 	tyRet, err := inferFuncTargs(p.pkg, p.fn, p.typ, p.targs)
 	if err != nil {
-		_, pos := p.pkg.cb.loadExpr(p.src)
-		p.pkg.cb.panicCodeErrorf(&pos, "%v", err)
+		pos := getSrcPos(p.src)
+		p.pkg.cb.panicCodeErrorf(pos, "%v", err)
 	}
 	return tyRet.(*types.Signature)
 }
@@ -71,8 +71,8 @@ func (p *inferFuncType) Instance() *types.Signature {
 func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem, flags InstrFlags) *types.Signature {
 	tyRet, err := inferFunc(p.pkg, p.fn, p.typ, p.targs, args, flags)
 	if err != nil {
-		_, pos := p.pkg.cb.loadExpr(p.src)
-		p.pkg.cb.panicCodeErrorf(&pos, "%v", err)
+		pos := getSrcPos(p.src)
+		p.pkg.cb.panicCodeErrorf(pos, "%v", err)
 	}
 	return tyRet.(*types.Signature)
 }
@@ -97,11 +97,11 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 	p.ensureLoaded(typ)
 	srcExpr := getSrc(src)
 	if !isGenericType(typ) {
-		_, pos := p.loadExpr(srcExpr)
+		pos := getSrcPos(srcExpr)
 		if tt {
-			p.panicCodeErrorf(&pos, "%v is not a generic type", typ)
+			p.panicCodeErrorf(pos, "%v is not a generic type", typ)
 		} else {
-			p.panicCodeErrorf(&pos, "invalid operation: cannot index %v (value of type %v)", types.ExprString(args[0].Val), typ)
+			p.panicCodeErrorf(pos, "invalid operation: cannot index %v (value of type %v)", types.ExprString(args[0].Val), typ)
 		}
 	}
 	targs := make([]types.Type, nidx)
@@ -127,8 +127,8 @@ func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node
 		}
 	}
 	if err != nil {
-		_, pos := p.loadExpr(srcExpr)
-		p.panicCodeErrorf(&pos, "%v", err)
+		pos := getSrcPos(srcExpr)
+		p.panicCodeErrorf(pos, "%v", err)
 	}
 	if debugMatch {
 		log.Println("==> InferType", tyRet)
@@ -288,7 +288,7 @@ func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args 
 			typ = sig.Params().At(nreq - 1).Type()
 			elem := typ.(*types.Slice).Elem()
 			if t, ok := elem.(*types.TypeParam); ok {
-				return nil, fmt.Errorf("cannot infer %v (%v)", elem, pkg.cb.position(t.Obj().Pos()))
+				return nil, fmt.Errorf("cannot infer %v (%v)", elem, pkg.cb.fset.Position(t.Obj().Pos()))
 			}
 		} else {
 			typ = types.NewSlice(types.Default(args[nreq-1].Type))

@@ -77,14 +77,16 @@ type Recorder interface {
 
 // ----------------------------------------------------------------------------
 
-type NodeInterpreter interface {
+type dbgPositioner interface {
 	// Position gets position of a Pos.
 	Position(p token.Pos) token.Position
+}
 
-	// LoadExpr is called to load an expr code and return its position.
-	LoadExpr(expr ast.Node) (string, token.Position)
+type NodeInterpreter interface {
+	// LoadExpr is called to load an expr code.
+	LoadExpr(expr ast.Node) string
 
-	// Caller is called to return the name of a function call.
+	// Caller returns the name of a function call.
 	Caller(expr ast.Node) string
 }
 
@@ -132,6 +134,9 @@ type Config struct {
 
 	// NoSkipConstant is to disable optimization of skipping constant (optional).
 	NoSkipConstant bool
+
+	// (internal) only for testing
+	DbgPositioner dbgPositioner
 }
 
 // ----------------------------------------------------------------------------
@@ -162,8 +167,8 @@ func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 		if err != nil {
 			e := &ImportError{Path: pkgPath, Err: err}
 			if src != nil {
-				pos := this.cb.position(src.Pos())
-				e.Pos = &pos
+				e.Fset = this.cb.fset
+				e.Pos = src.Pos()
 			}
 			panic(e)
 		} else {

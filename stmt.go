@@ -165,12 +165,12 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int, src ...ast.Node) {
 				if !ComparableTo(cb.pkg, arg, p.tag) {
 					src, pos := cb.loadExpr(arg.Src)
 					cb.panicCodeErrorf(
-						&pos, "cannot use %s (type %v) as type %v", src, arg.Type, types.Default(p.tag.Type))
+						pos, "cannot use %s (type %v) as type %v", src, arg.Type, types.Default(p.tag.Type))
 				}
 			} else { // switch {...}
 				if !types.AssignableTo(arg.Type, types.Typ[types.Bool]) && arg.Type != TyEmptyInterface {
 					src, pos := cb.loadExpr(arg.Src)
-					cb.panicCodeErrorf(&pos, "cannot use %s (type %v) as type bool", src, arg.Type)
+					cb.panicCodeErrorf(pos, "cannot use %s (type %v) as type bool", src, arg.Type)
 				}
 			}
 			list[i] = arg.Val
@@ -303,14 +303,14 @@ func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int, src ...ast.Node) {
 				typ = tt.Type()
 				if missing := cb.missingMethod(typ, p.xType); missing != "" {
 					xsrc, _ := cb.loadExpr(p.xSrc)
-					pos := cb.nodePosition(arg.Src)
+					pos := getSrcPos(arg.Src)
 					cb.panicCodeErrorf(
-						&pos, "impossible type switch case: %s (type %v) cannot have dynamic type %v (missing %s method)",
+						pos, "impossible type switch case: %s (type %v) cannot have dynamic type %v (missing %s method)",
 						xsrc, p.xType, typ, missing)
 				}
 			} else if typ != types.Typ[types.UntypedNil] {
 				src, pos := cb.loadExpr(arg.Src)
-				cb.panicCodeErrorf(&pos, "%s (type %v) is not a type", src, typ)
+				cb.panicCodeErrorf(pos, "%s (type %v) is not a type", src, typ)
 			}
 			list[i] = arg.Val
 		}
@@ -475,14 +475,14 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 		case 2:
 			val = ident(names[1])
 		default:
-			cb.panicCodePosError(pos, "too many variables in range")
+			cb.panicCodeError(pos, "too many variables in range")
 		}
 		x := cb.stk.Pop()
 		pkg, scope := cb.pkg, cb.current.scope
 		typs := p.getKeyValTypes(cb, x.Type)
 		if typs == nil {
 			src, _ := cb.loadExpr(x.Src)
-			cb.panicCodePosErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
+			cb.panicCodeErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
 		}
 		if typs[1] == nil { // chan
 			if names[0] == "_" && len(names) > 1 {
@@ -519,13 +519,13 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 		case 3:
 			key, val, x = *args[0], *args[1], *args[2]
 		default:
-			cb.panicCodePosError(pos, "too many variables in range")
+			cb.panicCodeError(pos, "too many variables in range")
 		}
 		cb.stk.PopN(n)
 		typs := p.getKeyValTypes(cb, x.Type)
 		if typs == nil {
 			src, _ := cb.loadExpr(x.Src)
-			cb.panicCodePosErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
+			cb.panicCodeErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
 		}
 		if p.udt != 0 {
 			p.x = &x
@@ -723,7 +723,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 			})
 		*/
 		if flows != 0 {
-			cb.panicCodePosError(p.stmt.For, cantUseFlows)
+			cb.panicCodeError(p.stmt.For, cantUseFlows)
 		}
 		n = -n
 		def := p.stmt.Tok == token.DEFINE

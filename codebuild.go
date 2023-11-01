@@ -37,6 +37,13 @@ func getSrc(node []ast.Node) ast.Node {
 	return nil
 }
 
+func getSrcPos(node ast.Node) token.Pos {
+	if node != nil {
+		return node.Pos()
+	}
+	return token.NoPos
+}
+
 // ----------------------------------------------------------------------------
 
 type codeBlock interface {
@@ -79,29 +86,27 @@ type funcBodyCtx struct {
 func (p *funcBodyCtx) checkLabels(cb *CodeBuilder) {
 	for name, l := range p.labels {
 		if !l.used {
-			cb.handleErr(cb.newCodePosErrorf(l.Pos(), "label %s defined and not used", name))
+			cb.handleCodeErrorf(l.Pos(), "label %s defined and not used", name)
 		}
 	}
 }
 
 type CodeError struct {
-	Msg   string
-	Pos   *token.Position
-	Scope *types.Scope
-	Func  *Func
+	Fset dbgPositioner
+	Pos  token.Pos
+	Msg  string
 }
 
 func (p *CodeError) Error() string {
-	if p.Pos != nil {
-		return fmt.Sprintf("%v: %s", *p.Pos, p.Msg)
-	}
-	return p.Msg
+	pos := p.Fset.Position(p.Pos)
+	return fmt.Sprintf("%v: %s", pos, p.Msg)
 }
 
 // CodeBuilder type
 type CodeBuilder struct {
 	stk       internal.Stack
 	current   funcBodyCtx
+	fset      dbgPositioner
 	comments  *ast.CommentGroup
 	pkg       *Package
 	btiMap    *typeutil.Map
@@ -121,6 +126,10 @@ type CodeBuilder struct {
 func (p *CodeBuilder) init(pkg *Package) {
 	conf := pkg.conf
 	p.pkg = pkg
+	p.fset = conf.DbgPositioner
+	if p.fset == nil {
+		p.fset = conf.Fset
+	}
 	p.noSkipConst = conf.NoSkipConstant
 	p.handleErr = conf.HandleErr
 	if p.handleErr == nil {
@@ -151,28 +160,12 @@ func defaultHandleErr(err error) {
 
 type nodeInterp struct{}
 
-func (p nodeInterp) Position(pos token.Pos) (ret token.Position) {
-	return
-}
-
 func (p nodeInterp) Caller(expr ast.Node) string {
 	return "the function call"
 }
 
-func (p nodeInterp) LoadExpr(expr ast.Node) (src string, pos token.Position) {
-	return
-}
-
-func (p *CodeBuilder) position(pos token.Pos) (ret token.Position) {
-	return p.interp.Position(pos)
-}
-
-func (p *CodeBuilder) nodePosition(expr ast.Node) (ret token.Position) {
-	if expr == nil {
-		return
-	}
-	_, ret = p.interp.LoadExpr(expr) // TODO: optimize
-	return
+func (p nodeInterp) LoadExpr(expr ast.Node) string {
+	return ""
 }
 
 func (p *CodeBuilder) getCaller(expr ast.Node) string {
@@ -182,43 +175,35 @@ func (p *CodeBuilder) getCaller(expr ast.Node) string {
 	return p.interp.Caller(expr)
 }
 
-func (p *CodeBuilder) loadExpr(expr ast.Node, alt ...fmt.Stringer) (src string, pos token.Position) {
+func (p *CodeBuilder) loadExpr(expr ast.Node) (string, token.Pos) {
 	if expr == nil {
-		if alt != nil {
-			src = alt[0].String()
-		}
-		return
+		return "", token.NoPos
 	}
-	return p.interp.LoadExpr(expr)
+	return p.interp.LoadExpr(expr), expr.Pos()
 }
 
-func (p *CodeBuilder) newCodeError(pos *token.Position, msg string) *CodeError {
-	return &CodeError{Msg: msg, Pos: pos, Scope: p.Scope(), Func: p.Func()}
+func (p *CodeBuilder) newCodeError(pos token.Pos, msg string) *CodeError {
+	return &CodeError{Msg: msg, Pos: pos, Fset: p.fset}
 }
 
-func (p *CodeBuilder) newCodePosError(pos token.Pos, msg string) *CodeError {
-	tpos := p.position(pos)
-	return &CodeError{Msg: msg, Pos: &tpos, Scope: p.Scope(), Func: p.Func()}
+func (p *CodeBuilder) newCodeErrorf(pos token.Pos, format string, args ...interface{}) *CodeError {
+	return p.newCodeError(pos, fmt.Sprintf(format, args...))
 }
 
-func (p *CodeBuilder) newCodePosErrorf(pos token.Pos, format string, args ...interface{}) *CodeError {
-	return p.newCodePosError(pos, fmt.Sprintf(format, args...))
+func (p *CodeBuilder) handleCodeError(pos token.Pos, msg string) {
+	p.handleErr(p.newCodeError(pos, msg))
 }
 
-func (p *CodeBuilder) panicCodeError(pos *token.Position, msg string) {
+func (p *CodeBuilder) handleCodeErrorf(pos token.Pos, format string, args ...interface{}) {
+	p.handleErr(p.newCodeError(pos, fmt.Sprintf(format, args...)))
+}
+
+func (p *CodeBuilder) panicCodeError(pos token.Pos, msg string) {
 	panic(p.newCodeError(pos, msg))
 }
 
-func (p *CodeBuilder) panicCodePosError(pos token.Pos, msg string) {
-	panic(p.newCodePosError(pos, msg))
-}
-
-func (p *CodeBuilder) panicCodeErrorf(pos *token.Position, format string, args ...interface{}) {
+func (p *CodeBuilder) panicCodeErrorf(pos token.Pos, format string, args ...interface{}) {
 	panic(p.newCodeError(pos, fmt.Sprintf(format, args...)))
-}
-
-func (p *CodeBuilder) panicCodePosErrorf(pos token.Pos, format string, args ...interface{}) {
-	panic(p.newCodePosError(pos, fmt.Sprintf(format, args...)))
 }
 
 // Scope returns current scope.
@@ -658,8 +643,8 @@ func (p *CodeBuilder) NewAutoVar(pos token.Pos, name string, pv **types.Var) *Co
 	typ := &unboundType{ptypes: []*ast.Expr{&spec.Type}}
 	*pv = types.NewVar(pos, p.pkg.Types, name, typ)
 	if old := p.current.scope.Insert(*pv); old != nil {
-		oldPos := p.position(old.Pos())
-		p.panicCodePosErrorf(
+		oldPos := p.fset.Position(old.Pos())
+		p.panicCodeErrorf(
 			pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
 	}
 	return p
@@ -696,7 +681,7 @@ func (p *CodeBuilder) doVarRef(ref interface{}, src ast.Node, allowDebug bool) *
 			})
 		default:
 			code, pos := p.loadExpr(src)
-			p.panicCodeErrorf(&pos, "%s is not a variable", code)
+			p.panicCodeErrorf(pos, "%s is not a variable", code)
 		}
 	}
 	return p
@@ -813,11 +798,11 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int, src ...ast.Node) *CodeBu
 			if !AssignableTo(pkg, args[i].Type, key) {
 				src, pos := p.loadExpr(args[i].Src)
 				p.panicCodeErrorf(
-					&pos, "cannot use %s (type %v) as type %v in map key", src, args[i].Type, key)
+					pos, "cannot use %s (type %v) as type %v in map key", src, args[i].Type, key)
 			} else if !AssignableTo(pkg, args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
-					&pos, "cannot use %s (type %v) as type %v in map value", src, args[i+1].Type, val)
+					pos, "cannot use %s (type %v) as type %v in map value", src, args[i+1].Type, val)
 			}
 		}
 	}
@@ -838,11 +823,11 @@ func (p *CodeBuilder) toBoundArrayLen(elts []*internal.Elem, arity, limit int) i
 		}
 		if limit >= 0 && n >= limit { // error message
 			if elts[i].Src == nil {
-				_, pos := p.loadExpr(elts[i+1].Src)
-				p.panicCodeErrorf(&pos, "array index %d out of bounds [0:%d]", n, limit)
+				pos := getSrcPos(elts[i+1].Src)
+				p.panicCodeErrorf(pos, "array index %d out of bounds [0:%d]", n, limit)
 			}
 			src, pos := p.loadExpr(elts[i].Src)
-			p.panicCodeErrorf(&pos, "array index %s (value %d) out of bounds [0:%d]", src, n, limit)
+			p.panicCodeErrorf(pos, "array index %s (value %d) out of bounds [0:%d]", src, n, limit)
 		}
 		if max < n {
 			max = n
@@ -858,7 +843,7 @@ func (p *CodeBuilder) toIntVal(v *internal.Elem, msg string) int {
 		}
 	}
 	code, pos := p.loadExpr(v.Src)
-	p.panicCodeErrorf(&pos, "cannot use %s as %s", code, msg)
+	p.panicCodeErrorf(pos, "cannot use %s as %s", code, msg)
 	return 0
 }
 
@@ -911,7 +896,7 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 			if !AssignableConv(pkg, arg.Type, val, arg) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
-					&pos, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
+					pos, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
 			}
 			elts[i>>1] = p.indexElemExpr(args, i)
 		}
@@ -945,7 +930,7 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 				if !AssignableConv(pkg, arg.Type, val, arg) {
 					src, pos := p.loadExpr(arg.Src)
 					p.panicCodeErrorf(
-						&pos, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)
+						pos, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)
 				}
 			}
 		}
@@ -998,7 +983,7 @@ func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...
 			if !AssignableTo(pkg, args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
-					&pos, "cannot use %s (type %v) as type %v in array literal", src, args[i+1].Type, val)
+					pos, "cannot use %s (type %v) as type %v in array literal", src, args[i+1].Type, val)
 			}
 			elts[i>>1] = p.indexElemExpr(args, i)
 		}
@@ -1009,8 +994,8 @@ func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...
 			t = types.NewArray(val, int64(arity))
 			typ = t
 		} else if int(n) < arity {
-			_, pos := p.loadExpr(args[n].Src)
-			p.panicCodeErrorf(&pos, "array index %d out of bounds [0:%d]", n, n)
+			pos := getSrcPos(args[n].Src)
+			p.panicCodeErrorf(pos, "array index %d out of bounds [0:%d]", n, n)
 		}
 		elts = make([]ast.Expr, arity)
 		for i, arg := range args {
@@ -1018,7 +1003,7 @@ func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...
 			if !AssignableConv(pkg, arg.Type, val, arg) {
 				src, pos := p.loadExpr(arg.Src)
 				p.panicCodeErrorf(
-					&pos, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
+					pos, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
 			}
 		}
 	}
@@ -1064,7 +1049,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 			if !AssignableTo(pkg, args[i+1].Type, eltTy) {
 				src, pos := p.loadExpr(args[i+1].Src)
 				p.panicCodeErrorf(
-					&pos, "cannot use %s (type %v) as type %v in value of field %s",
+					pos, "cannot use %s (type %v) as type %v in value of field %s",
 					src, args[i+1].Type, eltTy, eltName)
 			}
 			elts[i>>1] = &ast.KeyValueExpr{Key: ident(eltName), Value: args[i+1].Val}
@@ -1075,8 +1060,8 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 			if arity > n {
 				fewOrMany = "many"
 			}
-			_, pos := p.loadExpr(args[arity-1].Src)
-			p.panicCodeErrorf(&pos, "too %s values in %v{...}", fewOrMany, typ)
+			pos := getSrcPos(args[arity-1].Src)
+			p.panicCodeErrorf(pos, "too %s values in %v{...}", fewOrMany, typ)
 		}
 	} else {
 		elts = make([]ast.Expr, arity)
@@ -1086,7 +1071,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 			if !AssignableTo(pkg, arg.Type, eltTy) {
 				src, pos := p.loadExpr(arg.Src)
 				p.panicCodeErrorf(
-					&pos, "cannot use %s (type %v) as type %v in value of field %s",
+					pos, "cannot use %s (type %v) as type %v in value of field %s",
 					src, arg.Type, eltTy, t.Field(i).Name())
 			}
 		}
@@ -1117,11 +1102,11 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 		if t.Kind() == types.String || t.Kind() == types.UntypedString {
 			if slice3 {
 				code, pos := p.loadExpr(srcExpr)
-				p.panicCodeErrorf(&pos, "invalid operation %s (3-index slice of string)", code)
+				p.panicCodeErrorf(pos, "invalid operation %s (3-index slice of string)", code)
 			}
 		} else {
 			code, pos := p.loadExpr(x.Src)
-			p.panicCodeErrorf(&pos, "cannot slice %s (type %v)", code, typ)
+			p.panicCodeErrorf(pos, "cannot slice %s (type %v)", code, typ)
 		}
 	case *types.Array:
 		typ = types.NewSlice(t.Elem())
@@ -1130,7 +1115,7 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 			typ = types.NewSlice(tt.Elem())
 		} else {
 			code, pos := p.loadExpr(x.Src)
-			p.panicCodeErrorf(&pos, "cannot slice %s (type %v)", code, typ)
+			p.panicCodeErrorf(pos, "cannot slice %s (type %v)", code, typ)
 		}
 	}
 	var exprMax ast.Expr
@@ -1167,8 +1152,8 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 	var tyRet types.Type
 	if twoValue { // elem, ok = a[key]
 		if !allowTwoValue {
-			_, pos := p.loadExpr(srcExpr)
-			p.panicCodeError(&pos, "assignment mismatch: 2 variables but 1 values")
+			pos := getSrcPos(srcExpr)
+			p.panicCodeError(pos, "assignment mismatch: 2 variables but 1 values")
 		}
 		pkg := p.pkg
 		tyRet = types.NewTuple(
@@ -1232,7 +1217,7 @@ retry:
 		if (t.Info() & types.IsString) != 0 {
 			if ref {
 				src, pos := p.loadExpr(idxSrc)
-				p.panicCodeErrorf(&pos, "cannot assign to %s (strings are immutable)", src)
+				p.panicCodeErrorf(pos, "cannot assign to %s (strings are immutable)", src)
 			}
 			return []types.Type{tyInt, TyByte}, false
 		}
@@ -1241,7 +1226,7 @@ retry:
 		goto retry
 	}
 	src, pos := p.loadExpr(idxSrc)
-	p.panicCodeErrorf(&pos, "invalid operation: %s (type %v does not support indexing)", src, typ)
+	p.panicCodeErrorf(pos, "invalid operation: %s (type %v does not support indexing)", src, typ)
 	return nil, false
 }
 
@@ -1363,7 +1348,7 @@ retry:
 		goto retry
 	default:
 		code, pos := p.loadExpr(arg.Src)
-		p.panicCodeErrorf(&pos, "invalid indirect of %s (type %v)", code, t)
+		p.panicCodeErrorf(pos, "invalid indirect of %s (type %v)", code, t)
 	}
 	p.stk.Ret(1, ret)
 	return p
@@ -1378,7 +1363,7 @@ func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
 	t, ok := arg.Type.(*types.Pointer)
 	if !ok {
 		code, pos := p.loadExpr(arg.Src)
-		p.panicCodeErrorf(&pos, "invalid indirect of %s (type %v)", code, arg.Type)
+		p.panicCodeErrorf(pos, "invalid indirect of %s (type %v)", code, arg.Type)
 	}
 	p.stk.Ret(1, &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Type: t.Elem(), Src: getSrc(src)})
 	return p
@@ -1393,7 +1378,7 @@ func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 	t, ok := arg.Type.(*types.Pointer)
 	if !ok {
 		code, pos := p.loadExpr(arg.Src)
-		p.panicCodeErrorf(&pos, "invalid indirect of %s (type %v)", code, arg.Type)
+		p.panicCodeErrorf(pos, "invalid indirect of %s (type %v)", code, arg.Type)
 	}
 	p.stk.Ret(1, &internal.Elem{
 		Val: &ast.StarExpr{X: arg.Val}, Type: &refType{typ: t.Elem()}, Src: getSrc(src),
@@ -1534,7 +1519,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 			}
 			code, pos := p.loadExpr(srcExpr)
 			return MemberInvalid, p.newCodeError(
-				&pos, fmt.Sprintf("%s undefined (type %v has no method %s)", code, at, name))
+				pos, fmt.Sprintf("%s undefined (type %v has no method %s)", code, at, name))
 		}
 	}
 	if kind > 0 {
@@ -1542,7 +1527,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	}
 	code, pos := p.loadExpr(srcExpr)
 	return MemberInvalid, p.newCodeError(
-		&pos, fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name))
+		pos, fmt.Sprintf("%s undefined (type %v has no field or method %s)", code, arg.Type, name))
 }
 
 func (p *CodeBuilder) getUnderlying(t *types.Named) types.Type {
@@ -1836,8 +1821,8 @@ func checkDivisionByZero(cb *CodeBuilder, a, b *internal.Elem) {
 				switch c.Kind() {
 				case constant.Int, constant.Float, constant.Complex:
 					if constant.Sign(c) == 0 {
-						_, pos := cb.loadExpr(b.Src)
-						cb.panicCodeError(&pos, "invalid operation: division by zero")
+						pos := getSrcPos(b.Src)
+						cb.panicCodeError(pos, "invalid operation: division by zero")
 					}
 				}
 			}
@@ -1846,8 +1831,8 @@ func checkDivisionByZero(cb *CodeBuilder, a, b *internal.Elem) {
 		switch c.Kind() {
 		case constant.Int, constant.Float, constant.Complex:
 			if constant.Sign(c) == 0 {
-				_, pos := cb.loadExpr(b.Src)
-				cb.panicCodeError(&pos, "invalid operation: division by zero")
+				pos := getSrcPos(b.Src)
+				cb.panicCodeError(pos, "invalid operation: division by zero")
 			}
 		}
 	}
@@ -1891,8 +1876,11 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 }
 
 func (p *CodeBuilder) shouldNoResults(name string, src []ast.Node) {
-	pos := p.nodePosition(getSrc(src))
-	p.panicCodeErrorf(&pos, "operator %s should return no results\n", name)
+	pos := token.NoPos
+	if src != nil {
+		pos = src[0].Pos()
+	}
+	p.panicCodeErrorf(pos, "operator %s should return no results\n", name)
 }
 
 var (
@@ -1945,10 +1933,10 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 	if rhs == 1 {
 		if rhsVals, ok := args[lhs].Type.(*types.Tuple); ok {
 			if lhs != rhsVals.Len() {
-				pos := p.nodePosition(src)
+				pos := getSrcPos(src)
 				caller := p.getCaller(args[lhs].Src)
 				p.panicCodeErrorf(
-					&pos, "assignment mismatch: %d variables but %v returns %d values",
+					pos, "assignment mismatch: %d variables but %v returns %d values",
 					lhs, caller, rhsVals.Len())
 			}
 			for i := 0; i < lhs; i++ {
@@ -1981,9 +1969,9 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 			}
 		}
 	} else {
-		pos := p.nodePosition(src)
+		pos := getSrcPos(src)
 		p.panicCodeErrorf(
-			&pos, "assignment mismatch: %d variables but %d values", lhs, rhs)
+			pos, "assignment mismatch: %d variables but %d values", lhs, rhs)
 	}
 done:
 	p.emitStmt(stmt)
@@ -2067,9 +2055,12 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	var ret *internal.Elem
 	var err error
 	if ret, err = callOpFunc(p, op, binaryOps[:], args, 0); err != nil {
-		src, pos := p.loadExpr(expr, op)
+		src, pos := p.loadExpr(expr)
+		if src == "" {
+			src = op.String()
+		}
 		p.panicCodeErrorf(
-			&pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
+			pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
 	}
 	ret.Src = expr
 	p.stk.Ret(2, ret)
@@ -2282,12 +2273,12 @@ func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool, src ...ast.Node)
 	if !ok {
 		text, pos := p.loadExpr(getSrc(src))
 		p.panicCodeErrorf(
-			&pos, "invalid type assertion: %s (non-interface type %v on left)", text, arg.Type)
+			pos, "invalid type assertion: %s (non-interface type %v on left)", text, arg.Type)
 	}
 	if missing := p.missingMethod(typ, xType); missing != "" {
-		pos := p.nodePosition(getSrc(src))
+		pos := getSrcPos(getSrc(src))
 		p.panicCodeErrorf(
-			&pos, "impossible type assertion:\n\t%v does not implement %v (missing %s method)",
+			pos, "impossible type assertion:\n\t%v does not implement %v (missing %s method)",
 			typ, arg.Type, missing)
 	}
 	pkg := p.pkg
@@ -2396,11 +2387,11 @@ func (p *CodeBuilder) Case(n int, src ...ast.Node) *CodeBuilder { // n=0 means d
 
 func (p *CodeBuilder) NewLabel(pos token.Pos, name string) *Label {
 	if p.current.fn == nil {
-		panic(p.newCodePosError(pos, "syntax error: non-declaration statement outside function body"))
+		panic(p.newCodeError(pos, "syntax error: non-declaration statement outside function body"))
 	}
 	if old, ok := p.current.labels[name]; ok {
-		oldPos := p.position(old.Pos())
-		p.handleErr(p.newCodePosErrorf(pos, "label %s already defined at %v", name, oldPos))
+		oldPos := p.fset.Position(old.Pos())
+		p.handleCodeErrorf(pos, "label %s already defined at %v", name, oldPos)
 		return nil
 	}
 	if p.current.labels == nil {

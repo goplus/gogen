@@ -602,8 +602,7 @@ retry:
 		if enableTypeParams && funcHasTypeParams(t) {
 			rt, err := inferFunc(pkg, fn, t, nil, args, flags)
 			if err != nil {
-				_, pos := pkg.cb.loadExpr(fn.Src)
-				pkg.cb.panicCodeErrorf(&pos, "%v", err)
+				pkg.cb.panicCodeError(getSrcPos(fn.Src), err.Error())
 			}
 			sig = rt.(*types.Signature)
 			if debugMatch {
@@ -693,7 +692,7 @@ retry:
 		goto retry
 	default:
 		src, pos := pkg.cb.loadExpr(fn.Src)
-		pkg.cb.panicCodeErrorf(&pos, "cannot call non-function %s (type %v)", src, fn.Type)
+		pkg.cb.panicCodeErrorf(pos, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
 	if err = matchFuncType(pkg, args, flags, sig, fn); err != nil {
 		return
@@ -742,7 +741,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 					tname := o.Name()
 					if checkUntypedOverflows(pkg, at.Scope(), tname, args[0]) {
 						src, pos := pkg.cb.loadExpr(args[0].Src)
-						err = pkg.cb.newCodeError(&pos, fmt.Sprintf("cannot convert %v (untyped int constant %v) to type %v", src, args[0].CVal, tname))
+						err = pkg.cb.newCodeError(pos, fmt.Sprintf("cannot convert %v (untyped int constant %v) to type %v", src, args[0].CVal, tname))
 						return
 					}
 				}
@@ -768,7 +767,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 				if len(args) == 1 && args[0].CVal != nil {
 					if checkUntypedOverflows(pkg, scope, tname, args[0]) {
 						src, pos := pkg.cb.loadExpr(args[0].Src)
-						err = pkg.cb.newCodeError(&pos, fmt.Sprintf("cannot convert %v (untyped int constant %v) to type %v", src, args[0].CVal, tname))
+						err = pkg.cb.newCodeError(pos, fmt.Sprintf("cannot convert %v (untyped int constant %v) to type %v", src, args[0].CVal, tname))
 						return
 					}
 				}
@@ -839,7 +838,10 @@ func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type,
 	if types.Identical(results.At(0).Type(), typ) {
 		return pkg.cb.Val(fn).MemberVal(m.Name()).CallWith(0, flags).stk.Pop(), nil
 	}
-	return nil, &MatchError{Src: fn.Src, Arg: fn.Type, Param: typ, At: "Gop_Rcast", cb: &pkg.cb}
+	return nil, &MatchError{
+		Src: fn.Src, Arg: fn.Type, Param: typ, At: "Gop_Rcast",
+		Fset: pkg.cb.fset, intr: pkg.cb.interp,
+	}
 }
 
 // CastFromBool tries to cast a bool expression into integer. typ must be an integer type.
@@ -949,7 +951,7 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
-func getCaller(pkg *Package, fn *internal.Elem) (caller string, pos token.Position) {
+func getCaller(pkg *Package, fn *internal.Elem) (caller string, pos token.Pos) {
 	if fn != nil {
 		_, pos = pkg.cb.loadExpr(fn.Src)
 		caller = types.ExprString(fn.Val)
@@ -962,7 +964,7 @@ func matchFuncType(
 	if (flags & InstrFlagTwoValue) != 0 {
 		if n := sig.Results().Len(); n != 2 {
 			caller, pos := getCaller(pkg, fn)
-			return pkg.cb.newCodeError(&pos, fmt.Sprintf("assignment mismatch: 2 variables but %v returns %v values", caller, n))
+			return pkg.cb.newCodeErrorf(pos, "assignment mismatch: 2 variables but %v returns %v values", caller, n)
 		}
 	}
 	var t *types.Tuple
@@ -995,8 +997,8 @@ func matchFuncType(
 			n1 := getParamLen(sig) - 1
 			if n < n1 {
 				caller, pos := getCaller(pkg, fn)
-				return pkg.cb.newCodeError(&pos, fmt.Sprintf("not enough arguments in call to %v\n\thave (%v)\n\twant %v",
-					caller, getTypes(args), sig.Params()))
+				return pkg.cb.newCodeErrorf(pos, "not enough arguments in call to %v\n\thave (%v)\n\twant %v",
+					caller, getTypes(args), sig.Params())
 			}
 			tyVariadic, ok := getParam(sig, n1).Type().(*types.Slice)
 			if !ok {
@@ -1009,7 +1011,7 @@ func matchFuncType(
 		}
 	} else if (flags & InstrFlagEllipsis) != 0 {
 		caller, pos := getCaller(pkg, fn)
-		return pkg.cb.newCodeError(&pos, fmt.Sprintf("cannot use ... in call to non-variadic %v", caller))
+		return pkg.cb.newCodeErrorf(pos, "cannot use ... in call to non-variadic %v", caller)
 	}
 	if nreq := getParamLen(sig); nreq != n {
 		fewOrMany := "not enough"
@@ -1017,8 +1019,8 @@ func matchFuncType(
 			fewOrMany = "too many"
 		}
 		caller, pos := getCaller(pkg, fn)
-		return pkg.cb.newCodeError(&pos, fmt.Sprintf(
-			"%s arguments in call to %s\n\thave (%v)\n\twant %v", fewOrMany, caller, getTypes(args), sig.Params()))
+		return pkg.cb.newCodeErrorf(pos,
+			"%s arguments in call to %s\n\thave (%v)\n\twant %v", fewOrMany, caller, getTypes(args), sig.Params())
 	}
 	return matchFuncArgs(pkg, args, sig, at)
 }
@@ -1039,9 +1041,9 @@ func checkFuncResults(pkg *Package, rets []*internal.Elem, results *types.Tuple,
 	switch n {
 	case 0:
 		if need > 0 && isUnnamedParams(results) {
-			pos := pkg.cb.nodePosition(src)
+			pos := getSrcPos(src)
 			pkg.cb.panicCodeErrorf(
-				&pos, "not enough arguments to return\n\thave ()\n\twant %v", results)
+				pos, "not enough arguments to return\n\thave ()\n\twant %v", results)
 		}
 		return
 	case 1:
@@ -1051,9 +1053,9 @@ func checkFuncResults(pkg *Package, rets []*internal.Elem, results *types.Tuple,
 				if n1 > need {
 					fewOrMany = "many"
 				}
-				pos := pkg.cb.nodePosition(src)
+				pos := getSrcPos(src)
 				pkg.cb.panicCodeErrorf(
-					&pos, "too %s arguments to return\n\thave %v\n\twant %v", fewOrMany, t, results)
+					pos, "too %s arguments to return\n\thave %v\n\twant %v", fewOrMany, t, results)
 			}
 			for i := 0; i < need; i++ {
 				arg := &internal.Elem{Type: t.At(i).Type(), Src: src}
@@ -1076,9 +1078,9 @@ func checkFuncResults(pkg *Package, rets []*internal.Elem, results *types.Tuple,
 	if n > need {
 		fewOrMany = "many"
 	}
-	pos := pkg.cb.nodePosition(src)
+	pos := getSrcPos(src)
 	pkg.cb.panicCodeErrorf(
-		&pos, "too %s arguments to return\n\thave (%v)\n\twant %v", fewOrMany, getTypes(rets), results)
+		pos, "too %s arguments to return\n\thave (%v)\n\twant %v", fewOrMany, getTypes(rets), results)
 }
 
 func getTypes(rets []*internal.Elem) string {
@@ -1131,7 +1133,7 @@ func checkAssign(pkg *Package, ref *internal.Elem, val types.Type, at string) {
 		if err := matchType(pkg, elem, rt.typ, at); err != nil {
 			src, pos := pkg.cb.loadExpr(ref.Src)
 			pkg.cb.panicCodeErrorf(
-				&pos, "cannot assign type %v to %s (type %v) in %s", val, src, rt.typ, at)
+				pos, "cannot assign type %v to %s (type %v) in %s", val, src, rt.typ, at)
 		}
 	} else if ref.Type == nil { // underscore
 		// do nothing
@@ -1141,11 +1143,13 @@ func checkAssign(pkg *Package, ref *internal.Elem, val types.Type, at string) {
 }
 
 type MatchError struct {
+	Fset  dbgPositioner
 	Src   ast.Node
 	Arg   types.Type
 	Param types.Type
 	At    interface{}
-	cb    *CodeBuilder
+
+	intr  NodeInterpreter
 	fstmt bool
 }
 
@@ -1161,12 +1165,17 @@ func strval(at interface{}) string {
 }
 
 func (p *MatchError) Error() string {
+	at := token.NoPos
+	src := ""
+	if p.Src != nil {
+		at = p.Src.Pos()
+		src = p.intr.LoadExpr(p.Src)
+	}
+	pos := p.Fset.Position(at)
 	if p.fstmt {
-		pos := p.cb.nodePosition(p.Src)
 		return fmt.Sprintf(
 			"%v: cannot use %v value as type %v in %s", pos, p.Arg, p.Param, strval(p.At))
 	}
-	src, pos := p.cb.loadExpr(p.Src)
 	return fmt.Sprintf(
 		"%v: cannot use %s (type %v) as type %v in %s", pos, src, p.Arg, p.Param, strval(p.At))
 }
@@ -1182,7 +1191,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 	}
 	if arg.Type == nil {
 		src, pos := pkg.cb.loadExpr(arg.Src)
-		return pkg.cb.newCodeError(&pos, fmt.Sprintf("%v (no value) used as value", src))
+		return pkg.cb.newCodeError(pos, fmt.Sprintf("%v (no value) used as value", src))
 	}
 	// check untyped big int/rat/flt => interface
 	switch arg.Type {
@@ -1213,7 +1222,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 					val, ok := new(big.Int).SetString(arg.CVal.ExactString(), 10)
 					if !ok {
 						code, pos := pkg.cb.loadExpr(arg.Src)
-						pkg.cb.panicCodeErrorf(&pos, "cannot convert %v (untyped float constant) to %v", code, t)
+						pkg.cb.panicCodeErrorf(pos, "cannot convert %v (untyped float constant) to %v", code, t)
 					}
 					arg.Val = pkg.cb.UntypedBigInt(val).stk.Pop().Val
 					return nil
@@ -1262,7 +1271,9 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 		return nil
 	}
 	return &MatchError{
-		Src: arg.Src, Arg: arg.Type, Param: param, At: at, cb: &pkg.cb, fstmt: arg.Val == nil}
+		Src: arg.Src, Arg: arg.Type, Param: param, At: at, fstmt: arg.Val == nil,
+		Fset: pkg.cb.fset, intr: pkg.cb.interp,
+	}
 }
 
 // -----------------------------------------------------------------------------
