@@ -1164,20 +1164,22 @@ func strval(at interface{}) string {
 	}
 }
 
-func (p *MatchError) Error() string {
-	at := token.NoPos
-	src := ""
-	if p.Src != nil {
-		at = p.Src.Pos()
-		src = p.intr.LoadExpr(p.Src)
-	}
-	pos := p.Fset.Position(at)
+func (p *MatchError) Message(fileLine string) string {
 	if p.fstmt {
 		return fmt.Sprintf(
-			"%v: cannot use %v value as type %v in %s", pos, p.Arg, p.Param, strval(p.At))
+			"%scannot use %v value as type %v in %s", fileLine, p.Arg, p.Param, strval(p.At))
+	}
+	src := ""
+	if p.Src != nil {
+		src = p.intr.LoadExpr(p.Src)
 	}
 	return fmt.Sprintf(
-		"%v: cannot use %s (type %v) as type %v in %s", pos, src, p.Arg, p.Param, strval(p.At))
+		"%scannot use %s (type %v) as type %v in %s", fileLine, src, p.Arg, p.Param, strval(p.At))
+}
+
+func (p *MatchError) Error() string {
+	pos := p.Fset.Position(getSrcPos(p.Src))
+	return p.Message(pos.String() + ": ")
 }
 
 // TODO: use matchType to all assignable check
