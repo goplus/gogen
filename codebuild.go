@@ -44,6 +44,30 @@ func getSrcPos(node ast.Node) token.Pos {
 	return token.NoPos
 }
 
+func getPos(src []ast.Node) token.Pos {
+	if src == nil {
+		return token.NoPos
+	}
+	return getSrcPos(src[0])
+}
+
+// ----------------------------------------------------------------------------
+
+type posNode struct {
+	pos, end token.Pos
+}
+
+func NewPosNode(pos token.Pos, end ...token.Pos) ast.Node {
+	ret := &posNode{pos: pos, end: pos}
+	if end != nil {
+		ret.end = end[0]
+	}
+	return ret
+}
+
+func (p *posNode) Pos() token.Pos { return p.pos }
+func (p *posNode) End() token.Pos { return p.end }
+
 // ----------------------------------------------------------------------------
 
 type codeBlock interface {

@@ -214,13 +214,6 @@ func (p *CodeBuilder) typeDefs() *TypeDefs {
 	return ret
 }
 
-func getPos(src []ast.Node) token.Pos {
-	if src == nil {
-		return token.NoPos
-	}
-	return src[0].Pos()
-}
-
 func (p *Package) doNewType(tdecl *TypeDefs, pos token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {
 	scope := tdecl.scope
 	typName := types.NewTypeName(pos, p.Types, name, typ)
