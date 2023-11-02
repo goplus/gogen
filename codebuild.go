@@ -601,12 +601,12 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 
 // NewType func
 func (p *CodeBuilder) NewType(name string, src ...ast.Node) *TypeDecl {
-	return p.typeDefs().NewType(name, src...)
+	return p.NewTypeDefs().NewType(name, src...)
 }
 
 // AliasType func
 func (p *CodeBuilder) AliasType(name string, typ types.Type, src ...ast.Node) *types.Named {
-	decl := p.typeDefs().AliasType(name, typ, src...)
+	decl := p.NewTypeDefs().AliasType(name, typ, src...)
 	return decl.typ
 }
 

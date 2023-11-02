@@ -195,6 +195,13 @@ func (p *Package) NewTypeDefs() *TypeDefs {
 	return &TypeDefs{decl: decl, scope: p.Types.Scope(), pkg: p}
 }
 
+// NewTypeDefs starts a type declaration block.
+func (p *CodeBuilder) NewTypeDefs() *TypeDefs {
+	ret, defineHere := p.NewTypeDecls()
+	defineHere()
+	return ret
+}
+
 // NewTypeDecls starts a type declaration block but delay to define it.
 func (p *CodeBuilder) NewTypeDecls() (ret *TypeDefs, defineHere func()) {
 	pkg, scope := p.pkg, p.current.scope
@@ -206,12 +213,6 @@ func (p *CodeBuilder) NewTypeDecls() (ret *TypeDefs, defineHere func()) {
 			p.emitStmt(&ast.DeclStmt{Decl: decl})
 		}
 	}
-}
-
-func (p *CodeBuilder) typeDefs() *TypeDefs {
-	ret, defineHere := p.NewTypeDecls()
-	defineHere()
-	return ret
 }
 
 func (p *Package) doNewType(tdecl *TypeDefs, pos token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {
