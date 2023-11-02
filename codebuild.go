@@ -44,6 +44,30 @@ func getSrcPos(node ast.Node) token.Pos {
 	return token.NoPos
 }
 
+func getPos(src []ast.Node) token.Pos {
+	if src == nil {
+		return token.NoPos
+	}
+	return getSrcPos(src[0])
+}
+
+// ----------------------------------------------------------------------------
+
+type posNode struct {
+	pos, end token.Pos
+}
+
+func NewPosNode(pos token.Pos, end ...token.Pos) ast.Node {
+	ret := &posNode{pos: pos, end: pos}
+	if end != nil {
+		ret.end = end[0]
+	}
+	return ret
+}
+
+func (p *posNode) Pos() token.Pos { return p.pos }
+func (p *posNode) End() token.Pos { return p.end }
+
 // ----------------------------------------------------------------------------
 
 type codeBlock interface {
@@ -576,19 +600,13 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 }
 
 // NewType func
-func (p *CodeBuilder) NewType(name string, pos ...token.Pos) *TypeDecl {
-	if debugInstr {
-		log.Println("NewType", name)
-	}
-	return p.typeDefs().NewType(name, pos...)
+func (p *CodeBuilder) NewType(name string, src ...ast.Node) *TypeDecl {
+	return p.NewTypeDefs().NewType(name, src...)
 }
 
 // AliasType func
-func (p *CodeBuilder) AliasType(name string, typ types.Type, pos ...token.Pos) *types.Named {
-	if debugInstr {
-		log.Println("AliasType", name, typ)
-	}
-	decl := p.typeDefs().AliasType(name, typ, pos...)
+func (p *CodeBuilder) AliasType(name string, typ types.Type, src ...ast.Node) *types.Named {
+	decl := p.NewTypeDefs().AliasType(name, typ, src...)
 	return decl.typ
 }
 

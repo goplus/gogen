@@ -1648,7 +1648,25 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 	}
 }
 
+func checkSpecs(d *ast.GenDecl) {
+	if d.Tok == token.TYPE { // for gox.TypeDecl.Delete
+		for i, spec := range d.Specs {
+			if spec.(*ast.TypeSpec).Name == nil {
+				leftSpecs := d.Specs[i+1:]
+				d.Specs = d.Specs[:i]
+				for _, spec := range leftSpecs {
+					if spec.(*ast.TypeSpec).Name != nil {
+						d.Specs = append(d.Specs, spec)
+					}
+				}
+				return
+			}
+		}
+	}
+}
+
 func (p *printer) genDecl(d *ast.GenDecl) {
+	checkSpecs(d)
 	n := len(d.Specs)
 	if n == 0 { // no values, ignore
 		return

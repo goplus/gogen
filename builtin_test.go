@@ -43,6 +43,15 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestNewPosNode(t *testing.T) {
+	if ret := NewPosNode(1); ret.Pos() != 1 || ret.End() != 1 {
+		t.Fatal("NewPosNode(1): end -", ret.End())
+	}
+	if ret := NewPosNode(1, 2); ret.End() != 2 {
+		t.Fatal("NewPosNode(1, 2): end -", ret.End())
+	}
+}
+
 func TestGetSrcPos(t *testing.T) {
 	if getSrcPos(nil) != token.NoPos {
 		t.Fatal("TestGetSrcPos: not nopos?")
@@ -453,7 +462,6 @@ func TestToFields(t *testing.T) {
 }
 
 func TestToVariadic(t *testing.T) {
-	getPos([]token.Pos{1})
 	defer func() {
 		if e := recover(); e == nil {
 			t.Fatal("TestToVariadic: no error?")

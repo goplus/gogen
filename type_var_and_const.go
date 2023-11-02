@@ -131,19 +131,19 @@ func (p *TypeDefs) SetComments(doc *ast.CommentGroup) *TypeDefs {
 }
 
 // NewType creates a new type (which need to call InitType later).
-func (p *TypeDefs) NewType(name string, pos ...token.Pos) *TypeDecl {
+func (p *TypeDefs) NewType(name string, src ...ast.Node) *TypeDecl {
 	if debugInstr {
 		log.Println("NewType", name)
 	}
-	return p.pkg.doNewType(p, getPos(pos), name, nil, 0)
+	return p.pkg.doNewType(p, getPos(src), name, nil, 0)
 }
 
 // AliasType gives a specified type with a new name.
-func (p *TypeDefs) AliasType(name string, typ types.Type, pos ...token.Pos) *TypeDecl {
+func (p *TypeDefs) AliasType(name string, typ types.Type, src ...ast.Node) *TypeDecl {
 	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
-	return p.pkg.doNewType(p, getPos(pos), name, typ, 1)
+	return p.pkg.doNewType(p, getPos(src), name, typ, 1)
 }
 
 // Complete checks type declarations & marks completed.
@@ -176,16 +176,16 @@ func (p *TypeDefs) Complete() {
 // AliasType gives a specified type with a new name.
 //
 // Deprecated: use NewTypeDefs instead.
-func (p *Package) AliasType(name string, typ types.Type, pos ...token.Pos) *types.Named {
-	decl := p.NewTypeDefs().AliasType(name, typ, pos...)
+func (p *Package) AliasType(name string, typ types.Type, src ...ast.Node) *types.Named {
+	decl := p.NewTypeDefs().AliasType(name, typ, src...)
 	return decl.typ
 }
 
 // NewType creates a new type (which need to call InitType later).
 //
 // Deprecated: use NewTypeDefs instead.
-func (p *Package) NewType(name string, pos ...token.Pos) *TypeDecl {
-	return p.NewTypeDefs().NewType(name, pos...)
+func (p *Package) NewType(name string, src ...ast.Node) *TypeDecl {
+	return p.NewTypeDefs().NewType(name, src...)
 }
 
 // NewTypeDefs starts a type declaration block.
@@ -195,22 +195,24 @@ func (p *Package) NewTypeDefs() *TypeDefs {
 	return &TypeDefs{decl: decl, scope: p.Types.Scope(), pkg: p}
 }
 
-func (p *CodeBuilder) typeDefs() *TypeDefs {
-	pkg, scope := p.pkg, p.current.scope
-	decl := &ast.GenDecl{Tok: token.TYPE}
-	if scope == pkg.Types.Scope() {
-		pkg.file.decls = append(pkg.file.decls, decl)
-	} else {
-		p.emitStmt(&ast.DeclStmt{Decl: decl})
-	}
-	return &TypeDefs{decl: decl, scope: scope, pkg: pkg}
+// NewTypeDefs starts a type declaration block.
+func (p *CodeBuilder) NewTypeDefs() *TypeDefs {
+	ret, defineHere := p.NewTypeDecls()
+	defineHere()
+	return ret
 }
 
-func getPos(pos []token.Pos) token.Pos {
-	if pos == nil {
-		return 0
+// NewTypeDecls starts a type declaration block but delay to define it.
+func (p *CodeBuilder) NewTypeDecls() (ret *TypeDefs, defineHere func()) {
+	pkg, scope := p.pkg, p.current.scope
+	decl := &ast.GenDecl{Tok: token.TYPE}
+	return &TypeDefs{decl: decl, scope: scope, pkg: pkg}, func() {
+		if scope == pkg.Types.Scope() {
+			pkg.file.decls = append(pkg.file.decls, decl)
+		} else {
+			p.emitStmt(&ast.DeclStmt{Decl: decl})
+		}
 	}
-	return pos[0]
 }
 
 func (p *Package) doNewType(tdecl *TypeDefs, pos token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {
