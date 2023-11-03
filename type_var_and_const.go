@@ -298,7 +298,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	}()
 	if arity == 1 && checkTuple(&t, rets[0].Type) {
 		if n != t.Len() {
-			caller := cb.getCaller(rets[0].Src)
+			caller := getCaller(rets[0])
 			cb.panicCodeErrorf(
 				p.pos, "assignment mismatch: %d variables but %s returns %d values", n, caller, t.Len())
 		}

@@ -184,19 +184,24 @@ func defaultHandleErr(err error) {
 
 type nodeInterp struct{}
 
-func (p nodeInterp) Caller(expr ast.Node) string {
-	return "the function call"
-}
-
 func (p nodeInterp) LoadExpr(expr ast.Node) string {
 	return ""
 }
 
-func (p *CodeBuilder) getCaller(expr ast.Node) string {
-	if expr == nil {
-		return ""
+func getFunExpr(fn *internal.Elem) (caller string, pos token.Pos) {
+	if fn == nil {
+		return "the closure call", token.NoPos
 	}
-	return p.interp.Caller(expr)
+	caller = types.ExprString(fn.Val)
+	pos = getSrcPos(fn.Src)
+	return
+}
+
+func getCaller(expr *internal.Elem) string {
+	if ce, ok := expr.Val.(*ast.CallExpr); ok {
+		return types.ExprString(ce.Fun)
+	}
+	return "the function call"
 }
 
 func (p *CodeBuilder) loadExpr(expr ast.Node) (string, token.Pos) {
@@ -1952,7 +1957,7 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 		if rhsVals, ok := args[lhs].Type.(*types.Tuple); ok {
 			if lhs != rhsVals.Len() {
 				pos := getSrcPos(src)
-				caller := p.getCaller(args[lhs].Src)
+				caller := getCaller(args[lhs])
 				p.panicCodeErrorf(
 					pos, "assignment mismatch: %d variables but %v returns %d values",
 					lhs, caller, rhsVals.Len())

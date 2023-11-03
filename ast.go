@@ -951,19 +951,11 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
-func getCaller(pkg *Package, fn *internal.Elem) (caller string, pos token.Pos) {
-	if fn != nil {
-		_, pos = pkg.cb.loadExpr(fn.Src)
-		caller = types.ExprString(fn.Val)
-	}
-	return
-}
-
 func matchFuncType(
 	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, fn *internal.Elem) error {
 	if (flags & InstrFlagTwoValue) != 0 {
 		if n := sig.Results().Len(); n != 2 {
-			caller, pos := getCaller(pkg, fn)
+			caller, pos := getFunExpr(fn)
 			return pkg.cb.newCodeErrorf(pos, "assignment mismatch: 2 variables but %v returns %v values", caller, n)
 		}
 	}
@@ -996,7 +988,7 @@ func matchFuncType(
 		if (flags & InstrFlagEllipsis) == 0 {
 			n1 := getParamLen(sig) - 1
 			if n < n1 {
-				caller, pos := getCaller(pkg, fn)
+				caller, pos := getFunExpr(fn)
 				return pkg.cb.newCodeErrorf(pos, "not enough arguments in call to %v\n\thave (%v)\n\twant %v",
 					caller, getTypes(args), sig.Params())
 			}
@@ -1010,7 +1002,7 @@ func matchFuncType(
 			return matchElemType(pkg, args[n1:], tyVariadic.Elem(), at)
 		}
 	} else if (flags & InstrFlagEllipsis) != 0 {
-		caller, pos := getCaller(pkg, fn)
+		caller, pos := getFunExpr(fn)
 		return pkg.cb.newCodeErrorf(pos, "cannot use ... in call to non-variadic %v", caller)
 	}
 	if nreq := getParamLen(sig); nreq != n {
@@ -1018,7 +1010,7 @@ func matchFuncType(
 		if n > nreq {
 			fewOrMany = "too many"
 		}
-		caller, pos := getCaller(pkg, fn)
+		caller, pos := getFunExpr(fn)
 		return pkg.cb.newCodeErrorf(pos,
 			"%s arguments in call to %s\n\thave (%v)\n\twant %v", fewOrMany, caller, getTypes(args), sig.Params())
 	}
@@ -1177,8 +1169,12 @@ func (p *MatchError) Message(fileLine string) string {
 		"%scannot use %s (type %v) as type %v in %s", fileLine, src, p.Arg, p.Param, strval(p.At))
 }
 
+func (p *MatchError) Pos() token.Pos {
+	return getSrcPos(p.Src)
+}
+
 func (p *MatchError) Error() string {
-	pos := p.Fset.Position(getSrcPos(p.Src))
+	pos := p.Fset.Position(p.Pos())
 	return p.Message(pos.String() + ": ")
 }
 
