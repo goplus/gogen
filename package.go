@@ -85,9 +85,6 @@ type dbgPositioner interface {
 type NodeInterpreter interface {
 	// LoadExpr is called to load an expr code.
 	LoadExpr(expr ast.Node) string
-
-	// Caller returns the name of a function call.
-	Caller(expr ast.Node) string
 }
 
 // Config type
@@ -315,6 +312,7 @@ type ObjectDocs = map[types.Object]*ast.CommentGroup
 type Package struct {
 	PkgRef
 	Docs ObjectDocs
+	Fset *token.FileSet
 
 	cb             CodeBuilder
 	imp            types.Importer
@@ -322,7 +320,6 @@ type Package struct {
 	file           *File
 	conf           *Config
 	ctx            *Context
-	Fset           *token.FileSet
 	builtin        *types.Package
 	utBigInt       *types.Named
 	utBigRat       *types.Named

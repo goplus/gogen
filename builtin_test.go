@@ -334,15 +334,14 @@ func TestCheckUdt(t *testing.T) {
 
 func TestNodeInterp(t *testing.T) {
 	interp := nodeInterp{}
-	if interp.Caller(nil) != "the function call" {
-		t.Fatal("TestNodeInterp interp.Caller failed")
-	}
 	if src := interp.LoadExpr(nil); src != "" {
 		t.Fatal("TestNodeInterp interp.LoadExpr failed:", src)
 	}
-	var cb CodeBuilder
-	if cb.getCaller(nil) != "" {
-		t.Fatal("TestNodeInterp cb.getCaller failed")
+	if caller := getCaller(&internal.Elem{}); caller != "the function call" {
+		t.Fatal("TestNodeInterp getCaller failed:", caller)
+	}
+	if caller, pos := getFunExpr(nil); caller != "the closure call" || pos != token.NoPos {
+		t.Fatal("TestNodeInterp getGoExpr failed:", caller, pos)
 	}
 }
 
