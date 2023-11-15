@@ -1427,28 +1427,31 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr) MemberKind {
+func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, src ast.Node) MemberKind {
 	switch o := indirect(typ).(type) {
 	case *types.Named:
 		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
 			name = p.getFieldName(o, name)
-			if p.fieldRef(argVal, struc, name) {
+			if p.fieldRef(argVal, struc, name, src) {
 				return MemberField
 			}
 			return p.refVField(o, name, argVal)
 		}
 	case *types.Struct:
-		if p.fieldRef(argVal, o, name) {
+		if p.fieldRef(argVal, o, name, src) {
 			return MemberField
 		}
 	}
 	return MemberInvalid
 }
 
-func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string) bool {
+func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast.Node) bool {
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		if fld.Name() == name {
+			if p.rec != nil {
+				p.rec.Member(src, fld)
+			}
 			p.stk.Ret(1, &internal.Elem{
 				Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
 				Type: &refType{typ: fld.Type()},
@@ -1462,7 +1465,7 @@ func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string) bool {
 			if t, ok := fldt.(*types.Named); ok {
 				u := p.getUnderlying(t)
 				if struc, ok := u.(*types.Struct); ok {
-					if p.fieldRef(x, struc, name) || p.refVField(t, name, nil) != MemberInvalid {
+					if p.fieldRef(x, struc, name, src) || p.refVField(t, name, nil) != MemberInvalid {
 						return true
 					}
 				}
@@ -1514,7 +1517,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	}
 	at := arg.Type
 	if flag == MemberFlagRef {
-		kind = p.refMember(at, name, arg.Val)
+		kind = p.refMember(at, name, arg.Val, srcExpr)
 	} else {
 		t, isType := at.(*TypeType)
 		if isType {
