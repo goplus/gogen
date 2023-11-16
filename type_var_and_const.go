@@ -363,6 +363,9 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			if values != nil {
 				values[i] = parg.Val
 			}
+			if pkg.cb.rec != nil && isBasicUntyped(rets[i].Type) {
+				pkg.cb.rec.UpdateType(rets[i], retType)
+			}
 			if old := p.scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {
 					oldpos := cb.fset.Position(old.Pos())

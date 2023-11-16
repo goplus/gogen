@@ -175,6 +175,13 @@ func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
 	return &ast.Ident{Name: t.Name()}
 }
 
+func isBasicUntyped(typ types.Type) bool {
+	if t, ok := typ.(*types.Basic); ok {
+		return (t.Info() & types.IsUntyped) != 0
+	}
+	return false
+}
+
 func isUntyped(pkg *Package, typ types.Type) bool {
 	switch t := typ.(type) {
 	case *types.Basic:
@@ -734,6 +741,9 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 		fnVal = &ast.ParenExpr{X: fnVal}
 	}
 	if len(args) == 1 && ConvertibleTo(pkg, args[0].Type, typ) {
+		if pkg.cb.rec != nil && isBasicUntyped(args[0].Type) {
+			pkg.cb.rec.UpdateType(args[0], typ)
+		}
 		if args[0].CVal != nil {
 			if t, ok := typ.(*types.Named); ok {
 				o := t.Obj()
@@ -1179,7 +1189,14 @@ func (p *MatchError) Error() string {
 }
 
 // TODO: use matchType to all assignable check
-func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) error {
+func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) (r error) {
+	if pkg.cb.rec != nil && isBasicUntyped(arg.Type) {
+		defer func() {
+			if r == nil {
+				pkg.cb.rec.UpdateType(arg, param)
+			}
+		}()
+	}
 	if debugMatch {
 		cval := ""
 		if arg.CVal != nil {

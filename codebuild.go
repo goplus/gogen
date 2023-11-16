@@ -1075,6 +1075,9 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 					pos, "cannot use %s (type %v) as type %v in value of field %s",
 					src, args[i+1].Type, eltTy, eltName)
 			}
+			if pkg.cb.rec != nil && isBasicUntyped(args[i+1].Type) {
+				pkg.cb.rec.UpdateType(args[i+1], eltTy)
+			}
 			elts[i>>1] = &ast.KeyValueExpr{Key: ident(eltName), Value: args[i+1].Val}
 		}
 	} else if arity != n {
@@ -1096,6 +1099,9 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 				p.panicCodeErrorf(
 					pos, "cannot use %s (type %v) as type %v in value of field %s",
 					src, arg.Type, eltTy, t.Field(i).Name())
+			}
+			if pkg.cb.rec != nil && isBasicUntyped(arg.Type) {
+				pkg.cb.rec.UpdateType(arg, eltTy)
 			}
 		}
 	}
@@ -1145,6 +1151,18 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	if slice3 {
 		exprMax = args[3].Val
 	}
+	if p.rec != nil {
+		if isBasicUntyped(args[1].Type) {
+			p.rec.UpdateType(args[1], types.Default(args[1].Type))
+		}
+		if isBasicUntyped(args[2].Type) {
+			p.rec.UpdateType(args[2], types.Default(args[2].Type))
+		}
+		if slice3 && isBasicUntyped(args[3].Type) {
+			p.rec.UpdateType(args[3], types.Default(args[3].Type))
+		}
+	}
+
 	// TODO: check type
 	elem := &internal.Elem{
 		Val: &ast.SliceExpr{
