@@ -1381,5 +1381,4 @@ type M struct {
 				MemberVal("x", source("m.x", 3, 10)).Call(1).EndStmt().
 				End()
 		})
-
 }
