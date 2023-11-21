@@ -335,6 +335,9 @@ func (p *ImportError) Unwrap() error {
 }
 
 func (p *ImportError) Error() string {
+	if p.Fset == nil {
+		return fmt.Sprintf("%v", p.Err)
+	}
 	pos := p.Fset.Position(p.Pos)
 	return fmt.Sprintf("%v: %v", pos, p.Err)
 }
