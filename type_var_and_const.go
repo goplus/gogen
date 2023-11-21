@@ -328,6 +328,9 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			if err := matchType(pkg, ret, typ, "assignment"); err != nil {
 				panic(err)
 			}
+			if cb.rec != nil && isBasicUntyped(ret.Type) {
+				cb.rec.UpdateType(ret, typ)
+			}
 			if values != nil { // ret.Val may be changed
 				values[i] = ret.Val
 			}

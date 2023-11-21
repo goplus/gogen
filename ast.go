@@ -1193,7 +1193,15 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 	if pkg.cb.rec != nil && isBasicUntyped(arg.Type) {
 		defer func() {
 			if r == nil {
-				pkg.cb.rec.UpdateType(arg, param)
+				typ := param
+			retry:
+				switch t := typ.(type) {
+				case *unboundFuncParam:
+					typ = t.tBound
+					goto retry
+				case *types.Basic:
+					pkg.cb.rec.UpdateType(arg, t)
+				}
 			}
 		}()
 	}

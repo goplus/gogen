@@ -227,9 +227,9 @@ func DefaultConv(pkg *Package, t types.Type, pv *Element) types.Type {
 	default:
 		if isBasicUntyped(typ) {
 			typ := types.Default(t)
-			// if pkg.cb.rec != nil && pv != nil {
-			// 	pkg.cb.rec.UpdateType(pv, typ)
-			// }
+			if pkg.cb.rec != nil && pv != nil {
+				pkg.cb.rec.UpdateType(pv, typ)
+			}
 			return typ
 		}
 	}
