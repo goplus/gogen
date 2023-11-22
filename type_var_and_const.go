@@ -328,8 +328,9 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			if err := matchType(pkg, ret, typ, "assignment"); err != nil {
 				panic(err)
 			}
+			// update untyped
 			if cb.rec != nil && isBasicUntyped(ret.Type) {
-				cb.rec.UpdateType(ret, typ)
+				cb.rec.UpdateUntyped(ret, typ)
 			}
 			if values != nil { // ret.Val may be changed
 				values[i] = ret.Val
@@ -366,8 +367,9 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			if values != nil {
 				values[i] = parg.Val
 			}
+			// update untyped
 			if pkg.cb.rec != nil && isBasicUntyped(rets[i].Type) {
-				pkg.cb.rec.UpdateType(rets[i], retType)
+				pkg.cb.rec.UpdateUntyped(rets[i], retType)
 			}
 			if old := p.scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {

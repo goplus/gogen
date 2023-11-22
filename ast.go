@@ -714,6 +714,15 @@ retry:
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
 		t.X, t.Y = checkParenExpr(args[0].Val), checkParenExpr(args[1].Val)
+		// update untyped
+		if pkg.cb.rec != nil {
+			if isBasicUntyped(args[0].Type) {
+				pkg.cb.rec.UpdateUntyped(args[0], tyRet)
+			}
+			if (t.Op != token.SHL && t.Op != token.SHR) && isBasicUntyped(args[1].Type) {
+				pkg.cb.rec.UpdateUntyped(args[1], tyRet)
+			}
+		}
 		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	case *ast.UnaryExpr:
 		t.X = args[0].Val
@@ -741,8 +750,9 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 		fnVal = &ast.ParenExpr{X: fnVal}
 	}
 	if len(args) == 1 && ConvertibleTo(pkg, args[0].Type, typ) {
+		// update untyped
 		if pkg.cb.rec != nil && isBasicUntyped(args[0].Type) {
-			pkg.cb.rec.UpdateType(args[0], typ)
+			pkg.cb.rec.UpdateUntyped(args[0], typ)
 		}
 		if args[0].CVal != nil {
 			if t, ok := typ.(*types.Named); ok {
@@ -1190,6 +1200,7 @@ func (p *MatchError) Error() string {
 
 // TODO: use matchType to all assignable check
 func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) (r error) {
+	// update untyped
 	if pkg.cb.rec != nil && isBasicUntyped(arg.Type) {
 		defer func() {
 			if r == nil {
@@ -1200,7 +1211,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 					typ = t.tBound
 					goto retry
 				case *types.Basic:
-					pkg.cb.rec.UpdateType(arg, t)
+					pkg.cb.rec.UpdateUntyped(arg, t)
 				}
 			}
 		}()

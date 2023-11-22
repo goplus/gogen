@@ -52,6 +52,8 @@ type eventRecorder struct{}
 
 func (p eventRecorder) Member(id ast.Node, obj types.Object) {
 }
+func (p eventRecorder) UpdateUntyped(e *gox.Element, typ types.Type) {
+}
 
 func newMainPackage(
 	implicitCast ...func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool) *gox.Package {

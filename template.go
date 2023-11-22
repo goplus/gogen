@@ -225,13 +225,7 @@ func DefaultConv(pkg *Package, t types.Type, pv *Element) types.Type {
 			log.Panicln("==> DefaultConv failed: overload functions have no default type")
 		}
 	default:
-		if isBasicUntyped(typ) {
-			typ := types.Default(t)
-			if pkg.cb.rec != nil && pv != nil {
-				pkg.cb.rec.UpdateType(pv, typ)
-			}
-			return typ
-		}
+		return types.Default(t)
 	}
 	return t
 }
