@@ -715,11 +715,12 @@ retry:
 	case *ast.BinaryExpr:
 		t.X, t.Y = checkParenExpr(args[0].Val), checkParenExpr(args[1].Val)
 		// update untyped
-		if pkg.cb.rec != nil {
+		kind := binaryOpKinds[t.Op]
+		if kind != binaryOpCompare && pkg.cb.rec != nil {
 			if isBasicUntyped(args[0].Type) {
 				pkg.cb.rec.UpdateUntyped(args[0], tyRet)
 			}
-			if (t.Op != token.SHL && t.Op != token.SHR) && isBasicUntyped(args[1].Type) {
+			if kind != binaryOpShift && isBasicUntyped(args[1].Type) {
 				pkg.cb.rec.UpdateUntyped(args[1], tyRet)
 			}
 		}
