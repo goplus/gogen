@@ -167,11 +167,13 @@ func (p *switchStmt) Case(cb *CodeBuilder, n int, src ...ast.Node) {
 					cb.panicCodeErrorf(
 						pos, "cannot use %s (type %v) as type %v", src, arg.Type, types.Default(p.tag.Type))
 				}
+				cb.recordUpdateUntyped(arg, p.tag.Type)
 			} else { // switch {...}
 				if !types.AssignableTo(arg.Type, types.Typ[types.Bool]) && arg.Type != TyEmptyInterface {
 					src, pos := cb.loadExpr(arg.Src)
 					cb.panicCodeErrorf(pos, "cannot use %s (type %v) as type bool", src, arg.Type)
 				}
+				cb.recordUpdateUntyped(arg, types.Typ[types.Bool])
 			}
 			list[i] = arg.Val
 		}
