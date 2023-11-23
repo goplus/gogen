@@ -2189,6 +2189,9 @@ func (p *CodeBuilder) Send() *CodeBuilder {
 	val := p.stk.Pop()
 	ch := p.stk.Pop()
 	// TODO: check types
+	if typ, ok := ch.Type.(*types.Chan); ok {
+		p.recordUpdateUntyped(val, typ.Elem())
+	}
 	p.emitStmt(&ast.SendStmt{Chan: ch.Val, Value: val.Val})
 	return p
 }
