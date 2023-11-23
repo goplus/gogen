@@ -828,6 +828,8 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int, src ...ast.Node) *CodeBu
 					pos, "cannot use %s (type %v) as type %v in map value", src, args[i+1].Type, val)
 			}
 		}
+		p.recordUpdateUntyped(args[i], key)
+		p.recordUpdateUntyped(args[i+1], val)
 	}
 	p.stk.Ret(arity, &internal.Elem{
 		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
@@ -876,6 +878,7 @@ func (p *CodeBuilder) indexElemExpr(args []*internal.Elem, i int) ast.Expr {
 		return args[i+1].Val
 	}
 	p.toIntVal(args[i], "index which must be non-negative integer constant")
+	p.recordUpdateUntyped(args[i], types.Typ[types.Int])
 	return &ast.KeyValueExpr{Key: key, Value: args[i+1].Val}
 }
 
@@ -921,6 +924,7 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 				p.panicCodeErrorf(
 					pos, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
 			}
+			p.recordUpdateUntyped(arg, val)
 			elts[i>>1] = p.indexElemExpr(args, i)
 		}
 	} else {
@@ -956,6 +960,7 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 						pos, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)
 				}
 			}
+			p.recordUpdateUntyped(arg, val)
 		}
 	}
 	p.stk.Ret(arity, &internal.Elem{
@@ -1008,6 +1013,7 @@ func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...
 				p.panicCodeErrorf(
 					pos, "cannot use %s (type %v) as type %v in array literal", src, args[i+1].Type, val)
 			}
+			p.recordUpdateUntyped(args[i+1], val)
 			elts[i>>1] = p.indexElemExpr(args, i)
 		}
 	} else {
@@ -1028,6 +1034,7 @@ func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...
 				p.panicCodeErrorf(
 					pos, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
 			}
+			p.recordUpdateUntyped(arg, val)
 		}
 	}
 	p.stk.Ret(arity, &internal.Elem{
@@ -2063,9 +2070,7 @@ retry:
 		if !ComparableTo(pkg, args[0], args[1]) {
 			return nil, errors.New("mismatched types")
 		}
-
-		pkg.cb.recordUpdateUntypedBinaryOp(op, args, nil)
-
+		cb.recordUpdateUntypedBinaryOp(op, args, nil)
 		ret = &internal.Elem{
 			Val: &ast.BinaryExpr{
 				X: checkParenExpr(args[0].Val), Op: op,

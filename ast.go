@@ -481,7 +481,6 @@ func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.
 			if tok == token.QUO && isNormalInt(cb, args[0]) && isNormalInt(cb, args[1]) {
 				tok = token.QUO_ASSIGN // issue #805
 			}
-			cb.recordUpdateUntypedBinaryOp(tok, args, nil)
 			return doBinaryOp(a, tok, b)
 		}
 	}
@@ -690,6 +689,7 @@ retry:
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
 			cval = binaryOp(&pkg.cb, t.tok(), args)
+			pkg.cb.recordUpdateUntypedBinaryOp(t.tok(), args, nil)
 		} else if t.hasApproxType() {
 			flags |= instrFlagApproxType
 		}
