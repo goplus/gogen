@@ -2656,28 +2656,19 @@ func (p *CodeBuilder) InternalStack() *InternalStack {
 // ----------------------------------------------------------------------------
 
 func (p *CodeBuilder) recordUpdateUntypedDefault(e *internal.Elem) {
-	if p.rec == nil {
-		return
-	}
-	if isBasicUntyped(e.Type) {
+	if p.rec != nil && isBasicUntyped(e.Type) {
 		p.rec.UpdateUntyped(e, types.Default(e.Type))
 	}
 }
 
 func (p *CodeBuilder) recordUpdateUntyped(e *internal.Elem, typ types.Type) {
-	if p.rec == nil {
-		return
-	}
-	if isBasicUntyped(e.Type) && !isBasicUntyped(typ) {
+	if p.rec != nil && isBasicUntyped(e.Type) && !isBasicUntyped(typ) {
 		p.rec.UpdateUntyped(e, typ)
 	}
 }
 
 func (p *CodeBuilder) recordUpdateUntypedParam(e *internal.Elem, param types.Type) {
-	if p.rec == nil {
-		return
-	}
-	if isBasicUntyped(e.Type) {
+	if p.rec != nil && isBasicUntyped(e.Type) {
 		typ := param
 	retry:
 		switch t := typ.(type) {
