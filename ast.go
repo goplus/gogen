@@ -1072,9 +1072,11 @@ func checkFuncResults(pkg *Package, rets []*internal.Elem, results *types.Tuple,
 	}
 	if n == need {
 		for i := 0; i < need; i++ {
-			if err := matchType(pkg, rets[i], results.At(i).Type(), "return argument"); err != nil {
+			typ := results.At(i).Type()
+			if err := matchType(pkg, rets[i], typ, "return argument"); err != nil {
 				panic(err)
 			}
+			pkg.cb.recordUpdateUntypedParam(rets[i], typ)
 		}
 		return
 	}

@@ -2004,6 +2004,7 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 				lhsType = &refType{typ: bfr.typ}
 			}
 			checkAssignType(p.pkg, lhsType, args[lhs+i])
+			p.recordUpdateUntypedParam(args[lhs+i], lhsType)
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
 			if bfAssign {
@@ -2675,6 +2676,8 @@ func (p *CodeBuilder) recordUpdateUntypedParam(e *internal.Elem, param types.Typ
 		case *unboundFuncParam:
 			typ = t.tBound
 			goto retry
+		case *refType:
+			typ = t.typ
 		}
 		if !isBasicUntyped(typ) {
 			p.rec.UpdateUntyped(e, typ)
