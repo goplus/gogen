@@ -1155,10 +1155,10 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 		exprMax = args[3].Val
 	}
 
-	p.recordUpdateUntypedDefault(args[1])
-	p.recordUpdateUntypedDefault(args[2])
+	p.recordUpdateUntyped(args[1], tyInt)
+	p.recordUpdateUntyped(args[2], tyInt)
 	if slice3 {
-		p.recordUpdateUntypedDefault(args[3])
+		p.recordUpdateUntyped(args[3], tyInt)
 	}
 
 	// TODO: check type
@@ -1201,6 +1201,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 	} else { // elem = a[key]
 		tyRet = typs[1]
 	}
+	p.recordUpdateUntyped(args[1], tyInt)
 	elem := &internal.Elem{
 		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val}, Type: tyRet, Src: srcExpr,
 	}
@@ -1219,6 +1220,7 @@ func (p *CodeBuilder) IndexRef(nidx int, src ...ast.Node) *CodeBuilder {
 	}
 	args := p.stk.GetArgs(2)
 	typ := args[0].Type
+	p.recordUpdateUntyped(args[1], tyInt)
 	elemRef := &internal.Elem{
 		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
 		Src: getSrc(src),
@@ -2655,12 +2657,6 @@ func (p *CodeBuilder) InternalStack() *InternalStack {
 }
 
 // ----------------------------------------------------------------------------
-
-func (p *CodeBuilder) recordUpdateUntypedDefault(e *internal.Elem) {
-	if p.rec != nil && isBasicUntyped(e.Type) {
-		p.rec.UpdateUntyped(e, types.Default(e.Type))
-	}
-}
 
 func (p *CodeBuilder) recordUpdateUntyped(e *internal.Elem, typ types.Type) {
 	if p.rec != nil && isBasicUntyped(e.Type) && !isBasicUntyped(typ) {
