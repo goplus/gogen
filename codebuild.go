@@ -1075,10 +1075,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 					pos, "cannot use %s (type %v) as type %v in value of field %s",
 					src, args[i+1].Type, eltTy, eltName)
 			}
-			// update untyped
-			if pkg.cb.rec != nil && isBasicUntyped(args[i+1].Type) {
-				pkg.cb.rec.UpdateUntyped(args[i+1], eltTy)
-			}
+			pkg.cb.recordUpdateUntyped(args[i+1], eltTy)
 			elts[i>>1] = &ast.KeyValueExpr{Key: ident(eltName), Value: args[i+1].Val}
 		}
 	} else if arity != n {
@@ -1101,10 +1098,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 					pos, "cannot use %s (type %v) as type %v in value of field %s",
 					src, arg.Type, eltTy, t.Field(i).Name())
 			}
-			// update untyped
-			if pkg.cb.rec != nil && isBasicUntyped(arg.Type) {
-				pkg.cb.rec.UpdateUntyped(arg, eltTy)
-			}
+			pkg.cb.recordUpdateUntyped(arg, eltTy)
 		}
 	}
 	p.stk.Ret(arity, &internal.Elem{
@@ -1153,17 +1147,11 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	if slice3 {
 		exprMax = args[3].Val
 	}
-	// update untyped
-	if p.rec != nil {
-		if isBasicUntyped(args[1].Type) {
-			p.rec.UpdateUntyped(args[1], types.Default(args[1].Type))
-		}
-		if isBasicUntyped(args[2].Type) {
-			p.rec.UpdateUntyped(args[2], types.Default(args[2].Type))
-		}
-		if slice3 && isBasicUntyped(args[3].Type) {
-			p.rec.UpdateUntyped(args[3], types.Default(args[3].Type))
-		}
+
+	p.recordUpdateUntypedDefault(args[1])
+	p.recordUpdateUntypedDefault(args[2])
+	if slice3 {
+		p.recordUpdateUntypedDefault(args[3])
 	}
 
 	// TODO: check type
@@ -2075,16 +2063,9 @@ retry:
 		if !ComparableTo(pkg, args[0], args[1]) {
 			return nil, errors.New("mismatched types")
 		}
-		// update untyped
-		if pkg.cb.rec != nil {
-			b0 := isBasicUntyped(args[0].Type)
-			b1 := isBasicUntyped(args[1].Type)
-			if b0 && !b1 {
-				pkg.cb.rec.UpdateUntyped(args[0], args[1].Type)
-			} else if b1 && !b0 {
-				pkg.cb.rec.UpdateUntyped(args[1], args[0].Type)
-			}
-		}
+
+		pkg.cb.recordUpdateUntypedBinaryOp(op, args, nil)
+
 		ret = &internal.Elem{
 			Val: &ast.BinaryExpr{
 				X: checkParenExpr(args[0].Val), Op: op,
@@ -2668,3 +2649,61 @@ func (p *CodeBuilder) InternalStack() *InternalStack {
 }
 
 // ----------------------------------------------------------------------------
+
+func (p *CodeBuilder) recordUpdateUntypedDefault(e *internal.Elem) {
+	if p.rec == nil {
+		return
+	}
+	if isBasicUntyped(e.Type) {
+		p.rec.UpdateUntyped(e, types.Default(e.Type))
+	}
+}
+
+func (p *CodeBuilder) recordUpdateUntyped(e *internal.Elem, typ types.Type) {
+	if p.rec == nil {
+		return
+	}
+	if isBasicUntyped(e.Type) && !isBasicUntyped(typ) {
+		p.rec.UpdateUntyped(e, typ)
+	}
+}
+
+func (p *CodeBuilder) recordUpdateUntypedParam(e *internal.Elem, param types.Type) {
+	if p.rec == nil {
+		return
+	}
+	if isBasicUntyped(e.Type) {
+		typ := param
+	retry:
+		switch t := typ.(type) {
+		case *unboundFuncParam:
+			typ = t.tBound
+			goto retry
+		}
+		if !isBasicUntyped(typ) {
+			p.rec.UpdateUntyped(e, typ)
+		}
+	}
+}
+
+func (p *CodeBuilder) recordUpdateUntypedBinaryOp(tok token.Token, args []*internal.Elem, tyRet types.Type) {
+	if p.rec == nil {
+		return
+	}
+	kind := binaryOpKinds[tok]
+	if kind == binaryOpCompare {
+		b0, b1 := isBasicUntyped(args[0].Type), isBasicUntyped(args[1].Type)
+		if b0 && !b1 {
+			p.rec.UpdateUntyped(args[0], args[1].Type)
+		} else if !b0 && b1 {
+			p.rec.UpdateUntyped(args[1], args[0].Type)
+		}
+	} else if tyRet != nil && !isBasicUntyped(tyRet) {
+		if isBasicUntyped(args[0].Type) {
+			p.rec.UpdateUntyped(args[0], tyRet)
+		}
+		if kind != binaryOpShift && isBasicUntyped(args[1].Type) {
+			p.rec.UpdateUntyped(args[1], tyRet)
+		}
+	}
+}

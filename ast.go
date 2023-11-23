@@ -481,6 +481,7 @@ func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.
 			if tok == token.QUO && isNormalInt(cb, args[0]) && isNormalInt(cb, args[1]) {
 				tok = token.QUO_ASSIGN // issue #805
 			}
+			cb.recordUpdateUntypedBinaryOp(tok, args, nil)
 			return doBinaryOp(a, tok, b)
 		}
 	}
@@ -714,16 +715,7 @@ retry:
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
 		t.X, t.Y = checkParenExpr(args[0].Val), checkParenExpr(args[1].Val)
-		// update untyped
-		kind := binaryOpKinds[t.Op]
-		if kind != binaryOpCompare && pkg.cb.rec != nil {
-			if isBasicUntyped(args[0].Type) {
-				pkg.cb.rec.UpdateUntyped(args[0], tyRet)
-			}
-			if kind != binaryOpShift && isBasicUntyped(args[1].Type) {
-				pkg.cb.rec.UpdateUntyped(args[1], tyRet)
-			}
-		}
+		pkg.cb.recordUpdateUntypedBinaryOp(t.Op, args, tyRet)
 		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	case *ast.UnaryExpr:
 		t.X = args[0].Val
@@ -751,10 +743,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 		fnVal = &ast.ParenExpr{X: fnVal}
 	}
 	if len(args) == 1 && ConvertibleTo(pkg, args[0].Type, typ) {
-		// update untyped
-		if pkg.cb.rec != nil && isBasicUntyped(args[0].Type) {
-			pkg.cb.rec.UpdateUntyped(args[0], typ)
-		}
+		pkg.cb.recordUpdateUntyped(args[0], typ)
 		if args[0].CVal != nil {
 			if t, ok := typ.(*types.Named); ok {
 				o := t.Obj()
@@ -1041,9 +1030,11 @@ func matchFuncType(
 func matchFuncArgs(
 	pkg *Package, args []*internal.Elem, sig *types.Signature, at interface{}) error {
 	for i, arg := range args {
-		if err := matchType(pkg, arg, getParam(sig, i).Type(), at); err != nil {
+		typ := getParam(sig, i).Type()
+		if err := matchType(pkg, arg, typ, at); err != nil {
 			return err
 		}
+		pkg.cb.recordUpdateUntypedParam(arg, typ)
 	}
 	return nil
 }
@@ -1201,22 +1192,6 @@ func (p *MatchError) Error() string {
 
 // TODO: use matchType to all assignable check
 func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) (r error) {
-	// update untyped
-	if pkg.cb.rec != nil && isBasicUntyped(arg.Type) {
-		defer func() {
-			if r == nil {
-				typ := param
-			retry:
-				switch t := typ.(type) {
-				case *unboundFuncParam:
-					typ = t.tBound
-					goto retry
-				case *types.Basic:
-					pkg.cb.rec.UpdateUntyped(arg, t)
-				}
-			}
-		}()
-	}
 	if debugMatch {
 		cval := ""
 		if arg.CVal != nil {
