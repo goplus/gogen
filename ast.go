@@ -182,6 +182,13 @@ func isBasicUntyped(typ types.Type) bool {
 	return false
 }
 
+func isBasicUntypedKind(typ types.Type) (bool, types.BasicKind) {
+	if t, ok := typ.(*types.Basic); ok {
+		return (t.Info() & types.IsUntyped) != 0, t.Kind()
+	}
+	return false, types.Invalid
+}
+
 func isUntyped(pkg *Package, typ types.Type) bool {
 	switch t := typ.(type) {
 	case *types.Basic:

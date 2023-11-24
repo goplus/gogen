@@ -3444,14 +3444,18 @@ func TestVarBinary(t *testing.T) {
 		Val(1).
 		EndInit(1).
 		NewVarStart(types.Typ[types.Int], "b").
-		Val(&ast.BasicLit{Kind: token.INT, Value: "4"}).
-		Val(pkg.Ref("a")).
-		BinaryOp(token.ADD).
-		EndInit(1)
+		Val(4).Val(pkg.Ref("a")).BinaryOp(token.ADD).
+		EndInit(1).
+		NewVarStart(types.Typ[types.Bool], "c").
+		Val(1).Val(1.0).BinaryOp(token.EQL).EndInit(1).
+		NewVarStart(types.Typ[types.Bool], "d").
+		Val(1.0).Val(1).BinaryOp(token.NEQ).EndInit(1)
 	domTest(t, pkg, `package main
 
 var a int = 1
 var b int = 4 + a
+var c bool = 1 == 1.0
+var d bool = 1.0 != 1
 `)
 }
 

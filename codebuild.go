@@ -2673,7 +2673,7 @@ func (p *CodeBuilder) recordUpdateUntyped(e *internal.Elem, param types.Type) {
 			typ = t.typ
 			goto retry
 		case *types.Basic:
-			if (t.Info() & types.IsUntyped) != 0 {
+			if e.Type == t {
 				return
 			}
 		case *types.Named:
@@ -2695,17 +2695,28 @@ func (p *CodeBuilder) recordUpdateUntypedBinaryOp(tok token.Token, args []*inter
 	}
 	kind := binaryOpKinds[tok]
 	if kind == binaryOpCompare {
-		b0, b1 := isBasicUntyped(args[0].Type), isBasicUntyped(args[1].Type)
+		b0, k0 := isBasicUntypedKind(args[0].Type)
+		b1, k1 := isBasicUntypedKind(args[1].Type)
 		if b0 && !b1 {
 			p.rec.UpdateUntyped(args[0], args[1].Type)
 		} else if !b0 && b1 {
 			p.rec.UpdateUntyped(args[1], args[0].Type)
+		} else if b0 && b1 && k0 != k1 {
+			// UntypedInt
+			// UntypedRune
+			// UntypedFloat
+			// UntypedComplex
+			if k0 < k1 {
+				p.rec.UpdateUntyped(args[0], args[1].Type)
+			} else {
+				p.rec.UpdateUntyped(args[1], args[0].Type)
+			}
 		}
-	} else if tyRet != nil && !isBasicUntyped(tyRet) {
-		if isBasicUntyped(args[0].Type) {
+	} else if tyRet != nil {
+		if isBasicUntyped(args[0].Type) && tyRet != args[0].Type {
 			p.rec.UpdateUntyped(args[0], tyRet)
 		}
-		if kind != binaryOpShift && isBasicUntyped(args[1].Type) {
+		if kind != binaryOpShift && tyRet != args[1].Type {
 			p.rec.UpdateUntyped(args[1], tyRet)
 		}
 	}
