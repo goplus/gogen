@@ -1194,7 +1194,7 @@ func (p *MatchError) Error() string {
 }
 
 // TODO: use matchType to all assignable check
-func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) (r error) {
+func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) error {
 	if debugMatch {
 		cval := ""
 		if arg.CVal != nil {
