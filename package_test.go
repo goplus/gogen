@@ -3455,4 +3455,20 @@ var b int = 4 + a
 `)
 }
 
+func TestVarEmptyInterface(t *testing.T) {
+	pkg := newMainPackage()
+	named := pkg.NewType("T").InitType(pkg, gox.TyEmptyInterface)
+	pkg.CB().NewVarStart(named, "a").Val(1).EndInit(1).
+		NewVarStart(gox.TyEmptyInterface, "b").Val(2).EndInit(1)
+	domTest(t, pkg, `package main
+
+type T interface {
+}
+
+var a T = 1
+var b interface {
+} = 2
+`)
+}
+
 // ----------------------------------------------------------------------------
