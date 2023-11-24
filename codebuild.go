@@ -2006,7 +2006,7 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 				lhsType = &refType{typ: bfr.typ}
 			}
 			checkAssignType(p.pkg, lhsType, args[lhs+i])
-			p.recordUpdateUntypedParam(args[lhs+i], lhsType)
+			p.recordUpdateUntyped(args[lhs+i], lhsType)
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
 			if bfAssign {
@@ -2661,13 +2661,7 @@ func (p *CodeBuilder) InternalStack() *InternalStack {
 
 // ----------------------------------------------------------------------------
 
-func (p *CodeBuilder) recordUpdateUntyped(e *internal.Elem, typ types.Type) {
-	if p.rec != nil && isBasicUntyped(e.Type) && !isBasicUntyped(typ) {
-		p.rec.UpdateUntyped(e, typ)
-	}
-}
-
-func (p *CodeBuilder) recordUpdateUntypedParam(e *internal.Elem, param types.Type) {
+func (p *CodeBuilder) recordUpdateUntyped(e *internal.Elem, param types.Type) {
 	if p.rec != nil && isBasicUntyped(e.Type) {
 		typ := param
 	retry:
@@ -2677,10 +2671,21 @@ func (p *CodeBuilder) recordUpdateUntypedParam(e *internal.Elem, param types.Typ
 			goto retry
 		case *refType:
 			typ = t.typ
+			goto retry
+		case *types.Basic:
+			if (t.Info() & types.IsUntyped) != 0 {
+				return
+			}
+		case *types.Named:
+			if t.Underlying() == TyEmptyInterface {
+				typ = types.Default(e.Type)
+			}
+		case *types.Interface:
+			if t == TyEmptyInterface {
+				typ = types.Default(e.Type)
+			}
 		}
-		if !isBasicUntyped(typ) {
-			p.rec.UpdateUntyped(e, typ)
-		}
+		p.rec.UpdateUntyped(e, typ)
 	}
 }
 

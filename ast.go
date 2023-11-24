@@ -1034,7 +1034,7 @@ func matchFuncArgs(
 		if err := matchType(pkg, arg, typ, at); err != nil {
 			return err
 		}
-		pkg.cb.recordUpdateUntypedParam(arg, typ)
+		pkg.cb.recordUpdateUntyped(arg, typ)
 	}
 	return nil
 }
@@ -1076,7 +1076,7 @@ func checkFuncResults(pkg *Package, rets []*internal.Elem, results *types.Tuple,
 			if err := matchType(pkg, rets[i], typ, "return argument"); err != nil {
 				panic(err)
 			}
-			pkg.cb.recordUpdateUntypedParam(rets[i], typ)
+			pkg.cb.recordUpdateUntyped(rets[i], typ)
 		}
 		return
 	}
@@ -1114,6 +1114,7 @@ func matchElemType(pkg *Package, vals []*internal.Elem, elt types.Type, at inter
 		if err := matchType(pkg, val, elt, at); err != nil {
 			return err
 		}
+		pkg.cb.recordUpdateUntyped(val, elt)
 	}
 	return nil
 }
