@@ -161,7 +161,7 @@ func (p *BitFields) FieldRef(cb *CodeBuilder, t *types.Named, name string, src a
 		if v.Name == name {
 			stk := cb.stk
 			o := t.Underlying().(*types.Struct)
-			if cb.fieldRef(stk.Get(-1).Val, o, v.FldName) {
+			if cb.fieldRef(stk.Get(-1).Val, o, v.FldName, src) {
 				fld := stk.Get(-1)
 				tfld := fld.Type.(*refType).typ.(*types.Basic)
 				stk.Ret(1, &internal.Elem{

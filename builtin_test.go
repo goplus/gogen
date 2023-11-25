@@ -21,6 +21,7 @@ import (
 	"go/types"
 	"log"
 	"math/big"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -587,7 +588,7 @@ func TestStructFieldType(t *testing.T) {
 	}
 	struc := types.NewStruct(flds, nil)
 	cb.Val(nil)
-	if !cb.fieldRef(nil, struc, "val") {
+	if !cb.fieldRef(nil, struc, "val", nil) {
 		t.Fatal("structFieldType failed")
 	}
 }
@@ -605,7 +606,7 @@ func TestStructFieldType2(t *testing.T) {
 	}
 	struc := types.NewStruct(flds, nil)
 	cb.Val(nil)
-	if !cb.fieldRef(nil, struc, "val") {
+	if !cb.fieldRef(nil, struc, "val", nil) {
 		t.Fatal("structFieldType failed")
 	}
 }
@@ -1047,6 +1048,21 @@ func TestImportPkg(t *testing.T) {
 	if f.importPkgs["github.com/goplus/gox/internal/bar"] != a {
 		t.Fatal("TestImportPkg failed")
 	}
+}
+
+func TestImportError(t *testing.T) {
+	defer func() {
+		err := recover()
+		if err == nil {
+			t.Fatal("no error")
+		}
+		if !strings.HasPrefix(err.(error).Error(), "package bad is not in") {
+			t.Fatal("bad import error", err)
+		}
+	}()
+	pkg := NewPackage("github.com/goplus/gox", "gox", gblConf)
+	f := &File{importPkgs: make(map[string]*PkgRef)}
+	f.importPkg(pkg, "bad", nil)
 }
 
 func TestForRangeStmtPanic(t *testing.T) {
