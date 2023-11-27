@@ -222,7 +222,7 @@ func NewContext() *Context {
 // InitGopPkg initializes a Go+ packages.
 func (p *Context) InitGopPkg(importer types.Importer, pkgImp *types.Package) {
 	pkgPath := pkgImp.Path()
-	if stdPkg(pkgPath) || p.chkGopImports[pkgPath] {
+	if stdpkg[pkgPath] || p.chkGopImports[pkgPath] {
 		return
 	}
 	if !pkgImp.Complete() {
@@ -233,10 +233,6 @@ func (p *Context) InitGopPkg(importer types.Importer, pkgImp *types.Package) {
 	for _, imp := range pkgImp.Imports() {
 		p.InitGopPkg(importer, imp)
 	}
-}
-
-func stdPkg(pkgPath string) bool {
-	return strings.IndexByte(pkgPath, '.') < 0
 }
 
 // ----------------------------------------------------------------------------
