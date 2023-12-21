@@ -279,7 +279,7 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 			return toObject(pkg, v, src)
 		}
 	case *types.Builtin:
-		if o := pkg.builtin.Scope().Lookup(v.Name()); o != nil {
+		if o := lookupName(pkg, pkg.builtin, v.Name()); o != nil {
 			return toObject(pkg, o, src)
 		}
 		log.Panicln("TODO: unsupported builtin -", v.Name())
@@ -763,7 +763,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 			tname := o.Name()
 			scope := at.Scope()
 			name := tname + "_Cast"
-			if cast := scope.Lookup(name); cast != nil {
+			if cast := lookupName(pkg, at, name); cast != nil {
 				if len(args) == 1 && args[0].CVal != nil {
 					if checkUntypedOverflows(pkg, scope, tname, args[0]) {
 						src, pos := pkg.cb.loadExpr(args[0].Src)
@@ -787,7 +787,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 		arg := args[0]
 		switch t := arg.Type.(type) {
 		case *types.Named:
-			if m := lookupMethod(t, "Gop_Rcast"); m != nil {
+			if m := lookupMethod(pkg, t, "Gop_Rcast"); m != nil {
 				switch mt := m.Type().(type) {
 				case *types.Signature:
 					if funcs, ok := CheckOverloadMethod(mt); ok {

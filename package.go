@@ -169,9 +169,11 @@ func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
 			}
 			panic(e)
 		} else {
-			this.ctx.InitGopPkg(this.imp, pkgImp)
+			this.ctx.InitGopPkg(this, this.imp, pkgImp)
 		}
 		pkgImport = &PkgRef{Types: pkgImp}
+		pkgImport.overloadFuncs = this.overloadFuncs
+		pkgImport.overloadMethods = this.overloadMethods
 		p.importPkgs[pkgPath] = pkgImport
 		p.allPkgPaths = append(p.allPkgPaths, pkgPath)
 	}
@@ -329,6 +331,9 @@ type Package struct {
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
 	allowRedecl    bool // for c2go
 	isGopPkg       bool
+
+	overloadFuncs   map[*types.Package][]*types.Func
+	overloadMethods map[types.Type][]*types.Func
 }
 
 const (
@@ -371,6 +376,8 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if pkg.Types == nil {
 		pkg.Types = types.NewPackage(pkgPath, name)
 	}
+	pkg.overloadFuncs = make(map[*types.Package][]*types.Func)
+	pkg.overloadMethods = make(map[types.Type][]*types.Func)
 	pkg.builtin = newBuiltin(pkg, conf)
 	pkg.implicitCast = conf.CanImplicitCast
 	pkg.utBigInt = conf.UntypedBigInt
@@ -378,6 +385,17 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	pkg.utBigFlt = conf.UntypedBigFloat
 	pkg.cb.init(pkg)
 	return pkg
+}
+
+func (p *Package) FindOverload(pkg *types.Package, name string) types.Object {
+	if funcs, ok := p.overloadFuncs[pkg]; ok {
+		for _, fn := range funcs {
+			if fn.Name() == name {
+				return fn
+			}
+		}
+	}
+	return nil
 }
 
 func (p *Package) setDoc(o types.Object, doc *ast.CommentGroup) {

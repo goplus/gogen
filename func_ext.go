@@ -53,12 +53,6 @@ func newFuncEx(pos token.Pos, pkg *types.Package, name string, t TyFuncEx) *type
 	return types.NewFunc(pos, pkg, name, sig)
 }
 
-func newMethodEx(typ *types.Named, pos token.Pos, pkg *types.Package, name string, t TyFuncEx) *types.Func {
-	ofn := newFuncEx(pos, pkg, name, t)
-	typ.AddMethod(ofn)
-	return ofn
-}
-
 // ----------------------------------------------------------------------------
 
 // TyOverloadFunc: overload function type
@@ -95,7 +89,7 @@ func (p *TyOverloadMethod) String() string         { return "TyOverloadMethod" }
 func (p *TyOverloadMethod) funcEx()                {}
 
 func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, methods ...types.Object) *types.Func {
-	return newMethodEx(typ, pos, pkg, name, &TyOverloadMethod{methods})
+	return newFuncEx(pos, pkg, name, &TyOverloadMethod{methods})
 }
 
 func CheckOverloadMethod(sig *types.Signature) (methods []types.Object, ok bool) {
@@ -119,7 +113,7 @@ func (p *TyTemplateRecvMethod) funcEx()                {}
 
 // NewTemplateRecvMethod - https://github.com/goplus/gop/issues/811
 func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, fn types.Object) *types.Func {
-	return newMethodEx(typ, pos, pkg, name, &TyTemplateRecvMethod{fn})
+	return newFuncEx(pos, pkg, name, &TyTemplateRecvMethod{fn})
 }
 
 // ----------------------------------------------------------------------------

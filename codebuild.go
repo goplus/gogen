@@ -1588,6 +1588,30 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 	return u
 }
 
+type proxyList struct {
+	methodList
+	methods []*types.Func
+	numOrg  int
+	numMax  int
+}
+
+func (p *proxyList) NumMethods() int {
+	return p.numMax
+}
+func (p *proxyList) Method(i int) *types.Func {
+	if i < p.numOrg {
+		return p.methodList.Method(i)
+	}
+	return p.methods[i-p.numOrg]
+}
+
+func ExtMethodList(pkg *Package, typ methodList) methodList {
+	if m, ok := pkg.overloadMethods[typ]; ok {
+		return &proxyList{typ, m, typ.NumMethods(), typ.NumMethods() + len(m)}
+	}
+	return typ
+}
+
 func (p *CodeBuilder) findMember(
 	typ types.Type, name, aliasName string, flag MemberFlag, arg *Element, srcExpr ast.Node) MemberKind {
 	var named *types.Named
@@ -1646,6 +1670,7 @@ retry:
 }
 
 type methodList interface {
+	types.Type
 	NumMethods() int
 	Method(i int) *types.Func
 }
@@ -1673,6 +1698,7 @@ func (p *CodeBuilder) allowAccess(pkg *types.Package, name string) bool {
 
 func (p *CodeBuilder) method(
 	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) (kind MemberKind) {
+	o = ExtMethodList(p.pkg, o)
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		v := method.Name()
@@ -1799,7 +1825,7 @@ func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
 	pkg := p.pkg
 	arg := p.stk.Pop()
 	if t, ok := arg.Type.(*refType).typ.(*types.Named); ok {
-		op := lookupMethod(t, name)
+		op := lookupMethod(pkg, t, name)
 		if op != nil {
 			fn := &internal.Elem{
 				Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
@@ -1813,7 +1839,7 @@ func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
 			return p
 		}
 	}
-	fn := pkg.builtin.Scope().Lookup(name)
+	fn := lookupName(pkg, pkg.builtin, name)
 	if fn == nil {
 		panic("TODO: operator not matched")
 	}
@@ -1870,7 +1896,7 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 		log.Println("AssignOp", tok, name)
 	}
 	if t, ok := args[0].Type.(*refType).typ.(*types.Named); ok {
-		op := lookupMethod(t, name)
+		op := lookupMethod(pkg, t, name)
 		if op != nil {
 			fn := &internal.Elem{
 				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
@@ -1883,7 +1909,7 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 			return &ast.ExprStmt{X: ret.Val}
 		}
 	}
-	op := pkg.builtin.Scope().Lookup(name)
+	op := lookupName(pkg, pkg.builtin, name)
 	if op == nil {
 		panic("TODO: operator not matched")
 	}
@@ -2018,9 +2044,10 @@ func hasBfRefType(args []*internal.Elem) bool {
 	return false
 }
 
-func lookupMethod(t *types.Named, name string) types.Object {
-	for i, n := 0, t.NumMethods(); i < n; i++ {
-		m := t.Method(i)
+func lookupMethod(pkg *Package, t *types.Named, name string) types.Object {
+	list := ExtMethodList(pkg, t)
+	for i, n := 0, list.NumMethods(); i < n; i++ {
+		m := list.Method(i)
 		if m.Name() == name {
 			return m
 		}
@@ -2035,7 +2062,7 @@ func callOpFunc(cb *CodeBuilder, op token.Token, tokenOps []string, args []*inte
 retry:
 	switch t := typ.(type) {
 	case *types.Named:
-		lm := lookupMethod(t, name)
+		lm := lookupMethod(pkg, t, name)
 		if lm != nil {
 			fn := &internal.Elem{
 				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
@@ -2064,7 +2091,7 @@ retry:
 		}
 		return
 	}
-	lm := pkg.builtin.Scope().Lookup(name)
+	lm := lookupName(pkg, pkg.builtin, name)
 	if lm == nil {
 		panic("TODO: operator not matched")
 	}

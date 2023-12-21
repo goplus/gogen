@@ -248,7 +248,7 @@ func TestImportGopPkg(t *testing.T) {
 	if nodeSet == nil {
 		t.Fatal("TestImportGopPkg: NodeSet not found")
 	}
-	typ := nodeSet.(*types.TypeName).Type().(*types.Named)
+	typ := gox.ExtMethodList(pkg, nodeSet.Type().(*types.Named))
 	for i, n := 0, typ.NumMethods(); i < n; i++ {
 		m := typ.Method(i)
 		if m.Name() == "Attr" {
