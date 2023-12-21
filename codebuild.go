@@ -828,6 +828,8 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int, src ...ast.Node) *CodeBu
 					pos, "cannot use %s (type %v) as type %v in map value", src, args[i+1].Type, val)
 			}
 		}
+		p.recordUpdateUntyped(args[i], key)
+		p.recordUpdateUntyped(args[i+1], val)
 	}
 	p.stk.Ret(arity, &internal.Elem{
 		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
@@ -876,6 +878,7 @@ func (p *CodeBuilder) indexElemExpr(args []*internal.Elem, i int) ast.Expr {
 		return args[i+1].Val
 	}
 	p.toIntVal(args[i], "index which must be non-negative integer constant")
+	p.recordUpdateUntyped(args[i], types.Typ[types.Int])
 	return &ast.KeyValueExpr{Key: key, Value: args[i+1].Val}
 }
 
@@ -921,6 +924,7 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 				p.panicCodeErrorf(
 					pos, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
 			}
+			p.recordUpdateUntyped(arg, val)
 			elts[i>>1] = p.indexElemExpr(args, i)
 		}
 	} else {
@@ -956,6 +960,7 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 						pos, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)
 				}
 			}
+			p.recordUpdateUntyped(arg, val)
 		}
 	}
 	p.stk.Ret(arity, &internal.Elem{
@@ -1008,6 +1013,7 @@ func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...
 				p.panicCodeErrorf(
 					pos, "cannot use %s (type %v) as type %v in array literal", src, args[i+1].Type, val)
 			}
+			p.recordUpdateUntyped(args[i+1], val)
 			elts[i>>1] = p.indexElemExpr(args, i)
 		}
 	} else {
@@ -1028,6 +1034,7 @@ func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...
 				p.panicCodeErrorf(
 					pos, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
 			}
+			p.recordUpdateUntyped(arg, val)
 		}
 	}
 	p.stk.Ret(arity, &internal.Elem{
@@ -1075,6 +1082,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 					pos, "cannot use %s (type %v) as type %v in value of field %s",
 					src, args[i+1].Type, eltTy, eltName)
 			}
+			pkg.cb.recordUpdateUntyped(args[i+1], eltTy)
 			elts[i>>1] = &ast.KeyValueExpr{Key: ident(eltName), Value: args[i+1].Val}
 		}
 	} else if arity != n {
@@ -1097,6 +1105,7 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 					pos, "cannot use %s (type %v) as type %v in value of field %s",
 					src, arg.Type, eltTy, t.Field(i).Name())
 			}
+			pkg.cb.recordUpdateUntyped(arg, eltTy)
 		}
 	}
 	p.stk.Ret(arity, &internal.Elem{
@@ -1145,6 +1154,13 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	if slice3 {
 		exprMax = args[3].Val
 	}
+
+	p.recordUpdateUntyped(args[1], tyInt)
+	p.recordUpdateUntyped(args[2], tyInt)
+	if slice3 {
+		p.recordUpdateUntyped(args[3], tyInt)
+	}
+
 	// TODO: check type
 	elem := &internal.Elem{
 		Val: &ast.SliceExpr{
@@ -1185,6 +1201,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 	} else { // elem = a[key]
 		tyRet = typs[1]
 	}
+	p.recordUpdateUntyped(args[1], tyInt)
 	elem := &internal.Elem{
 		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val}, Type: tyRet, Src: srcExpr,
 	}
@@ -1203,6 +1220,7 @@ func (p *CodeBuilder) IndexRef(nidx int, src ...ast.Node) *CodeBuilder {
 	}
 	args := p.stk.GetArgs(2)
 	typ := args[0].Type
+	p.recordUpdateUntyped(args[1], tyInt)
 	elemRef := &internal.Elem{
 		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
 		Src: getSrc(src),
@@ -1988,6 +2006,7 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 				lhsType = &refType{typ: bfr.typ}
 			}
 			checkAssignType(p.pkg, lhsType, args[lhs+i])
+			p.recordUpdateUntyped(args[lhs+i], lhsType)
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
 			if bfAssign {
@@ -2054,6 +2073,7 @@ retry:
 		if !ComparableTo(pkg, args[0], args[1]) {
 			return nil, errors.New("mismatched types")
 		}
+		cb.recordUpdateUntypedBinaryOp(op, args, nil)
 		ret = &internal.Elem{
 			Val: &ast.BinaryExpr{
 				X: checkParenExpr(args[0].Val), Op: op,
@@ -2169,6 +2189,9 @@ func (p *CodeBuilder) Send() *CodeBuilder {
 	val := p.stk.Pop()
 	ch := p.stk.Pop()
 	// TODO: check types
+	if typ, ok := ch.Type.(*types.Chan); ok {
+		p.recordUpdateUntyped(val, typ.Elem())
+	}
 	p.emitStmt(&ast.SendStmt{Chan: ch.Val, Value: val.Val})
 	return p
 }
@@ -2637,3 +2660,64 @@ func (p *CodeBuilder) InternalStack() *InternalStack {
 }
 
 // ----------------------------------------------------------------------------
+
+func (p *CodeBuilder) recordUpdateUntyped(e *internal.Elem, param types.Type) {
+	if p.rec != nil && isBasicUntyped(e.Type) {
+		typ := param
+	retry:
+		switch t := typ.(type) {
+		case *unboundFuncParam:
+			typ = t.tBound
+			goto retry
+		case *refType:
+			typ = t.typ
+			goto retry
+		case *types.Basic:
+			if e.Type == t {
+				return
+			}
+		case *types.Named:
+			if t.Underlying() == TyEmptyInterface {
+				typ = types.Default(e.Type)
+			}
+		case *types.Interface:
+			if t == TyEmptyInterface {
+				typ = types.Default(e.Type)
+			}
+		}
+		p.rec.UpdateUntyped(e, typ)
+	}
+}
+
+func (p *CodeBuilder) recordUpdateUntypedBinaryOp(tok token.Token, args []*internal.Elem, tyRet types.Type) {
+	if p.rec == nil {
+		return
+	}
+	kind := binaryOpKinds[tok]
+	if kind == binaryOpCompare {
+		b0, k0 := isBasicUntypedKind(args[0].Type)
+		b1, k1 := isBasicUntypedKind(args[1].Type)
+		if b0 && !b1 {
+			p.rec.UpdateUntyped(args[0], args[1].Type)
+		} else if !b0 && b1 {
+			p.rec.UpdateUntyped(args[1], args[0].Type)
+		} else if b0 && b1 && k0 != k1 {
+			// UntypedInt
+			// UntypedRune
+			// UntypedFloat
+			// UntypedComplex
+			if k0 < k1 {
+				p.rec.UpdateUntyped(args[0], args[1].Type)
+			} else {
+				p.rec.UpdateUntyped(args[1], args[0].Type)
+			}
+		}
+	} else if tyRet != nil {
+		if isBasicUntyped(args[0].Type) && tyRet != args[0].Type {
+			p.rec.UpdateUntyped(args[0], tyRet)
+		}
+		if kind != binaryOpShift && tyRet != args[1].Type {
+			p.rec.UpdateUntyped(args[1], tyRet)
+		}
+	}
+}

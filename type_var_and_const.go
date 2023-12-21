@@ -328,6 +328,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			if err := matchType(pkg, ret, typ, "assignment"); err != nil {
 				panic(err)
 			}
+			cb.recordUpdateUntyped(ret, typ)
 			if values != nil { // ret.Val may be changed
 				values[i] = ret.Val
 			}
@@ -363,6 +364,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			if values != nil {
 				values[i] = parg.Val
 			}
+			pkg.cb.recordUpdateUntyped(rets[i], retType)
 			if old := p.scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {
 					oldpos := cb.fset.Position(old.Pos())

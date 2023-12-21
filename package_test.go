@@ -52,6 +52,8 @@ type eventRecorder struct{}
 
 func (p eventRecorder) Member(id ast.Node, obj types.Object) {
 }
+func (p eventRecorder) UpdateUntyped(e *gox.Element, typ types.Type) {
+}
 
 func newMainPackage(
 	implicitCast ...func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool) *gox.Package {
@@ -3433,6 +3435,43 @@ func main() {
 	var m foo2.M
 	m.SetValue()
 }
+`)
+}
+
+func TestVarBinary(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.CB().NewVarStart(types.Typ[types.Int], "a").
+		Val(1).
+		EndInit(1).
+		NewVarStart(types.Typ[types.Int], "b").
+		Val(4).Val(pkg.Ref("a")).BinaryOp(token.ADD).
+		EndInit(1).
+		NewVarStart(types.Typ[types.Bool], "c").
+		Val(1).Val(1.0).BinaryOp(token.EQL).EndInit(1).
+		NewVarStart(types.Typ[types.Bool], "d").
+		Val(1.0).Val(1).BinaryOp(token.NEQ).EndInit(1)
+	domTest(t, pkg, `package main
+
+var a int = 1
+var b int = 4 + a
+var c bool = 1 == 1.0
+var d bool = 1.0 != 1
+`)
+}
+
+func TestVarEmptyInterface(t *testing.T) {
+	pkg := newMainPackage()
+	named := pkg.NewType("T").InitType(pkg, gox.TyEmptyInterface)
+	pkg.CB().NewVarStart(named, "a").Val(1).EndInit(1).
+		NewVarStart(gox.TyEmptyInterface, "b").Val(2).EndInit(1)
+	domTest(t, pkg, `package main
+
+type T interface {
+}
+
+var a T = 1
+var b interface {
+} = 2
 `)
 }
 

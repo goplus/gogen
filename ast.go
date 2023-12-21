@@ -175,6 +175,20 @@ func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
 	return &ast.Ident{Name: t.Name()}
 }
 
+func isBasicUntyped(typ types.Type) bool {
+	if t, ok := typ.(*types.Basic); ok {
+		return (t.Info() & types.IsUntyped) != 0
+	}
+	return false
+}
+
+func isBasicUntypedKind(typ types.Type) (bool, types.BasicKind) {
+	if t, ok := typ.(*types.Basic); ok {
+		return (t.Info() & types.IsUntyped) != 0, t.Kind()
+	}
+	return false, types.Invalid
+}
+
 func isUntyped(pkg *Package, typ types.Type) bool {
 	switch t := typ.(type) {
 	case *types.Basic:
@@ -682,6 +696,7 @@ retry:
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
 			cval = binaryOp(&pkg.cb, t.tok(), args)
+			pkg.cb.recordUpdateUntypedBinaryOp(t.tok(), args, nil)
 		} else if t.hasApproxType() {
 			flags |= instrFlagApproxType
 		}
@@ -707,6 +722,7 @@ retry:
 	switch t := fn.Val.(type) {
 	case *ast.BinaryExpr:
 		t.X, t.Y = checkParenExpr(args[0].Val), checkParenExpr(args[1].Val)
+		pkg.cb.recordUpdateUntypedBinaryOp(t.Op, args, tyRet)
 		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	case *ast.UnaryExpr:
 		t.X = args[0].Val
@@ -734,6 +750,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 		fnVal = &ast.ParenExpr{X: fnVal}
 	}
 	if len(args) == 1 && ConvertibleTo(pkg, args[0].Type, typ) {
+		pkg.cb.recordUpdateUntyped(args[0], typ)
 		if args[0].CVal != nil {
 			if t, ok := typ.(*types.Named); ok {
 				o := t.Obj()
@@ -1020,9 +1037,11 @@ func matchFuncType(
 func matchFuncArgs(
 	pkg *Package, args []*internal.Elem, sig *types.Signature, at interface{}) error {
 	for i, arg := range args {
-		if err := matchType(pkg, arg, getParam(sig, i).Type(), at); err != nil {
+		typ := getParam(sig, i).Type()
+		if err := matchType(pkg, arg, typ, at); err != nil {
 			return err
 		}
+		pkg.cb.recordUpdateUntyped(arg, typ)
 	}
 	return nil
 }
@@ -1060,9 +1079,11 @@ func checkFuncResults(pkg *Package, rets []*internal.Elem, results *types.Tuple,
 	}
 	if n == need {
 		for i := 0; i < need; i++ {
-			if err := matchType(pkg, rets[i], results.At(i).Type(), "return argument"); err != nil {
+			typ := results.At(i).Type()
+			if err := matchType(pkg, rets[i], typ, "return argument"); err != nil {
 				panic(err)
 			}
+			pkg.cb.recordUpdateUntyped(rets[i], typ)
 		}
 		return
 	}
@@ -1100,6 +1121,7 @@ func matchElemType(pkg *Package, vals []*internal.Elem, elt types.Type, at inter
 		if err := matchType(pkg, val, elt, at); err != nil {
 			return err
 		}
+		pkg.cb.recordUpdateUntyped(val, elt)
 	}
 	return nil
 }

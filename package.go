@@ -73,6 +73,7 @@ func fatal(msg string) {
 type Recorder interface {
 	// Member maps identifiers to the objects they denote.
 	Member(id ast.Node, obj types.Object)
+	UpdateUntyped(e *Element, typ types.Type)
 }
 
 // ----------------------------------------------------------------------------
