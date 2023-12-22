@@ -73,6 +73,8 @@ func fatal(msg string) {
 type Recorder interface {
 	// Member maps identifiers to the objects they denote.
 	Member(id ast.Node, obj types.Object)
+	// Call maps func to the the objects they denote.
+	Call(fn ast.Node, obj types.Object)
 }
 
 // ----------------------------------------------------------------------------

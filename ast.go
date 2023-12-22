@@ -619,6 +619,9 @@ retry:
 						if ret.CVal == nil && isUntyped(pkg, ret.Type) {
 							ret.CVal = builtinCall(fn, args)
 						}
+						if pkg.cb.rec != nil {
+							pkg.cb.rec.Call(fn.Src, o)
+						}
 						return
 					}
 					restoreArgs(args, backup)
@@ -636,6 +639,9 @@ retry:
 					}
 					if ret, err = matchFuncCall(pkg, &mfn, args, flags); err == nil {
 						fn.Val, fn.Type = mfn.Val, mfn.Type
+						if pkg.cb.rec != nil {
+							pkg.cb.rec.Call(fn.Src, o)
+						}
 						return
 					}
 					restoreArgs(args, backup)
@@ -658,6 +664,9 @@ retry:
 								targs[j+1] = arg
 							}
 							if ret, err = matchFuncCall(pkg, tfn, targs, flags); err == nil {
+								if pkg.cb.rec != nil {
+									pkg.cb.rec.Call(fn.Src, ft.Func)
+								}
 								return
 							}
 							if isPointer(targ0.Type) {
