@@ -37,24 +37,39 @@ func IsFunc(t types.Type) bool {
 
 // CheckFuncEx returns if specified function is a FuncEx or not.
 func CheckFuncEx(sig *types.Signature) (t TyFuncEx, ok bool) {
-	if recv := sig.Recv(); recv != nil {
-		t, ok = recv.Type().(TyFuncEx)
+	if sig.Params().Len() == 1 && sig.Variadic() {
+		if typ, ok := sig.Params().At(0).Type().(*types.Slice); ok {
+			if typ, ok := typ.Elem().(*types.Interface); ok && typ.NumMethods() == 1 {
+				if sig, ok := typ.Method(0).Type().(*types.Signature); ok {
+					if recv := sig.Recv(); recv != nil {
+						t, ok = recv.Type().(TyFuncEx)
+						return t, ok
+					}
+				}
+			}
+		}
 	}
 	return
 }
 
-func sigFuncEx(pkg *types.Package, t TyFuncEx) *types.Signature {
-	recv := types.NewParam(token.NoPos, pkg, "", t)
-	return types.NewSignatureType(recv, nil, nil, nil, nil, false)
+// sigFuncEx return func type (args ...interface{__gop_overload__()})
+func sigFuncEx(pkg *types.Package, recv *types.Var, t TyFuncEx) *types.Signature {
+	sig := types.NewSignature(types.NewVar(token.NoPos, nil, "recv", t), nil, nil, false)
+	typ := types.NewInterfaceType([]*types.Func{
+		types.NewFunc(token.NoPos, nil, "__gop_overload__", sig),
+	}, nil)
+	param := types.NewVar(token.NoPos, pkg, "args", types.NewSlice(typ))
+	return types.NewSignature(recv, types.NewTuple(param), nil, true)
 }
 
-func newFuncEx(pos token.Pos, pkg *types.Package, name string, t TyFuncEx) *types.Func {
-	sig := sigFuncEx(pkg, t)
+func newFuncEx(pos token.Pos, pkg *types.Package, recv *types.Var, name string, t TyFuncEx) *types.Func {
+	sig := sigFuncEx(pkg, recv, t)
 	return types.NewFunc(pos, pkg, name, sig)
 }
 
 func newMethodEx(typ *types.Named, pos token.Pos, pkg *types.Package, name string, t TyFuncEx) *types.Func {
-	ofn := newFuncEx(pos, pkg, name, t)
+	recv := types.NewVar(token.NoPos, pkg, "recv", typ)
+	ofn := newFuncEx(pos, pkg, recv, name, t)
 	typ.AddMethod(ofn)
 	return ofn
 }
@@ -71,7 +86,7 @@ func (p *TyOverloadFunc) String() string         { return "TyOverloadFunc" }
 func (p *TyOverloadFunc) funcEx()                {}
 
 func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
-	return newFuncEx(pos, pkg, name, &TyOverloadFunc{funcs})
+	return newFuncEx(pos, pkg, nil, name, &TyOverloadFunc{funcs})
 }
 
 func CheckOverloadFunc(sig *types.Signature) (funcs []types.Object, ok bool) {

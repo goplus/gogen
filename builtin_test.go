@@ -501,8 +501,8 @@ func typString(pkg *Package, t types.Type) string {
 func TestMethodAutoProperty(t *testing.T) {
 	typs := []types.Type{
 		tyInt,
-		sigFuncEx(nil, &TyOverloadFunc{}),
-		sigFuncEx(nil, &TyTemplateRecvMethod{types.NewParam(0, nil, "", tyInt)}),
+		sigFuncEx(nil, nil, &TyOverloadFunc{}),
+		sigFuncEx(nil, nil, &TyTemplateRecvMethod{types.NewParam(0, nil, "", tyInt)}),
 	}
 	for _, typ := range typs {
 		if methodHasAutoProperty(typ, 0) {
@@ -512,7 +512,7 @@ func TestMethodAutoProperty(t *testing.T) {
 }
 
 func TestIsType(t *testing.T) {
-	if isType(sigFuncEx(nil, &TyOverloadFunc{})) {
+	if isType(sigFuncEx(nil, nil, &TyOverloadFunc{})) {
 		t.Fatal("TestIsType: isType(TyOverloadFunc)")
 	}
 }
@@ -889,7 +889,7 @@ func TestCheckSignature(t *testing.T) {
 	arg := types.NewParam(token.NoPos, pkg, "", sig)
 	sig2 := types.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg), nil, false)
 	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
-	if CheckSignature(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: o}), 0, 0) == nil {
+	if CheckSignature(sigFuncEx(pkg, nil, &TyTemplateRecvMethod{Func: o}), 0, 0) == nil {
 		t.Fatal("TestCheckSignature failed: TemplateRecvMethod CheckSignature == nil")
 	}
 
@@ -901,7 +901,7 @@ func TestCheckSignature(t *testing.T) {
 		t.Fatal("func bar has autoprop?")
 	}
 
-	if CheckSignature(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: of}), 0, 0) == nil {
+	if CheckSignature(sigFuncEx(pkg, nil, &TyTemplateRecvMethod{Func: of}), 0, 0) == nil {
 		t.Fatal("TestCheckSignature failed: TemplateRecvMethod OverloadFunc CheckSignature == nil")
 	}
 
@@ -931,7 +931,7 @@ func TestCheckSignatures(t *testing.T) {
 	arg := types.NewParam(token.NoPos, pkg, "", sig)
 	sig2 := types.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg), nil, false)
 	o := types.NewFunc(token.NoPos, pkg, "bar", sig2)
-	if CheckSignatures(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: o}), 0, 0) == nil {
+	if CheckSignatures(sigFuncEx(pkg, nil, &TyTemplateRecvMethod{Func: o}), 0, 0) == nil {
 		t.Fatal("TestCheckSignatures failed: TemplateRecvMethod CheckSignatures == nil")
 	}
 	sig3 := types.NewSignatureType(nil, nil, nil, types.NewTuple(arg, arg, arg), nil, false)
@@ -945,7 +945,7 @@ func TestCheckSignatures(t *testing.T) {
 		t.Fatal("func bar has autoprop?")
 	}
 
-	if CheckSignatures(sigFuncEx(pkg, &TyTemplateRecvMethod{Func: of}), 0, 0) == nil {
+	if CheckSignatures(sigFuncEx(pkg, nil, &TyTemplateRecvMethod{Func: of}), 0, 0) == nil {
 		t.Fatal("TestCheckSignatures failed: TemplateRecvMethod OverloadFunc CheckSignatures == nil")
 	}
 
