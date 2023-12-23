@@ -36,20 +36,20 @@ func IsFunc(t types.Type) bool {
 }
 
 // CheckFuncEx returns if specified function is a FuncEx or not.
-func CheckFuncEx(sig *types.Signature) (t TyFuncEx, ok bool) {
+func CheckFuncEx(sig *types.Signature) (TyFuncEx, bool) {
 	if sig.Params().Len() == 1 && sig.Variadic() {
 		if typ, ok := sig.Params().At(0).Type().(*types.Slice); ok {
 			if typ, ok := typ.Elem().(*types.Interface); ok && typ.NumMethods() == 1 {
 				if sig, ok := typ.Method(0).Type().(*types.Signature); ok {
 					if recv := sig.Recv(); recv != nil {
-						t, ok = recv.Type().(TyFuncEx)
+						t, ok := recv.Type().(TyFuncEx)
 						return t, ok
 					}
 				}
 			}
 		}
 	}
-	return
+	return nil, false
 }
 
 // sigFuncEx return func type (args ...interface{__gop_overload__()})
