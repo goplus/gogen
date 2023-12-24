@@ -54,7 +54,7 @@ func CheckFuncEx(sig *types.Signature) (TyFuncEx, bool) {
 
 const (
 	overloadArgs   = "__gop_overload_args__"
-	overloadMethod = "overload"
+	overloadMethod = "_"
 )
 
 // sigFuncEx return func type ($overloadArgs ...interface{$overloadMethod()})
