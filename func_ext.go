@@ -37,9 +37,9 @@ func IsFunc(t types.Type) bool {
 
 // CheckFuncEx returns if specified function is a FuncEx or not.
 func CheckFuncEx(sig *types.Signature) (TyFuncEx, bool) {
-	if sig.Params().Len() == 1 && sig.Variadic() {
-		if typ, ok := sig.Params().At(0).Type().(*types.Slice); ok {
-			if typ, ok := typ.Elem().(*types.Interface); ok && typ.NumMethods() == 1 {
+	if sig.Params().Len() == 1 {
+		if param := sig.Params().At(0); param.Name() == overloadArgs {
+			if typ, ok := param.Type().(*types.Interface); ok && typ.NumMethods() == 1 {
 				if sig, ok := typ.Method(0).Type().(*types.Signature); ok {
 					if recv := sig.Recv(); recv != nil {
 						t, ok := recv.Type().(TyFuncEx)
@@ -52,14 +52,19 @@ func CheckFuncEx(sig *types.Signature) (TyFuncEx, bool) {
 	return nil, false
 }
 
-// sigFuncEx return func type (args ...interface{__gop_overload__()})
+const (
+	overloadArgs   = "__gop_overload_args__"
+	overloadMethod = "overload"
+)
+
+// sigFuncEx return func type ($overloadArgs ...interface{$overloadMethod()})
 func sigFuncEx(pkg *types.Package, recv *types.Var, t TyFuncEx) *types.Signature {
-	sig := types.NewSignature(types.NewVar(token.NoPos, nil, "recv", t), nil, nil, false)
+	sig := types.NewSignature(types.NewVar(token.NoPos, nil, "", t), nil, nil, false)
 	typ := types.NewInterfaceType([]*types.Func{
-		types.NewFunc(token.NoPos, nil, "__gop_overload__", sig),
+		types.NewFunc(token.NoPos, nil, overloadMethod, sig),
 	}, nil)
-	param := types.NewVar(token.NoPos, pkg, "args", types.NewSlice(typ))
-	return types.NewSignature(recv, types.NewTuple(param), nil, true)
+	param := types.NewVar(token.NoPos, pkg, overloadArgs, typ)
+	return types.NewSignature(recv, types.NewTuple(param), nil, false)
 }
 
 func newFuncEx(pos token.Pos, pkg *types.Package, recv *types.Var, name string, t TyFuncEx) *types.Func {
