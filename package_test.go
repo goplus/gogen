@@ -2645,6 +2645,38 @@ func bar(v foo.NodeSet) {
 `)
 }
 
+func TestOverloadInterfaceMethod(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	nodeSet := foo.Ref("NodeSeter").Type()
+	v := pkg.NewParam(token.NoPos, "v", nodeSet)
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "val", "err").Val(v).
+		Debug(func(cb *gox.CodeBuilder) {
+			if kind, err := cb.Member("attr", gox.MemberFlagAutoProperty); err == nil {
+				t.Fatal("cb.Member v.attr no error?", kind)
+			}
+			cb.Member("attr", gox.MemberFlagMethodAlias)
+		}).
+		Val("key").Call(1).EndInit(1).EndStmt().
+		Val(v).
+		Debug(func(cb *gox.CodeBuilder) {
+			cb.Member("len", gox.MemberFlagAutoProperty)
+		}).EndStmt().
+		VarRef(v).Val(v).MemberVal("Attr").Val("key").Val("val").Call(2).Assign(1).
+		End()
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gox/internal/foo"
+
+func bar(v foo.NodeSeter) {
+	val, err := v.Attr__0("key")
+	v.Len__0()
+	v = v.Attr__1("key", "val")
+}
+`)
+}
+
 func TestPkgVar(t *testing.T) {
 	pkg := newMainPackage()
 	flag := pkg.Import("flag")

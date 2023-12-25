@@ -109,3 +109,11 @@ func (p Foo4) Gop_Enum(c func()) {
 }
 
 // -----------------------------------------------------------------------------
+
+type NodeSeter interface {
+	Len__0() int
+	Attr__0(k string, exactlyOne ...bool) (text string, err error)
+	Attr__1(k, v string) (ret NodeSeter)
+}
+
+// -----------------------------------------------------------------------------
