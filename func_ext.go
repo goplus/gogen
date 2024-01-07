@@ -36,25 +36,45 @@ func IsFunc(t types.Type) bool {
 }
 
 // CheckFuncEx returns if specified function is a FuncEx or not.
-func CheckFuncEx(sig *types.Signature) (t TyFuncEx, ok bool) {
-	if recv := sig.Recv(); recv != nil {
-		t, ok = recv.Type().(TyFuncEx)
+func CheckFuncEx(sig *types.Signature) (TyFuncEx, bool) {
+	if sig.Params().Len() == 1 {
+		if param := sig.Params().At(0); param.Name() == overloadArgs {
+			if typ, ok := param.Type().(*types.Interface); ok && typ.NumMethods() == 1 {
+				if sig, ok := typ.Method(0).Type().(*types.Signature); ok {
+					if recv := sig.Recv(); recv != nil {
+						t, ok := recv.Type().(TyFuncEx)
+						return t, ok
+					}
+				}
+			}
+		}
 	}
-	return
+	return nil, false
 }
 
-func sigFuncEx(pkg *types.Package, t TyFuncEx) *types.Signature {
-	recv := types.NewParam(token.NoPos, pkg, "", t)
-	return types.NewSignatureType(recv, nil, nil, nil, nil, false)
+const (
+	overloadArgs   = "__gop_overload_args__"
+	overloadMethod = "_"
+)
+
+// sigFuncEx return func type ($overloadArgs ...interface{$overloadMethod()})
+func sigFuncEx(pkg *types.Package, recv *types.Var, t TyFuncEx) *types.Signature {
+	sig := types.NewSignature(types.NewVar(token.NoPos, nil, "", t), nil, nil, false)
+	typ := types.NewInterfaceType([]*types.Func{
+		types.NewFunc(token.NoPos, nil, overloadMethod, sig),
+	}, nil)
+	param := types.NewVar(token.NoPos, pkg, overloadArgs, typ)
+	return types.NewSignature(recv, types.NewTuple(param), nil, false)
 }
 
-func newFuncEx(pos token.Pos, pkg *types.Package, name string, t TyFuncEx) *types.Func {
-	sig := sigFuncEx(pkg, t)
+func newFuncEx(pos token.Pos, pkg *types.Package, recv *types.Var, name string, t TyFuncEx) *types.Func {
+	sig := sigFuncEx(pkg, recv, t)
 	return types.NewFunc(pos, pkg, name, sig)
 }
 
 func newMethodEx(typ *types.Named, pos token.Pos, pkg *types.Package, name string, t TyFuncEx) *types.Func {
-	ofn := newFuncEx(pos, pkg, name, t)
+	recv := types.NewVar(token.NoPos, pkg, "recv", typ)
+	ofn := newFuncEx(pos, pkg, recv, name, t)
 	typ.AddMethod(ofn)
 	return ofn
 }
@@ -71,12 +91,12 @@ func (p *TyOverloadFunc) String() string         { return "TyOverloadFunc" }
 func (p *TyOverloadFunc) funcEx()                {}
 
 func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
-	return newFuncEx(pos, pkg, name, &TyOverloadFunc{funcs})
+	return newFuncEx(pos, pkg, nil, name, &TyOverloadFunc{funcs})
 }
 
 func CheckOverloadFunc(sig *types.Signature) (funcs []types.Object, ok bool) {
-	if recv := sig.Recv(); recv != nil {
-		if oft, ok := recv.Type().(*TyOverloadFunc); ok {
+	if t, ok := CheckFuncEx(sig); ok {
+		if oft, ok := t.(*TyOverloadFunc); ok {
 			return oft.Funcs, true
 		}
 	}
@@ -99,8 +119,8 @@ func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name
 }
 
 func CheckOverloadMethod(sig *types.Signature) (methods []types.Object, ok bool) {
-	if recv := sig.Recv(); recv != nil {
-		if oft, ok := recv.Type().(*TyOverloadMethod); ok {
+	if t, ok := CheckFuncEx(sig); ok {
+		if oft, ok := t.(*TyOverloadMethod); ok {
 			return oft.Methods, true
 		}
 	}
@@ -135,8 +155,8 @@ func overloadFnHasAutoProperty(fns []types.Object, n int) bool {
 
 func methodHasAutoProperty(typ types.Type, n int) bool {
 	if sig, ok := typ.(*types.Signature); ok {
-		if recv := sig.Recv(); recv != nil {
-			switch t := recv.Type().(type) {
+		if t, ok := CheckFuncEx(sig); ok {
+			switch t := t.(type) {
 			case *TyOverloadMethod:
 				// is overload method
 				return overloadFnHasAutoProperty(t.Methods, n)
@@ -156,8 +176,8 @@ func methodHasAutoProperty(typ types.Type, n int) bool {
 // HasAutoProperty checks if specified type is a function without parameters or not.
 func HasAutoProperty(typ types.Type) bool {
 	if sig, ok := typ.(*types.Signature); ok {
-		if recv := sig.Recv(); recv != nil {
-			switch t := recv.Type().(type) {
+		if t, ok := CheckFuncEx(sig); ok {
+			switch t := t.(type) {
 			case *TyOverloadFunc:
 				// is overload func
 				for _, fn := range t.Funcs {
@@ -168,121 +188,6 @@ func HasAutoProperty(typ types.Type) bool {
 			}
 		} else {
 			return sig.Params().Len() == 0
-		}
-	}
-	return false
-}
-
-// ----------------------------------------------------------------------------
-
-// CheckSignature checks param idx of typ signature.
-// If nin >= 0, it means param idx is a function, and length of its params == nin;
-// If nin == -1, it means param idx is a CompositeLit;
-// If nin == -2, it means param idx is a SliceLit.
-func CheckSignature(typ types.Type, idx, nin int) *types.Signature {
-	if sig, ok := typ.(*types.Signature); ok {
-		if recv := sig.Recv(); recv != nil {
-			switch t := recv.Type().(type) {
-			case *TyOverloadFunc:
-				return selOverloadFunc(t.Funcs, idx, nin)
-			case *TyOverloadMethod:
-				return selOverloadFunc(t.Methods, idx, nin)
-			case *TyTemplateRecvMethod:
-				if tsig, ok := t.Func.Type().(*types.Signature); ok {
-					if trecv := tsig.Recv(); trecv != nil {
-						if t, ok := trecv.Type().(*TyOverloadFunc); ok {
-							return selOverloadFunc(t.Funcs, idx, nin)
-						}
-					}
-					return sigWithoutParam1(tsig)
-				}
-			}
-		}
-		return sig
-	}
-	return nil
-}
-
-// CheckSignatures checks param idx of typ signature.
-// If nin >= 0, it means param idx is a function, and length of its params == nin;
-// If nin == -1, it means param idx is a CompositeLit;
-// If nin == -2, it means param idx is a SliceLit.
-func CheckSignatures(typ types.Type, idx, nin int) []*types.Signature {
-	if sig, ok := typ.(*types.Signature); ok {
-		if recv := sig.Recv(); recv != nil {
-			switch t := recv.Type().(type) {
-			case *TyOverloadFunc:
-				return selOverloadFuncs(t.Funcs, idx, nin)
-			case *TyOverloadMethod:
-				return selOverloadFuncs(t.Methods, idx, nin)
-			case *TyTemplateRecvMethod:
-				if tsig, ok := t.Func.Type().(*types.Signature); ok {
-					if trecv := tsig.Recv(); trecv != nil {
-						if t, ok := trecv.Type().(*TyOverloadFunc); ok {
-							return selOverloadFuncs(t.Funcs, idx, nin)
-						}
-					}
-					sig = sigWithoutParam1(tsig)
-				}
-			}
-		}
-		return []*types.Signature{sig}
-	}
-	return nil
-}
-
-func sigWithoutParam1(sig *types.Signature) *types.Signature {
-	params := sig.Params()
-	n := params.Len()
-	mparams := make([]*types.Var, n-1)
-	for i := range mparams {
-		mparams[i] = params.At(i + 1)
-	}
-	return types.NewSignatureType(nil, nil, nil, types.NewTuple(mparams...), sig.Results(), sig.Variadic())
-}
-
-func selOverloadFunc(funcs []types.Object, idx, nin int) *types.Signature {
-	for _, v := range funcs {
-		if sig, ok := v.Type().(*types.Signature); ok {
-			params := sig.Params()
-			if idx < params.Len() && checkSigParam(params.At(idx).Type(), nin) {
-				return sig
-			}
-		}
-	}
-	return nil
-}
-
-func selOverloadFuncs(funcs []types.Object, idx, nin int) (sigs []*types.Signature) {
-	for _, v := range funcs {
-		if sig, ok := v.Type().(*types.Signature); ok {
-			params := sig.Params()
-			if idx < params.Len() && checkSigParam(params.At(idx).Type(), nin) {
-				sigs = append(sigs, sig)
-			}
-		}
-	}
-	return
-}
-
-func checkSigParam(typ types.Type, nin int) bool {
-	switch nin {
-	case -1: // input is CompositeLit
-		if t, ok := typ.(*types.Pointer); ok {
-			typ = t.Elem()
-		}
-		switch typ.(type) {
-		case *types.Struct, *types.Named:
-			return true
-		}
-	case -2: // input is SliceLit
-		switch typ.(type) {
-		case *types.Slice, *types.Named:
-			return true
-		}
-	default:
-		if t, ok := typ.(*types.Signature); ok {
-			return t.Params().Len() == nin
 		}
 	}
 	return false

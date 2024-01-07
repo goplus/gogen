@@ -124,8 +124,15 @@ func initThisGopPkg(pkg *types.Package) {
 			key := name[:len(name)-3]
 			overloads[key] = append(overloads[key], o)
 		} else if named, ok := o.Type().(*types.Named); ok {
-			for i, n := 0, named.NumMethods(); i < n; i++ {
-				m := named.Method(i)
+			var list methodList
+			switch t := named.Underlying().(type) {
+			case *types.Interface:
+				list = t // add interface overload method to named
+			default:
+				list = named
+			}
+			for i, n := 0, list.NumMethods(); i < n; i++ {
+				m := list.Method(i)
 				mName := m.Name()
 				if isOverloadFunc(mName) { // overload method
 					mthd := mName[:len(mName)-3]
