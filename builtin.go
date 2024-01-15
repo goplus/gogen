@@ -725,14 +725,14 @@ func checkArgsCount(pkg *Package, fn string, n int, args int, src ast.Node) {
 }
 
 var (
-	std *types.StdSizes
+	std types.Sizes
 )
 
 func init() {
 	if runtime.Compiler == "gopherjs" {
 		std = &types.StdSizes{WordSize: 4, MaxAlign: 4}
 	} else {
-		std = types.SizesFor(runtime.Compiler, runtime.GOARCH).(*types.StdSizes)
+		std = types.SizesFor(runtime.Compiler, runtime.GOARCH)
 	}
 }
 
