@@ -2638,6 +2638,7 @@ func TestOverloadMethod(t *testing.T) {
 		NewVar(bar.Ref("Game").Type(), "g").
 		VarVal("g").MemberVal("Run").Val("Hi").Call(1).EndStmt().
 		VarVal("g").MemberVal("Run2").Val(1).Call(1).EndStmt().
+		// TODO: VarVal("g").MemberVal("Run3").Val("1").Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 

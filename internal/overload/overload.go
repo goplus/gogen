@@ -34,7 +34,10 @@ func (p *Game) Run2__0(a int)      {}
 func (p *Game) RunInt(a int)       {}
 func (p *Game) RunString(a string) {}
 
+func RunGame(*Game, string) {}
+
 const Gopo__Game__Run = "(Game).RunInt,(Game).RunString"
 const Gopo_Game_Run2 = ",(Game).RunString"
+const Gopo_Game_Run3 = "(Game).RunInt,RunGame"
 
 // -----------------------------------------------------------------------------
