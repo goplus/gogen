@@ -44,6 +44,18 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestCheckTypeMethod(t *testing.T) {
+	scope := types.NewScope(nil, 0, 0, "")
+	func() {
+		defer func() {
+			if e := recover(); e != "checkTypeMethod: notFound not found or not a named type\n" {
+				t.Fatal("TestCheckTypeMethod:", e)
+			}
+		}()
+		checkTypeMethod(scope, "_notFound__method")
+	}()
+}
+
 func TestLookupFunc(t *testing.T) {
 	scope := types.NewScope(nil, 0, 0, "")
 	func() {

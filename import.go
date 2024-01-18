@@ -230,7 +230,7 @@ func checkTypeMethod(scope *types.Scope, name string) (omthd, string) {
 			}
 		}
 		if tobj != nil || nsep == 2 {
-			log.Panicf("checkTypeMethod TODO: %v not found or not a named type\n", tname)
+			log.Panicf("checkTypeMethod: %v not found or not a named type\n", tname)
 		}
 	}
 	return omthd{nil, name}, ""
