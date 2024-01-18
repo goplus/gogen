@@ -16,6 +16,7 @@ package gox
 import (
 	"fmt"
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"log"
@@ -95,6 +96,10 @@ func isGoptFunc(name string) bool {
 	return strings.HasPrefix(name, goptPrefix)
 }
 
+func isGopoFunc(name string) bool {
+	return strings.HasPrefix(name, gopoPrefix)
+}
+
 func isOverloadFunc(name string) bool {
 	n := len(name)
 	return n > 3 && name[n-3:n-1] == "__"
@@ -108,20 +113,18 @@ func initThisGopPkg(pkg *types.Package) {
 	if debugImport {
 		log.Println("==> Import", pkg.Path())
 	}
-	type omthd struct {
-		named *types.Named
-		mthd  string
-	}
-	overloads := make(map[string][]types.Object)
-	moverloads := make(map[omthd][]types.Object)
+	gopos := make([]string, 0, 4)
+	overloads := make(map[omthd][]types.Object)
 	names := scope.Names()
 	for _, name := range names {
 		o := scope.Lookup(name)
 		if tn, ok := o.(*types.TypeName); ok && tn.IsAlias() {
 			continue
 		}
-		if isOverloadFunc(name) { // overload function
-			key := name[:len(name)-3]
+		if isGopoFunc(name) {
+			gopos = append(gopos, name)
+		} else if isOverloadFunc(name) { // overload function
+			key := omthd{nil, name[:len(name)-3]}
 			overloads[key] = append(overloads[key], o)
 		} else if named, ok := o.Type().(*types.Named); ok {
 			var list methodList
@@ -137,54 +140,151 @@ func initThisGopPkg(pkg *types.Package) {
 				if isOverloadFunc(mName) { // overload method
 					mthd := mName[:len(mName)-3]
 					key := omthd{named, mthd}
-					moverloads[key] = append(moverloads[key], m)
+					overloads[key] = append(overloads[key], m)
 				}
 			}
 		} else {
 			checkTemplateMethod(pkg, name, o)
 		}
 	}
-	for key, items := range overloads {
-		off := len(key) + 2
-		fns := overloadFuncs(off, items)
-		if debugImport {
-			log.Println("==> NewOverloadFunc", key)
+	for _, gopoName := range gopos {
+		if names, ok := checkOverloads(scope, gopoName); ok {
+			key := gopoName[len(gopoPrefix):]
+			m := checkTypeMethod(scope, key)
+			fns := make([]types.Object, 0, len(names))
+			for i, name := range names {
+				if name == "" {
+					name = key + "__" + indexTable[i:i+1]
+				}
+				fns[i] = lookupFunc(scope, name)
+			}
+			newOverload(pkg, scope, m, fns)
+			delete(overloads, m)
 		}
-		o := NewOverloadFunc(token.NoPos, pkg, key, fns...)
-		scope.Insert(o)
-		checkTemplateMethod(pkg, key, o)
 	}
-	for key, items := range moverloads {
-		off := len(key.mthd) + 2
+	for key, items := range overloads {
+		off := len(key.name) + 2
 		fns := overloadFuncs(off, items)
-		if debugImport {
-			log.Println("==> NewOverloadMethod", key.named.Obj().Name(), key.mthd)
-		}
-		NewOverloadMethod(key.named, token.NoPos, pkg, key.mthd, fns...)
+		newOverload(pkg, scope, key, fns)
 	}
 }
 
-const (
-	goptPrefix = "Gopt_"
-	gopPackage = "GopPackage"
-)
-
-func checkTemplateMethod(pkg *types.Package, name string, o types.Object) {
-	if strings.HasPrefix(name, goptPrefix) {
-		name = name[len(goptPrefix):]
-		if pos := strings.Index(name, "_"); pos > 0 {
-			tname, mname := name[:pos], name[pos+1:]
-			if tobj := pkg.Scope().Lookup(tname); tobj != nil {
-				if tn, ok := tobj.(*types.TypeName); ok {
-					if t, ok := tn.Type().(*types.Named); ok {
-						if debugImport {
-							log.Println("==> NewTemplateRecvMethod", tname, mname)
+// name
+// (T).name
+func lookupFunc(scope *types.Scope, name string) types.Object {
+	if strings.HasPrefix(name, "(") {
+		next := name[1:]
+		pos := strings.IndexByte(next, ')')
+		if pos <= 0 {
+			log.Panicf("lookupFunc: %v not a valid method, use `(T).method` please\n", name)
+		}
+		tname, mname := next[:pos], next[pos+1:]
+		tobj := scope.Lookup(tname)
+		if tobj != nil {
+			if tn, ok := tobj.(*types.TypeName); ok {
+				if o, ok := tn.Type().(*types.Named); ok { // TODO: interface support
+					for i, n := 0, o.NumMethods(); i < n; i++ {
+						method := o.Method(i)
+						if method.Name() == mname {
+							return method
 						}
-						NewTemplateRecvMethod(t, token.NoPos, pkg, mname, o)
 					}
 				}
 			}
 		}
+	} else if o := scope.Lookup(name); o != nil {
+		return o
+	}
+	log.Panicf("lookupFunc: %v not found\n", name)
+	return nil
+}
+
+type omthd struct {
+	typ  *types.Named
+	name string
+}
+
+// TypeName_Method
+// _TypeName__Method
+func checkTypeMethod(scope *types.Scope, name string) omthd {
+	if pos := strings.IndexByte(name, '_'); pos >= 0 {
+		nsep := 1
+		if pos == 0 {
+			t := name[1:]
+			if pos = strings.Index(t, "__"); pos <= 0 {
+				return omthd{nil, name}
+			}
+			name, nsep = t, 2
+		}
+		tname, mname := name[:pos], name[pos+nsep:]
+		tobj := scope.Lookup(tname)
+		if tobj != nil {
+			if tn, ok := tobj.(*types.TypeName); ok {
+				if t, ok := tn.Type().(*types.Named); ok {
+					return omthd{t, mname}
+				}
+			}
+		}
+		if tobj != nil || nsep == 2 {
+			log.Panicf("checkTypeMethod TODO: %v not found or not a named type\n", tname)
+		}
+	}
+	return omthd{nil, name}
+}
+
+// Gopt_TypeName_Method
+// Gopt__TypeName__Method
+func checkTemplateMethod(pkg *types.Package, name string, o types.Object) {
+	if strings.HasPrefix(name, goptPrefix) {
+		name = name[len(goptPrefix):]
+		if m := checkTypeMethod(pkg.Scope(), name); m.typ != nil {
+			if debugImport {
+				log.Println("==> NewTemplateRecvMethod", m.typ.Obj().Name(), m.name)
+			}
+			NewTemplateRecvMethod(m.typ, token.NoPos, pkg, m.name, o)
+		}
+	}
+}
+
+const (
+	goptPrefix = "Gopt_" // template method
+	gopoPrefix = "Gopo_" // overload function/method
+	gopPackage = "GopPackage"
+)
+
+/*
+const (
+	Gopo_FuncName = "Func0,Func1,,,Func4"
+	Gopo_TypeName_Method = "Func0,,,,Func4"
+	Gopo__TypeName__Method = "Func0,,,,Func4"
+)
+*/
+
+func checkOverloads(scope *types.Scope, gopoName string) (ret []string, exists bool) {
+	if o := scope.Lookup(gopoName); o != nil {
+		if c, ok := o.(*types.Const); ok {
+			if v := c.Val(); v.Kind() == constant.String {
+				return strings.Split(constant.StringVal(v), ","), true
+			}
+		}
+		panic("checkOverloads TODO: should be string constant - " + gopoName)
+	}
+	return
+}
+
+func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Object) {
+	if m.typ == nil {
+		if debugImport {
+			log.Println("==> NewOverloadFunc", m.name)
+		}
+		o := NewOverloadFunc(token.NoPos, pkg, m.name, fns...)
+		scope.Insert(o)
+		checkTemplateMethod(pkg, m.name, o)
+	} else {
+		if debugImport {
+			log.Println("==> NewOverloadMethod", m.typ.Obj().Name(), m.name)
+		}
+		NewOverloadMethod(m.typ, token.NoPos, pkg, m.name, fns...)
 	}
 }
 
@@ -193,10 +293,10 @@ func overloadFuncs(off int, items []types.Object) []types.Object {
 	for _, item := range items {
 		idx := toIndex(item.Name()[off])
 		if idx >= len(items) {
-			log.Panicln("overload function must be from 0 to N:", item.Name(), len(fns))
+			log.Panicf("overload func %v out of range 0..%v\n", item.Name(), len(fns)-1)
 		}
 		if fns[idx] != nil {
-			panic("overload function exists?")
+			log.Panicf("overload func %v exists?\n", item.Name())
 		}
 		fns[idx] = item
 	}
@@ -212,6 +312,10 @@ func toIndex(c byte) int {
 	}
 	panic("invalid character out of [0-9,a-z]")
 }
+
+const (
+	indexTable = "0123456789abcdefghijklmnopqrstuvwxyz"
+)
 
 // ----------------------------------------------------------------------------
 
