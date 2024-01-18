@@ -44,6 +44,27 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestOverloadFuncs(t *testing.T) {
+	pkg := types.NewPackage("", "")
+	fn := types.NewFunc(0, pkg, "foo__1", nil)
+	func() {
+		defer func() {
+			if e := recover(); e != "overload func foo__1 out of range 0..0\n" {
+				t.Fatal("TestOverloadFuncs:", e)
+			}
+		}()
+		overloadFuncs(5, []types.Object{fn})
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e != "overload func foo__1 exists?\n" {
+				t.Fatal("TestOverloadFuncs:", e)
+			}
+		}()
+		overloadFuncs(5, []types.Object{fn, fn})
+	}()
+}
+
 func TestCheckTypeMethod(t *testing.T) {
 	scope := types.NewScope(nil, 0, 0, "")
 	func() {
