@@ -1715,6 +1715,16 @@ func (p *CodeBuilder) btiMethod(
 			if v == name || (flag > 0 && v == aliasName) {
 				autoprop := flag == MemberFlagAutoProperty && v == aliasName
 				this := p.stk.Pop()
+				if o.typ != this.Type {
+					if t, ok := this.Type.Underlying().(*types.Basic); ok &&
+						(t.Info()&types.IsUntyped) == 0 {
+						this.Val = &ast.CallExpr{
+							Fun:  ast.NewIdent(t.Name()),
+							Args: []ast.Expr{this.Val},
+						}
+						this.Type = o.typ
+					}
+				}
 				this.Type = &btiMethodType{Type: this.Type, eargs: method.eargs}
 				p.Val(method.fn, src)
 				p.stk.Push(this)
