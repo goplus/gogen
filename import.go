@@ -334,8 +334,8 @@ func NewContext() *Context {
 	}
 }
 
-// InitGopPkg initializes a Go+ packages.
-func (p *Context) InitGopPkg(importer types.Importer, pkgImp *types.Package) {
+// initGopPkg initializes a Go+ packages.
+func (p *Context) initGopPkg(importer types.Importer, pkgImp *types.Package) {
 	pkgPath := pkgImp.Path()
 	if stdPkg(pkgPath) || p.chkGopImports[pkgPath] {
 		return
@@ -346,7 +346,7 @@ func (p *Context) InitGopPkg(importer types.Importer, pkgImp *types.Package) {
 	initThisGopPkg(pkgImp)
 	p.chkGopImports[pkgPath] = true
 	for _, imp := range pkgImp.Imports() {
-		p.InitGopPkg(importer, imp)
+		p.initGopPkg(importer, imp)
 	}
 }
 
