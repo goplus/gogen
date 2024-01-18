@@ -44,6 +44,59 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestOverloadFuncs(t *testing.T) {
+	pkg := types.NewPackage("", "")
+	fn := types.NewFunc(0, pkg, "foo__1", nil)
+	func() {
+		defer func() {
+			if e := recover(); e != "overload func foo__1 out of range 0..0\n" {
+				t.Fatal("TestOverloadFuncs:", e)
+			}
+		}()
+		overloadFuncs(5, []types.Object{fn})
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e != "overload func foo__1 exists?\n" {
+				t.Fatal("TestOverloadFuncs:", e)
+			}
+		}()
+		overloadFuncs(5, []types.Object{fn, fn})
+	}()
+}
+
+func TestCheckTypeMethod(t *testing.T) {
+	scope := types.NewScope(nil, 0, 0, "")
+	func() {
+		defer func() {
+			if e := recover(); e != "checkTypeMethod: notFound not found or not a named type\n" {
+				t.Fatal("TestCheckTypeMethod:", e)
+			}
+		}()
+		checkTypeMethod(scope, "_notFound__method")
+	}()
+}
+
+func TestLookupFunc(t *testing.T) {
+	scope := types.NewScope(nil, 0, 0, "")
+	func() {
+		defer func() {
+			if e := recover(); e != "lookupFunc: (T not a valid method, use `(T).method` please\n" {
+				t.Fatal("TestLookupFunc:", e)
+			}
+		}()
+		lookupFunc(scope, "(T")
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e != "lookupFunc: notFound not found\n" {
+				t.Fatal("TestLookupFunc:", e)
+			}
+		}()
+		lookupFunc(scope, "notFound")
+	}()
+}
+
 func TestNewPosNode(t *testing.T) {
 	if ret := NewPosNode(1); ret.Pos() != 1 || ret.End() != 1 {
 		t.Fatal("NewPosNode(1): end -", ret.End())
