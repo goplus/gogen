@@ -151,10 +151,10 @@ func initThisGopPkg(pkg *types.Package) {
 		if names, ok := checkOverloads(scope, gopoName); ok {
 			key := gopoName[len(gopoPrefix):]
 			m := checkTypeMethod(scope, key)
-			fns := make([]types.Object, 0, len(names))
+			fns := make([]types.Object, len(names))
 			for i, name := range names {
 				if name == "" {
-					name = key + "__" + indexTable[i:i+1]
+					name = m.name + "__" + indexTable[i:i+1]
 				}
 				fns[i] = lookupFunc(scope, name)
 			}
@@ -174,11 +174,12 @@ func initThisGopPkg(pkg *types.Package) {
 func lookupFunc(scope *types.Scope, name string) types.Object {
 	if strings.HasPrefix(name, "(") {
 		next := name[1:]
-		pos := strings.IndexByte(next, ')')
+		pos := strings.Index(next, ").")
 		if pos <= 0 {
 			log.Panicf("lookupFunc: %v not a valid method, use `(T).method` please\n", name)
 		}
-		tname, mname := next[:pos], next[pos+1:]
+		tname, mname := next[:pos], next[pos+2:]
+		log.Println("lookupFunc:", tname, mname)
 		tobj := scope.Lookup(tname)
 		if tobj != nil {
 			if tn, ok := tobj.(*types.TypeName); ok {
@@ -212,7 +213,7 @@ func checkTypeMethod(scope *types.Scope, name string) omthd {
 		if pos == 0 {
 			t := name[1:]
 			if pos = strings.Index(t, "__"); pos <= 0 {
-				return omthd{nil, name}
+				return omthd{nil, t}
 			}
 			name, nsep = t, 2
 		}

@@ -1848,38 +1848,6 @@ const c6 = unsafe.Offsetof(t.n)
 	}
 }
 
-func TestOverloadFunc(t *testing.T) {
-	var f, g, x, y *goxVar
-	pkg := newMainPackage()
-	builtin := pkg.Builtin()
-	c64 := pkg.NewParam(token.NoPos, "c64", types.Typ[types.Complex64])
-	c128 := pkg.NewParam(token.NoPos, "c128", types.Typ[types.Complex128])
-	pkg.NewFunc(nil, "foo", gox.NewTuple(c64, c128), nil, false).BodyStart(pkg).
-		NewAutoVar(token.NoPos, "f", &f).NewAutoVar(token.NoPos, "g", &g).
-		NewAutoVar(token.NoPos, "x", &x).NewAutoVar(token.NoPos, "y", &y).
-		VarRef(f).Val(builtin.Ref("imag")).Val(c128).Call(1).Assign(1).EndStmt().
-		VarRef(g).Val(builtin.Ref("real")).Val(c64).Call(1).Assign(1).EndStmt().
-		VarRef(x).Val(builtin.Ref("complex")).Val(0).Val(f).Call(2).Assign(1).EndStmt().
-		VarRef(y).Val(builtin.Ref("complex")).Val(g).Val(1).Call(2).Assign(1).EndStmt().
-		End()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
-	domTest(t, pkg, `package main
-
-func foo(c64 complex64, c128 complex128) {
-	var f float64
-	var g float32
-	var x complex128
-	var y complex64
-	f = imag(c128)
-	g = real(c64)
-	x = complex(0, f)
-	y = complex(g, 1)
-}
-func main() {
-}
-`)
-}
-
 func TestEmptyInterface(t *testing.T) {
 	pkg := newMainPackage()
 	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(gox.TyEmptyInterface))
@@ -2613,7 +2581,77 @@ func main() {
 `)
 }
 
+func TestOverloadFunc(t *testing.T) {
+	var f, g, x, y *goxVar
+	pkg := newMainPackage()
+	builtin := pkg.Builtin()
+	c64 := pkg.NewParam(token.NoPos, "c64", types.Typ[types.Complex64])
+	c128 := pkg.NewParam(token.NoPos, "c128", types.Typ[types.Complex128])
+	pkg.NewFunc(nil, "foo", gox.NewTuple(c64, c128), nil, false).BodyStart(pkg).
+		NewAutoVar(token.NoPos, "f", &f).NewAutoVar(token.NoPos, "g", &g).
+		NewAutoVar(token.NoPos, "x", &x).NewAutoVar(token.NoPos, "y", &y).
+		VarRef(f).Val(builtin.Ref("imag")).Val(c128).Call(1).Assign(1).EndStmt().
+		VarRef(g).Val(builtin.Ref("real")).Val(c64).Call(1).Assign(1).EndStmt().
+		VarRef(x).Val(builtin.Ref("complex")).Val(0).Val(f).Call(2).Assign(1).EndStmt().
+		VarRef(y).Val(builtin.Ref("complex")).Val(g).Val(1).Call(2).Assign(1).EndStmt().
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+func foo(c64 complex64, c128 complex128) {
+	var f float64
+	var g float32
+	var x complex128
+	var y complex64
+	f = imag(c128)
+	g = real(c64)
+	x = complex(0, f)
+	y = complex(g, 1)
+}
+func main() {
+}
+`)
+}
+
+func TestOverloadFunc2(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gox/internal/overload")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(bar.Ref("Put")).Val("1").Call(1).EndStmt().
+		Val(bar.Ref("Put2")).Val(1).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gox/internal/overload"
+
+func main() {
+	overload.PutString("1")
+	overload.Put2__0(1)
+}
+`)
+}
+
 func TestOverloadMethod(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gox/internal/overload")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(bar.Ref("Game").Type(), "g").
+		VarVal("g").MemberVal("Run").Val("Hi").Call(1).EndStmt().
+		VarVal("g").MemberVal("Run2").Val(1).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gox/internal/overload"
+
+func main() {
+	var g overload.Game
+	g.RunString("Hi")
+	g.RunInt(1)
+}
+`)
+}
+
+func TestOverloadMethod2(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gox/internal/foo")
 	nodeSet := foo.Ref("NodeSet").Type()
