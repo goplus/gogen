@@ -159,7 +159,7 @@ func initThisGopPkg(pkg *types.Package) {
 					}
 					name += m.name + "__" + indexTable[i:i+1]
 				}
-				fns[i] = lookupFunc(scope, name)
+				fns[i] = lookupFunc(scope, name, tname)
 			}
 			newOverload(pkg, scope, m, fns)
 			delete(overloads, m)
@@ -173,23 +173,28 @@ func initThisGopPkg(pkg *types.Package) {
 }
 
 // name
+// .name
 // (T).name
-func lookupFunc(scope *types.Scope, name string) types.Object {
-	if strings.HasPrefix(name, "(") {
-		next := name[1:]
-		pos := strings.Index(next, ").")
-		if pos <= 0 {
-			log.Panicf("lookupFunc: %v not a valid method, use `(T).method` please\n", name)
+func lookupFunc(scope *types.Scope, name, tname string) types.Object {
+	first := name[0]
+	if first == '.' || first == '(' {
+		if first == '.' {
+			name = name[1:]
+		} else {
+			next := name[1:]
+			pos := strings.Index(next, ").")
+			if pos <= 0 {
+				log.Panicf("lookupFunc: %v not a valid method, use `(T).method` please\n", name)
+			}
+			tname, name = next[:pos], next[pos+2:]
 		}
-		tname, mname := next[:pos], next[pos+2:]
-		log.Println("lookupFunc:", tname, mname)
 		tobj := scope.Lookup(tname)
 		if tobj != nil {
 			if tn, ok := tobj.(*types.TypeName); ok {
 				if o, ok := tn.Type().(*types.Named); ok { // TODO: interface support
 					for i, n := 0, o.NumMethods(); i < n; i++ {
 						method := o.Method(i)
-						if method.Name() == mname {
+						if method.Name() == name {
 							return method
 						}
 					}

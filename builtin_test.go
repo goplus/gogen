@@ -85,7 +85,7 @@ func TestLookupFunc(t *testing.T) {
 				t.Fatal("TestLookupFunc:", e)
 			}
 		}()
-		lookupFunc(scope, "(T")
+		lookupFunc(scope, "(T", "")
 	}()
 	func() {
 		defer func() {
@@ -93,7 +93,7 @@ func TestLookupFunc(t *testing.T) {
 				t.Fatal("TestLookupFunc:", e)
 			}
 		}()
-		lookupFunc(scope, "notFound")
+		lookupFunc(scope, "notFound", "")
 	}()
 }
 
