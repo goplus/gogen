@@ -150,11 +150,14 @@ func initThisGopPkg(pkg *types.Package) {
 	for _, gopoName := range gopos {
 		if names, ok := checkOverloads(scope, gopoName); ok {
 			key := gopoName[len(gopoPrefix):]
-			m := checkTypeMethod(scope, key)
+			m, tname := checkTypeMethod(scope, key)
 			fns := make([]types.Object, len(names))
 			for i, name := range names {
 				if name == "" {
-					name = m.name + "__" + indexTable[i:i+1]
+					if m.typ != nil {
+						name = "(" + tname + ")."
+					}
+					name += m.name + "__" + indexTable[i:i+1]
 				}
 				fns[i] = lookupFunc(scope, name)
 			}
@@ -207,13 +210,13 @@ type omthd struct {
 
 // TypeName_Method
 // _TypeName__Method
-func checkTypeMethod(scope *types.Scope, name string) omthd {
+func checkTypeMethod(scope *types.Scope, name string) (omthd, string) {
 	if pos := strings.IndexByte(name, '_'); pos >= 0 {
 		nsep := 1
 		if pos == 0 {
 			t := name[1:]
 			if pos = strings.Index(t, "__"); pos <= 0 {
-				return omthd{nil, t}
+				return omthd{nil, t}, ""
 			}
 			name, nsep = t, 2
 		}
@@ -222,7 +225,7 @@ func checkTypeMethod(scope *types.Scope, name string) omthd {
 		if tobj != nil {
 			if tn, ok := tobj.(*types.TypeName); ok {
 				if t, ok := tn.Type().(*types.Named); ok {
-					return omthd{t, mname}
+					return omthd{t, mname}, tname
 				}
 			}
 		}
@@ -230,7 +233,7 @@ func checkTypeMethod(scope *types.Scope, name string) omthd {
 			log.Panicf("checkTypeMethod TODO: %v not found or not a named type\n", tname)
 		}
 	}
-	return omthd{nil, name}
+	return omthd{nil, name}, ""
 }
 
 // Gopt_TypeName_Method
@@ -238,9 +241,9 @@ func checkTypeMethod(scope *types.Scope, name string) omthd {
 func checkTemplateMethod(pkg *types.Package, name string, o types.Object) {
 	if strings.HasPrefix(name, goptPrefix) {
 		name = name[len(goptPrefix):]
-		if m := checkTypeMethod(pkg.Scope(), name); m.typ != nil {
+		if m, tname := checkTypeMethod(pkg.Scope(), name); m.typ != nil {
 			if debugImport {
-				log.Println("==> NewTemplateRecvMethod", m.typ.Obj().Name(), m.name)
+				log.Println("==> NewTemplateRecvMethod", tname, m.name)
 			}
 			NewTemplateRecvMethod(m.typ, token.NoPos, pkg, m.name, o)
 		}

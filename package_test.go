@@ -2646,7 +2646,7 @@ import "github.com/goplus/gox/internal/overload"
 func main() {
 	var g overload.Game
 	g.RunString("Hi")
-	g.RunInt(1)
+	g.Run2__0(1)
 }
 `)
 }
