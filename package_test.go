@@ -226,6 +226,55 @@ func main() {
 `)
 }
 
+func TestTypedBTIMethod(t *testing.T) {
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+	tyInt := pkg.NewType("MyInt").InitType(pkg, types.Typ[types.Int])
+	tyInt64 := pkg.NewType("MyInt64").InitType(pkg, types.Typ[types.Int64])
+	tyUint64 := pkg.NewType("MyUint64").InitType(pkg, types.Typ[types.Uint64])
+	tyFloat64 := pkg.NewType("MyFloat64").InitType(pkg, types.Typ[types.Float64])
+	tyString := pkg.NewType("MyString").InitType(pkg, types.Typ[types.String])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyInt, "a").
+		NewVar(tyInt64, "b").
+		NewVar(tyUint64, "c").
+		NewVar(tyFloat64, "d").
+		NewVar(tyString, "e").
+		Val(fmt.Ref("Println")).VarVal("a").MemberVal("String").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("b").MemberVal("String").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("c").MemberVal("String").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("d").MemberVal("String").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("e").MemberVal("ToUpper").Call(0).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import (
+	"strconv"
+	"strings"
+	"fmt"
+)
+
+type MyInt int
+type MyInt64 int64
+type MyUint64 uint64
+type MyFloat64 float64
+type MyString string
+
+func main() {
+	var a MyInt
+	var b MyInt64
+	var c MyUint64
+	var d MyFloat64
+	var e MyString
+	fmt.Println(strconv.Itoa(int(a)))
+	fmt.Println(strconv.FormatInt(int64(b), 10))
+	fmt.Println(strconv.FormatUint(uint64(c), 10))
+	fmt.Println(strconv.FormatFloat(float64(d), 'g', -1, 64))
+	fmt.Println(strings.ToUpper(string(e)))
+}
+`)
+}
+
 func TestPrintlnPrintln(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
