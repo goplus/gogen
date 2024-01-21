@@ -44,6 +44,28 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestOverloadNameds(t *testing.T) {
+	pkg := types.NewPackage("", "")
+	tn := types.NewTypeName(0, pkg, "foo__1", nil)
+	named := types.NewNamed(tn, TyByte, nil)
+	func() {
+		defer func() {
+			if e := recover(); e != "overload type foo__1 out of range 0..0\n" {
+				t.Fatal("TestOverloadFuncs:", e)
+			}
+		}()
+		overloadNameds(5, []*types.Named{named})
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e != "overload type foo__1 exists?\n" {
+				t.Fatal("TestOverloadFuncs:", e)
+			}
+		}()
+		overloadNameds(5, []*types.Named{named, named})
+	}()
+}
+
 func TestOverloadFuncs(t *testing.T) {
 	pkg := types.NewPackage("", "")
 	fn := types.NewFunc(0, pkg, "foo__1", nil)
