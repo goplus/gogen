@@ -103,7 +103,9 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam)
 	} else {
 		p.typ.SetUnderlying(typ)
 	}
-	setTypeParams(pkg, p.typ, spec, tparams)
+	if tparams != nil {
+		setTypeParams(pkg, p.typ, spec, tparams)
+	}
 	spec.Type = toType(pkg, typ)
 	return p.typ
 }
