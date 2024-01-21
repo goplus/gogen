@@ -26,6 +26,8 @@ import (
 	"github.com/goplus/gox/internal"
 )
 
+// ----------------------------------------------------------------------------
+
 const enableTypeParams = true
 
 type TypeParam = types.TypeParam
@@ -87,7 +89,7 @@ func isGenericType(typ types.Type) bool {
 	return false
 }
 
-func (p *CodeBuilder) inferType(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
 	typ := args[0].Type
 	var tt bool
 	if t, ok := typ.(*TypeType); ok {
@@ -438,3 +440,23 @@ func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams [
 func interfaceIsImplicit(t *types.Interface) bool {
 	return t.IsImplicit()
 }
+
+// ----------------------------------------------------------------------------
+
+func (p *Package) Instantiate(orig types.Type, targs []types.Type, src ...ast.Node) types.Type {
+	p.cb.ensureLoaded(orig)
+	if !isGenericType(orig) {
+		p.cb.handleCodeErrorf(getPos(src), "%v is not a generic type", orig)
+		return types.Typ[types.Invalid]
+	}
+	for _, targ := range targs {
+		p.cb.ensureLoaded(targ)
+	}
+	ret, err := types.Instantiate(p.cb.ctxt, orig, targs, true)
+	if err != nil {
+		p.cb.handleCodeError(getPos(src), err.Error())
+	}
+	return ret
+}
+
+// ----------------------------------------------------------------------------
