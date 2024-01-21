@@ -18,10 +18,71 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"reflect"
 )
 
 // ----------------------------------------------------------------------------
+
+// TyTypeEx is a TypeEx type.
+type TyTypeEx interface {
+	types.Type
+	typeEx()
+}
+
+// IsTypeEx returns if t is a gox extended type or not.
+func IsTypeEx(t types.Type) (ok bool) {
+	switch v := t.(type) {
+	case *types.Signature:
+		_, ok = CheckFuncEx(v)
+		return
+	case TyTypeEx:
+		return true
+	}
+	return false
+}
+
+func isTypeType(t types.Type) bool {
+	switch sig := t.(type) {
+	case *types.Signature:
+		if _, ok := CheckFuncEx(sig); ok {
+			// builtin may be implemented as OverloadFunc
+			return false
+		}
+	case TyTypeEx:
+		return false
+	}
+	return true
+}
+
+// ----------------------------------------------------------------------------
+
+type TyOverloadNamed struct {
+	Types []*types.Named
+}
+
+func (p *TyOverloadNamed) typeEx()                {}
+func (p *TyOverloadNamed) Underlying() types.Type { return p }
+func (p *TyOverloadNamed) String() string         { return "TyOverloadNamed" }
+
+func NewOverloadNamed(pos token.Pos, pkg *types.Package, name string, typs ...*types.Named) *types.TypeName {
+	return types.NewTypeName(pos, pkg, name, &TyOverloadNamed{Types: typs})
+}
+
+type TyInstruction struct {
+	instr Instruction
+}
+
+func (p *TyInstruction) typeEx()                {}
+func (p *TyInstruction) Underlying() types.Type { return p }
+func (p *TyInstruction) String() string {
+	return fmt.Sprintf("TyInstruction{%T}", p.instr)
+}
+
+func NewInstruction(pos token.Pos, pkg *types.Package, name string, instr Instruction) *types.TypeName {
+	return types.NewTypeName(pos, pkg, name, &TyInstruction{instr})
+}
+
+// ----------------------------------------------------------------------------
+
 var (
 	TyByte = types.Universe.Lookup("byte").Type().(*types.Basic)
 	TyRune = types.Universe.Lookup("rune").Type().(*types.Basic)
@@ -139,34 +200,6 @@ type btiMethodType struct {
 
 // ----------------------------------------------------------------------------
 
-type instructionType struct {
-	instr Instruction
-}
-
-func (p *instructionType) Underlying() types.Type {
-	fatal("instruction type")
-	return nil
-}
-
-func (p *instructionType) String() string {
-	return fmt.Sprintf("instructionType{instr: %v}", reflect.TypeOf(p.instr))
-}
-
-func isType(t types.Type) bool {
-	switch sig := t.(type) {
-	case *types.Signature:
-		if _, ok := CheckOverloadFunc(sig); ok {
-			// builtin may be implemented as OverloadFunc
-			return false
-		}
-	case *instructionType:
-		return false
-	}
-	return true
-}
-
-// ----------------------------------------------------------------------------
-
 type TypeType struct {
 	typ types.Type
 }
@@ -227,20 +260,6 @@ func Lookup(scope *types.Scope, name string) (obj types.Object) {
 		}
 	}
 	return
-}
-
-// ----------------------------------------------------------------------------
-
-// IsTypeEx returns if t is a gox extended type or not.
-func IsTypeEx(t types.Type) (ok bool) {
-	switch v := t.(type) {
-	case *instructionType:
-		return true
-	case *types.Signature:
-		_, ok = CheckFuncEx(v)
-		return
-	}
-	return false
 }
 
 // ----------------------------------------------------------------------------

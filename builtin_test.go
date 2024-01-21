@@ -564,8 +564,8 @@ func TestMethodAutoProperty(t *testing.T) {
 	}
 }
 
-func TestIsType(t *testing.T) {
-	if isType(sigFuncEx(nil, nil, &TyOverloadFunc{})) {
+func TestIsTypeType(t *testing.T) {
+	if isTypeType(sigFuncEx(nil, nil, &TyOverloadFunc{})) {
 		t.Fatal("TestIsType: isType(TyOverloadFunc)")
 	}
 }
@@ -585,7 +585,7 @@ func TestUnderlying(t *testing.T) {
 		&TyOverloadFunc{},
 		&TyOverloadMethod{},
 		&TyTemplateRecvMethod{},
-		&instructionType{},
+		&TyInstruction{},
 		&TypeType{},
 		&unboundFuncParam{},
 		&unboundProxyParam{},
