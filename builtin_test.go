@@ -399,12 +399,6 @@ func TestIsFunc(t *testing.T) {
 	if !IsFunc(types.NewSignatureType(nil, nil, nil, nil, nil, false)) {
 		t.Fatal("func() is not func?")
 	}
-	if HasAutoProperty(nil) {
-		t.Fatal("nil has autoprop?")
-	}
-	if !HasAutoProperty(types.NewSignatureType(nil, nil, nil, nil, nil, false)) {
-		t.Fatal("func() has not autoprop?")
-	}
 }
 
 func TestCheckUdt(t *testing.T) {
@@ -582,6 +576,7 @@ func typString(pkg *Package, t types.Type) string {
 }
 
 func TestMethodAutoProperty(t *testing.T) {
+	pkg := types.NewPackage("", "")
 	typs := []types.Type{
 		tyInt,
 		sigFuncEx(nil, nil, &TyOverloadFunc{}),
@@ -591,6 +586,24 @@ func TestMethodAutoProperty(t *testing.T) {
 		if methodHasAutoProperty(typ, 0) {
 			t.Fatal("TestMethodAutoProperty:", typ)
 		}
+		if HasAutoProperty(typ) {
+			t.Fatal("HasAutoProperty:", typ)
+		}
+	}
+	fnt := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+	fn := types.NewFunc(0, pkg, "foo", fnt)
+	sig := sigFuncEx(nil, nil, &TyOverloadFunc{Funcs: []types.Object{fn}})
+	if !HasAutoProperty(sig) {
+		t.Fatal("HasAutoProperty:", sig)
+	}
+}
+
+func TestHasAutoProperty(t *testing.T) {
+	if HasAutoProperty(nil) {
+		t.Fatal("nil has autoprop?")
+	}
+	if !HasAutoProperty(types.NewSignatureType(nil, nil, nil, nil, nil, false)) {
+		t.Fatal("func() has not autoprop?")
 	}
 }
 
