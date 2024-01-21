@@ -88,19 +88,19 @@ func shouldAddGopPkg(pkg *Package) bool {
 	return pkg.isGopPkg && pkg.Types.Scope().Lookup(gopPackage) == nil
 }
 
+func isGopoConst(name string) bool {
+	return strings.HasPrefix(name, gopoPrefix)
+}
+
 func isGopFunc(name string) bool {
-	return isOverloadFunc(name) || isGoptFunc(name)
+	return isOverload(name) || isGoptFunc(name)
 }
 
 func isGoptFunc(name string) bool {
 	return strings.HasPrefix(name, goptPrefix)
 }
 
-func isGopoFunc(name string) bool {
-	return strings.HasPrefix(name, gopoPrefix)
-}
-
-func isOverloadFunc(name string) bool {
+func isOverload(name string) bool {
 	n := len(name)
 	return n > 3 && name[n-3:n-1] == "__"
 }
@@ -117,13 +117,15 @@ func initThisGopPkg(pkg *types.Package) {
 	overloads := make(map[omthd][]types.Object)
 	names := scope.Names()
 	for _, name := range names {
+		if isGopoConst(name) {
+			gopos = append(gopos, name)
+			continue
+		}
 		o := scope.Lookup(name)
 		if tn, ok := o.(*types.TypeName); ok && tn.IsAlias() {
 			continue
 		}
-		if isGopoFunc(name) {
-			gopos = append(gopos, name)
-		} else if isOverloadFunc(name) { // overload function
+		if isOverload(name) { // overload function
 			key := omthd{nil, name[:len(name)-3]}
 			overloads[key] = append(overloads[key], o)
 		} else if named, ok := o.Type().(*types.Named); ok {
@@ -137,7 +139,7 @@ func initThisGopPkg(pkg *types.Package) {
 			for i, n := 0, list.NumMethods(); i < n; i++ {
 				m := list.Method(i)
 				mName := m.Name()
-				if isOverloadFunc(mName) { // overload method
+				if isOverload(mName) { // overload method
 					mthd := mName[:len(mName)-3]
 					key := omthd{named, mthd}
 					overloads[key] = append(overloads[key], m)
