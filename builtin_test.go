@@ -44,6 +44,28 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestOverloadNameds(t *testing.T) {
+	pkg := types.NewPackage("", "")
+	tn := types.NewTypeName(0, pkg, "foo__1", nil)
+	named := types.NewNamed(tn, TyByte, nil)
+	func() {
+		defer func() {
+			if e := recover(); e != "overload type foo__1 out of range 0..0\n" {
+				t.Fatal("TestOverloadFuncs:", e)
+			}
+		}()
+		overloadNameds(5, []*types.Named{named})
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e != "overload type foo__1 exists?\n" {
+				t.Fatal("TestOverloadFuncs:", e)
+			}
+		}()
+		overloadNameds(5, []*types.Named{named, named})
+	}()
+}
+
 func TestOverloadFuncs(t *testing.T) {
 	pkg := types.NewPackage("", "")
 	fn := types.NewFunc(0, pkg, "foo__1", nil)
@@ -564,8 +586,8 @@ func TestMethodAutoProperty(t *testing.T) {
 	}
 }
 
-func TestIsType(t *testing.T) {
-	if isType(sigFuncEx(nil, nil, &TyOverloadFunc{})) {
+func TestIsTypeType(t *testing.T) {
+	if isTypeType(sigFuncEx(nil, nil, &TyOverloadFunc{})) {
 		t.Fatal("TestIsType: isType(TyOverloadFunc)")
 	}
 }
@@ -585,7 +607,8 @@ func TestUnderlying(t *testing.T) {
 		&TyOverloadFunc{},
 		&TyOverloadMethod{},
 		&TyTemplateRecvMethod{},
-		&instructionType{},
+		&TyInstruction{},
+		&TyOverloadNamed{},
 		&TypeType{},
 		&unboundFuncParam{},
 		&unboundProxyParam{},
@@ -608,6 +631,9 @@ func TestUnderlying(t *testing.T) {
 			log.Println("type:", typ.String())
 			if fex, ok := typ.(TyFuncEx); ok {
 				fex.funcEx()
+			}
+			if fex, ok := typ.(TyTypeEx); ok {
+				fex.typeEx()
 			}
 			if typ.Underlying() == typ {
 				panic("noop Underlying")

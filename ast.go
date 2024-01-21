@@ -271,7 +271,7 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 			Src:  src,
 		}
 	case *types.TypeName:
-		if typ := v.Type(); isType(typ) {
+		if typ := v.Type(); isTypeType(typ) {
 			return &internal.Elem{
 				Val: toType(pkg, typ), Type: NewTypeType(typ), Src: src,
 			}
@@ -694,7 +694,7 @@ retry:
 		} else if t.hasApproxType() {
 			flags |= instrFlagApproxType
 		}
-	case *instructionType:
+	case *TyInstruction:
 		return t.instr.Call(pkg, args, flags, fn.Src)
 	case *types.Named:
 		fnType = pkg.cb.getUnderlying(t)

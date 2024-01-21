@@ -1838,7 +1838,7 @@ func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
 	if fn == nil {
 		panic("TODO: operator not matched")
 	}
-	t := fn.Type().(*instructionType)
+	t := fn.Type().(*TyInstruction)
 	if _, err := t.instr.Call(pkg, []*Element{arg}, 0, nil); err != nil {
 		panic(err)
 	}
