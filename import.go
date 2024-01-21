@@ -115,6 +115,7 @@ func initThisGopPkg(pkg *types.Package) {
 	}
 	gopos := make([]string, 0, 4)
 	overloads := make(map[omthd][]types.Object)
+	onameds := make(map[string][]*types.Named)
 	names := scope.Names()
 	for _, name := range names {
 		if isGopoConst(name) {
@@ -125,10 +126,7 @@ func initThisGopPkg(pkg *types.Package) {
 		if tn, ok := o.(*types.TypeName); ok && tn.IsAlias() {
 			continue
 		}
-		if isOverload(name) { // overload function
-			key := omthd{nil, name[:len(name)-3]}
-			overloads[key] = append(overloads[key], o)
-		} else if named, ok := o.Type().(*types.Named); ok {
+		if named, ok := o.Type().(*types.Named); ok {
 			var list methodList
 			switch t := named.Underlying().(type) {
 			case *types.Interface:
@@ -145,6 +143,13 @@ func initThisGopPkg(pkg *types.Package) {
 					overloads[key] = append(overloads[key], m)
 				}
 			}
+			if isOverload(name) { // overload named
+				key := name[:len(name)-3]
+				onameds[key] = append(onameds[key], named)
+			}
+		} else if isOverload(name) { // overload function
+			key := omthd{nil, name[:len(name)-3]}
+			overloads[key] = append(overloads[key], o)
 		} else {
 			checkTemplateMethod(pkg, name, o)
 		}
@@ -171,6 +176,15 @@ func initThisGopPkg(pkg *types.Package) {
 		off := len(key.name) + 2
 		fns := overloadFuncs(off, items)
 		newOverload(pkg, scope, key, fns)
+	}
+	for name, items := range onameds {
+		off := len(name) + 2
+		nameds := overloadNameds(off, items)
+		if debugImport {
+			log.Println("==> NewOverloadNamed", name)
+		}
+		on := NewOverloadNamed(token.NoPos, pkg, name, nameds...)
+		scope.Insert(on)
 	}
 }
 
@@ -314,6 +328,22 @@ func overloadFuncs(off int, items []types.Object) []types.Object {
 	return fns
 }
 
+func overloadNameds(off int, items []*types.Named) []*types.Named {
+	nameds := make([]*types.Named, len(items))
+	for _, item := range items {
+		name := item.Obj().Name()
+		idx := toIndex(name[off])
+		if idx >= len(items) {
+			log.Panicf("overload type %v out of range 0..%v\n", name, len(nameds)-1)
+		}
+		if nameds[idx] != nil {
+			log.Panicf("overload type %v exists?\n", name)
+		}
+		nameds[idx] = item
+	}
+	return nameds
+}
+
 func toIndex(c byte) int {
 	if c >= '0' && c <= '9' {
 		return int(c - '0')
@@ -333,18 +363,23 @@ const (
 // Context represents all things between packages.
 type Context struct {
 	chkGopImports map[string]bool
+	stdPkg        func(pkgPath string) bool
 }
 
-func NewContext() *Context {
+func NewContext(isPkgtStandard func(pkgPath string) bool) *Context {
+	if isPkgtStandard == nil {
+		isPkgtStandard = isStdPkg
+	}
 	return &Context{
 		chkGopImports: make(map[string]bool),
+		stdPkg:        isPkgtStandard,
 	}
 }
 
 // initGopPkg initializes a Go+ packages.
 func (p *Context) initGopPkg(importer types.Importer, pkgImp *types.Package) {
 	pkgPath := pkgImp.Path()
-	if stdPkg(pkgPath) || p.chkGopImports[pkgPath] {
+	if p.stdPkg(pkgPath) || p.chkGopImports[pkgPath] {
 		return
 	}
 	if !pkgImp.Complete() {
@@ -357,7 +392,7 @@ func (p *Context) initGopPkg(importer types.Importer, pkgImp *types.Package) {
 	}
 }
 
-func stdPkg(pkgPath string) bool {
+func isStdPkg(pkgPath string) bool {
 	return strings.IndexByte(pkgPath, '.') < 0
 }
 

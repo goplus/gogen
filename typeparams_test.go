@@ -19,11 +19,44 @@ package gox_test
 import (
 	"go/token"
 	"go/types"
+	"log"
 	"runtime"
 	"testing"
 
 	"github.com/goplus/gox"
 )
+
+func TestOverloadNamed(t *testing.T) {
+	const src = `package foo
+
+const GopPackage = true
+
+type basetype interface {
+	string | int | bool | float64
+}
+
+type Var__0[T basetype] struct {
+	val T
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	scope := pkgRef.Types.Scope()
+	log.Println("==> Lookup", scope.Lookup("Var__0"))
+	objVar := pkgRef.Ref("Var")
+	on, ok := objVar.Type().(*gox.TyOverloadNamed)
+	if !ok {
+		t.Fatal("TestOverloadNamed: not TyOverloadNamed?")
+	}
+	if on.Types[0].TypeParams() == nil {
+		t.Fatal("TestOverloadNamed: not generic")
+	}
+}
 
 func TestInstantiate(t *testing.T) {
 	const src = `package foo

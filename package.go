@@ -101,6 +101,9 @@ type Config struct {
 	// Context represents all things between packages (optional).
 	Context *Context
 
+	// IsPkgtStandard checks a pkgPath is a Go standard package or not.
+	IsPkgtStandard func(pkgPath string) bool
+
 	// HandleErr is called to handle errors (optional).
 	HandleErr func(err error)
 
@@ -131,11 +134,11 @@ type Config struct {
 	// A Recorder records selected objects such as methods, etc (optional).
 	Recorder Recorder
 
-	// NoSkipConstant is to disable optimization of skipping constant (optional).
-	NoSkipConstant bool
-
 	// (internal) only for testing
 	DbgPositioner dbgPositioner
+
+	// NoSkipConstant is to disable optimization of skipping constant (optional).
+	NoSkipConstant bool
 }
 
 // ----------------------------------------------------------------------------
@@ -348,7 +351,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	}
 	ctx := conf.Context
 	if ctx == nil {
-		ctx = NewContext()
+		ctx = NewContext(conf.IsPkgtStandard)
 	}
 	imp := conf.Importer
 	if imp == nil {
