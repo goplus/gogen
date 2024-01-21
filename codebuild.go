@@ -1706,6 +1706,16 @@ func (p *CodeBuilder) method(
 	return
 }
 
+func isTypeConvert(otyp, typ types.Type) (string, bool) {
+	if otyp != typ {
+		if t, ok := typ.Underlying().(*types.Basic); ok &&
+			(t.Info()&types.IsUntyped) == 0 {
+			return t.Name(), true
+		}
+	}
+	return "", false
+}
+
 func (p *CodeBuilder) btiMethod(
 	o *builtinTI, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
 	if o != nil {
@@ -1715,7 +1725,15 @@ func (p *CodeBuilder) btiMethod(
 			if v == name || (flag > 0 && v == aliasName) {
 				autoprop := flag == MemberFlagAutoProperty && v == aliasName
 				this := p.stk.Pop()
-				this.Type = &btiMethodType{Type: this.Type, eargs: method.eargs}
+				if fn, ok := isTypeConvert(o.typ, this.Type); ok {
+					this.Val = &ast.CallExpr{
+						Fun:  ast.NewIdent(fn),
+						Args: []ast.Expr{this.Val},
+					}
+					this.Type = &btiMethodType{Type: o.typ, eargs: method.eargs}
+				} else {
+					this.Type = &btiMethodType{Type: this.Type, eargs: method.eargs}
+				}
 				p.Val(method.fn, src)
 				p.stk.Push(this)
 				if p.rec != nil {
