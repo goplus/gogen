@@ -1156,7 +1156,10 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	return p
 }
 
-// Index func
+// Index func:
+//   - a[i]
+//   - fn[T1, T2, ..., Tn]
+//   - G[T1, T2, ..., Tn]
 func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Index", nidx, twoValue)
@@ -1164,7 +1167,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 	args := p.stk.GetArgs(nidx + 1)
 	if enableTypeParams && nidx > 0 {
 		if _, ok := args[1].Type.(*TypeType); ok {
-			return p.inferType(nidx, args, src...)
+			return p.instantiate(nidx, args, src...)
 		}
 	}
 	if nidx != 1 {
