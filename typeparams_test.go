@@ -31,11 +31,17 @@ func TestOverloadNamed(t *testing.T) {
 
 const GopPackage = true
 
+type M = map[string]any
+
 type basetype interface {
 	string | int | bool | float64
 }
 
 type Var__0[T basetype] struct {
+	val T
+}
+
+type Var__1[T map[string]any] struct {
 	val T
 }
 `
@@ -56,6 +62,29 @@ type Var__0[T basetype] struct {
 	if on.Types[0].TypeParams() == nil {
 		t.Fatal("TestOverloadNamed: not generic")
 	}
+
+	tyInt := types.Typ[types.Int]
+	tyM := pkgRef.Ref("M").Type()
+	ty1 := pkg.Instantiate(on, []types.Type{tyInt})
+	ty2 := pkg.Instantiate(on, []types.Type{tyM})
+	pkg.NewTypeDefs().NewType("t1").InitType(pkg, ty1)
+	pkg.NewTypeDefs().NewType("t2").InitType(pkg, ty2)
+
+	domTest(t, pkg, `package main
+
+import "foo"
+
+type t1 foo.Var__0[int]
+type t2 foo.Var__1[map[string]any]
+`)
+
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestOverloadNamed failed: no error?")
+		}
+	}()
+	ty3 := pkg.Instantiate(on, []types.Type{gox.TyByte})
+	pkg.NewTypeDefs().NewType("t3").InitType(pkg, ty3)
 }
 
 func TestInstantiate(t *testing.T) {

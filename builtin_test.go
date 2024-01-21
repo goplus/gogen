@@ -44,6 +44,14 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestSetTypeParams(t *testing.T) {
+	pkg := types.NewPackage("", "")
+	tn := types.NewTypeName(0, pkg, "foo__1", nil)
+	named := types.NewNamed(tn, TyByte, nil)
+
+	setTypeParams(nil, named, &ast.TypeSpec{}, nil)
+}
+
 func TestOverloadNameds(t *testing.T) {
 	pkg := types.NewPackage("", "")
 	tn := types.NewTypeName(0, pkg, "foo__1", nil)

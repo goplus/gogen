@@ -445,14 +445,29 @@ func interfaceIsImplicit(t *types.Interface) bool {
 
 func (p *Package) Instantiate(orig types.Type, targs []types.Type, src ...ast.Node) types.Type {
 	p.cb.ensureLoaded(orig)
+	for _, targ := range targs {
+		p.cb.ensureLoaded(targ)
+	}
+	ctxt := p.cb.ctxt
+	if on, ok := orig.(*TyOverloadNamed); ok {
+		var first error
+		for _, t := range on.Types {
+			ret, err := types.Instantiate(ctxt, t, targs, true)
+			if err == nil {
+				return ret
+			}
+			if first == nil {
+				first = err
+			}
+		}
+		p.cb.handleCodeError(getPos(src), first.Error())
+		return types.Typ[types.Invalid]
+	}
 	if !isGenericType(orig) {
 		p.cb.handleCodeErrorf(getPos(src), "%v is not a generic type", orig)
 		return types.Typ[types.Invalid]
 	}
-	for _, targ := range targs {
-		p.cb.ensureLoaded(targ)
-	}
-	ret, err := types.Instantiate(p.cb.ctxt, orig, targs, true)
+	ret, err := types.Instantiate(ctxt, orig, targs, true)
 	if err != nil {
 		p.cb.handleCodeError(getPos(src), err.Error())
 	}
