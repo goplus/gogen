@@ -445,7 +445,10 @@ func interfaceIsImplicit(t *types.Interface) bool {
 
 func (p *Package) Instantiate(orig types.Type, targs []types.Type, src ...ast.Node) types.Type {
 	p.cb.ensureLoaded(orig)
-
+	if !isGenericType(orig) {
+		p.cb.handleCodeErrorf(getPos(src), "%v is not a generic type", orig)
+		return types.Typ[types.Invalid]
+	}
 	for _, targ := range targs {
 		p.cb.ensureLoaded(targ)
 	}

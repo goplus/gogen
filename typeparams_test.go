@@ -25,6 +25,63 @@ import (
 	"github.com/goplus/gox"
 )
 
+func TestInstantiate(t *testing.T) {
+	const src = `package foo
+
+type Data[T any] struct {
+	v T
+}
+
+type sliceOf[E any] interface {
+	~[]E
+}
+
+type Slice[S sliceOf[T], T any] struct {
+	Data S
+}
+
+func (p *Slice[S, T]) Append(t ...T) S {
+	p.Data = append(p.Data, t...)
+	return p.Data
+}
+
+type (
+	DataInt = Data[int]
+	SliceInt = Slice[[]int,int]
+)
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("foo")
+	tyData := pkgRef.Ref("Data").Type()
+	tyInt := types.Typ[types.Int]
+	tyInvalid := types.Typ[types.Invalid]
+	tySlice := pkgRef.Ref("Slice").Type()
+	if ret := pkg.Instantiate(tyData, []types.Type{tyInt}); ret == tyInvalid {
+		t.Fatal("TestInstantiate failed: pkg.Instantiate")
+	}
+	func() {
+		defer func() {
+			if e := recover(); e.(error).Error() != "-: int is not a generic type" {
+				t.Fatal("TestInstantiate failed:", e)
+			}
+		}()
+		pkg.Instantiate(tyInt, nil)
+	}()
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("TestInstantiate failed: no error?")
+			}
+		}()
+		pkg.Instantiate(tySlice, []types.Type{tyInt})
+	}()
+}
+
 func TestTypeParamsType(t *testing.T) {
 	const src = `package foo
 
