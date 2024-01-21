@@ -586,6 +586,7 @@ func TestUnderlying(t *testing.T) {
 		&TyOverloadMethod{},
 		&TyTemplateRecvMethod{},
 		&TyInstruction{},
+		&TyOverloadNamed{},
 		&TypeType{},
 		&unboundFuncParam{},
 		&unboundProxyParam{},
@@ -608,6 +609,9 @@ func TestUnderlying(t *testing.T) {
 			log.Println("type:", typ.String())
 			if fex, ok := typ.(TyFuncEx); ok {
 				fex.funcEx()
+			}
+			if fex, ok := typ.(TyTypeEx); ok {
+				fex.typeEx()
 			}
 			if typ.Underlying() == typ {
 				panic("noop Underlying")
