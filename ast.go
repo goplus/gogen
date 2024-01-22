@@ -607,6 +607,7 @@ retry:
 				if err != nil {
 					return
 				}
+				flags &= ^instrFlagGopxFunc
 			}
 			break
 		}
@@ -747,7 +748,8 @@ func matchOverloadNamedTypeCast(pkg *Package, t *types.TypeName, src ast.Node, a
 	cast := gopxPrefix + t.Name() + "_Cast"
 	o := t.Pkg().Scope().Lookup(cast)
 	if o == nil {
-		log.Panicln("TODO: matchOverloadNamedTypeCast", cast)
+		err := pkg.cb.newCodeErrorf(getSrcPos(src), "typecast %v not found", t.Type())
+		return nil, err
 	}
 	fn := toObject(pkg, o, src)
 	return matchFuncCall(pkg, fn, args, flags|instrFlagGopxFunc)

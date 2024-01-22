@@ -44,6 +44,17 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestMatchOverloadNamedTypeCast(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	foo := types.NewPackage("github.com/bar/foo", "foo")
+	tn := types.NewTypeName(0, foo, "t", nil)
+	types.NewNamed(tn, types.Typ[types.Int], nil)
+	_, err := matchOverloadNamedTypeCast(pkg, tn, nil, nil, 0)
+	if err == nil || err.Error() != "-: typecast github.com/bar/foo.t not found" {
+		t.Fatal("TestMatchOverloadNamedTypeCast:", err)
+	}
+}
+
 func TestSetTypeParams(t *testing.T) {
 	pkg := types.NewPackage("", "")
 	tn := types.NewTypeName(0, pkg, "foo__1", nil)
