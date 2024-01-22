@@ -1068,6 +1068,14 @@ func TestImportError(t *testing.T) {
 	f.importPkg(pkg, "bad", nil)
 }
 
+func TestImportError2(t *testing.T) {
+	err := &types.Error{Msg: "foo"}
+	e := &ImportError{Err: err}
+	if v := e.Unwrap(); v != err {
+		t.Fatal("TestImportError2:", v)
+	}
+}
+
 func TestForRangeStmtPanic(t *testing.T) {
 	defer func() {
 		if e := recover(); e != nil {
