@@ -228,12 +228,10 @@ var (
 )
 
 func toInterface(pkg *Package, t *types.Interface) ast.Expr {
-	if enableTypeParams {
-		if t == universeAny.Type() {
-			return ast.NewIdent("any")
-		} else if interfaceIsImplicit(t) && t.NumEmbeddeds() == 1 {
-			return toType(pkg, t.EmbeddedType(0))
-		}
+	if t == universeAny.Type() {
+		return ast.NewIdent("any")
+	} else if interfaceIsImplicit(t) && t.NumEmbeddeds() == 1 {
+		return toType(pkg, t.EmbeddedType(0))
 	}
 	var flds []*ast.Field
 	for i, n := 0, t.NumEmbeddeds(); i < n; i++ {
@@ -593,22 +591,20 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 	var cval constant.Value
 retry:
 	switch t := fnType.(type) {
-	case *inferFuncType:
-		sig = t.InstanceWithArgs(args, flags)
-		if debugMatch {
-			log.Println("==> InferFunc", sig)
-		}
 	case *types.Signature:
-		if enableTypeParams && funcHasTypeParams(t) {
-			rt, err := inferFunc(pkg, fn, t, nil, args, flags)
-			if err != nil {
-				pkg.cb.panicCodeError(getSrcPos(fn.Src), err.Error())
+		if params := t.TypeParams(); params != nil {
+			if (flags & instrFlagGopxFunc) == 0 {
+				rt, err := inferFunc(pkg, fn, t, nil, args, flags)
+				if err != nil {
+					pkg.cb.panicCodeError(getSrcPos(fn.Src), err.Error())
+				}
+				sig = rt.(*types.Signature)
+				if debugMatch {
+					log.Println("==> InferFunc", sig)
+				}
+				break
 			}
-			sig = rt.(*types.Signature)
-			if debugMatch {
-				log.Println("==> InferFunc", sig)
-			}
-			break
+			panic("TODO: instrFlagGopxFunc")
 		}
 		if fex, ok := CheckFuncEx(t); ok {
 			switch ft := fex.(type) {
@@ -683,8 +679,6 @@ retry:
 		} else {
 			sig = t
 		}
-	case *TypeType: // type convert
-		return matchTypeCast(pkg, t.Type(), fn, args, flags)
 	case *TemplateSignature: // template function
 		sig, it = t.instantiate()
 		if t.isUnaryOp() {
@@ -696,9 +690,18 @@ retry:
 		}
 	case *TyInstruction:
 		return t.instr.Call(pkg, args, flags, fn.Src)
+	case *TypeType: // type convert
+		return matchTypeCast(pkg, t.Type(), fn, args, flags)
+	case *TyOverloadNamed:
+		return matchOverloadNamedTypeCast(pkg, t.Obj, fn.Src, args, flags)
 	case *types.Named:
 		fnType = pkg.cb.getUnderlying(t)
 		goto retry
+	case *inferFuncType:
+		sig = t.InstanceWithArgs(args, flags)
+		if debugMatch {
+			log.Println("==> InferFunc", sig)
+		}
 	default:
 		src, pos := pkg.cb.loadExpr(fn.Src)
 		pkg.cb.panicCodeErrorf(pos, "cannot call non-function %s (type %v)", src, fn.Type)
@@ -734,6 +737,16 @@ retry:
 		Val: &ast.CallExpr{
 			Fun: fn.Val, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 	}, nil
+}
+
+func matchOverloadNamedTypeCast(pkg *Package, t *types.TypeName, src ast.Node, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+	cast := gopxPrefix + t.Name() + "_Cast"
+	o := t.Pkg().Scope().Lookup(cast)
+	if o == nil {
+		log.Panicln("TODO: matchOverloadNamedTypeCast", cast)
+	}
+	fn := toObject(pkg, o, src)
+	return matchFuncCall(pkg, fn, args, flags|instrFlagGopxFunc)
 }
 
 func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {

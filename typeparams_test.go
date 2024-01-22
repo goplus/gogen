@@ -44,6 +44,14 @@ type Var__0[T basetype] struct {
 type Var__1[T map[string]any] struct {
 	val T
 }
+
+func Gopx_Var_Cast__0[T basetype]() *Var__0[T] {
+	return new(Var__0[T])
+}
+
+func Gopx_Var_Cast__1[T map[string]any]() *Var__1[T] {
+	return new(Var__1[T])
+}
 `
 	gt := newGoxTest()
 	_, err := gt.LoadGoPackage("foo", "foo.go", src)
@@ -69,6 +77,9 @@ type Var__1[T map[string]any] struct {
 	ty2 := pkg.Instantiate(on, []types.Type{tyM})
 	pkg.NewTypeDefs().NewType("t1").InitType(pkg, ty1)
 	pkg.NewTypeDefs().NewType("t2").InitType(pkg, ty2)
+	// pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+	//	Val(objVar).Typ(tyInt).Call(1).
+	//	End()
 
 	domTest(t, pkg, `package main
 

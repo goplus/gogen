@@ -28,8 +28,6 @@ import (
 
 // ----------------------------------------------------------------------------
 
-const enableTypeParams = true
-
 type TypeParam = types.TypeParam
 type Union = types.Union
 type Term = types.Term
@@ -352,10 +350,6 @@ func inferFuncTargs(pkg *Package, fn *internal.Elem, sig *types.Signature, targs
 		return nil, err
 	}
 	return types.Instantiate(pkg.cb.ctxt, sig, targs, true)
-}
-
-func funcHasTypeParams(t *types.Signature) bool {
-	return t.TypeParams() != nil
 }
 
 func toFieldListX(pkg *Package, t *types.TypeParamList) *ast.FieldList {
