@@ -57,14 +57,18 @@ func isTypeType(t types.Type) bool {
 
 type TyOverloadNamed struct {
 	Types []*types.Named
+	Obj   *types.TypeName
 }
 
 func (p *TyOverloadNamed) typeEx()                {}
 func (p *TyOverloadNamed) Underlying() types.Type { return p }
-func (p *TyOverloadNamed) String() string         { return "TyOverloadNamed" }
+func (p *TyOverloadNamed) String() string         { return p.Obj.Name() }
 
 func NewOverloadNamed(pos token.Pos, pkg *types.Package, name string, typs ...*types.Named) *types.TypeName {
-	return types.NewTypeName(pos, pkg, name, &TyOverloadNamed{Types: typs})
+	t := &TyOverloadNamed{Types: typs}
+	o := types.NewTypeName(pos, pkg, name, t)
+	t.Obj = o
+	return o
 }
 
 type TyInstruction struct {

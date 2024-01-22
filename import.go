@@ -274,6 +274,7 @@ func checkTemplateMethod(pkg *types.Package, name string, o types.Object) {
 const (
 	goptPrefix = "Gopt_" // template method
 	gopoPrefix = "Gopo_" // overload function/method
+	gopxPrefix = "Gopx_"
 	gopPackage = "GopPackage"
 )
 

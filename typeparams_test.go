@@ -1,6 +1,3 @@
-//go:build go1.18
-// +build go1.18
-
 /*
  Copyright 2022 The GoPlus Authors (goplus.org)
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,6 +41,14 @@ type Var__0[T basetype] struct {
 type Var__1[T map[string]any] struct {
 	val T
 }
+
+func Gopx_Var_Cast__0[T basetype]() *Var__0[T] {
+	return new(Var__0[T])
+}
+
+func Gopx_Var_Cast__1[T map[string]any]() *Var__1[T] {
+	return new(Var__1[T])
+}
 `
 	gt := newGoxTest()
 	_, err := gt.LoadGoPackage("foo", "foo.go", src)
@@ -69,6 +74,10 @@ type Var__1[T map[string]any] struct {
 	ty2 := pkg.Instantiate(on, []types.Type{tyM})
 	pkg.NewTypeDefs().NewType("t1").InitType(pkg, ty1)
 	pkg.NewTypeDefs().NewType("t2").InitType(pkg, ty2)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(objVar).Typ(tyInt).Call(1).EndStmt().
+		Val(objVar).Typ(tyM).Call(1).EndStmt().
+		End()
 
 	domTest(t, pkg, `package main
 
@@ -76,15 +85,32 @@ import "foo"
 
 type t1 foo.Var__0[int]
 type t2 foo.Var__1[map[string]any]
+
+func main() {
+	foo.Gopx_Var_Cast__0[int]()
+	foo.Gopx_Var_Cast__1[map[string]any]()
+}
 `)
 
-	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("TestOverloadNamed failed: no error?")
-		}
+	func() {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("TestOverloadNamed failed: no error?")
+			}
+		}()
+		ty3 := pkg.Instantiate(on, []types.Type{gox.TyByte})
+		pkg.NewTypeDefs().NewType("t3").InitType(pkg, ty3)
 	}()
-	ty3 := pkg.Instantiate(on, []types.Type{gox.TyByte})
-	pkg.NewTypeDefs().NewType("t3").InitType(pkg, ty3)
+	func() {
+		defer func() {
+			if e := recover(); e != nil && e.(error).Error() != "-: 1 (type untyped int) is not a type" {
+				t.Fatal("TestOverloadNamed failed:", e)
+			}
+		}()
+		pkg.NewFunc(nil, "bar", nil, nil, false).BodyStart(pkg).
+			Val(objVar).Val(1, source("1")).Call(1).EndStmt().
+			End()
+	}()
 }
 
 func TestInstantiate(t *testing.T) {

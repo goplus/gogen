@@ -28,8 +28,6 @@ import (
 
 // ----------------------------------------------------------------------------
 
-const enableTypeParams = true
-
 type TypeParam = types.TypeParam
 type Union = types.Union
 type Term = types.Term
@@ -354,10 +352,6 @@ func inferFuncTargs(pkg *Package, fn *internal.Elem, sig *types.Signature, targs
 	return types.Instantiate(pkg.cb.ctxt, sig, targs, true)
 }
 
-func funcHasTypeParams(t *types.Signature) bool {
-	return t.TypeParams() != nil
-}
-
 func toFieldListX(pkg *Package, t *types.TypeParamList) *ast.FieldList {
 	if t == nil {
 		return nil
@@ -442,6 +436,34 @@ func interfaceIsImplicit(t *types.Interface) bool {
 }
 
 // ----------------------------------------------------------------------------
+
+func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Element) (*Element, *types.Signature, []*Element, error) {
+	params := sig.TypeParams()
+	if n := params.Len(); n > 0 {
+		targs := make([]types.Type, n)
+		for i, arg := range args {
+			t, ok := arg.Type.(*TypeType)
+			if !ok {
+				src, pos := p.cb.loadExpr(arg.Src)
+				err := p.cb.newCodeErrorf(pos, "%s (type %v) is not a type", src, arg.Type)
+				return fn, sig, args, err
+			}
+			targs[i] = t.typ
+		}
+		ret, err := types.Instantiate(p.cb.ctxt, sig, targs, true)
+		if err != nil {
+			return fn, sig, args, err
+		}
+		indices := make([]ast.Expr, n)
+		for i, arg := range args {
+			indices[i] = arg.Val
+		}
+		fn = &Element{Val: &ast.IndexListExpr{X: fn.Val, Indices: indices}, Type: ret, Src: fn.Src}
+		sig = ret.(*types.Signature)
+		args = args[n:]
+	}
+	return fn, sig, args, nil
+}
 
 func (p *Package) Instantiate(orig types.Type, targs []types.Type, src ...ast.Node) types.Type {
 	p.cb.ensureLoaded(orig)
