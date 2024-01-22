@@ -596,7 +596,7 @@ retry:
 			if (flags & instrFlagGopxFunc) == 0 {
 				rt, err := inferFunc(pkg, fn, t, nil, args, flags)
 				if err != nil {
-					pkg.cb.panicCodeError(getSrcPos(fn.Src), err.Error())
+					return nil, pkg.cb.newCodeError(getSrcPos(fn.Src), err.Error())
 				}
 				sig = rt.(*types.Signature)
 				if debugMatch {
