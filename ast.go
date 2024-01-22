@@ -592,7 +592,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 retry:
 	switch t := fnType.(type) {
 	case *types.Signature:
-		if params := t.TypeParams(); params != nil {
+		if t.TypeParams() != nil {
 			if (flags & instrFlagGopxFunc) == 0 {
 				rt, err := inferFunc(pkg, fn, t, nil, args, flags)
 				if err != nil {
@@ -602,9 +602,13 @@ retry:
 				if debugMatch {
 					log.Println("==> InferFunc", sig)
 				}
-				break
+			} else {
+				fn, sig, args, err = boundTypeParams(pkg, fn, t, args)
+				if err != nil {
+					return
+				}
 			}
-			panic("TODO: instrFlagGopxFunc")
+			break
 		}
 		if fex, ok := CheckFuncEx(t); ok {
 			switch ft := fex.(type) {
