@@ -453,8 +453,10 @@ func (p *Package) CurFile() *File {
 }
 
 // RestoreCurFile sets current file to an `old` file that was returned by `SetCurFile`.
-func (p *Package) RestoreCurFile(file *File) {
+func (p *Package) RestoreCurFile(file *File) (old *File) {
+	old = p.file
 	p.file = file
+	return
 }
 
 // File returns a file by its name.
