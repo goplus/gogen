@@ -1677,6 +1677,7 @@ func (p *CodeBuilder) allowAccess(pkg *types.Package, name string) bool {
 func (p *CodeBuilder) method(
 	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) (kind MemberKind) {
 	var found *types.Func
+	var exact bool
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		v := method.Name()
@@ -1684,21 +1685,20 @@ func (p *CodeBuilder) method(
 			continue
 		}
 		if v == name {
-			found = method
+			found, exact = method, true
 			break
 		} else if flag > 0 && v == aliasName {
 			found = method
 		}
 	}
 	if found != nil {
-		v := found.Name()
-		autoprop := flag == MemberFlagAutoProperty && v == aliasName
+		autoprop := !exact && flag == MemberFlagAutoProperty
 		typ := found.Type()
 		if autoprop && !methodHasAutoProperty(typ, 0) {
 			return memberBad
 		}
 		p.stk.Ret(1, &internal.Elem{
-			Val:  selector(arg, v),
+			Val:  selector(arg, found.Name()),
 			Type: methodTypeOf(typ),
 			Src:  src,
 		})
