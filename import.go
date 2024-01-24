@@ -67,6 +67,11 @@ func (p PkgRef) TryRef(name string) Ref {
 	return p.Types.Scope().Lookup(name)
 }
 
+// MarkForceUsed marks to import a package always (i.e. `import _ pkgPath`).
+func (p PkgRef) MarkForceUsed(pkg *Package) {
+	pkg.file.forceImport(p.Types.Path())
+}
+
 // Deprecated: EnsureImported is nothing to do now.
 func (p PkgRef) EnsureImported() {
 }
