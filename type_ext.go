@@ -22,11 +22,44 @@ import (
 
 // ----------------------------------------------------------------------------
 
+// Go+ overload extended types
+type iOverloadType interface {
+	At(i int) types.Object
+	Len() int
+}
+
+var (
+	_ iOverloadType = (*TyOverloadNamed)(nil)
+	_ iOverloadType = (*TyOverloadFunc)(nil)
+	_ iOverloadType = (*TyOverloadMethod)(nil)
+)
+
+// ----------------------------------------------------------------------------
+
+type iSubstType interface {
+	Obj() types.Object
+}
+
+var (
+	_ iSubstType = (*TyTemplateRecvMethod)(nil)
+	_ iSubstType = (*TySubst)(nil)
+)
+
+// ----------------------------------------------------------------------------
+
 // TyTypeEx is a TypeEx type.
 type TyTypeEx interface {
 	types.Type
 	typeEx()
 }
+
+var (
+	_ TyTypeEx = (*TyOverloadNamed)(nil)
+	_ TyTypeEx = (*TyInstruction)(nil)
+	_ TyTypeEx = (*TySubst)(nil)
+)
+
+// ----------------------------------------------------------------------------
 
 // IsTypeEx returns if t is a gox extended type or not.
 func IsTypeEx(t types.Type) (ok bool) {
@@ -60,9 +93,15 @@ type TyOverloadNamed struct {
 	Obj   *types.TypeName
 }
 
+func (p *TyOverloadNamed) At(i int) types.Object { return p.Types[i].Obj() }
+func (p *TyOverloadNamed) Len() int              { return len(p.Types) }
+
 func (p *TyOverloadNamed) typeEx()                {}
 func (p *TyOverloadNamed) Underlying() types.Type { return p }
-func (p *TyOverloadNamed) String() string         { return p.Obj.Name() }
+func (p *TyOverloadNamed) String() string {
+	o := p.Obj
+	return fmt.Sprintf("TyOverloadNamed{%s.%s}", o.Pkg().Path(), o.Name())
+}
 
 func NewOverloadNamed(pos token.Pos, pkg *types.Package, name string, typs ...*types.Named) *types.TypeName {
 	t := &TyOverloadNamed{Types: typs}
@@ -83,6 +122,43 @@ func (p *TyInstruction) String() string {
 
 func NewInstruction(pos token.Pos, pkg *types.Package, name string, instr Instruction) *types.TypeName {
 	return types.NewTypeName(pos, pkg, name, &TyInstruction{instr})
+}
+
+// Deprecated: use TySubst instead of SubstType.
+type SubstType = TySubst
+
+type TySubst struct {
+	Real types.Object
+}
+
+func (p *TySubst) Obj() types.Object { return p.Real }
+
+func (p *TySubst) typeEx()                {}
+func (p *TySubst) Underlying() types.Type { return p }
+func (p *TySubst) String() string {
+	return fmt.Sprintf("substType{real: %v}", p.Real)
+}
+
+func NewSubst(pos token.Pos, pkg *types.Package, name string, real types.Object) *types.Var {
+	return types.NewVar(pos, pkg, name, &TySubst{Real: real})
+}
+
+func LookupParent(scope *types.Scope, name string, pos token.Pos) (at *types.Scope, obj types.Object) {
+	if at, obj = scope.LookupParent(name, pos); obj != nil {
+		if t, ok := obj.Type().(*TySubst); ok {
+			obj = t.Real
+		}
+	}
+	return
+}
+
+func Lookup(scope *types.Scope, name string) (obj types.Object) {
+	if obj = scope.Lookup(name); obj != nil {
+		if t, ok := obj.Type().(*TySubst); ok {
+			obj = t.Real
+		}
+	}
+	return
 }
 
 // ----------------------------------------------------------------------------
@@ -106,11 +182,7 @@ func (p *refType) Elem() types.Type {
 	return p.typ
 }
 
-func (p *refType) Underlying() types.Type {
-	fatal("ref type")
-	return nil
-}
-
+func (p *refType) Underlying() types.Type { return p }
 func (p *refType) String() string {
 	return fmt.Sprintf("refType{typ: %v}", p.typ)
 }
@@ -132,11 +204,7 @@ type bfRefType struct {
 	bits int
 }
 
-func (p *bfRefType) Underlying() types.Type {
-	fatal("bit field refType")
-	return nil
-}
-
+func (p *bfRefType) Underlying() types.Type { return p }
 func (p *bfRefType) String() string {
 	return fmt.Sprintf("bfRefType{typ: %v:%d off: %d}", p.typ, p.bits, p.off)
 }
@@ -158,11 +226,7 @@ func (p *unboundType) boundTo(pkg *Package, arg types.Type) {
 	p.ptypes = nil
 }
 
-func (p *unboundType) Underlying() types.Type {
-	fatal("unbound type")
-	return nil
-}
-
+func (p *unboundType) Underlying() types.Type { return p }
 func (p *unboundType) String() string {
 	return fmt.Sprintf("unboundType{typ: %v}", p.tBound)
 }
@@ -186,11 +250,7 @@ type unboundMapElemType struct {
 	typ *unboundType
 }
 
-func (p *unboundMapElemType) Underlying() types.Type {
-	fatal("unbound map elem type")
-	return nil
-}
-
+func (p *unboundMapElemType) Underlying() types.Type { return p }
 func (p *unboundMapElemType) String() string {
 	return fmt.Sprintf("unboundMapElemType{key: %v}", p.key)
 }
@@ -220,50 +280,9 @@ func (p *TypeType) Type() types.Type {
 	return p.typ
 }
 
-func (p *TypeType) Underlying() types.Type {
-	fatal("type of type")
-	return nil
-}
-
+func (p *TypeType) Underlying() types.Type { return p }
 func (p *TypeType) String() string {
 	return fmt.Sprintf("TypeType{typ: %v}", p.typ)
-}
-
-// ----------------------------------------------------------------------------
-
-type SubstType struct {
-	Real types.Object
-}
-
-func (p *SubstType) Underlying() types.Type {
-	fatal("substitute type")
-	return nil
-}
-
-func (p *SubstType) String() string {
-	return fmt.Sprintf("substType{real: %v}", p.Real)
-}
-
-func NewSubst(pos token.Pos, pkg *types.Package, name string, real types.Object) *types.Var {
-	return types.NewVar(pos, pkg, name, &SubstType{Real: real})
-}
-
-func LookupParent(scope *types.Scope, name string, pos token.Pos) (at *types.Scope, obj types.Object) {
-	if at, obj = scope.LookupParent(name, pos); obj != nil {
-		if t, ok := obj.Type().(*SubstType); ok {
-			obj = t.Real
-		}
-	}
-	return
-}
-
-func Lookup(scope *types.Scope, name string) (obj types.Object) {
-	if obj = scope.Lookup(name); obj != nil {
-		if t, ok := obj.Type().(*SubstType); ok {
-			obj = t.Real
-		}
-	}
-	return
 }
 
 // ----------------------------------------------------------------------------

@@ -86,6 +86,9 @@ type TyOverloadFunc struct {
 	Funcs []types.Object
 }
 
+func (p *TyOverloadFunc) At(i int) types.Object { return p.Funcs[i] }
+func (p *TyOverloadFunc) Len() int              { return len(p.Funcs) }
+
 func (p *TyOverloadFunc) Underlying() types.Type { return p }
 func (p *TyOverloadFunc) String() string         { return "TyOverloadFunc" }
 func (p *TyOverloadFunc) funcEx()                {}
@@ -110,6 +113,9 @@ type TyOverloadMethod struct {
 	Methods []types.Object
 }
 
+func (p *TyOverloadMethod) At(i int) types.Object { return p.Methods[i] }
+func (p *TyOverloadMethod) Len() int              { return len(p.Methods) }
+
 func (p *TyOverloadMethod) Underlying() types.Type { return p }
 func (p *TyOverloadMethod) String() string         { return "TyOverloadMethod" }
 func (p *TyOverloadMethod) funcEx()                {}
@@ -133,6 +139,7 @@ type TyTemplateRecvMethod struct {
 	Func types.Object
 }
 
+func (p *TyTemplateRecvMethod) Obj() types.Object      { return p.Func }
 func (p *TyTemplateRecvMethod) Underlying() types.Type { return p }
 func (p *TyTemplateRecvMethod) String() string         { return "TyTemplateRecvMethod" }
 func (p *TyTemplateRecvMethod) funcEx()                {}

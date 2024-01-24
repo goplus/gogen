@@ -614,12 +614,14 @@ func TestIsTypeType(t *testing.T) {
 	}
 }
 
-func TestUnderlying(t *testing.T) {
-	subst := &SubstType{}
+func TestTypeEx(t *testing.T) {
+	subst := &TySubst{}
 	bfReft := &bfRefType{typ: tyInt}
 	if typ, ok := DerefType(bfReft); !ok || typ != tyInt {
 		t.Fatal("TestDerefType failed")
 	}
+	pkg := NewPackage("example.com/foo", "foo", gblConf)
+	tyInt := types.Typ[types.Int]
 	typs := []types.Type{
 		&refType{},
 		subst,
@@ -630,7 +632,7 @@ func TestUnderlying(t *testing.T) {
 		&TyOverloadMethod{},
 		&TyTemplateRecvMethod{},
 		&TyInstruction{},
-		&TyOverloadNamed{},
+		&TyOverloadNamed{Obj: types.NewTypeName(0, pkg.Types, "bar", tyInt)},
 		&TypeType{},
 		&unboundFuncParam{},
 		&unboundProxyParam{},
@@ -645,11 +647,6 @@ func TestUnderlying(t *testing.T) {
 	}
 	for _, typ := range typs {
 		func() {
-			defer func() {
-				if e := recover(); e == nil {
-					t.Fatal("TestUnderlying failed: no error?")
-				}
-			}()
 			log.Println("type:", typ.String())
 			if fex, ok := typ.(TyFuncEx); ok {
 				fex.funcEx()
@@ -657,11 +654,34 @@ func TestUnderlying(t *testing.T) {
 			if fex, ok := typ.(TyTypeEx); ok {
 				fex.typeEx()
 			}
-			if typ.Underlying() == typ {
-				panic("noop Underlying")
+			if fex, ok := typ.(iSubstType); ok {
+				fex.Obj()
 			}
+			if fex, ok := typ.(iOverloadType); ok {
+				fex.Len()
+				func() {
+					defer func() {
+						if e := recover(); e == nil {
+							t.Fatal("iOverloadType.At: no error?")
+						}
+					}()
+					fex.At(0)
+				}()
+			}
+			typ.Underlying()
 		}()
 	}
+	bte := &boundTypeError{tyInt, TyByte}
+	if bte.Error() != "boundType int => byte failed" {
+		t.Fatal("boundTypeError:", bte)
+	}
+	ut := &unboundType{tBound: tyInt}
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("unboundType.boundTo: no error?")
+		}
+	}()
+	ut.boundTo(pkg, TyByte)
 }
 
 func TestIsNumeric(t *testing.T) {
