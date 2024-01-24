@@ -58,7 +58,6 @@ func (p eventRecorder) Call(fn ast.Node, obj types.Object) {
 
 func isStdPkg(pkgPath string) bool {
 	is := pkgPath != "foo" && strings.IndexByte(pkgPath, '.') < 0
-	log.Println("isStdPkg:", pkgPath, is)
 	return is
 }
 
@@ -88,6 +87,7 @@ func domTest(t *testing.T, pkg *gox.Package, expected string) {
 
 func domTestEx(t *testing.T, pkg *gox.Package, expected string, fname string) {
 	var b bytes.Buffer
+	t.Helper()
 	err := gox.WriteTo(&b, pkg, fname)
 	if err != nil {
 		t.Fatal("gox.WriteTo failed:", err)
@@ -209,9 +209,9 @@ func TestBTIMethod(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
-	"fmt"
 )
 
 func main() {
@@ -258,9 +258,9 @@ func TestTypedBTIMethod(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
-	"fmt"
 )
 
 type MyInt int
@@ -3558,7 +3558,7 @@ func (m *M) SetValue() {
 		End()
 	domTest(t, pkg, `package main
 
-import foo2 "foo"
+import "foo"
 
 func main() {
 	var m foo2.M

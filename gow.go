@@ -45,7 +45,6 @@ func (p *Package) ASTFile(fname ...string) *ast.File {
 	}
 	decls := f.getDecls(p)
 	file := &ast.File{Name: ident(p.Types.Name()), Decls: decls, Imports: getImports(decls)}
-	ast.SortImports(p.Fset, file)
 	return file
 }
 

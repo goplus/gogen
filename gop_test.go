@@ -714,8 +714,8 @@ func TestForRangeUDT(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	"github.com/goplus/gox/internal/foo"
 	"fmt"
+	"github.com/goplus/gox/internal/foo"
 )
 
 func bar(v foo.NodeSet) {
@@ -743,8 +743,8 @@ func TestForRangeUDT2(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	"github.com/goplus/gox/internal/foo"
 	"fmt"
+	"github.com/goplus/gox/internal/foo"
 )
 
 func bar(v *foo.Bar) {
@@ -773,8 +773,8 @@ func TestForRangeUDT3_WithAssign(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	"github.com/goplus/gox/internal/foo"
 	"fmt"
+	"github.com/goplus/gox/internal/foo"
 )
 
 func bar(v *foo.Bar) {
@@ -804,8 +804,8 @@ func TestForRangeUDT3_NoAssign(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	"github.com/goplus/gox/internal/foo"
 	"fmt"
+	"github.com/goplus/gox/internal/foo"
 )
 
 func bar(v *foo.Bar) {
@@ -835,8 +835,8 @@ func TestForRangeUDT_UNDERLINE(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	"github.com/goplus/gox/internal/foo"
 	"fmt"
+	"github.com/goplus/gox/internal/foo"
 )
 
 func bar(v *foo.Bar) {
@@ -865,8 +865,8 @@ func TestForRangeUDT_UNDERLINE2(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	"github.com/goplus/gox/internal/foo"
 	"fmt"
+	"github.com/goplus/gox/internal/foo"
 )
 
 func bar(v foo.NodeSet) {
@@ -897,8 +897,8 @@ func TestForRangeUDT4(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	"github.com/goplus/gox/internal/foo"
 	"fmt"
+	"github.com/goplus/gox/internal/foo"
 )
 
 func bar(v *foo.Foo) {
@@ -923,8 +923,8 @@ func TestForRangeUDT5(t *testing.T) {
 	domTest(t, pkg, `package main
 
 import (
-	"github.com/goplus/gox/internal/foo"
 	"fmt"
+	"github.com/goplus/gox/internal/foo"
 )
 
 func bar(v *foo.Foo2) {

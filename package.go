@@ -18,6 +18,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"sort"
 	"syscall"
 
 	"github.com/goplus/gox/packages"
@@ -244,6 +245,9 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			})
 		}
 	}
+	sort.Slice(specs, func(i, j int) bool {
+		return specs[i].(*ast.ImportSpec).Path.Value < specs[j].(*ast.ImportSpec).Path.Value
+	})
 
 	addGopPkg := p.fname == this.conf.DefaultGoFile && shouldAddGopPkg(this)
 	if len(specs) == 0 && !addGopPkg {
