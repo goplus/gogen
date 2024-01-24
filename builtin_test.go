@@ -21,6 +21,7 @@ import (
 	"go/types"
 	"log"
 	"math/big"
+	"strings"
 	"testing"
 	"unsafe"
 
@@ -973,6 +974,14 @@ func TestUntypeBig(t *testing.T) {
 func TestIsUnbound(t *testing.T) {
 	if !isUnboundTuple(types.NewTuple(types.NewParam(token.NoPos, nil, "", &unboundFuncParam{}))) {
 		t.Fatal("TestIsUnbound failed")
+	}
+}
+
+func TestErrImport(t *testing.T) {
+	pkg := NewPackage("github.com/x/foo", "foo", gblConf)
+	_, err := importPkg(pkg, "./bar", nil)
+	if err == nil || !strings.HasPrefix(err.Error(), "no required module provides package github.com/x/foo/bar;") {
+		t.Fatal("importPkg failed:", err)
 	}
 }
 
