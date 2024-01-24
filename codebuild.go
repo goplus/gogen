@@ -1292,7 +1292,7 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 		ret := pkg.NewParam(token.NoPos, "", retTyp)
 		p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
 			DefineVarStart(token.NoPos, "v", "_").
-			Val(pkg.builtin.Scope().Lookup("new")).Typ(typ).Call(1).
+			Val(pkg.builtin.Ref("new")).Typ(typ).Call(1).
 			MemberVal("SetString").Val(v.String()).Val(10).Call(2).EndInit(1).
 			Val(p.Scope().Lookup("v")).Return(1).
 			End().Call(0)
@@ -1313,7 +1313,7 @@ func (p *CodeBuilder) UntypedBigRat(v *big.Rat, src ...ast.Node) *CodeBuilder {
 		p.Val(bigPkg.Ref("NewRat")).Val(va).Val(vb).Call(2)
 	} else {
 		// new(big.Rat).SetFrac(a, b)
-		p.Val(p.pkg.builtin.Scope().Lookup("new")).Typ(bigPkg.Ref("Rat").Type()).Call(1).
+		p.Val(p.pkg.builtin.Ref("new")).Typ(bigPkg.Ref("Rat").Type()).Call(1).
 			MemberVal("SetFrac").UntypedBigInt(a).UntypedBigInt(b).Call(2)
 	}
 	ret := p.stk.Get(-1)
@@ -1834,10 +1834,7 @@ func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
 			return p
 		}
 	}
-	fn := pkg.builtin.Scope().Lookup(name)
-	if fn == nil {
-		panic("TODO: operator not matched")
-	}
+	fn := pkg.builtin.Ref(name)
 	t := fn.Type().(*TyInstruction)
 	if _, err := t.instr.Call(pkg, []*Element{arg}, 0, nil); err != nil {
 		panic(err)
@@ -1904,10 +1901,7 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 			return &ast.ExprStmt{X: ret.Val}
 		}
 	}
-	op := pkg.builtin.Scope().Lookup(name)
-	if op == nil {
-		panic("TODO: operator not matched")
-	}
+	op := pkg.builtin.Ref(name)
 	if tok == token.QUO_ASSIGN {
 		checkDivisionByZero(&pkg.cb, &internal.Elem{Val: args[0].Val, Type: args[0].Type.(*refType).typ}, args[1])
 	}
@@ -2085,10 +2079,7 @@ retry:
 		}
 		return
 	}
-	lm := pkg.builtin.Scope().Lookup(name)
-	if lm == nil {
-		panic("TODO: operator not matched")
-	}
+	lm := pkg.builtin.Ref(name)
 	return matchFuncCall(pkg, toObject(pkg, lm, nil), args, flags)
 }
 

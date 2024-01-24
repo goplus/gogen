@@ -231,6 +231,7 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos token.Pos, name string, typ typ
 		typ = typ.Underlying() // typ.Underlying() may delay load and can be nil, it's reasonable
 	}
 	named := types.NewNamed(typName, typ, nil)
+	p.useName(name)
 	return &TypeDecl{typ: named, spec: spec}
 }
 
@@ -337,6 +338,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 		if name == "_" { // skip underscore
 			continue
 		}
+		pkg.useName(name)
 		if p.tok == token.CONST {
 			tv := rets[i]
 			if tv.CVal == nil {

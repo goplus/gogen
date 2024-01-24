@@ -1305,8 +1305,8 @@ func initBuiltinTIs(pkg *Package) {
 			ioxPkg = "github.com/goplus/gox/internal/iox"
 		}
 		if ioxPkg != "" {
-			if os := pkg.TryImport("os"); os != nil {
-				if iox := pkg.TryImport(ioxPkg); iox != nil {
+			if os := pkg.TryImport("os"); os.isValid() {
+				if iox := pkg.TryImport(ioxPkg); iox.isValid() {
 					ioxTI = &builtinTI{
 						typ: os.Ref("File").Type(),
 						methods: []*builtinMethod{
@@ -1317,7 +1317,7 @@ func initBuiltinTIs(pkg *Package) {
 			}
 		}
 	}
-	if strconv != nil {
+	if strconv.isValid() {
 		float64TI = &builtinTI{
 			typ: types.Typ[types.Float64],
 			methods: []*builtinMethod{
@@ -1343,7 +1343,7 @@ func initBuiltinTIs(pkg *Package) {
 			},
 		}
 	}
-	if strings != nil && strconv != nil {
+	if strings.isValid() && strconv.isValid() {
 		stringTI = &builtinTI{
 			typ: types.Typ[types.String],
 			methods: []*builtinMethod{
@@ -1389,7 +1389,7 @@ func initBuiltinTIs(pkg *Package) {
 			},
 		}
 	}
-	if strings != nil {
+	if strings.isValid() {
 		stringSliceTI = &builtinTI{
 			typ: types.NewSlice(types.Typ[types.String]),
 			methods: []*builtinMethod{

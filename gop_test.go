@@ -24,7 +24,7 @@ import (
 	"github.com/goplus/gox"
 )
 
-func initGopBuiltin(big *gox.PkgRef, conf *gox.Config) {
+func initGopBuiltin(big gox.PkgRef, conf *gox.Config) {
 	conf.UntypedBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
 	conf.UntypedBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
 	conf.UntypedBigFloat = big.Ref("Gop_untyped_bigfloat").Type().(*types.Named)

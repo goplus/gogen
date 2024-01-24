@@ -58,6 +58,10 @@ func boolean(v bool) *ast.Ident {
 	return identFalse
 }
 
+func stringLit(val string) *ast.BasicLit {
+	return &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(val)}
+}
+
 func toRecv(pkg *Package, recv *types.Var) *ast.FieldList {
 	var names []*ast.Ident
 	if name := recv.Name(); name != "" {
@@ -277,7 +281,7 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 			return toObject(pkg, v, src)
 		}
 	case *types.Builtin:
-		if o := pkg.builtin.Scope().Lookup(v.Name()); o != nil {
+		if o := pkg.builtin.TryRef(v.Name()); o != nil {
 			return toObject(pkg, o, src)
 		}
 		log.Panicln("TODO: unsupported builtin -", v.Name())
@@ -370,7 +374,7 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 	if atPkg == nil || atPkg == pkg.Types { // at universe or at this package
 		return ident(name)
 	}
-	if atPkg == pkg.builtin { // at builtin package
+	if atPkg == pkg.builtin.Types { // at builtin package
 		if strings.HasPrefix(name, goxPrefix) {
 			opName := name[len(goxPrefix):]
 			if op, ok := nameToOps[opName]; ok {
@@ -384,10 +388,7 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 		}
 		return ident(name)
 	}
-	importPkg := pkg.Import(atPkg.Path())
-	importPkg.EnsureImported()
-	x := ident(atPkg.Name())
-	importPkg.nameRefs = append(importPkg.nameRefs, x)
+	x := pkg.file.newImport(atPkg.Name(), atPkg.Path())
 	return &ast.SelectorExpr{
 		X:   x,
 		Sel: ident(v.Name()),
@@ -717,7 +718,6 @@ retry:
 	tyRet := toRetType(sig.Results(), it)
 	if cval != nil { // untyped bigint/bigrat
 		if ret, ok := untypeBig(pkg, cval, tyRet); ok {
-			pkg.file.removedExprs = true
 			return ret, nil
 		}
 	}

@@ -207,6 +207,7 @@ func (p *Package) NewFuncWith(
 					pos, "%s redeclared in this block\n\t%v: other declaration of %s", name, oldPos, name)
 			}
 		}
+		p.useName(name)
 	}
 
 	if isGopFunc(name) {

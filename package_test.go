@@ -2585,7 +2585,7 @@ func main() {
 
 func TestImportForceUsed(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.Import("fmt").MarkForceUsed()
+	pkg.ForceImport("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
