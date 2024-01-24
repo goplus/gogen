@@ -41,10 +41,7 @@ func NewTemplateParamType(idx int, name string, contract Contract) *TemplatePara
 	return &TemplateParamType{idxFlag: idx, name: name, contract: contract}
 }
 
-func (p *TemplateParamType) Underlying() types.Type {
-	panic("TemplateParamType")
-}
-
+func (p *TemplateParamType) Underlying() types.Type { return p }
 func (p *TemplateParamType) String() string {
 	return fmt.Sprintf("TemplateParamType{name: %v}", p.name)
 }
@@ -76,10 +73,7 @@ func (p *unboundFuncParam) boundTo(pkg *Package, t types.Type, parg *internal.El
 	p.tBound, p.parg = t, parg
 }
 
-func (p *unboundFuncParam) Underlying() types.Type {
-	panic("unboundFuncParam")
-}
-
+func (p *unboundFuncParam) Underlying() types.Type { return p }
 func (p *unboundFuncParam) String() string {
 	return fmt.Sprintf("unboundFuncParam{typ: %v}", p.tBound)
 }
@@ -88,10 +82,7 @@ type unboundProxyParam struct {
 	real types.Type
 }
 
-func (p *unboundProxyParam) Underlying() types.Type {
-	panic("unboundProxyParam")
-}
-
+func (p *unboundProxyParam) Underlying() types.Type { return p }
 func (p *unboundProxyParam) String() string {
 	return fmt.Sprintf("unboundProxyParam{typ: %v}", p.real)
 }
@@ -710,12 +701,9 @@ func NewTemplateSignature(
 	return tsig
 }
 
-func (p *TemplateSignature) Underlying() types.Type {
-	panic("TemplateSignature")
-}
-
+func (p *TemplateSignature) Underlying() types.Type { return p }
 func (p *TemplateSignature) String() string {
-	return p.sig.String()
+	return fmt.Sprintf("TemplateSignature{%v}", p.sig)
 }
 
 // TODO: check name
