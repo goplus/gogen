@@ -1676,18 +1676,23 @@ func (p *CodeBuilder) allowAccess(pkg *types.Package, name string) bool {
 
 func (p *CodeBuilder) method(
 	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) (kind MemberKind) {
-	for i, n := 0, o.NumMethods(); i < n; i++ {
+	n := o.NumMethods()
+	checkAlias := aliasName != "" && flag > 0
+	var methods []*types.Func
+	if checkAlias {
+		methods = make([]*types.Func, 0, n)
+	}
+	for i := 0; i < n; i++ {
 		method := o.Method(i)
 		v := method.Name()
 		if !p.allowAccess(method.Pkg(), v) {
 			continue
 		}
-		if v == name || (flag > 0 && v == aliasName) {
-			autoprop := flag == MemberFlagAutoProperty && v == aliasName
+		if checkAlias {
+			methods = append(methods, method)
+		}
+		if v == name {
 			typ := method.Type()
-			if autoprop && !methodHasAutoProperty(typ, 0) {
-				return memberBad
-			}
 			p.stk.Ret(1, &internal.Elem{
 				Val:  selector(arg, v),
 				Type: methodTypeOf(typ),
@@ -1696,11 +1701,32 @@ func (p *CodeBuilder) method(
 			if p.rec != nil {
 				p.rec.Member(src, method)
 			}
-			if autoprop {
-				p.Call(0)
-				return MemberAutoProperty
-			}
 			return MemberMethod
+		}
+	}
+	if checkAlias {
+		for _, method := range methods {
+			v := method.Name()
+			if v == aliasName {
+				autoprop := flag == MemberFlagAutoProperty
+				typ := method.Type()
+				if autoprop && !methodHasAutoProperty(typ, 0) {
+					return memberBad
+				}
+				p.stk.Ret(1, &internal.Elem{
+					Val:  selector(arg, v),
+					Type: methodTypeOf(typ),
+					Src:  src,
+				})
+				if p.rec != nil {
+					p.rec.Member(src, method)
+				}
+				if autoprop {
+					p.Call(0)
+					return MemberAutoProperty
+				}
+				return MemberMethod
+			}
 		}
 	}
 	if t, ok := o.(*types.Named); ok {
