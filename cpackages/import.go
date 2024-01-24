@@ -26,8 +26,8 @@ type PkgRef struct {
 	public map[string]string
 }
 
-func (p *PkgRef) Pkg() *gox.PkgRef {
-	return &p.pkg
+func (p *PkgRef) Pkg() gox.PkgRef {
+	return p.pkg
 }
 
 func (p *PkgRef) Lookup(name string) types.Object {
@@ -52,20 +52,20 @@ type Config struct {
 }
 
 type Importer struct {
-	loaded    map[string]*PkgRef
+	loaded    map[string]PkgRef
 	lookupPub func(pkgPath string) (pubfile string, err error)
 	pkg       *gox.Package
 }
 
 func NewImporter(conf *Config) *Importer {
 	return &Importer{
-		loaded:    make(map[string]*PkgRef),
+		loaded:    make(map[string]PkgRef),
 		lookupPub: conf.LookupPub,
 		pkg:       conf.Pkg,
 	}
 }
 
-func (p *Importer) Import(pkgPath string) (pkg *PkgRef, err error) {
+func (p *Importer) Import(pkgPath string) (pkg PkgRef, err error) {
 	if ret, ok := p.loaded[pkgPath]; ok {
 		return ret, nil
 	}
@@ -78,7 +78,7 @@ func (p *Importer) Import(pkgPath string) (pkg *PkgRef, err error) {
 		return
 	}
 	pkgImp := p.pkg.Import(pkgPath)
-	pkg = &PkgRef{pkg: *pkgImp, public: public}
+	pkg = PkgRef{pkg: pkgImp, public: public}
 	p.loaded[pkgPath] = pkg
 	return
 }

@@ -525,16 +525,6 @@ func TestWriteFile(t *testing.T) {
 	WriteFile("_unknown.go", pkg, "")
 }
 
-func TestScopeHasName(t *testing.T) {
-	scope := types.NewScope(types.Universe, 0, 0, "")
-	child := types.NewScope(scope, 0, 0, "")
-	child.Insert(types.NewVar(0, nil, "foo", types.Typ[types.Int]))
-	has := scopeHasName(scope, "foo")
-	if !has {
-		t.Fatal("scopeHasName failed: foo not found?")
-	}
-}
-
 func TestToFields(t *testing.T) {
 	pkg := new(Package)
 	pkg.Types = types.NewPackage("", "foo")
@@ -937,7 +927,7 @@ func TestTryImport(t *testing.T) {
 		}
 	}()
 	pkg := NewPackage("foo", "foo", gblConf)
-	if pkg.TryImport("not/exist") != nil {
+	if pkg.TryImport("not/exist").Types != nil {
 		t.Fatal("TryImport: exist?")
 	}
 }
@@ -984,6 +974,14 @@ func TestUntypeBig(t *testing.T) {
 func TestIsUnbound(t *testing.T) {
 	if !isUnboundTuple(types.NewTuple(types.NewParam(token.NoPos, nil, "", &unboundFuncParam{}))) {
 		t.Fatal("TestIsUnbound failed")
+	}
+}
+
+func TestErrImport(t *testing.T) {
+	pkg := NewPackage("github.com/x/foo", "foo", gblConf)
+	_, err := importPkg(pkg, "./bar", nil)
+	if err == nil || !strings.HasPrefix(err.Error(), "no required module provides package github.com/x/foo/bar;") {
+		t.Fatal("importPkg failed:", err)
 	}
 }
 
@@ -1044,31 +1042,7 @@ func isError(e interface{}, msg string) bool {
 	return false
 }
 
-func TestImportPkg(t *testing.T) {
-	pkg := NewPackage("github.com/goplus/gox", "gox", gblConf)
-	f := &File{importPkgs: make(map[string]*PkgRef)}
-	a := f.importPkg(pkg, "./internal/bar", nil)
-	if f.importPkgs["github.com/goplus/gox/internal/bar"] != a {
-		t.Fatal("TestImportPkg failed")
-	}
-}
-
 func TestImportError(t *testing.T) {
-	defer func() {
-		err := recover()
-		if err == nil {
-			t.Fatal("no error")
-		}
-		if !strings.HasPrefix(err.(error).Error(), "package bad is not in") {
-			t.Fatal("bad import error", err)
-		}
-	}()
-	pkg := NewPackage("github.com/goplus/gox", "gox", gblConf)
-	f := &File{importPkgs: make(map[string]*PkgRef)}
-	f.importPkg(pkg, "bad", nil)
-}
-
-func TestImportError2(t *testing.T) {
 	err := &types.Error{Msg: "foo"}
 	e := &ImportError{Err: err}
 	if v := e.Unwrap(); v != err {

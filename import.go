@@ -20,6 +20,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -36,33 +37,24 @@ type PkgRef struct {
 	// patterns; type information for dependencies may be missing or incomplete,
 	// unless NeedDeps and NeedImports are also set.
 	Types *types.Package
-
-	nameRefs []*ast.Ident // for internal use
-
-	isForceUsed bool // this package is force-used
-	isUsed      bool
 }
 
-func (p *PkgRef) markUsed(v *ast.Ident) {
-	if p.isUsed {
-		return
-	}
-	for _, ref := range p.nameRefs {
-		if ref == v {
-			p.isUsed = true
-			return
-		}
-	}
+func (p PkgRef) isValid() bool {
+	return p.Types != nil
+}
+
+func (p PkgRef) isNil() bool {
+	return p.Types == nil
 }
 
 // Path returns the package path.
-func (p *PkgRef) Path() string {
+func (p PkgRef) Path() string {
 	return p.Types.Path()
 }
 
 // Ref returns the object in this package with the given name if such an
 // object exists; otherwise it panics.
-func (p *PkgRef) Ref(name string) Ref {
+func (p PkgRef) Ref(name string) Ref {
 	if o := p.TryRef(name); o != nil {
 		return o
 	}
@@ -71,17 +63,12 @@ func (p *PkgRef) Ref(name string) Ref {
 
 // TryRef returns the object in this package with the given name if such an
 // object exists; otherwise it returns nil.
-func (p *PkgRef) TryRef(name string) Ref {
+func (p PkgRef) TryRef(name string) Ref {
 	return p.Types.Scope().Lookup(name)
 }
 
-// MarkForceUsed marks this package is force-used.
-func (p *PkgRef) MarkForceUsed() {
-	p.isForceUsed = true
-}
-
-// EnsureImported ensures this package is imported.
-func (p *PkgRef) EnsureImported() {
+// Deprecated: EnsureImported is nothing to do now.
+func (p PkgRef) EnsureImported() {
 }
 
 func shouldAddGopPkg(pkg *Package) bool {
@@ -399,85 +386,94 @@ func isStdPkg(pkgPath string) bool {
 
 // ----------------------------------------------------------------------------
 
+func importPkg(this *Package, pkgPath string, src ast.Node) (PkgRef, error) {
+	if strings.HasPrefix(pkgPath, ".") { // canonical pkgPath
+		pkgPath = path.Join(this.Path(), pkgPath)
+	}
+	pkgImp, err := this.imp.Import(pkgPath)
+	if err != nil {
+		e := &ImportError{Path: pkgPath, Err: err}
+		if src != nil {
+			e.Fset = this.cb.fset
+			e.Pos = src.Pos()
+		}
+		return PkgRef{}, e
+	} else {
+		this.ctx.initGopPkg(this.imp, pkgImp)
+	}
+	return PkgRef{Types: pkgImp}, nil
+}
+
 // Import imports a package by pkgPath. It will panic if pkgPath not found.
-func (p *Package) Import(pkgPath string, src ...ast.Node) *PkgRef {
-	return p.file.importPkg(p, pkgPath, getSrc(src))
+func (p *Package) Import(pkgPath string, src ...ast.Node) PkgRef {
+	ret, err := importPkg(p, pkgPath, getSrc(src))
+	if err != nil {
+		panic(err)
+	}
+	return ret
+}
+
+// ForceImport always imports a package (i.e. `import _ pkgPath`).
+func (p *Package) ForceImport(pkgPath string, src ...ast.Node) {
+	p.Import(pkgPath, src...)
+	p.file.forceImport(pkgPath)
 }
 
 // TryImport imports a package by pkgPath. It returns nil if pkgPath not found.
-func (p *Package) TryImport(pkgPath string) *PkgRef {
-	defer func() {
-		recover()
-	}()
-	return p.file.importPkg(p, pkgPath, nil)
+func (p *Package) TryImport(pkgPath string) PkgRef {
+	ret, _ := importPkg(p, pkgPath, nil)
+	return ret
 }
 
-func (p *Package) big() *PkgRef {
-	return p.file.big(p)
+func (p *Package) big() PkgRef {
+	if p.pkgBig.isNil() {
+		p.pkgBig = p.Import("math/big")
+	}
+	return p.pkgBig
 }
 
-func (p *Package) unsafe() *PkgRef {
-	return p.file.unsafe(p)
+func (p *Package) unsafe() PkgRef {
+	return PkgRef{types.Unsafe}
 }
 
 // ----------------------------------------------------------------------------
 
 type null struct{}
 type autoNames struct {
-	gbl     *types.Scope
-	builtin *types.Scope
 	names   map[string]null
-	idx     int
+	reqIdx  int
+	autoIdx int
 }
 
 const (
 	goxAutoPrefix = "_autoGo_"
 )
 
-func (p *Package) autoName() string {
+func (p *autoNames) initAutoNames() {
+	p.names = make(map[string]null)
+}
+
+func (p *autoNames) autoName() string {
 	p.autoIdx++
 	return goxAutoPrefix + strconv.Itoa(p.autoIdx)
 }
 
-func (p *Package) newAutoNames() *autoNames {
-	return &autoNames{
-		gbl:     p.Types.Scope(),
-		builtin: p.builtin.Scope(),
-		names:   make(map[string]null),
-	}
+func (p *autoNames) useName(name string) {
+	p.names[name] = null{}
 }
 
-func scopeHasName(at *types.Scope, name string) bool {
-	if at.Lookup(name) != nil {
-		return true
-	}
-	for i := at.NumChildren(); i > 0; {
-		i--
-		if scopeHasName(at.Child(i), name) {
-			return true
-		}
-	}
-	return false
-}
-
-func (p *autoNames) importHasName(name string) bool {
+func (p *autoNames) hasName(name string) bool {
 	_, ok := p.names[name]
 	return ok
 }
 
-func (p *autoNames) hasName(name string) bool {
-	return scopeHasName(p.gbl, name) || p.importHasName(name) ||
-		p.builtin.Lookup(name) != nil || types.Universe.Lookup(name) != nil
-}
-
-func (p *autoNames) RequireName(name string) (ret string, renamed bool) {
+func (p *autoNames) requireName(name string) (ret string, renamed bool) {
 	ret = name
 	for p.hasName(ret) {
-		p.idx++
-		ret = name + strconv.Itoa(p.idx)
+		p.reqIdx++
+		ret = name + strconv.Itoa(p.reqIdx)
 		renamed = true
 	}
-	p.names[name] = null{}
 	return
 }
 

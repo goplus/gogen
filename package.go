@@ -18,10 +18,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
-	"path"
-	"reflect"
-	"strconv"
-	"strings"
+	"sort"
 	"syscall"
 
 	"github.com/goplus/gox/packages"
@@ -143,15 +140,31 @@ type Config struct {
 
 // ----------------------------------------------------------------------------
 
+type importUsed bool
+
 type File struct {
-	decls        []ast.Decl
-	allPkgPaths  []string
-	importPkgs   map[string]*PkgRef
-	pkgBig       *PkgRef
-	pkgUnsafe    *PkgRef
-	fname        string
-	removedExprs bool
-	defaultFile  bool
+	decls []ast.Decl
+	fname string
+	imps  map[string]*ast.Ident // importPath => impRef
+}
+
+func newFile(fname string) *File {
+	return &File{fname: fname, imps: make(map[string]*ast.Ident)}
+}
+
+func (p *File) newImport(name, pkgPath string) *ast.Ident {
+	id := p.imps[pkgPath]
+	if id == nil {
+		id = &ast.Ident{Name: name, Obj: &ast.Object{Data: importUsed(false)}}
+		p.imps[pkgPath] = id
+	}
+	return id
+}
+
+func (p *File) forceImport(pkgPath string) {
+	if _, ok := p.imps[pkgPath]; !ok {
+		p.imps[pkgPath] = nil
+	}
 }
 
 // Name returns the name of this file.
@@ -159,125 +172,88 @@ func (p *File) Name() string {
 	return p.fname
 }
 
-func (p *File) importPkg(this *Package, pkgPath string, src ast.Node) *PkgRef {
-	if strings.HasPrefix(pkgPath, ".") { // canonical pkgPath
-		pkgPath = path.Join(this.Path(), pkgPath)
-	}
-	pkgImport, ok := p.importPkgs[pkgPath]
-	if !ok {
-		pkgImp, err := this.imp.Import(pkgPath)
-		if err != nil {
-			e := &ImportError{Path: pkgPath, Err: err}
-			if src != nil {
-				e.Fset = this.cb.fset
-				e.Pos = src.Pos()
-			}
-			panic(e)
-		} else {
-			this.ctx.initGopPkg(this.imp, pkgImp)
-		}
-		pkgImport = &PkgRef{Types: pkgImp}
-		p.importPkgs[pkgPath] = pkgImport
-		p.allPkgPaths = append(p.allPkgPaths, pkgPath)
-	}
-	return pkgImport
+type astVisitor struct {
+	this *Package
 }
 
-func (p *File) markUsed(this *Package) {
-	if p.removedExprs {
-		// travel all ast nodes to mark used
-		p.markUsedBy(this, reflect.ValueOf(p.decls))
-		return
+func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
+	if node == nil {
+		return nil
 	}
-	// no removed exprs, mark used simplely
-	for _, pkgImport := range p.importPkgs {
-		if pkgImport.nameRefs != nil {
-			pkgImport.isUsed = true
-		}
-	}
-}
-
-var (
-	tyAstNode    = reflect.TypeOf((*ast.Node)(nil)).Elem()
-	tySelExprPtr = reflect.TypeOf((*ast.SelectorExpr)(nil))
-)
-
-func (p *File) markUsedBy(this *Package, val reflect.Value) {
-retry:
-	switch val.Kind() {
-	case reflect.Slice:
-		for i, n := 0, val.Len(); i < n; i++ {
-			p.markUsedBy(this, val.Index(i))
-		}
-	case reflect.Ptr:
-		if val.IsNil() {
-			return
-		}
-		t := val.Type()
-		if t == tySelExprPtr {
-			x := val.Interface().(*ast.SelectorExpr).X
-			if sym, ok := x.(*ast.Ident); ok {
-				name := sym.Name
-				for _, at := range p.importPkgs {
-					if at.Types != nil && at.Types.Name() == name { // pkg.Object
-						at.markUsed(sym)
-					}
+	switch v := node.(type) {
+	case *ast.CommentGroup, *ast.Ident, *ast.BasicLit:
+	case *ast.SelectorExpr:
+		x := v.X
+		if id, ok := x.(*ast.Ident); ok && id.Obj != nil {
+			if used, ok := id.Obj.Data.(importUsed); ok && bool(!used) {
+				id.Obj.Data = importUsed(true)
+				if name, renamed := p.this.requireName(id.Name); renamed {
+					id.Name = name
+					id.Obj.Name = name
 				}
-			} else {
-				p.markUsedBy(this, reflect.ValueOf(x))
 			}
-		} else if t.Implements(tyAstNode) { // ast.Node
-			elem := val.Elem()
-			for i, n := 0, elem.NumField(); i < n; i++ {
-				p.markUsedBy(this, elem.Field(i))
-			}
+		} else {
+			ast.Walk(p, x)
 		}
-	case reflect.Interface:
-		val = val.Elem()
-		goto retry
+	case *ast.FuncDecl:
+		ast.Walk(p, v.Type)
+		if v.Body != nil {
+			ast.Walk(p, v.Body)
+		}
+	case *ast.ValueSpec:
+		if v.Type != nil {
+			ast.Walk(p, v.Type)
+		}
+		for _, val := range v.Values {
+			ast.Walk(p, val)
+		}
+	case *ast.TypeSpec:
+		ast.Walk(p, v.Type)
+	case *ast.BranchStmt:
+	case *ast.LabeledStmt:
+		ast.Walk(p, v.Stmt)
+	default:
+		return p
+	}
+	return nil
+}
+
+func (p astVisitor) markUsed(decls []ast.Decl) {
+	for _, decl := range decls {
+		ast.Walk(p, decl)
 	}
 }
 
 func (p *File) getDecls(this *Package) (decls []ast.Decl) {
-	p.markUsed(this)
-	n := len(p.allPkgPaths)
-	if n == 0 {
-		return p.decls
-	}
-	specs := make([]ast.Spec, 0, n)
-	names := this.newAutoNames()
-	for _, pkgPath := range p.allPkgPaths {
-		pkgImport := p.importPkgs[pkgPath]
-		if !pkgImport.isUsed { // unused
-			if pkgImport.isForceUsed { // force-used
-				specs = append(specs, &ast.ImportSpec{
-					Name: underscore, // _
-					Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkgPath)},
-				})
+	astVisitor{this}.markUsed(p.decls)
+
+	specs := make([]ast.Spec, 0, len(p.imps))
+	for pkgPath, id := range p.imps {
+		if id == nil { // force-used
+			specs = append(specs, &ast.ImportSpec{
+				Name: underscore, // _
+				Path: stringLit(pkgPath),
+			})
+		} else if id.Obj.Data.(importUsed) {
+			var name *ast.Ident
+			if id.Obj.Name != "" {
+				name = ident(id.Obj.Name)
 			}
-			continue
+			specs = append(specs, &ast.ImportSpec{
+				Name: name,
+				Path: stringLit(pkgPath),
+			})
 		}
-		pkgName, renamed := names.RequireName(pkgImport.Types.Name())
-		var name *ast.Ident
-		if renamed {
-			for _, nameRef := range pkgImport.nameRefs {
-				nameRef.Name = pkgName
-			}
-			name = ident(pkgName)
-		} else {
-			if pkgName != path.Base(pkgImport.Types.Path()) {
-				name = ident(pkgName)
-			}
-		}
-		specs = append(specs, &ast.ImportSpec{
-			Name: name,
-			Path: &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(pkgPath)},
-		})
 	}
-	addGopPkg := p.defaultFile && shouldAddGopPkg(this)
+	sort.Slice(specs, func(i, j int) bool {
+		return specs[i].(*ast.ImportSpec).Path.Value < specs[j].(*ast.ImportSpec).Path.Value
+	})
+
+	addGopPkg := p.fname == this.conf.DefaultGoFile && shouldAddGopPkg(this)
 	if len(specs) == 0 && !addGopPkg {
 		return p.decls
 	}
+
 	decls = make([]ast.Decl, 0, len(p.decls)+2)
 	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
 	if addGopPkg {
@@ -290,22 +266,7 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			},
 		}})
 	}
-	decls = append(decls, p.decls...)
-	return
-}
-
-func (p *File) big(this *Package) *PkgRef {
-	if p.pkgBig == nil {
-		p.pkgBig = p.importPkg(this, "math/big", nil)
-	}
-	return p.pkgBig
-}
-
-func (p *File) unsafe(this *Package) *PkgRef {
-	if p.pkgUnsafe == nil {
-		p.pkgUnsafe = p.importPkg(this, "unsafe", nil)
-	}
-	return p.pkgUnsafe
+	return append(decls, p.decls...)
 }
 
 // ----------------------------------------------------------------------------
@@ -319,17 +280,18 @@ type Package struct {
 	Docs ObjectDocs
 	Fset *token.FileSet
 
+	autoNames
 	cb             CodeBuilder
 	imp            types.Importer
 	files          map[string]*File
 	file           *File
 	conf           *Config
 	ctx            *Context
-	builtin        *types.Package
+	builtin        PkgRef
+	pkgBig         PkgRef
 	utBigInt       *types.Named
 	utBigRat       *types.Named
 	utBigFlt       *types.Named
-	autoIdx        int
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
 	allowRedecl    bool // for c2go
@@ -362,7 +324,7 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		newBuiltin = newBuiltinDefault
 	}
 	fname := conf.DefaultGoFile
-	file := &File{importPkgs: make(map[string]*PkgRef), fname: fname, defaultFile: true}
+	file := newFile(fname)
 	files := map[string]*File{fname: file}
 	pkg := &Package{
 		Fset:  fset,
@@ -371,12 +333,13 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		conf:  conf,
 		ctx:   ctx,
 	}
+	pkg.initAutoNames()
 	pkg.imp = imp
 	pkg.Types = conf.Types
 	if pkg.Types == nil {
 		pkg.Types = types.NewPackage(pkgPath, name)
 	}
-	pkg.builtin = newBuiltin(pkg, conf)
+	pkg.builtin.Types = newBuiltin(pkg, conf)
 	pkg.implicitCast = conf.CanImplicitCast
 	pkg.utBigInt = conf.UntypedBigInt
 	pkg.utBigRat = conf.UntypedBigRat
@@ -420,8 +383,8 @@ func (p *Package) Offsetsof(fields []*types.Var) []int64 {
 }
 
 // Builtin returns the buitlin package.
-func (p *Package) Builtin() *PkgRef {
-	return &PkgRef{Types: p.builtin}
+func (p *Package) Builtin() PkgRef {
+	return p.builtin
 }
 
 // CB returns the code builder.
@@ -437,7 +400,7 @@ func (p *Package) SetCurFile(fname string, createIfNotExists bool) (old *File, e
 	f, ok := p.files[fname]
 	if !ok {
 		if createIfNotExists {
-			f = &File{importPkgs: make(map[string]*PkgRef), fname: fname}
+			f = newFile(fname)
 			p.files[fname] = f
 		} else {
 			return nil, syscall.ENOENT

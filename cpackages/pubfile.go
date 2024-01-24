@@ -44,7 +44,7 @@ func ReadPubFile(pubfile string) (ret map[string]string, err error) {
 		case 0:
 			continue
 		default:
-			err = fmt.Errorf("line %d: too many fields - %s\n", i+1, line)
+			err = fmt.Errorf("%s:%d: too many fields", pubfile, i+1)
 			return
 		}
 		ret[flds[0]] = goName
