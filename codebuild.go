@@ -1689,6 +1689,9 @@ func (p *CodeBuilder) method(
 			break
 		} else if flag > 0 && v == aliasName {
 			found = method
+			if method.Pkg() != p.pkg.Types {
+				break
+			}
 		}
 	}
 	if found != nil {
