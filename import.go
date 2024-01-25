@@ -479,6 +479,7 @@ func (p *autoNames) requireName(name string) (ret string, renamed bool) {
 		ret = name + strconv.Itoa(p.reqIdx)
 		renamed = true
 	}
+	p.useName(ret)
 	return
 }
 
