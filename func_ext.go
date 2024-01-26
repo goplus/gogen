@@ -58,7 +58,7 @@ const (
 )
 
 // sigFuncEx return func type ($overloadArgs ...interface{$overloadMethod()})
-func sigFuncEx(pkg *types.Package, recv *types.Var, t TyFuncEx) *types.Signature {
+func sigFuncEx(pkg *types.Package, recv *types.Var, t types.Type) *types.Signature {
 	sig := types.NewSignatureType(types.NewVar(token.NoPos, nil, "", t), nil, nil, nil, nil, false)
 	typ := types.NewInterfaceType([]*types.Func{
 		types.NewFunc(token.NoPos, nil, overloadMethod, sig),

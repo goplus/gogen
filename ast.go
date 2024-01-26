@@ -697,9 +697,10 @@ retry:
 	case *TyInstruction:
 		return t.instr.Call(pkg, args, flags, fn.Src)
 	case *TypeType: // type convert
-		return matchTypeCast(pkg, t.Type(), fn, args, flags)
-	case *TyOverloadNamed:
-		return matchOverloadNamedTypeCast(pkg, t.Obj, fn.Src, args, flags)
+		if on, ok := CheckOverloadNamed(t.typ); ok {
+			return matchOverloadNamedTypeCast(pkg, on.Obj, fn.Src, args, flags)
+		}
+		return matchTypeCast(pkg, t.typ, fn, args, flags)
 	case *types.Named:
 		fnType = pkg.cb.getUnderlying(t)
 		goto retry

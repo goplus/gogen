@@ -60,7 +60,7 @@ func Gopx_Var_Cast__1[T map[string]any]() *Var__1[T] {
 	scope := pkgRef.Types.Scope()
 	log.Println("==> Lookup", scope.Lookup("Var__0"))
 	objVar := pkgRef.Ref("Var")
-	on, ok := objVar.Type().(*gox.TyOverloadNamed)
+	on, ok := gox.CheckOverloadNamed(objVar.Type())
 	if !ok {
 		t.Fatal("TestOverloadNamed: not TyOverloadNamed?")
 	}
