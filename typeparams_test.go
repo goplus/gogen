@@ -60,7 +60,8 @@ func Gopx_Var_Cast__1[T map[string]any]() *Var__1[T] {
 	scope := pkgRef.Types.Scope()
 	log.Println("==> Lookup", scope.Lookup("Var__0"))
 	objVar := pkgRef.Ref("Var")
-	on, ok := gox.CheckOverloadNamed(objVar.Type())
+	typ := objVar.Type()
+	on, ok := gox.CheckOverloadNamed(typ)
 	if !ok {
 		t.Fatal("TestOverloadNamed: not TyOverloadNamed?")
 	}
@@ -70,8 +71,8 @@ func Gopx_Var_Cast__1[T map[string]any]() *Var__1[T] {
 
 	tyInt := types.Typ[types.Int]
 	tyM := pkgRef.Ref("M").Type()
-	ty1 := pkg.Instantiate(on, []types.Type{tyInt})
-	ty2 := pkg.Instantiate(on, []types.Type{tyM})
+	ty1 := pkg.Instantiate(typ, []types.Type{tyInt})
+	ty2 := pkg.Instantiate(typ, []types.Type{tyM})
 	pkg.NewTypeDefs().NewType("t1").InitType(pkg, ty1)
 	pkg.NewTypeDefs().NewType("t2").InitType(pkg, ty2)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

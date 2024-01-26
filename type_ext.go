@@ -112,25 +112,13 @@ func NewOverloadNamed(pos token.Pos, pkg *types.Package, name string, typs ...*t
 }
 
 // CheckOverloadNamed returns if specified type is a TyOverloadNamed or not.
-func CheckOverloadNamed(typ types.Type) (*TyOverloadNamed, bool) {
-	switch sig := typ.(type) {
-	case *TyOverloadNamed:
-		return sig, true
-	case *types.Signature:
-		if sig.Params().Len() == 1 {
-			if param := sig.Params().At(0); param.Name() == overloadArgs {
-				if typ, ok := param.Type().(*types.Interface); ok && typ.NumMethods() == 1 {
-					if sig, ok := typ.Method(0).Type().(*types.Signature); ok {
-						if recv := sig.Recv(); recv != nil {
-							t, ok := recv.Type().(*TyOverloadNamed)
-							return t, ok
-						}
-					}
-				}
-			}
+func CheckOverloadNamed(typ types.Type) (on *TyOverloadNamed, ok bool) {
+	if sig, is := typ.(*types.Signature); is {
+		if typ, is := checkSigFuncEx(sig); is {
+			on, ok = typ.(*TyOverloadNamed)
 		}
 	}
-	return nil, false
+	return
 }
 
 type TyInstruction struct {
