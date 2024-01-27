@@ -1499,6 +1499,7 @@ const (
 )
 
 func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
+	// flag > 0: (flag & (MemberFlagMethodAlias | MemberFlagAutoProperty)) != 0
 	if flag > 0 && name != "" {
 		if c := name[0]; c >= 'a' && c <= 'z' {
 			return string(rune(c)+('A'-'a')) + name[1:], flag
@@ -1507,7 +1508,8 @@ func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
 	return "", MemberFlagVal
 }
 
-// Member func
+// Member access member by its name.
+// src should point to the full source node `x.sel`
 func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kind MemberKind, err error) {
 	srcExpr := getSrc(src)
 	arg := p.stk.Get(-1)

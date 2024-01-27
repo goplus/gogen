@@ -23,6 +23,36 @@ import (
 	"github.com/goplus/gox"
 )
 
+func TestMethodToFunc(t *testing.T) {
+	const src = `package hello
+
+type foo struct {
+	Val byte
+}
+
+func (a foo) Bar() int {
+	return 0
+}
+
+func (a *foo) PtrBar() string {
+	return ""
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("hello", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	pkgRef := pkg.Import("hello")
+	objFoo := pkgRef.Ref("foo")
+	typ := objFoo.Type()
+	_, err = pkg.MethodToFunc(typ, "Val")
+	if err == nil || err.Error() != "-:  undefined (type hello.foo has no method Val)" {
+		t.Fatal("MethodToFunc failed:", err)
+	}
+}
+
 func TestOverloadNamed(t *testing.T) {
 	const src = `package foo
 
