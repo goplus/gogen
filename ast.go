@@ -678,7 +678,7 @@ retry:
 						}
 					}
 				}
-				fatal("TODO: unmatched TyTemplateRecvMethod")
+				return
 			}
 		} else if IsCSignature(t) {
 			sig = types.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
