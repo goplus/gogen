@@ -44,6 +44,15 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestCheckNamed(t *testing.T) {
+	foo := types.NewPackage("github.com/bar/foo", "foo")
+	tn := types.NewTypeName(0, foo, "t", nil)
+	typ := types.NewNamed(tn, types.Typ[types.Int], nil)
+	if v, ok := checkNamed(types.NewPointer(typ)); !ok || v != typ {
+		t.Fatal("TestCheckNamed failed:", v, ok)
+	}
+}
+
 func TestErrMethodSigOf(t *testing.T) {
 	foo := types.NewPackage("github.com/bar/foo", "foo")
 	tn := types.NewTypeName(0, foo, "t", nil)
