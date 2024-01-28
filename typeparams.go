@@ -471,7 +471,7 @@ func (p *Package) Instantiate(orig types.Type, targs []types.Type, src ...ast.No
 		p.cb.ensureLoaded(targ)
 	}
 	ctxt := p.cb.ctxt
-	if on, ok := orig.(*TyOverloadNamed); ok {
+	if on, ok := CheckOverloadNamed(orig); ok {
 		var first error
 		for _, t := range on.Types {
 			ret, err := types.Instantiate(ctxt, t, targs, true)

@@ -1666,33 +1666,44 @@ func (p *CodeBuilder) allowAccess(pkg *types.Package, name string) bool {
 
 func (p *CodeBuilder) method(
 	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) (kind MemberKind) {
+	var found *types.Func
+	var exact bool
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
 		v := method.Name()
 		if !p.allowAccess(method.Pkg(), v) {
 			continue
 		}
-		if v == name || (flag > 0 && v == aliasName) {
-			autoprop := flag == MemberFlagAutoProperty && v == aliasName
-			typ := method.Type()
-			if autoprop && !methodHasAutoProperty(typ, 0) {
-				return memberBad
+		if v == name {
+			found, exact = method, true
+			break
+		} else if flag > 0 && v == aliasName {
+			found = method
+			if method.Pkg() != p.pkg.Types {
+				break
 			}
-			sel := selector(arg, v)
-			p.stk.Ret(1, &internal.Elem{
-				Val:  sel,
-				Type: methodSigOf(typ, flag, arg, sel),
-				Src:  src,
-			})
-			if p.rec != nil {
-				p.rec.Member(src, method)
-			}
-			if autoprop {
-				p.Call(0)
-				return MemberAutoProperty
-			}
-			return MemberMethod
 		}
+	}
+	if found != nil {
+		autoprop := !exact && flag == MemberFlagAutoProperty
+		typ := found.Type()
+		if autoprop && !methodHasAutoProperty(typ, 0) {
+			return memberBad
+		}
+		sel := selector(arg, found.Name())
+		p.stk.Ret(1, &internal.Elem{
+			Val:  sel,
+			Type: methodSigOf(typ, flag, arg, sel),
+			Src:  src,
+		})
+		if p.rec != nil {
+			p.rec.Member(src, found)
+		}
+		if autoprop {
+			p.Call(0)
+			return MemberAutoProperty
+		}
+		return MemberMethod
 	}
 	if t, ok := o.(*types.Named); ok {
 		kind = p.btiMethod(p.getBuiltinTI(t), name, aliasName, flag, arg, src)

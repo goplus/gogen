@@ -36,14 +36,26 @@ func IsFunc(t types.Type) bool {
 }
 
 // CheckFuncEx returns if specified function is a FuncEx or not.
-func CheckFuncEx(sig *types.Signature) (TyFuncEx, bool) {
+func CheckFuncEx(sig *types.Signature) (ext TyFuncEx, ok bool) {
+	if typ, is := checkSigFuncEx(sig); is {
+		ext, ok = typ.(TyFuncEx)
+	}
+	return
+}
+
+const (
+	overloadArgs   = "__gop_overload_args__"
+	overloadMethod = "_"
+)
+
+// checkSigFuncEx retrun hide recv type from func($overloadArgs ...interface{$overloadMethod()})
+func checkSigFuncEx(sig *types.Signature) (types.Type, bool) {
 	if sig.Params().Len() == 1 {
 		if param := sig.Params().At(0); param.Name() == overloadArgs {
 			if typ, ok := param.Type().(*types.Interface); ok && typ.NumMethods() == 1 {
 				if sig, ok := typ.Method(0).Type().(*types.Signature); ok {
 					if recv := sig.Recv(); recv != nil {
-						t, ok := recv.Type().(TyFuncEx)
-						return t, ok
+						return recv.Type(), true
 					}
 				}
 			}
@@ -52,13 +64,8 @@ func CheckFuncEx(sig *types.Signature) (TyFuncEx, bool) {
 	return nil, false
 }
 
-const (
-	overloadArgs   = "__gop_overload_args__"
-	overloadMethod = "_"
-)
-
 // sigFuncEx return func type ($overloadArgs ...interface{$overloadMethod()})
-func sigFuncEx(pkg *types.Package, recv *types.Var, t TyFuncEx) *types.Signature {
+func sigFuncEx(pkg *types.Package, recv *types.Var, t types.Type) *types.Signature {
 	sig := types.NewSignatureType(types.NewVar(token.NoPos, nil, "", t), nil, nil, nil, nil, false)
 	typ := types.NewInterfaceType([]*types.Func{
 		types.NewFunc(token.NoPos, nil, overloadMethod, sig),

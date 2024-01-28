@@ -3580,4 +3580,49 @@ func main() {
 `)
 }
 
+func TestMethodAlias(t *testing.T) {
+	pkg := newMainPackage()
+
+	typ := types.NewStruct(nil, nil)
+	tyM := pkg.NewType("M").InitType(pkg, typ)
+	recv := pkg.NewParam(token.NoPos, "p", types.NewPointer(tyM))
+	pkg.NewFunc(recv, "SetValue", nil, nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(recv, "setValue", nil, nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(recv, "Value", nil, nil, false).BodyStart(pkg).End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyM, "m").
+		VarVal("m").Debug(
+		func(cb *gox.CodeBuilder) {
+			cb.Member("setValue", gox.MemberFlagMethodAlias)
+		}).Call(0).EndStmt().
+		VarVal("m").Debug(
+		func(cb *gox.CodeBuilder) {
+			cb.Member("SetValue", gox.MemberFlagMethodAlias)
+		}).Call(0).EndStmt().
+		VarVal("m").Debug(
+		func(cb *gox.CodeBuilder) {
+			cb.Member("value", gox.MemberFlagMethodAlias)
+		}).Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+type M struct {
+}
+
+func (p *M) SetValue() {
+}
+func (p *M) setValue() {
+}
+func (p *M) Value() {
+}
+func main() {
+	var m M
+	m.setValue()
+	m.SetValue()
+	m.Value()
+}
+`)
+}
+
 // ----------------------------------------------------------------------------
