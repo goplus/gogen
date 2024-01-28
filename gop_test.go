@@ -127,7 +127,23 @@ func TestBigInt(t *testing.T) {
 import "github.com/goplus/gox/internal/builtin"
 
 var a, b builtin.Gop_bigint
-var c builtin.Gop_bigint = a.Gop_Add(b)
+var c builtin.Gop_bigint = (builtin.Gop_bigint).Gop_Add(a, b)
+`)
+}
+
+func TestBigInt2(t *testing.T) {
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	typ := types.NewPointer(big.Ref("Gop_bigint").Type())
+	pkg.CB().NewVar(typ, "a", "b")
+	pkg.CB().NewVarStart(typ, "c").
+		VarVal("a").VarVal("b").BinaryOp(token.AND_NOT).EndInit(1)
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gox/internal/builtin"
+
+var a, b *builtin.Gop_bigint
+var c *builtin.Gop_bigint = (*builtin.Gop_bigint).Gop_AndNot__0(a, b)
 `)
 }
 
@@ -151,7 +167,7 @@ func TestBigRat(t *testing.T) {
 import "github.com/goplus/gox/internal/builtin"
 
 var a, b builtin.Gop_bigrat
-var c builtin.Gop_bigrat = a.Gop_Quo(b)
+var c builtin.Gop_bigrat = (builtin.Gop_bigrat).Gop_Quo(a, b)
 var d builtin.Gop_bigrat = a.Gop_Neg()
 var e builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__5()
 var f builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__3(1, 2)
@@ -567,7 +583,7 @@ import (
 )
 
 var a builtin.Gop_bigrat
-var b = a.Gop_Add(builtin.Gop_bigrat_Init__2(big.NewRat(1, 6)))
+var b = (builtin.Gop_bigrat).Gop_Add(a, builtin.Gop_bigrat_Init__2(big.NewRat(1, 6)))
 `)
 }
 
@@ -585,7 +601,7 @@ func TestUntypedBigRatAdd5(t *testing.T) {
 import "github.com/goplus/gox/internal/builtin"
 
 var a builtin.Gop_bigrat
-var b = a.Gop_Add(builtin.Gop_bigrat_Init__0(100))
+var b = (builtin.Gop_bigrat).Gop_Add(a, builtin.Gop_bigrat_Init__0(100))
 `)
 }
 
@@ -603,7 +619,7 @@ func TestUntypedBigRatAdd6(t *testing.T) {
 import "github.com/goplus/gox/internal/builtin"
 
 var a builtin.Gop_bigrat
-var b = builtin.Gop_bigrat_Init__0(100) + a
+var b = (builtin.Gop_bigrat).Gop_Add(builtin.Gop_bigrat_Init__0(100), a)
 `)
 }
 
@@ -642,7 +658,7 @@ import (
 )
 
 var a builtin.Gop_bigrat
-var b = a.Gop_Sub__0(builtin.Gop_bigrat_Init__2(big.NewRat(1, 6)))
+var b = (builtin.Gop_bigrat).Gop_Sub__0(a, builtin.Gop_bigrat_Init__2(big.NewRat(1, 6)))
 `)
 }
 

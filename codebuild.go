@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/goplus/gox/internal"
 	"golang.org/x/tools/go/types/typeutil"
@@ -1798,6 +1799,31 @@ func (p *CodeBuilder) field(
 	return p.embeddedField(o, name, aliasName, flag, arg, src)
 }
 
+func toFuncSig(sig *types.Signature, recv *types.Var) *types.Signature {
+	sp := sig.Params()
+	spLen := sp.Len()
+	vars := make([]*types.Var, spLen+1)
+	vars[0] = recv
+	for i := 0; i < spLen; i++ {
+		vars[i+1] = sp.At(i)
+	}
+	return types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+}
+
+func methodToFuncSig(pkg *Package, o types.Object, fn *Element) *types.Signature {
+	sig := o.Type().(*types.Signature)
+	recv := sig.Recv()
+	if recv == nil {
+		fn.Val = toObjectExpr(pkg, o)
+		return sig
+	}
+
+	sel := fn.Val.(*ast.SelectorExpr)
+	sel.Sel = ident(o.Name())
+	sel.X = &ast.ParenExpr{X: sel.X}
+	return toFuncSig(sig, recv)
+}
+
 func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.SelectorExpr) types.Type {
 	if flag != memberFlagMethodToFunc {
 		return methodCallSig(typ)
@@ -1805,12 +1831,12 @@ func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.Selecto
 
 	sig := typ.(*types.Signature)
 	if _, ok := CheckFuncEx(sig); ok {
-		log.Panicln("can't call methodToFunc to Go+ extended method")
+		return typ
 	}
 
+	at := arg.Type.(*TypeType).typ
 	recv := sig.Recv().Type()
 	_, isPtr := recv.(*types.Pointer) // recv is a pointer
-	at := arg.Type.(*TypeType).typ
 	if t, ok := at.(*types.Pointer); ok {
 		if !isPtr {
 			if _, ok := recv.Underlying().(*types.Interface); !ok { // and recv isn't a interface
@@ -1823,14 +1849,7 @@ func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.Selecto
 	}
 	sel.X = &ast.ParenExpr{X: sel.X}
 
-	sp := sig.Params()
-	spLen := sp.Len()
-	vars := make([]*types.Var, spLen+1)
-	vars[0] = types.NewVar(token.NoPos, nil, "", at)
-	for i := 0; i < spLen; i++ {
-		vars[i+1] = sp.At(i)
-	}
-	return types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+	return toFuncSig(sig, types.NewVar(token.NoPos, nil, "", at))
 }
 
 func methodCallSig(typ types.Type) types.Type {
@@ -2080,8 +2099,8 @@ func lookupMethod(t *types.Named, name string) types.Object {
 	return nil
 }
 
-func callOpFunc(cb *CodeBuilder, op token.Token, tokenOps []string, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
-	name := goxPrefix + tokenOps[op]
+func doUnaryOp(cb *CodeBuilder, op token.Token, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+	name := goxPrefix + unaryOps[op]
 	pkg := cb.pkg
 	typ := args[0].Type
 retry:
@@ -2099,25 +2118,36 @@ retry:
 		typ = t.Elem()
 		goto retry
 	}
-	if op == token.QUO {
-		checkDivisionByZero(cb, args[0], args[1])
-	}
-	if op == token.EQL || op == token.NEQ {
-		if !ComparableTo(pkg, args[0], args[1]) {
-			return nil, errors.New("mismatched types")
-		}
-		ret = &internal.Elem{
-			Val: &ast.BinaryExpr{
-				X: checkParenExpr(args[0].Val), Op: op,
-				Y: checkParenExpr(args[1].Val),
-			},
-			Type: types.Typ[types.UntypedBool],
-			CVal: binaryOp(cb, op, args),
-		}
-		return
-	}
 	lm := pkg.builtin.Ref(name)
 	return matchFuncCall(pkg, toObject(pkg, lm, nil), args, flags)
+}
+
+// UnaryOp:
+//   - cb.UnaryOp(op token.Token)
+//   - cb.UnaryOp(op token.Token, twoValue bool)
+//   - cb.UnaryOp(op token.Token, twoValue bool, src ast.Node)
+func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilder {
+	var src ast.Node
+	var flags InstrFlags
+	switch len(params) {
+	case 2:
+		src, _ = params[1].(ast.Node)
+		fallthrough
+	case 1:
+		if params[0].(bool) {
+			flags = InstrFlagTwoValue
+		}
+	}
+	if debugInstr {
+		log.Println("UnaryOp", op, "flags:", flags)
+	}
+	ret, err := doUnaryOp(p, op, p.stk.GetArgs(1), flags)
+	if err != nil {
+		panic(err)
+	}
+	ret.Src = src
+	p.stk.Ret(1, ret)
+	return p
 }
 
 // BinaryOp func
@@ -2125,21 +2155,73 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("BinaryOp", op)
 	}
-	expr := getSrc(src)
+	pkg := p.pkg
+	name := goxPrefix + binaryOps[op]
 	args := p.stk.GetArgs(2)
+
 	var ret *internal.Elem
-	var err error
-	if ret, err = callOpFunc(p, op, binaryOps[:], args, 0); err != nil {
+	var err error = syscall.ENOENT
+	isUserDef := false
+	arg0 := args[0].Type
+	named0, ok0 := checkNamed(arg0)
+	if ok0 {
+		if fn, e := pkg.MethodToFunc(arg0, name, src...); e == nil {
+			ret, err = matchFuncCall(pkg, fn, args, instrFlagBinaryOp)
+			isUserDef = true
+		}
+	}
+	if err != nil {
+		arg1 := args[1].Type
+		if named1, ok1 := checkNamed(arg1); ok1 && named0 != named1 {
+			if fn, e := pkg.MethodToFunc(arg1, name, src...); e == nil {
+				ret, err = matchFuncCall(pkg, fn, args, instrFlagBinaryOp)
+				isUserDef = true
+			}
+		}
+	}
+	if err != nil && !isUserDef {
+		if op == token.QUO {
+			checkDivisionByZero(p, args[0], args[1])
+		}
+		if op == token.EQL || op == token.NEQ {
+			if !ComparableTo(pkg, args[0], args[1]) {
+				err = errors.New("mismatched types")
+			} else {
+				ret, err = &internal.Elem{
+					Val: &ast.BinaryExpr{
+						X: checkParenExpr(args[0].Val), Op: op,
+						Y: checkParenExpr(args[1].Val),
+					},
+					Type: types.Typ[types.UntypedBool],
+					CVal: binaryOp(p, op, args),
+				}, nil
+			}
+		} else {
+			lm := pkg.builtin.Ref(name)
+			ret, err = matchFuncCall(pkg, toObject(pkg, lm, nil), args, 0)
+		}
+	}
+
+	expr := getSrc(src)
+	if err != nil {
 		src, pos := p.loadExpr(expr)
 		if src == "" {
 			src = op.String()
 		}
 		p.panicCodeErrorf(
-			pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
+			pos, "invalid operation: %s (mismatched types %v and %v)", src, arg0, args[1].Type)
 	}
 	ret.Src = expr
 	p.stk.Ret(2, ret)
 	return p
+}
+
+func checkNamed(typ types.Type) (ret *types.Named, ok bool) {
+	if t, ok := typ.(*types.Pointer); ok {
+		typ = t.Elem()
+	}
+	ret, ok = typ.(*types.Named)
+	return
 }
 
 var (
@@ -2180,34 +2262,6 @@ var (
 // CompareNil func
 func (p *CodeBuilder) CompareNil(op token.Token, src ...ast.Node) *CodeBuilder {
 	return p.Val(nil).BinaryOp(op)
-}
-
-// UnaryOp:
-//   - cb.UnaryOp(op token.Token)
-//   - cb.UnaryOp(op token.Token, twoValue bool)
-//   - cb.UnaryOp(op token.Token, twoValue bool, src ast.Node)
-func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilder {
-	var src ast.Node
-	var flags InstrFlags
-	switch len(params) {
-	case 2:
-		src, _ = params[1].(ast.Node)
-		fallthrough
-	case 1:
-		if params[0].(bool) {
-			flags = InstrFlagTwoValue
-		}
-	}
-	if debugInstr {
-		log.Println("UnaryOp", op, "flags:", flags)
-	}
-	ret, err := callOpFunc(p, op, unaryOps[:], p.stk.GetArgs(1), flags)
-	if err != nil {
-		panic(err)
-	}
-	ret.Src = src
-	p.stk.Ret(1, ret)
-	return p
 }
 
 // Send func
