@@ -14,6 +14,7 @@
 package gox_test
 
 import (
+	"bytes"
 	"go/token"
 	"go/types"
 	"log"
@@ -21,22 +22,53 @@ import (
 	"testing"
 
 	"github.com/goplus/gox"
+	"github.com/goplus/gox/internal/go/format"
 )
+
+func formatElement(pkg *gox.Package, ret *gox.Element) string {
+	var b bytes.Buffer
+	err := format.Node(&b, pkg.Fset, ret.Val)
+	if err != nil {
+		log.Fatalln("format.Node failed:", err)
+	}
+	return b.String()
+}
 
 func TestMethodToFunc(t *testing.T) {
 	const src = `package hello
 
-type foo struct {
+type Itf interface {
+	X()
+}
+
+type Base struct {
+}
+
+func (p Base) F() {}
+
+func (p *Base) PtrF() {}
+
+type Foo struct {
+	Itf
+	Base
 	Val byte
 }
 
-func (a foo) Bar() int {
+func (a Foo) Bar() int {
 	return 0
 }
 
-func (a *foo) PtrBar() string {
+func (a *Foo) PtrBar() string {
 	return ""
 }
+
+var _ = (Foo).Bar
+var _ = (*Foo).PtrBar
+var _ = (Foo).F
+var _ = (*Foo).PtrF
+var _ = (Foo).X
+var _ = (*Foo).X
+var _ = (Itf).X
 `
 	gt := newGoxTest()
 	_, err := gt.LoadGoPackage("hello", "foo.go", src)
@@ -45,11 +77,38 @@ func (a *foo) PtrBar() string {
 	}
 	pkg := gt.NewPackage("", "main")
 	pkgRef := pkg.Import("hello")
-	objFoo := pkgRef.Ref("foo")
+	objFoo := pkgRef.Ref("Foo")
+	objItf := pkgRef.Ref("Itf")
 	typ := objFoo.Type()
+	typItf := objItf.Type()
 	_, err = pkg.MethodToFunc(typ, "Val")
-	if err == nil || err.Error() != "-:  undefined (type hello.foo has no method Val)" {
+	if err == nil || err.Error() != "-:  undefined (type hello.Foo has no method Val)" {
 		t.Fatal("MethodToFunc failed:", err)
+	}
+	checkMethodToFunc(t, pkg, typ, "Bar", "(hello.Foo).Bar")
+	checkMethodToFunc(t, pkg, types.NewPointer(typ), "PtrBar", "(*hello.Foo).PtrBar")
+	checkMethodToFunc(t, pkg, typ, "PtrBar", "(*hello.Foo).PtrBar")
+	checkMethodToFunc(t, pkg, typ, "F", "(hello.Foo).F")
+	checkMethodToFunc(t, pkg, types.NewPointer(typ), "PtrF", "(*hello.Foo).PtrF")
+	checkMethodToFunc(t, pkg, typ, "PtrF", "(*hello.Foo).PtrF")
+	checkMethodToFunc(t, pkg, typItf, "X", "(hello.Itf).X")
+	checkMethodToFunc(t, pkg, typ, "X", "(hello.Foo).X")
+	checkMethodToFunc(t, pkg, types.NewPointer(typ), "X", "(*hello.Foo).X")
+}
+
+func checkMethodToFunc(t *testing.T, pkg *gox.Package, typ types.Type, name, code string) {
+	t.Helper()
+	ret, err := pkg.MethodToFunc(typ, name)
+	if err != nil {
+		t.Fatal("MethodToFunc failed:", err)
+	}
+	if _, isPtr := typ.(*types.Pointer); isPtr {
+		if recv := ret.Type.(*types.Signature).Params().At(0); !types.Identical(recv.Type(), typ) {
+			t.Fatalf("MethodToFunc: ResultType: %v, Expected: %v\n", recv.Type(), typ)
+		}
+	}
+	if v := formatElement(pkg, ret); v != code {
+		t.Fatalf("MethodToFunc:\nResult:\n%s\nExpected:\n%s\n", v, code)
 	}
 }
 

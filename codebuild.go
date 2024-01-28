@@ -1496,16 +1496,20 @@ const (
 	MemberFlagMethodAlias
 	MemberFlagAutoProperty
 	MemberFlagRef MemberFlag = -1
+
+	// private state
+	memberFlagMethodToFunc MemberFlag = -2
 )
 
 func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
-	// flag > 0: (flag & (MemberFlagMethodAlias | MemberFlagAutoProperty)) != 0
+	// flag > 0: (flag == MemberFlagMethodAlias || flag == MemberFlagAutoProperty)
 	if flag > 0 && name != "" {
 		if c := name[0]; c >= 'a' && c <= 'z' {
 			return string(rune(c)+('A'-'a')) + name[1:], flag
 		}
+		flag = MemberFlagVal
 	}
-	return "", MemberFlagVal
+	return "", flag
 }
 
 // Member access member by its name.
@@ -1525,29 +1529,13 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 		kind = p.refMember(at, name, arg.Val, srcExpr)
 	} else {
 		t, isType := at.(*TypeType)
-		if isType {
+		if isType { // (T).method or (*T).method
 			at = t.Type()
-			if flag == MemberFlagAutoProperty {
-				flag = MemberFlagVal // can't use auto property to type
-			}
+			flag = memberFlagMethodToFunc
 		}
 		aliasName, flag := aliasNameOf(name, flag)
 		kind = p.findMember(at, name, aliasName, flag, arg, srcExpr)
-		if isType {
-			if kind == MemberMethod {
-				e := p.Get(-1)
-				if sig, ok := e.Type.(*types.Signature); ok {
-					sp := sig.Params()
-					spLen := sp.Len()
-					vars := make([]*types.Var, spLen+1)
-					vars[0] = types.NewVar(token.NoPos, nil, "", at)
-					for i := 0; i < spLen; i++ {
-						vars[i+1] = sp.At(i)
-					}
-					e.Type = types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
-					return
-				}
-			}
+		if isType && kind != MemberMethod {
 			code, pos := p.loadExpr(srcExpr)
 			return MemberInvalid, p.newCodeError(
 				pos, fmt.Sprintf("%s undefined (type %v has no method %s)", code, at, name))
@@ -1690,9 +1678,10 @@ func (p *CodeBuilder) method(
 			if autoprop && !methodHasAutoProperty(typ, 0) {
 				return memberBad
 			}
+			sel := selector(arg, v)
 			p.stk.Ret(1, &internal.Elem{
-				Val:  selector(arg, v),
-				Type: methodTypeOf(typ),
+				Val:  sel,
+				Type: methodSigOf(typ, flag, arg, sel),
 				Src:  src,
 			})
 			if p.rec != nil {
@@ -1798,7 +1787,42 @@ func (p *CodeBuilder) field(
 	return p.embeddedField(o, name, aliasName, flag, arg, src)
 }
 
-func methodTypeOf(typ types.Type) types.Type {
+func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.SelectorExpr) types.Type {
+	if flag != memberFlagMethodToFunc {
+		return methodCallSig(typ)
+	}
+
+	sig := typ.(*types.Signature)
+	if _, ok := CheckFuncEx(sig); ok {
+		log.Panicln("can't call methodToFunc to Go+ extended method")
+	}
+
+	recv := sig.Recv().Type()
+	_, isPtr := recv.(*types.Pointer) // recv is a pointer
+	at := arg.Type.(*TypeType).typ
+	if _, ok := at.(*types.Pointer); ok {
+		if !isPtr {
+			if _, ok := recv.Underlying().(*types.Interface); !ok { // and recv isn't a interface
+				log.Panicf("recv of method %v.%s isn't a pointer\n", at, sel.Sel.Name)
+			}
+		}
+	} else if isPtr { // use *T
+		at = types.NewPointer(at)
+		sel.X = &ast.StarExpr{X: sel.X}
+	}
+	sel.X = &ast.ParenExpr{X: sel.X}
+
+	sp := sig.Params()
+	spLen := sp.Len()
+	vars := make([]*types.Var, spLen+1)
+	vars[0] = types.NewVar(token.NoPos, nil, "", at)
+	for i := 0; i < spLen; i++ {
+		vars[i+1] = sp.At(i)
+	}
+	return types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+}
+
+func methodCallSig(typ types.Type) types.Type {
 	sig := typ.(*types.Signature)
 	if _, ok := CheckFuncEx(sig); ok {
 		return typ
