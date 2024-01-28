@@ -131,6 +131,22 @@ var c builtin.Gop_bigint = (builtin.Gop_bigint).Gop_Add(a, b)
 `)
 }
 
+func TestBigInt2(t *testing.T) {
+	pkg := newGopMainPackage()
+	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	typ := types.NewPointer(big.Ref("Gop_bigint").Type())
+	pkg.CB().NewVar(typ, "a", "b")
+	pkg.CB().NewVarStart(typ, "c").
+		VarVal("a").VarVal("b").BinaryOp(token.AND_NOT).EndInit(1)
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gox/internal/builtin"
+
+var a, b *builtin.Gop_bigint
+var c *builtin.Gop_bigint = (*builtin.Gop_bigint).Gop_AndNot__0(a, b)
+`)
+}
+
 func TestBigRat(t *testing.T) {
 	pkg := newGopMainPackage()
 	big := pkg.Import("github.com/goplus/gox/internal/builtin")

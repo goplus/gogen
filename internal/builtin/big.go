@@ -135,8 +135,8 @@ func (a Gop_bigint) Gop_And(b Gop_bigint) Gop_bigint {
 }
 
 // Gop_AndNot: func (a bigint) &^ (b bigint) bigint
-func (a Gop_bigint) Gop_AndNot(b Gop_bigint) Gop_bigint {
-	return Gop_bigint{tmpint(a, b).AndNot(a.Int, b.Int)}
+func (a *Gop_bigint) Gop_AndNot__0(b *Gop_bigint) *Gop_bigint {
+	return a
 }
 
 // Gop_Lsh: func (a bigint) << (n untyped_uint) bigint

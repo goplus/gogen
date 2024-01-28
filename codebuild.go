@@ -1820,12 +1820,7 @@ func methodToFuncSig(pkg *Package, o types.Object, fn *Element) *types.Signature
 
 	sel := fn.Val.(*ast.SelectorExpr)
 	sel.Sel = ident(o.Name())
-	_, isPtr := recv.Type().(*types.Pointer) // recv is a pointer
-	if isPtr {
-		sel.X = &ast.StarExpr{X: sel.X}
-	}
 	sel.X = &ast.ParenExpr{X: sel.X}
-
 	return toFuncSig(sig, recv)
 }
 
