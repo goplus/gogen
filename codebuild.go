@@ -1800,10 +1800,10 @@ func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.Selecto
 	recv := sig.Recv().Type()
 	_, isPtr := recv.(*types.Pointer) // recv is a pointer
 	at := arg.Type.(*TypeType).typ
-	if _, ok := at.(*types.Pointer); ok {
+	if t, ok := at.(*types.Pointer); ok {
 		if !isPtr {
 			if _, ok := recv.Underlying().(*types.Interface); !ok { // and recv isn't a interface
-				log.Panicf("recv of method %v.%s isn't a pointer\n", at, sel.Sel.Name)
+				log.Panicf("recv of method %v.%s isn't a pointer\n", t.Elem(), sel.Sel.Name)
 			}
 		}
 	} else if isPtr { // use *T

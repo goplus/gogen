@@ -44,6 +44,32 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestErrMethodSigOf(t *testing.T) {
+	foo := types.NewPackage("github.com/bar/foo", "foo")
+	tn := types.NewTypeName(0, foo, "t", nil)
+	recv := types.NewNamed(tn, types.Typ[types.Int], nil)
+	t.Run("Go+ extended method", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e != "can't call methodToFunc to Go+ extended method\n" {
+				t.Fatal("TestErrMethodSigOf:", e)
+			}
+		}()
+		methodSigOf(NewOverloadFunc(0, foo, "foo").Type(), memberFlagMethodToFunc, nil, nil)
+	})
+	t.Run("recv not pointer", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e != "recv of method github.com/bar/foo.t.bar isn't a pointer\n" {
+				t.Fatal("TestErrMethodSigOf:", e)
+			}
+		}()
+		method := types.NewSignatureType(types.NewVar(0, foo, "", recv), nil, nil, nil, nil, false)
+		arg := &Element{
+			Type: &TypeType{typ: types.NewPointer(recv)},
+		}
+		methodSigOf(method, memberFlagMethodToFunc, arg, &ast.SelectorExpr{Sel: ast.NewIdent("bar")})
+	})
+}
+
 func TestMatchOverloadNamedTypeCast(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	foo := types.NewPackage("github.com/bar/foo", "foo")
