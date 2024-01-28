@@ -14,7 +14,6 @@
 package gox_test
 
 import (
-	"bytes"
 	"go/token"
 	"go/types"
 	"log"
@@ -22,17 +21,8 @@ import (
 	"testing"
 
 	"github.com/goplus/gox"
-	"github.com/goplus/gox/internal/go/format"
+	"github.com/goplus/gox/internal/goxdbg"
 )
-
-func formatElement(pkg *gox.Package, ret *gox.Element) string {
-	var b bytes.Buffer
-	err := format.Node(&b, pkg.Fset, ret.Val)
-	if err != nil {
-		log.Fatalln("format.Node failed:", err)
-	}
-	return b.String()
-}
 
 func TestMethodToFunc(t *testing.T) {
 	const src = `package hello
@@ -107,7 +97,7 @@ func checkMethodToFunc(t *testing.T, pkg *gox.Package, typ types.Type, name, cod
 			t.Fatalf("MethodToFunc: ResultType: %v, Expected: %v\n", recv.Type(), typ)
 		}
 	}
-	if v := formatElement(pkg, ret); v != code {
+	if v := goxdbg.Format(pkg.Fset, ret.Val); v != code {
 		t.Fatalf("MethodToFunc:\nResult:\n%s\nExpected:\n%s\n", v, code)
 	}
 }

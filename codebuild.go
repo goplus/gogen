@@ -1810,6 +1810,25 @@ func toFuncSig(sig *types.Signature, recv *types.Var) *types.Signature {
 	return types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
 }
 
+func methodToFuncSig(pkg *Package, o types.Object, fn *Element) *types.Signature {
+	sig := o.Type().(*types.Signature)
+	recv := sig.Recv()
+	if recv == nil {
+		fn.Val = toObjectExpr(pkg, o)
+		return sig
+	}
+
+	sel := fn.Val.(*ast.SelectorExpr)
+	sel.Sel = ident(o.Name())
+	_, isPtr := recv.Type().(*types.Pointer) // recv is a pointer
+	if isPtr {
+		sel.X = &ast.StarExpr{X: sel.X}
+	}
+	sel.X = &ast.ParenExpr{X: sel.X}
+
+	return toFuncSig(sig, recv)
+}
+
 func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.SelectorExpr) types.Type {
 	if flag != memberFlagMethodToFunc {
 		return methodCallSig(typ)
@@ -1820,9 +1839,9 @@ func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.Selecto
 		return typ
 	}
 
+	at := arg.Type.(*TypeType).typ
 	recv := sig.Recv().Type()
 	_, isPtr := recv.(*types.Pointer) // recv is a pointer
-	at := arg.Type.(*TypeType).typ
 	if t, ok := at.(*types.Pointer); ok {
 		if !isPtr {
 			if _, ok := recv.Underlying().(*types.Interface); !ok { // and recv isn't a interface
@@ -2147,11 +2166,13 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 
 	var ret *internal.Elem
 	var err error = syscall.ENOENT
+	isUserDef := false
 	arg0 := args[0].Type
 	named0, ok0 := checkNamed(arg0)
 	if ok0 {
 		if fn, e := pkg.MethodToFunc(arg0, name, src...); e == nil {
 			ret, err = matchFuncCall(pkg, fn, args, instrFlagBinaryOp)
+			isUserDef = true
 		}
 	}
 	if err != nil {
@@ -2159,10 +2180,11 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 		if named1, ok1 := checkNamed(arg1); ok1 && named0 != named1 {
 			if fn, e := pkg.MethodToFunc(arg1, name, src...); e == nil {
 				ret, err = matchFuncCall(pkg, fn, args, instrFlagBinaryOp)
+				isUserDef = true
 			}
 		}
 	}
-	if err != nil {
+	if err != nil && !isUserDef {
 		if op == token.QUO {
 			checkDivisionByZero(p, args[0], args[1])
 		}

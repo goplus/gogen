@@ -642,7 +642,7 @@ import (
 )
 
 var a builtin.Gop_bigrat
-var b = builtin.Gop_bigrat.Gop_Sub__0(a, builtin.Gop_bigrat_Init__2(big.NewRat(1, 6)))
+var b = (builtin.Gop_bigrat).Gop_Sub__0(a, builtin.Gop_bigrat_Init__2(big.NewRat(1, 6)))
 `)
 }
 
