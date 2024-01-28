@@ -2085,8 +2085,8 @@ func lookupMethod(t *types.Named, name string) types.Object {
 	return nil
 }
 
-func callOpFunc(cb *CodeBuilder, op token.Token, tokenOps []string, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
-	name := goxPrefix + tokenOps[op]
+func doUnaryOp(cb *CodeBuilder, op token.Token, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+	name := goxPrefix + unaryOps[op]
 	pkg := cb.pkg
 	typ := args[0].Type
 retry:
@@ -2104,25 +2104,36 @@ retry:
 		typ = t.Elem()
 		goto retry
 	}
-	if op == token.QUO {
-		checkDivisionByZero(cb, args[0], args[1])
-	}
-	if op == token.EQL || op == token.NEQ {
-		if !ComparableTo(pkg, args[0], args[1]) {
-			return nil, errors.New("mismatched types")
-		}
-		ret = &internal.Elem{
-			Val: &ast.BinaryExpr{
-				X: checkParenExpr(args[0].Val), Op: op,
-				Y: checkParenExpr(args[1].Val),
-			},
-			Type: types.Typ[types.UntypedBool],
-			CVal: binaryOp(cb, op, args),
-		}
-		return
-	}
 	lm := pkg.builtin.Ref(name)
 	return matchFuncCall(pkg, toObject(pkg, lm, nil), args, flags)
+}
+
+// UnaryOp:
+//   - cb.UnaryOp(op token.Token)
+//   - cb.UnaryOp(op token.Token, twoValue bool)
+//   - cb.UnaryOp(op token.Token, twoValue bool, src ast.Node)
+func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilder {
+	var src ast.Node
+	var flags InstrFlags
+	switch len(params) {
+	case 2:
+		src, _ = params[1].(ast.Node)
+		fallthrough
+	case 1:
+		if params[0].(bool) {
+			flags = InstrFlagTwoValue
+		}
+	}
+	if debugInstr {
+		log.Println("UnaryOp", op, "flags:", flags)
+	}
+	ret, err := doUnaryOp(p, op, p.stk.GetArgs(1), flags)
+	if err != nil {
+		panic(err)
+	}
+	ret.Src = src
+	p.stk.Ret(1, ret)
+	return p
 }
 
 // BinaryOp func
@@ -2234,34 +2245,6 @@ var (
 // CompareNil func
 func (p *CodeBuilder) CompareNil(op token.Token, src ...ast.Node) *CodeBuilder {
 	return p.Val(nil).BinaryOp(op)
-}
-
-// UnaryOp:
-//   - cb.UnaryOp(op token.Token)
-//   - cb.UnaryOp(op token.Token, twoValue bool)
-//   - cb.UnaryOp(op token.Token, twoValue bool, src ast.Node)
-func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilder {
-	var src ast.Node
-	var flags InstrFlags
-	switch len(params) {
-	case 2:
-		src, _ = params[1].(ast.Node)
-		fallthrough
-	case 1:
-		if params[0].(bool) {
-			flags = InstrFlagTwoValue
-		}
-	}
-	if debugInstr {
-		log.Println("UnaryOp", op, "flags:", flags)
-	}
-	ret, err := callOpFunc(p, op, unaryOps[:], p.stk.GetArgs(1), flags)
-	if err != nil {
-		panic(err)
-	}
-	ret.Src = src
-	p.stk.Ret(1, ret)
-	return p
 }
 
 // Send func
