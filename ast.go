@@ -637,7 +637,7 @@ retry:
 					if (flags & instrFlagOpFunc) != 0 { // from callOpFunc
 						mfn.Type = o.Type()
 					} else {
-						mfn.Type = methodTypeOf(o.Type())
+						mfn.Type = methodCallSig(o.Type())
 					}
 					if ret, err = matchFuncCall(pkg, &mfn, args, flags); err == nil {
 						fn.Val, fn.Type = mfn.Val, mfn.Type

@@ -36,6 +36,18 @@ func (p *CodeBuilder) EndConst() *Element {
 
 // ----------------------------------------------------------------------------
 
+// MethodToFunc:
+//
+//	(T).method
+//	(*T).method
+func (pkg *Package) MethodToFunc(typ types.Type, name string, src ...ast.Node) (ret *Element, err error) {
+	_, err = pkg.cb.Typ(typ, src...).Member(name, MemberFlagVal, src...)
+	ret = pkg.cb.stk.Pop()
+	return
+}
+
+// ----------------------------------------------------------------------------
+
 type TyState int
 
 const (
