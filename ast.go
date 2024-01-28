@@ -573,6 +573,7 @@ func getParam1st(sig *types.Signature) int {
 	return 0
 }
 
+// TODO: check if fn.recv != nil
 func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
 	fnType := fn.Type
 	if debugMatch {
@@ -633,11 +634,11 @@ retry:
 				backup := backupArgs(args)
 				for _, o := range ft.Methods {
 					mfn := *fn
-					mfn.Val.(*ast.SelectorExpr).Sel = ident(o.Name())
-					if (flags & instrFlagOpFunc) != 0 { // from callOpFunc
-						mfn.Type = o.Type()
+					if (flags & instrFlagBinaryOp) != 0 { // from cb.BinaryOp
+						mfn.Type = methodToFuncSig(pkg, o, &mfn)
 					} else {
-						mfn.Type = methodTypeOf(o.Type())
+						mfn.Val.(*ast.SelectorExpr).Sel = ident(o.Name())
+						mfn.Type = methodCallSig(o.Type())
 					}
 					if ret, err = matchFuncCall(pkg, &mfn, args, flags); err == nil {
 						fn.Val, fn.Type = mfn.Val, mfn.Type

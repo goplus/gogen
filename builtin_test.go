@@ -44,6 +44,41 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestCheckNamed(t *testing.T) {
+	foo := types.NewPackage("github.com/bar/foo", "foo")
+	tn := types.NewTypeName(0, foo, "t", nil)
+	typ := types.NewNamed(tn, types.Typ[types.Int], nil)
+	if v, ok := checkNamed(types.NewPointer(typ)); !ok || v != typ {
+		t.Fatal("TestCheckNamed failed:", v, ok)
+	}
+}
+
+func TestErrMethodSig(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	foo := types.NewPackage("github.com/bar/foo", "foo")
+	tn := types.NewTypeName(0, foo, "t", nil)
+	recv := types.NewNamed(tn, types.Typ[types.Int], nil)
+	t.Run("methodToFuncSig global func", func(t *testing.T) {
+		fnt := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+		fn := types.NewFunc(0, foo, "bar", fnt)
+		if methodToFuncSig(pkg, fn, &internal.Elem{}) != fnt {
+			t.Fatal("methodToFuncSig failed")
+		}
+	})
+	t.Run("recv not pointer", func(t *testing.T) {
+		defer func() {
+			if e := recover(); e != "recv of method github.com/bar/foo.t.bar isn't a pointer\n" {
+				t.Fatal("TestErrMethodSigOf:", e)
+			}
+		}()
+		method := types.NewSignatureType(types.NewVar(0, foo, "", recv), nil, nil, nil, nil, false)
+		arg := &Element{
+			Type: &TypeType{typ: types.NewPointer(recv)},
+		}
+		methodSigOf(method, memberFlagMethodToFunc, arg, &ast.SelectorExpr{Sel: ast.NewIdent("bar")})
+	})
+}
+
 func TestMatchOverloadNamedTypeCast(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	foo := types.NewPackage("github.com/bar/foo", "foo")

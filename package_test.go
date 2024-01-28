@@ -3467,7 +3467,7 @@ func (tt t) bar(info string) {
 	fmt.Println(tt, info)
 }
 func main() {
-	v := foo.bar
+	v := (foo).bar
 	var tt t = 123
 	v(tt, "hello")
 }
