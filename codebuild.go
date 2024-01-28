@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/goplus/gox/internal"
 	"golang.org/x/tools/go/types/typeutil"
@@ -1798,6 +1799,17 @@ func (p *CodeBuilder) field(
 	return p.embeddedField(o, name, aliasName, flag, arg, src)
 }
 
+func toFuncSig(sig *types.Signature, recv *types.Var) *types.Signature {
+	sp := sig.Params()
+	spLen := sp.Len()
+	vars := make([]*types.Var, spLen+1)
+	vars[0] = recv
+	for i := 0; i < spLen; i++ {
+		vars[i+1] = sp.At(i)
+	}
+	return types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+}
+
 func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.SelectorExpr) types.Type {
 	if flag != memberFlagMethodToFunc {
 		return methodCallSig(typ)
@@ -1805,7 +1817,7 @@ func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.Selecto
 
 	sig := typ.(*types.Signature)
 	if _, ok := CheckFuncEx(sig); ok {
-		log.Panicln("can't call methodToFunc to Go+ extended method")
+		return typ
 	}
 
 	recv := sig.Recv().Type()
@@ -1823,14 +1835,7 @@ func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.Selecto
 	}
 	sel.X = &ast.ParenExpr{X: sel.X}
 
-	sp := sig.Params()
-	spLen := sp.Len()
-	vars := make([]*types.Var, spLen+1)
-	vars[0] = types.NewVar(token.NoPos, nil, "", at)
-	for i := 0; i < spLen; i++ {
-		vars[i+1] = sp.At(i)
-	}
-	return types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
+	return toFuncSig(sig, types.NewVar(token.NoPos, nil, "", at))
 }
 
 func methodCallSig(typ types.Type) types.Type {
@@ -2125,21 +2130,70 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("BinaryOp", op)
 	}
-	expr := getSrc(src)
+	pkg := p.pkg
+	name := goxPrefix + binaryOps[op]
 	args := p.stk.GetArgs(2)
+
 	var ret *internal.Elem
-	var err error
-	if ret, err = callOpFunc(p, op, binaryOps[:], args, 0); err != nil {
+	var err error = syscall.ENOENT
+	arg0 := args[0].Type
+	named0, ok0 := checkNamed(arg0)
+	if ok0 {
+		if fn, e := pkg.MethodToFunc(arg0, name, src...); e == nil {
+			ret, err = matchFuncCall(pkg, fn, args, instrFlagBinaryOp)
+		}
+	}
+	if err != nil {
+		arg1 := args[1].Type
+		if named1, ok1 := checkNamed(arg1); ok1 && named0 != named1 {
+			if fn, e := pkg.MethodToFunc(arg1, name, src...); e == nil {
+				ret, err = matchFuncCall(pkg, fn, args, instrFlagBinaryOp)
+			}
+		}
+	}
+	if err != nil {
+		if op == token.QUO {
+			checkDivisionByZero(p, args[0], args[1])
+		}
+		if op == token.EQL || op == token.NEQ {
+			if !ComparableTo(pkg, args[0], args[1]) {
+				err = errors.New("mismatched types")
+			} else {
+				ret, err = &internal.Elem{
+					Val: &ast.BinaryExpr{
+						X: checkParenExpr(args[0].Val), Op: op,
+						Y: checkParenExpr(args[1].Val),
+					},
+					Type: types.Typ[types.UntypedBool],
+					CVal: binaryOp(p, op, args),
+				}, nil
+			}
+		} else {
+			lm := pkg.builtin.Ref(name)
+			ret, err = matchFuncCall(pkg, toObject(pkg, lm, nil), args, 0)
+		}
+	}
+
+	expr := getSrc(src)
+	if err != nil {
 		src, pos := p.loadExpr(expr)
 		if src == "" {
 			src = op.String()
 		}
 		p.panicCodeErrorf(
-			pos, "invalid operation: %s (mismatched types %v and %v)", src, args[0].Type, args[1].Type)
+			pos, "invalid operation: %s (mismatched types %v and %v)", src, arg0, args[1].Type)
 	}
 	ret.Src = expr
 	p.stk.Ret(2, ret)
 	return p
+}
+
+func checkNamed(typ types.Type) (ret *types.Named, ok bool) {
+	if t, ok := typ.(*types.Pointer); ok {
+		typ = t.Elem()
+	}
+	ret, ok = typ.(*types.Named)
+	return
 }
 
 var (

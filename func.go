@@ -247,8 +247,9 @@ const (
 	InstrFlagTwoValue
 
 	instrFlagApproxType // restricts to all types whose underlying type is T
-	instrFlagOpFunc     // from callOpFunc
 	instrFlagGopxFunc   // call Gopx_xxx functions
+	instrFlagOpFunc     // from callOpFunc
+	instrFlagBinaryOp   // from cb.BinaryOp
 )
 
 type Instruction interface {
