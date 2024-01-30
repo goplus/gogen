@@ -97,7 +97,8 @@ func isOverload(name string) bool {
 	return n > 3 && name[n-3:n-1] == "__"
 }
 
-func initThisGopPkg(pkg *types.Package) {
+// InitThisGopPkg initializes a Go+ package.
+func InitThisGopPkg(pkg *types.Package) {
 	scope := pkg.Scope()
 	if scope.Lookup(gopPackage) == nil { // not is a Go+ package
 		return
@@ -378,7 +379,7 @@ func (p *Context) initGopPkg(importer types.Importer, pkgImp *types.Package) {
 	if !pkgImp.Complete() {
 		importer.Import(pkgPath)
 	}
-	initThisGopPkg(pkgImp)
+	InitThisGopPkg(pkgImp)
 	p.chkGopImports[pkgPath] = true
 	for _, imp := range pkgImp.Imports() {
 		p.initGopPkg(importer, imp)
