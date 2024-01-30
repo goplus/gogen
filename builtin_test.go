@@ -692,7 +692,7 @@ func TestTypeEx(t *testing.T) {
 			if fex, ok := typ.(iSubstType); ok {
 				fex.Obj()
 			}
-			if fex, ok := typ.(iOverloadType); ok {
+			if fex, ok := typ.(OverloadType); ok {
 				fex.Len()
 				func() {
 					defer func() {

@@ -23,15 +23,15 @@ import (
 // ----------------------------------------------------------------------------
 
 // Go+ overload extended types
-type iOverloadType interface {
+type OverloadType interface {
 	At(i int) types.Object
 	Len() int
 }
 
 var (
-	_ iOverloadType = (*TyOverloadNamed)(nil)
-	_ iOverloadType = (*TyOverloadFunc)(nil)
-	_ iOverloadType = (*TyOverloadMethod)(nil)
+	_ OverloadType = (*TyOverloadNamed)(nil)
+	_ OverloadType = (*TyOverloadFunc)(nil)
+	_ OverloadType = (*TyOverloadMethod)(nil)
 )
 
 // ----------------------------------------------------------------------------
@@ -114,7 +114,7 @@ func NewOverloadNamed(pos token.Pos, pkg *types.Package, name string, typs ...*t
 // CheckOverloadNamed returns if specified type is a TyOverloadNamed or not.
 func CheckOverloadNamed(typ types.Type) (on *TyOverloadNamed, ok bool) {
 	if sig, is := typ.(*types.Signature); is {
-		if typ, is := checkSigFuncEx(sig); is {
+		if typ, is := CheckSigFuncEx(sig); is {
 			on, ok = typ.(*TyOverloadNamed)
 		}
 	}
