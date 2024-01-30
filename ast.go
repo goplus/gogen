@@ -655,7 +655,7 @@ retry:
 					if recv := denoteRecv(mth); recv != nil {
 						backup := backupArgs(args)
 						for i := 0; i < 2; i++ {
-							tfn := toObject(pkg, ft.Func, nil)
+							tfn := toObject(pkg, ft.Func, fn.Src)
 							targs := make([]*internal.Elem, len(args)+1)
 							targ0 := *recv
 							if i == 1 {
@@ -668,7 +668,9 @@ retry:
 							}
 							if ret, err = matchFuncCall(pkg, tfn, targs, flags); err == nil {
 								if pkg.cb.rec != nil {
-									pkg.cb.rec.Call(fn.Src, ft.Func)
+									if _, ok := CheckFuncEx(ft.Func.Type().(*types.Signature)); !ok {
+										pkg.cb.rec.Call(fn.Src, ft.Func)
+									}
 								}
 								return
 							}
