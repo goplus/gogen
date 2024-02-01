@@ -37,8 +37,40 @@ func IsFunc(t types.Type) bool {
 
 // CheckFuncEx returns if specified function is a FuncEx or not.
 func CheckFuncEx(sig *types.Signature) (ext TyFuncEx, ok bool) {
-	if typ, is := checkSigFuncEx(sig); is {
+	if typ, is := CheckSigFuncEx(sig); is {
 		ext, ok = typ.(TyFuncEx)
+	}
+	return
+}
+
+// CheckSigFuncExObjects retruns hide recv type and objects from func($overloadArgs ...interface{$overloadMethod()})
+// The return type can be OverloadType (*TyOverloadFunc, *TyOverloadMethod, *TyOverloadNamed) or
+// *TyTemplateRecvMethod.
+func CheckSigFuncExObjects(sig *types.Signature) (typ types.Type, objs []types.Object) {
+	if ext, ok := CheckSigFuncEx(sig); ok {
+		switch t := ext.(type) {
+		case *TyOverloadFunc:
+			typ, objs = t, t.Funcs
+		case *TyOverloadMethod:
+			typ, objs = t, t.Methods
+		case *TyTemplateRecvMethod:
+			typ = t
+			if tsig, ok := t.Func.Type().(*types.Signature); ok {
+				if ex, ok := CheckSigFuncEx(tsig); ok {
+					if t, ok := ex.(*TyOverloadFunc); ok {
+						objs = t.Funcs
+						break
+					}
+				}
+			}
+			objs = []types.Object{t.Func}
+		case *TyOverloadNamed:
+			typ = t
+			objs = make([]types.Object, len(t.Types))
+			for i, typ := range t.Types {
+				objs[i] = typ.Obj()
+			}
+		}
 	}
 	return
 }
@@ -48,8 +80,10 @@ const (
 	overloadMethod = "_"
 )
 
-// checkSigFuncEx retrun hide recv type from func($overloadArgs ...interface{$overloadMethod()})
-func checkSigFuncEx(sig *types.Signature) (types.Type, bool) {
+// CheckSigFuncEx retrun hide recv type from func($overloadArgs ...interface{$overloadMethod()})
+// The return type can be OverloadType (*TyOverloadFunc, *TyOverloadMethod, *TyOverloadNamed) or
+// *TyTemplateRecvMethod.
+func CheckSigFuncEx(sig *types.Signature) (types.Type, bool) {
 	if sig.Params().Len() == 1 {
 		if param := sig.Params().At(0); param.Name() == overloadArgs {
 			if typ, ok := param.Type().(*types.Interface); ok && typ.NumMethods() == 1 {
@@ -100,10 +134,13 @@ func (p *TyOverloadFunc) Underlying() types.Type { return p }
 func (p *TyOverloadFunc) String() string         { return "TyOverloadFunc" }
 func (p *TyOverloadFunc) funcEx()                {}
 
+// NewOverloadFunc creates an overload func.
 func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
 	return newFuncEx(pos, pkg, nil, name, &TyOverloadFunc{funcs})
 }
 
+// CheckOverloadFunc checks a func is overload func or not.
+// Deprecated: please use CheckFuncEx.
 func CheckOverloadFunc(sig *types.Signature) (funcs []types.Object, ok bool) {
 	if t, ok := CheckFuncEx(sig); ok {
 		if oft, ok := t.(*TyOverloadFunc); ok {
@@ -127,10 +164,13 @@ func (p *TyOverloadMethod) Underlying() types.Type { return p }
 func (p *TyOverloadMethod) String() string         { return "TyOverloadMethod" }
 func (p *TyOverloadMethod) funcEx()                {}
 
+// NewOverloadMethod creates an overload method.
 func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, methods ...types.Object) *types.Func {
 	return newMethodEx(typ, pos, pkg, name, &TyOverloadMethod{methods})
 }
 
+// CheckOverloadMethod checks a func is overload method or not.
+// Deprecated: please use CheckFuncEx.
 func CheckOverloadMethod(sig *types.Signature) (methods []types.Object, ok bool) {
 	if t, ok := CheckFuncEx(sig); ok {
 		if oft, ok := t.(*TyOverloadMethod); ok {

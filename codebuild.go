@@ -1701,7 +1701,7 @@ func (p *CodeBuilder) method(
 			p.rec.Member(src, found)
 		}
 		if autoprop {
-			p.Call(0)
+			p.CallWith(0, 0, src)
 			return MemberAutoProperty
 		}
 		return MemberMethod
@@ -1746,7 +1746,7 @@ func (p *CodeBuilder) btiMethod(
 					p.rec.Member(src, method.fn)
 				}
 				if autoprop {
-					p.Call(0)
+					p.CallWith(0, 0, src)
 					return MemberAutoProperty
 				}
 				return MemberMethod

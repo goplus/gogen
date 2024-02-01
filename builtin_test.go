@@ -634,6 +634,33 @@ func TestMethodAutoProperty(t *testing.T) {
 	}
 }
 
+func TestCheckSigFuncExObjects(t *testing.T) {
+	pkg := types.NewPackage("", "")
+	objs := []types.Object{
+		types.NewFunc(0, pkg, "foo", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
+		types.NewFunc(0, pkg, "bar", types.NewSignatureType(nil, nil, nil, nil, nil, false)),
+	}
+	named := types.NewNamed(types.NewTypeName(0, pkg, "named", nil), types.NewSignatureType(nil, nil, nil, nil, nil, false), nil)
+	fn := types.NewFunc(0, pkg, "fn", sigFuncEx(nil, nil, &TyOverloadFunc{objs}))
+	tests := []struct {
+		name  string
+		sig   *types.Signature
+		count int
+	}{
+		{"TyOverloadFunc", sigFuncEx(nil, nil, &TyOverloadFunc{objs}), 2},
+		{"TyOverloadMethod", sigFuncEx(nil, nil, &TyOverloadMethod{objs}), 2},
+		{"TyTemplateRecvMethod", sigFuncEx(nil, nil, &TyTemplateRecvMethod{types.NewParam(0, nil, "", tyInt)}), 1},
+		{"TyTemplateRecvMethod", sigFuncEx(nil, nil, &TyTemplateRecvMethod{fn}), 2},
+		{"TyOverloadNamed", sigFuncEx(nil, nil, &TyOverloadNamed{Types: []*types.Named{named}}), 1},
+	}
+	for n, test := range tests {
+		typ, objs := CheckSigFuncExObjects(test.sig)
+		if typ == nil || len(objs) != test.count {
+			t.Fatalf("CheckSigFuncExObjects error: %v %v", n, test.name)
+		}
+	}
+}
+
 func TestHasAutoProperty(t *testing.T) {
 	if HasAutoProperty(nil) {
 		t.Fatal("nil has autoprop?")
@@ -692,7 +719,7 @@ func TestTypeEx(t *testing.T) {
 			if fex, ok := typ.(iSubstType); ok {
 				fex.Obj()
 			}
-			if fex, ok := typ.(iOverloadType); ok {
+			if fex, ok := typ.(OverloadType); ok {
 				fex.Len()
 				func() {
 					defer func() {
