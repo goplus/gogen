@@ -43,6 +43,38 @@ func CheckFuncEx(sig *types.Signature) (ext TyFuncEx, ok bool) {
 	return
 }
 
+// CheckSigFuncExObjects retruns hide recv type and objects from func($overloadArgs ...interface{$overloadMethod()})
+// The return type can be OverloadType (*TyOverloadFunc, *TyOverloadMethod, *TyOverloadNamed) or
+// *TyTemplateRecvMethod.
+func CheckSigFuncExObjects(sig *types.Signature) (typ types.Type, objs []types.Object) {
+	if ext, ok := CheckSigFuncEx(sig); ok {
+		switch t := ext.(type) {
+		case *TyOverloadFunc:
+			typ, objs = t, t.Funcs
+		case *TyOverloadMethod:
+			typ, objs = t, t.Methods
+		case *TyTemplateRecvMethod:
+			typ = t
+			if tsig, ok := t.Func.Type().(*types.Signature); ok {
+				if ex, ok := CheckSigFuncEx(tsig); ok {
+					if t, ok := ex.(*TyOverloadFunc); ok {
+						objs = t.Funcs
+						break
+					}
+				}
+			}
+			objs = []types.Object{t.Func}
+		case *TyOverloadNamed:
+			typ = t
+			objs = make([]types.Object, len(t.Types))
+			for i, typ := range t.Types {
+				objs[i] = typ.Obj()
+			}
+		}
+	}
+	return
+}
+
 const (
 	overloadArgs   = "__gop_overload_args__"
 	overloadMethod = "_"
