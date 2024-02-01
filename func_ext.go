@@ -108,6 +108,7 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 }
 
 // CheckOverloadFunc checks a func is overload func or not.
+//
 // Deprecated: please use CheckFuncEx.
 func CheckOverloadFunc(sig *types.Signature) (funcs []types.Object, ok bool) {
 	if t, ok := CheckFuncEx(sig); ok {
@@ -138,6 +139,7 @@ func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name
 }
 
 // CheckOverloadMethod checks a func is overload method or not.
+//
 // Deprecated: please use CheckFuncEx.
 func CheckOverloadMethod(sig *types.Signature) (methods []types.Object, ok bool) {
 	if t, ok := CheckFuncEx(sig); ok {
