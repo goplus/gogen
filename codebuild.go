@@ -1658,6 +1658,26 @@ func denoteRecv(v *ast.SelectorExpr) *Element {
 	return nil
 }
 
+func getDenoted(expr ast.Expr) *ast.Object {
+	switch v := expr.(type) {
+	case *ast.SelectorExpr:
+		return v.Sel.Obj
+	case *ast.Ident:
+		return v.Obj
+	default:
+		return nil
+	}
+}
+
+func setDenoted(expr ast.Expr, denoted *ast.Object) {
+	switch v := expr.(type) {
+	case *ast.SelectorExpr:
+		v.Sel.Obj = denoted
+	case *ast.Ident:
+		v.Obj = denoted
+	}
+}
+
 func (p *CodeBuilder) allowAccess(pkg *types.Package, name string) bool {
 	if !ast.IsExported(name) && pkg != nil && pkg.Path() != p.pkg.Path() {
 		return false

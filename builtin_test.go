@@ -670,12 +670,6 @@ func TestHasAutoProperty(t *testing.T) {
 	}
 }
 
-func TestIsTypeType(t *testing.T) {
-	if isTypeType(sigFuncEx(nil, nil, &TyOverloadFunc{})) {
-		t.Fatal("TestIsType: isType(TyOverloadFunc)")
-	}
-}
-
 func TestTypeEx(t *testing.T) {
 	subst := &TySubst{}
 	bfReft := &bfRefType{typ: tyInt}

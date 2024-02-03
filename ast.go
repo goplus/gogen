@@ -277,12 +277,16 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 			Src:  src,
 		}
 	case *types.TypeName:
-		if typ := v.Type(); isTypeType(typ) {
+		switch typ := v.Type(); typ.(type) {
+		case *TyInstruction: // instruction as a type
+			return toObject(pkg, v, src)
+		default:
+			if debugInstr {
+				log.Printf("Val %v => Typ %v", v, typ)
+			}
 			return &internal.Elem{
 				Val: toType(pkg, typ), Type: NewTypeType(typ), Src: src,
 			}
-		} else { // builtin
-			return toObject(pkg, v, src)
 		}
 	case *types.Builtin:
 		if o := pkg.builtin.TryRef(v.Name()); o != nil {
@@ -365,10 +369,8 @@ var (
 
 func chgObject(pkg *Package, v types.Object, old *internal.Elem) *internal.Elem {
 	ret := toObject(pkg, v, old.Src)
-	if osel, ok := old.Val.(*ast.SelectorExpr); ok {
-		if sel, ok := ret.Val.(*ast.SelectorExpr); ok {
-			sel.Sel.Obj = osel.Sel.Obj
-		}
+	if denoted := getDenoted(old.Val); denoted != nil {
+		setDenoted(ret.Val, denoted)
 	}
 	return ret
 }
@@ -663,8 +665,8 @@ retry:
 				return
 			case *TyTemplateRecvMethod:
 				err = errTemplateRecvMethodCallUnexpected
-				if mth, ok := fn.Val.(*ast.SelectorExpr); ok {
-					if recv := denoteRecv(mth); recv != nil {
+				if denoted := getDenoted(fn.Val); denoted != nil {
+					if recv, ok := denoted.Data.(*Element); ok {
 						backup := backupArgs(args)
 						for i := 0; i < 2; i++ {
 							tfn := toObject(pkg, ft.Func, fn.Src)
