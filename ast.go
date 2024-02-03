@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/internal/goxdbg"
 )
 
 // ----------------------------------------------------------------------------
@@ -359,6 +360,16 @@ var (
 	}
 )
 
+func chgObject(pkg *Package, v types.Object, old *internal.Elem) *internal.Elem {
+	ret := toObject(pkg, v, old.Src)
+	if osel, ok := old.Val.(*ast.SelectorExpr); ok {
+		if sel, ok := ret.Val.(*ast.SelectorExpr); ok {
+			sel.Sel.Obj = osel.Sel.Obj
+		}
+	}
+	return ret
+}
+
 func toObject(pkg *Package, v types.Object, src ast.Node) *internal.Elem {
 	var cval constant.Value
 	if cv, ok := v.(*types.Const); ok {
@@ -577,16 +588,13 @@ func getParam1st(sig *types.Signature) int {
 func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
 	fnType := fn.Type
 	if debugMatch {
-		var funcs []types.Object
-		var ok bool
-		if t, ok1 := fnType.(*types.Signature); ok1 {
-			funcs, ok = CheckOverloadMethod(t)
+		ft := fnType
+		if t, ok := fnType.(*types.Signature); ok {
+			if ftex, ok := CheckSigFuncEx(t); ok {
+				ft = ftex
+			}
 		}
-		if ok {
-			log.Println("==> MatchFuncCall", funcs)
-		} else {
-			log.Println("==> MatchFuncCall", fnType)
-		}
+		log.Println("==> MatchFuncCall", ft, goxdbg.Format(pkg.Fset, fn.Val), "args:", len(args), "flags:", flags)
 	}
 	var it *instantiated
 	var sig *types.Signature
@@ -605,7 +613,7 @@ retry:
 					log.Println("==> InferFunc", sig)
 				}
 			} else {
-				fn, sig, args, err = boundTypeParams(pkg, fn, t, args)
+				fn, sig, args, err = boundTypeParams(pkg, fn, t, args, flags)
 				if err != nil {
 					return
 				}
@@ -618,7 +626,7 @@ retry:
 			case *TyOverloadFunc:
 				backup := backupArgs(args)
 				for _, o := range ft.Funcs {
-					if ret, err = matchFuncCall(pkg, toObject(pkg, o, fn.Src), args, flags); err == nil {
+					if ret, err = matchFuncCall(pkg, chgObject(pkg, o, fn), args, flags); err == nil {
 						if ret.CVal == nil && isUntyped(pkg, ret.Type) {
 							ret.CVal = builtinCall(fn, args)
 						}
@@ -666,7 +674,7 @@ retry:
 							for j, arg := range args {
 								targs[j+1] = arg
 							}
-							if ret, err = matchFuncCall(pkg, tfn, targs, flags); err == nil {
+							if ret, err = matchFuncCall(pkg, tfn, targs, flags|instrFlagGoptFunc); err == nil {
 								if pkg.cb.rec != nil {
 									pkg.cb.rec.Call(fn.Src, ft.Func)
 								}
@@ -679,7 +687,12 @@ retry:
 						}
 					}
 				}
+				if err == nil {
+					err = errors.New("TyTemplateRecvMethod unexpected")
+				}
 				return
+			case *tyTypeAsParams:
+				return matchFuncCall(pkg, chgObject(pkg, ft.obj, fn), args, flags|instrFlagGopxFunc)
 			}
 		} else if IsCSignature(t) {
 			sig = types.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
