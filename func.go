@@ -247,7 +247,8 @@ const (
 	InstrFlagTwoValue
 
 	instrFlagApproxType // restricts to all types whose underlying type is T
-	instrFlagGopxFunc   // call Gopx_xxx functions
+	instrFlagGopxFunc   // call Gopx_xxx function
+	instrFlagGoptFunc   // call Gopt_xxx function
 	instrFlagOpFunc     // from callOpFunc
 	instrFlagBinaryOp   // from cb.BinaryOp
 )

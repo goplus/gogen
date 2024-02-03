@@ -144,7 +144,7 @@ func InitThisGopPkg(pkg *types.Package) {
 			key := omthd{nil, name[:len(name)-3]}
 			overloads[key] = append(overloads[key], o)
 		} else {
-			checkTemplateMethod(pkg, name, o)
+			checkGoptGopx(pkg, scope, name, o)
 		}
 	}
 	for _, gopoName := range gopos {
@@ -250,16 +250,24 @@ func checkTypeMethod(scope *types.Scope, name string) (omthd, string) {
 	return omthd{nil, name}, ""
 }
 
+// Gopx_Func
 // Gopt_TypeName_Method
 // Gopt__TypeName__Method
-func checkTemplateMethod(pkg *types.Package, name string, o types.Object) {
-	if strings.HasPrefix(name, goptPrefix) {
+func checkGoptGopx(pkg *types.Package, scope *types.Scope, name string, o types.Object) {
+	if strings.HasPrefix(name, goptPrefix) { // Gopt_xxx
 		name = name[len(goptPrefix):]
 		if m, tname := checkTypeMethod(pkg.Scope(), name); m.typ != nil {
 			if debugImport {
 				log.Println("==> NewTemplateRecvMethod", tname, m.name)
 			}
 			NewTemplateRecvMethod(m.typ, token.NoPos, pkg, m.name, o)
+		}
+	} else if strings.HasPrefix(name, gopxPrefix) { // Gopx_xxx
+		aname := name[len(gopxPrefix):]
+		o := newFuncEx(token.NoPos, pkg, nil, aname, &tyTypeAsParams{o})
+		scope.Insert(o)
+		if debugImport {
+			log.Println("==> AliasFunc", name, "=>", aname)
 		}
 	}
 }
@@ -298,7 +306,7 @@ func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Ob
 		}
 		o := NewOverloadFunc(token.NoPos, pkg, m.name, fns...)
 		scope.Insert(o)
-		checkTemplateMethod(pkg, m.name, o)
+		checkGoptGopx(pkg, scope, m.name, o)
 	} else {
 		if debugImport {
 			log.Println("==> NewOverloadMethod", m.typ.Obj().Name(), m.name)

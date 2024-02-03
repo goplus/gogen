@@ -16,6 +16,8 @@ package gox
 import (
 	"go/token"
 	"go/types"
+	"log"
+	"strings"
 )
 
 // ----------------------------------------------------------------------------
@@ -117,6 +119,14 @@ func newMethodEx(typ *types.Named, pos token.Pos, pkg *types.Package, name strin
 	recv := types.NewVar(token.NoPos, pkg, "recv", typ)
 	ofn := newFuncEx(pos, pkg, recv, name, t)
 	typ.AddMethod(ofn)
+	if strings.HasPrefix(name, gopxPrefix) {
+		aname := name[len(gopxPrefix):]
+		ofnAlias := newFuncEx(pos, pkg, recv, aname, &tyTypeAsParams{ofn})
+		typ.AddMethod(ofnAlias)
+		if debugImport {
+			log.Println("==> AliasMethod", typ, name, "=>", aname)
+		}
+	}
 	return ofn
 }
 
@@ -136,10 +146,12 @@ func (p *TyOverloadFunc) funcEx()                {}
 
 // NewOverloadFunc creates an overload func.
 func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
-	return newFuncEx(pos, pkg, nil, name, &TyOverloadFunc{funcs})
+	fn := newFuncEx(pos, pkg, nil, name, &TyOverloadFunc{funcs})
+	return fn
 }
 
 // CheckOverloadFunc checks a func is overload func or not.
+//
 // Deprecated: please use CheckFuncEx.
 func CheckOverloadFunc(sig *types.Signature) (funcs []types.Object, ok bool) {
 	if t, ok := CheckFuncEx(sig); ok {
@@ -170,6 +182,7 @@ func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name
 }
 
 // CheckOverloadMethod checks a func is overload method or not.
+//
 // Deprecated: please use CheckFuncEx.
 func CheckOverloadMethod(sig *types.Signature) (methods []types.Object, ok bool) {
 	if t, ok := CheckFuncEx(sig); ok {
@@ -179,6 +192,17 @@ func CheckOverloadMethod(sig *types.Signature) (methods []types.Object, ok bool)
 	}
 	return nil, false
 }
+
+// ----------------------------------------------------------------------------
+
+type tyTypeAsParams struct { // see TestTypeAsParamsFunc
+	obj types.Object
+}
+
+func (p *tyTypeAsParams) Obj() types.Object      { return p.obj }
+func (p *tyTypeAsParams) Underlying() types.Type { return p }
+func (p *tyTypeAsParams) String() string         { return "tyTypeAsParams" }
+func (p *tyTypeAsParams) funcEx()                {}
 
 // ----------------------------------------------------------------------------
 
