@@ -73,19 +73,6 @@ func IsTypeEx(t types.Type) (ok bool) {
 	return false
 }
 
-func isTypeType(t types.Type) bool {
-	switch sig := t.(type) {
-	case *types.Signature:
-		if _, ok := CheckFuncEx(sig); ok {
-			// builtin may be implemented as OverloadFunc
-			return false
-		}
-	case TyTypeEx:
-		return false
-	}
-	return true
-}
-
 // ----------------------------------------------------------------------------
 
 type TyOverloadNamed struct {
