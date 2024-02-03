@@ -29,6 +29,10 @@ import (
 	"github.com/goplus/gox/internal"
 )
 
+var (
+	errTemplateRecvMethodCallUnexpected = errors.New("matchFuncCall (TemplateRecvMethod) unexpected")
+)
+
 // ----------------------------------------------------------------------------
 
 var (
@@ -658,6 +662,7 @@ retry:
 				}
 				return
 			case *TyTemplateRecvMethod:
+				err = errTemplateRecvMethodCallUnexpected
 				if mth, ok := fn.Val.(*ast.SelectorExpr); ok {
 					if recv := denoteRecv(mth); recv != nil {
 						backup := backupArgs(args)
@@ -685,9 +690,6 @@ retry:
 							restoreArgs(args, backup)
 						}
 					}
-				}
-				if err == nil {
-					err = errors.New("TyTemplateRecvMethod unexpected")
 				}
 				return
 			case *tyTypeAsParams:
