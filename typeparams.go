@@ -24,6 +24,7 @@ import (
 	_ "unsafe"
 
 	"github.com/goplus/gox/internal"
+	"github.com/goplus/gox/internal/goxdbg"
 )
 
 // ----------------------------------------------------------------------------
@@ -437,11 +438,19 @@ func interfaceIsImplicit(t *types.Interface) bool {
 
 // ----------------------------------------------------------------------------
 
-func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Element) (*Element, *types.Signature, []*Element, error) {
+func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Element, flags InstrFlags) (*Element, *types.Signature, []*Element, error) {
+	if debugMatch {
+		log.Println("boundTypeParams:", goxdbg.Format(p.Fset, fn.Val), "sig:", sig, "args:", len(args), "flags:", flags)
+	}
 	params := sig.TypeParams()
 	if n := params.Len(); n > 0 {
+		from := 0
+		if (flags & instrFlagGoptFunc) != 0 {
+			from = 1
+		}
 		targs := make([]types.Type, n)
-		for i, arg := range args {
+		for i := 0; i < n; i++ {
+			arg := args[from+i]
 			t, ok := arg.Type.(*TypeType)
 			if !ok {
 				src, pos := p.cb.loadExpr(arg.Src)
@@ -455,12 +464,16 @@ func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Elem
 			return fn, sig, args, err
 		}
 		indices := make([]ast.Expr, n)
-		for i, arg := range args {
-			indices[i] = arg.Val
+		for i := 0; i < n; i++ {
+			indices[i] = args[from+i].Val
 		}
 		fn = &Element{Val: &ast.IndexListExpr{X: fn.Val, Indices: indices}, Type: ret, Src: fn.Src}
 		sig = ret.(*types.Signature)
-		args = args[n:]
+		if from > 0 {
+			args = append([]*Element{args[0]}, args[n+1:]...)
+		} else {
+			args = args[n:]
+		}
 	}
 	return fn, sig, args, nil
 }
