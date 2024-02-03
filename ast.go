@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/goplus/gox/internal"
-	"github.com/goplus/gox/internal/goxdbg"
 )
 
 // ----------------------------------------------------------------------------
@@ -594,7 +593,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags
 				ft = ftex
 			}
 		}
-		log.Println("==> MatchFuncCall", ft, goxdbg.Format(pkg.Fset, fn.Val), "args:", len(args), "flags:", flags)
+		log.Println("==> MatchFuncCall", ft, "args:", len(args), "flags:", flags)
 	}
 	var it *instantiated
 	var sig *types.Signature
