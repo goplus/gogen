@@ -44,6 +44,18 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestDenoted(t *testing.T) {
+	if denoteRecv(&ast.SelectorExpr{Sel: ast.NewIdent("foo")}) != nil {
+		t.Fatal("denoteRecv: not nil?")
+	}
+	id := ast.NewIdent("foo")
+	obj := &ast.Object{}
+	setDenoted(id, obj)
+	if getDenoted(id) != obj {
+		t.Fatal("setDenoted failed")
+	}
+}
+
 func TestCheckNamed(t *testing.T) {
 	foo := types.NewPackage("github.com/bar/foo", "foo")
 	tn := types.NewTypeName(0, foo, "t", nil)
