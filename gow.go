@@ -14,6 +14,7 @@
 package gox
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -107,6 +108,9 @@ func (p *Package) WriteFile(file string, fname ...string) (err error) {
 			os.Remove(file)
 		}
 	}()
+	if len(GeneratedHeader) > 0 {
+		fmt.Fprint(f, GeneratedHeader)
+	}
 	fset := token.NewFileSet()
 	return format.Node(f, fset, ast)
 }
