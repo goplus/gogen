@@ -85,11 +85,7 @@ func isGopoConst(name string) bool {
 }
 
 func isGopFunc(name string) bool {
-	return isOverload(name) || isGoptFunc(name)
-}
-
-func isGoptFunc(name string) bool {
-	return strings.HasPrefix(name, goptPrefix)
+	return isOverload(name) || strings.HasPrefix(name, goptPrefix) || strings.HasPrefix(name, gopxPrefix)
 }
 
 func isOverload(name string) bool {

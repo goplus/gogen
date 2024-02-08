@@ -53,6 +53,17 @@ func newGopMainPackage() *gox.Package {
 
 // ----------------------------------------------------------------------------
 
+func TestGopoConst(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.CB().NewConstStart(nil, "Gopo_x").
+		Val("Hello").EndInit(1)
+	domTest(t, pkg, `package main
+
+const GopPackage = true
+const Gopo_x = "Hello"
+`)
+}
+
 func TestFmtPrintln(t *testing.T) {
 	pkg := newGopMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
