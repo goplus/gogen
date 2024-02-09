@@ -249,7 +249,11 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 		return specs[i].(*ast.ImportSpec).Path.Value < specs[j].(*ast.ImportSpec).Path.Value
 	})
 
-	addGopPkg := p.fname == this.conf.DefaultGoFile && shouldAddGopPkg(this)
+	var valGopPkg ast.Expr
+	var addGopPkg bool
+	if p.fname == this.conf.DefaultGoFile {
+		valGopPkg, addGopPkg = checkGopPkg(this)
+	}
 	if len(specs) == 0 && !addGopPkg {
 		return p.decls
 	}
@@ -261,12 +265,26 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			&ast.ValueSpec{
 				Names: []*ast.Ident{{Name: gopPackage}},
 				Values: []ast.Expr{
-					&ast.Ident{Name: "true"},
+					valGopPkg,
 				},
 			},
 		}})
 	}
 	return append(decls, p.decls...)
+}
+
+func checkGopPkg(pkg *Package) (val ast.Expr, ok bool) {
+	if ok = pkg.isGopPkg && pkg.Types.Scope().Lookup(gopPackage) == nil; ok {
+		val = identTrue
+	}
+	return
+}
+
+func isExported(name string) bool { // types.isExported
+	// ch, _ := utf8.DecodeRuneInString(name)
+	// return unicode.IsUpper(ch)
+	c := name[0]
+	return c >= 'A' && c <= 'Z'
 }
 
 // ----------------------------------------------------------------------------

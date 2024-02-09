@@ -134,13 +134,13 @@ func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pkg := gt.NewPackage("", "main")
+	pkg := gt.NewPackage("", "test")
 	foo := pkg.Import("foo")
 	objTable := foo.Ref("Table")
 	typ := objTable.Type().(*types.Named)
 	tyInt := types.Typ[types.Int]
 
-	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+	cb := pkg.NewFunc(nil, "Example", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewPointer(typ), "tbl")
 	_, err = cb.VarVal("tbl").Member("col", gox.MemberFlagMethodAlias)
 	if err != nil {
@@ -151,12 +151,75 @@ func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
 		Val(foo.Ref("Row")).Typ(tyInt).Val(1, source("1")).Call(2).EndStmt().
 		End()
 
-	domTest(t, pkg, `package main
+	domTest(t, pkg, `package test
 
 import "foo"
 
-func main() {
+func Example() {
 	var tbl *foo.Table
+	foo.Gopt_Table_Gopx_Col__0[int](tbl, "bar")
+	foo.Gopx_Bar[int]("1")
+	foo.Gopx_Row__1[int](1)
+}
+`)
+}
+
+func _TestTypeAsParamsFunc2(t *testing.T) {
+	const src = `package foo
+
+const GopPackage = true
+
+type basetype interface {
+	int | string
+}
+
+func Gopx_Bar[T basetype](name string) {
+}
+
+func Gopx_Row__0[T basetype](name string) {
+}
+
+func Gopx_Row__1[Array any](v int) {
+}
+
+type Table struct {
+}
+
+func Gopt_Table_Gopx_Col__0[T basetype](p *Table, name string) {
+}
+
+func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "test")
+	foo := pkg.Import("foo")
+	objTable := foo.Ref("Table")
+	typ := objTable.Type().(*types.Named)
+	tyInt := types.Typ[types.Int]
+
+	args := types.NewTuple(types.NewParam(0, pkg.Types, "tbl", types.NewPointer(typ)))
+	cb := pkg.NewFunc(nil, "Example", args, nil, false).BodyStart(pkg)
+	_, err = cb.VarVal("tbl").Member("col", gox.MemberFlagMethodAlias)
+	if err != nil {
+		t.Fatal("tbl.Member(col):", err)
+	}
+	cb.Typ(tyInt).Val("bar").Call(2).EndStmt().
+		Val(foo.Ref("Bar")).Typ(tyInt).Val("1").Call(2).EndStmt().
+		Val(foo.Ref("Row")).Typ(tyInt).Val(1, source("1")).Call(2).EndStmt().
+		End()
+
+	domTest(t, pkg, `package test
+
+import "foo"
+
+const GopPackage = "foo"
+
+func Example(tbl *foo.Table) {
 	foo.Gopt_Table_Gopx_Col__0[int](tbl, "bar")
 	foo.Gopx_Bar[int]("1")
 	foo.Gopx_Row__1[int](1)

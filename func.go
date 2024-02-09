@@ -213,6 +213,9 @@ func (p *Package) NewFuncWith(
 	if isGopFunc(name) {
 		p.isGopPkg = true
 	}
+	if isExported(name) {
+		_ = name
+	}
 
 	fn.decl = &ast.FuncDecl{}
 	p.file.decls = append(p.file.decls, fn.decl)

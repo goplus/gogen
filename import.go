@@ -76,10 +76,6 @@ func (p PkgRef) MarkForceUsed(pkg *Package) {
 func (p PkgRef) EnsureImported() {
 }
 
-func shouldAddGopPkg(pkg *Package) bool {
-	return pkg.isGopPkg && pkg.Types.Scope().Lookup(gopPackage) == nil
-}
-
 func isGopoConst(name string) bool {
 	return strings.HasPrefix(name, gopoPrefix)
 }
@@ -271,7 +267,7 @@ func checkGoptGopx(pkg *types.Package, scope *types.Scope, name string, o types.
 const (
 	goptPrefix = "Gopt_" // template method
 	gopoPrefix = "Gopo_" // overload function/method
-	gopxPrefix = "Gopx_"
+	gopxPrefix = "Gopx_" // type as parameters function/method
 	gopPackage = "GopPackage"
 )
 
