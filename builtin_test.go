@@ -44,6 +44,18 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestCheckOverloads(t *testing.T) {
+	defer func() {
+		if e := recover(); e != "checkOverloads: should be string constant - foo" {
+			t.Fatal("TestCheckOverloads:", e)
+		}
+	}()
+	scope := types.NewScope(nil, 0, 0, "")
+	scope.Insert(types.NewLabel(0, nil, "foo"))
+	checkOverloads(scope, "bar")
+	checkOverloads(scope, "foo")
+}
+
 func TestCheckGopPkgNoop(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	pkg.Types.Scope().Insert(types.NewConst(
@@ -52,6 +64,13 @@ func TestCheckGopPkgNoop(t *testing.T) {
 	if _, ok := checkGopPkg(pkg); ok {
 		t.Fatal("checkGopPkg: ok?")
 	}
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expDeps.typ: no panic?")
+		}
+	}()
+	var ed expDeps
+	ed.typ(&unboundFuncParam{})
 }
 
 func TestDenoted(t *testing.T) {
