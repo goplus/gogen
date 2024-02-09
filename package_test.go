@@ -22,7 +22,6 @@ import (
 	"go/types"
 	"log"
 	"os"
-	"strings"
 	"syscall"
 	"testing"
 	"unsafe"
@@ -56,11 +55,6 @@ func (p eventRecorder) Member(id ast.Node, obj types.Object) {
 func (p eventRecorder) Call(fn ast.Node, obj types.Object) {
 }
 
-func isStdPkg(pkgPath string) bool {
-	is := pkgPath != "foo" && strings.IndexByte(pkgPath, '.') < 0
-	return is
-}
-
 func newMainPackage(
 	implicitCast ...func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool) *gox.Package {
 	conf := &gox.Config{
@@ -69,7 +63,6 @@ func newMainPackage(
 		Recorder:        eventRecorder{},
 		NodeInterpreter: nodeInterp{},
 		DbgPositioner:   nodeInterp{},
-		IsPkgtStandard:  isStdPkg,
 	}
 	if len(implicitCast) > 0 {
 		conf.CanImplicitCast = implicitCast[0]
@@ -150,7 +143,6 @@ func (p *goxTest) NewPackage(pkgPath string, name string) *gox.Package {
 		Importer:        p.imp,
 		NodeInterpreter: nodeInterp{},
 		DbgPositioner:   nodeInterp{},
-		IsPkgtStandard:  isStdPkg,
 	}
 	return gox.NewPackage(pkgPath, name, conf)
 }
