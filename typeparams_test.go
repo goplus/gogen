@@ -167,7 +167,9 @@ func Example() {
 func TestCheckGopPkg(t *testing.T) {
 	const src = `package foo
 
-const GopPackage = true
+import "io"
+
+const GopPackage = "io"
 
 type basetype interface {
 	int | string
@@ -182,7 +184,15 @@ func Gopx_Row__0[T basetype](name string) {
 func Gopx_Row__1[Array any](v int) {
 }
 
+type EmbIntf interface {
+	io.Reader
+	Close()
+}
+
 type Table struct {
+	EmbIntf
+	N int
+	b string
 }
 
 func Gopt_Table_Gopx_Col__0[T basetype](p *Table, name string) {
@@ -202,9 +212,12 @@ func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
 	typ := objTable.Type().(*types.Named)
 	tyInt := types.Typ[types.Int]
 
-	args := types.NewTuple(types.NewParam(0, pkg.Types, "tbl", types.NewPointer(typ)))
+	typSlice := types.NewSlice(types.NewPointer(typ))
+	typMap := types.NewMap(types.Typ[types.String], typSlice)
+
+	args := types.NewTuple(types.NewParam(0, pkg.Types, "tbls", typMap))
 	cb := pkg.NewFunc(nil, "Example", args, nil, false).BodyStart(pkg)
-	_, err = cb.VarVal("tbl").Member("col", gox.MemberFlagMethodAlias)
+	_, err = cb.VarVal("tbls").Val("Hi").Index(1, false).Val(0).Index(1, false).Member("col", gox.MemberFlagMethodAlias)
 	if err != nil {
 		t.Fatal("tbl.Member(col):", err)
 	}
@@ -213,16 +226,23 @@ func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
 		Val(foo.Ref("Row")).Typ(tyInt).Val(1, source("1")).Call(2).EndStmt().
 		End()
 
+	typChan := types.NewChan(types.SendRecv, typSlice)
+	typArray := types.NewArray(typChan, 2)
+	args = types.NewTuple(types.NewParam(0, pkg.Types, "", typArray))
+	pkg.NewFunc(nil, "Create", args, nil, false).BodyStart(pkg).End()
+
 	domTest(t, pkg, `package test
 
 import "foo"
 
 const GopPackage = "foo"
 
-func Example(tbl *foo.Table) {
-	foo.Gopt_Table_Gopx_Col__0[int](tbl, "bar")
+func Example(tbls map[string][]*foo.Table) {
+	foo.Gopt_Table_Gopx_Col__0[int](tbls["Hi"][0], "bar")
 	foo.Gopx_Bar[int]("1")
 	foo.Gopx_Row__1[int](1)
+}
+func Create([2]chan []*foo.Table) {
 }
 `)
 }
