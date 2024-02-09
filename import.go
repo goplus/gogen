@@ -90,12 +90,25 @@ func isOverload(name string) bool {
 }
 
 // InitThisGopPkg initializes a Go+ package.
-func InitThisGopPkg(pkg *types.Package) {
+func InitThisGopPkg(pkg *types.Package) (deps []string) {
 	scope := pkg.Scope()
-	if scope.Lookup(gopPackage) == nil { // not is a Go+ package
+	if scope.Lookup(gopPkgInit) != nil { // initialized
 		return
 	}
-	if debugImport {
+	scope.Insert(types.NewConst(
+		token.NoPos, pkg, gopPkgInit, types.Typ[types.UntypedBool], constant.MakeBool(true),
+	))
+
+	pkgDeps := scope.Lookup(gopPackage)
+	if pkgDeps == nil { // not is a Go+ package
+		return
+	}
+	valDeps := pkgDeps.(*types.Const).Val()
+	if valDeps.Kind() == constant.String {
+		deps = strings.Split(constant.StringVal(valDeps), ",")
+	}
+
+	if debugImport && pkg.Path() != "" {
 		log.Println("==> Import", pkg.Path())
 	}
 	gopos := make([]string, 0, 4)
@@ -171,6 +184,7 @@ func InitThisGopPkg(pkg *types.Package) {
 		on := NewOverloadNamed(token.NoPos, pkg, name, nameds...)
 		scope.Insert(on)
 	}
+	return
 }
 
 // name
@@ -269,6 +283,7 @@ const (
 	gopoPrefix = "Gopo_" // overload function/method
 	gopxPrefix = "Gopx_" // type as parameters function/method
 	gopPackage = "GopPackage"
+	gopPkgInit = "__gop_inited"
 )
 
 /*
@@ -286,7 +301,7 @@ func checkOverloads(scope *types.Scope, gopoName string) (ret []string, exists b
 				return strings.Split(constant.StringVal(v), ","), true
 			}
 		}
-		panic("checkOverloads TODO: should be string constant - " + gopoName)
+		panic("checkOverloads: should be string constant - " + gopoName)
 	}
 	return
 }
@@ -354,40 +369,27 @@ const (
 
 // ----------------------------------------------------------------------------
 
-// Context represents all things between packages.
-type Context struct {
-	chkGopImports map[string]bool
-	stdPkg        func(pkgPath string) bool
+func isExported(name string) bool { // types.isExported
+	// ch, _ := utf8.DecodeRuneInString(name)
+	// return unicode.IsUpper(ch)
+	c := name[0]
+	return c >= 'A' && c <= 'Z'
 }
 
-func NewContext(isPkgtStandard func(pkgPath string) bool) *Context {
-	if isPkgtStandard == nil {
-		isPkgtStandard = isStdPkg
+func checkGopPkg(pkg *Package) (val ast.Expr, ok bool) {
+	if ok = pkg.isGopPkg && pkg.Types.Scope().Lookup(gopPackage) == nil; ok {
+		val = identTrue
 	}
-	return &Context{
-		chkGopImports: make(map[string]bool),
-		stdPkg:        isPkgtStandard,
-	}
+	return
 }
 
 // initGopPkg initializes a Go+ packages.
-func (p *Context) initGopPkg(importer types.Importer, pkgImp *types.Package) {
-	pkgPath := pkgImp.Path()
-	if p.stdPkg(pkgPath) || p.chkGopImports[pkgPath] {
-		return
-	}
-	if !pkgImp.Complete() {
-		importer.Import(pkgPath)
-	}
-	InitThisGopPkg(pkgImp)
-	p.chkGopImports[pkgPath] = true
-	for _, imp := range pkgImp.Imports() {
+func (p *Package) initGopPkg(importer types.Importer, pkgImp *types.Package) {
+	gopDeps := InitThisGopPkg(pkgImp)
+	for _, depPath := range gopDeps {
+		imp, _ := importer.Import(depPath)
 		p.initGopPkg(importer, imp)
 	}
-}
-
-func isStdPkg(pkgPath string) bool {
-	return strings.IndexByte(pkgPath, '.') < 0
 }
 
 // ----------------------------------------------------------------------------
@@ -405,7 +407,7 @@ func importPkg(this *Package, pkgPath string, src ast.Node) (PkgRef, error) {
 		}
 		return PkgRef{}, e
 	} else {
-		this.ctx.initGopPkg(this.imp, pkgImp)
+		this.initGopPkg(this.imp, pkgImp)
 	}
 	return PkgRef{Types: pkgImp}, nil
 }

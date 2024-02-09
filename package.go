@@ -95,12 +95,6 @@ type Config struct {
 	// If Fset is nil, Load will use a new fileset, but preserve Fset's value.
 	Fset *token.FileSet
 
-	// Context represents all things between packages (optional).
-	Context *Context
-
-	// IsPkgtStandard checks a pkgPath is a Go standard package or not.
-	IsPkgtStandard func(pkgPath string) bool
-
 	// HandleErr is called to handle errors (optional).
 	HandleErr func(err error)
 
@@ -273,20 +267,6 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 	return append(decls, p.decls...)
 }
 
-func checkGopPkg(pkg *Package) (val ast.Expr, ok bool) {
-	if ok = pkg.isGopPkg && pkg.Types.Scope().Lookup(gopPackage) == nil; ok {
-		val = identTrue
-	}
-	return
-}
-
-func isExported(name string) bool { // types.isExported
-	// ch, _ := utf8.DecodeRuneInString(name)
-	// return unicode.IsUpper(ch)
-	c := name[0]
-	return c >= 'A' && c <= 'Z'
-}
-
 // ----------------------------------------------------------------------------
 
 // ObjectDocs maps an object to its document.
@@ -304,7 +284,6 @@ type Package struct {
 	files          map[string]*File
 	file           *File
 	conf           *Config
-	ctx            *Context
 	builtin        PkgRef
 	pkgBig         PkgRef
 	utBigInt       *types.Named
@@ -329,10 +308,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if fset == nil {
 		fset = token.NewFileSet()
 	}
-	ctx := conf.Context
-	if ctx == nil {
-		ctx = NewContext(conf.IsPkgtStandard)
-	}
 	imp := conf.Importer
 	if imp == nil {
 		imp = packages.NewImporter(fset)
@@ -349,7 +324,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		file:  file,
 		files: files,
 		conf:  conf,
-		ctx:   ctx,
 	}
 	pkg.initAutoNames()
 	pkg.imp = imp
