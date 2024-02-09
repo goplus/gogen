@@ -291,8 +291,10 @@ type Package struct {
 	utBigFlt       *types.Named
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
-	allowRedecl    bool // for c2go
-	isGopPkg       bool
+
+	expObjTypes []types.Type // types of export objects
+	isGopPkg    bool
+	allowRedecl bool // for c2go
 }
 
 const (

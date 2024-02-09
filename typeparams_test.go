@@ -164,7 +164,7 @@ func Example() {
 `)
 }
 
-func _TestTypeAsParamsFunc2(t *testing.T) {
+func TestCheckGopPkg(t *testing.T) {
 	const src = `package foo
 
 const GopPackage = true

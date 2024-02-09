@@ -44,6 +44,16 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestCheckGopPkgNoop(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	pkg.Types.Scope().Insert(types.NewConst(
+		token.NoPos, pkg.Types, "GopPackage", types.Typ[types.UntypedBool], constant.MakeBool(true),
+	))
+	if _, ok := checkGopPkg(pkg); ok {
+		t.Fatal("checkGopPkg: ok?")
+	}
+}
+
 func TestDenoted(t *testing.T) {
 	if denoteRecv(&ast.SelectorExpr{Sel: ast.NewIdent("foo")}) != nil {
 		t.Fatal("denoteRecv: not nil?")

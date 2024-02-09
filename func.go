@@ -213,8 +213,8 @@ func (p *Package) NewFuncWith(
 	if isGopFunc(name) {
 		p.isGopPkg = true
 	}
-	if isExported(name) {
-		_ = name
+	if token.IsExported(name) {
+		p.expObjTypes = append(p.expObjTypes, sig)
 	}
 
 	fn.decl = &ast.FuncDecl{}
