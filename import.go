@@ -90,27 +90,8 @@ func isOverload(name string) bool {
 }
 
 // InitThisGopPkg initializes a Go+ package.
-func InitThisGopPkg(pkg *types.Package) (deps []string) {
+func InitThisGopPkg(pkg *types.Package) {
 	scope := pkg.Scope()
-	if scope.Lookup(gopPkgInit) != nil { // initialized
-		return
-	}
-	scope.Insert(types.NewConst(
-		token.NoPos, pkg, gopPkgInit, types.Typ[types.UntypedBool], constant.MakeBool(true),
-	))
-
-	pkgDeps := scope.Lookup(gopPackage)
-	if pkgDeps == nil { // not is a Go+ package
-		return
-	}
-	valDeps := pkgDeps.(*types.Const).Val()
-	if valDeps.Kind() == constant.String {
-		deps = strings.Split(constant.StringVal(valDeps), ",")
-	}
-
-	if debugImport && pkg.Path() != "" {
-		log.Println("==> Import", pkg.Path())
-	}
 	gopos := make([]string, 0, 4)
 	overloads := make(map[omthd][]types.Object)
 	onameds := make(map[string][]*types.Named)
@@ -184,7 +165,6 @@ func InitThisGopPkg(pkg *types.Package) (deps []string) {
 		on := NewOverloadNamed(token.NoPos, pkg, name, nameds...)
 		scope.Insert(on)
 	}
-	return
 }
 
 // name
@@ -426,6 +406,7 @@ retry:
 	case *types.Array:
 		typ = t.Elem()
 		goto retry
+	case *types.TypeParam, *types.Union:
 	default:
 		log.Panicf("expDeps: unknown type - %T\n", typ)
 	}
@@ -487,7 +468,33 @@ func (p expDeps) struc(t *types.Struct) {
 
 // initGopPkg initializes a Go+ packages.
 func (p *Package) initGopPkg(importer types.Importer, pkgImp *types.Package) {
-	gopDeps := InitThisGopPkg(pkgImp)
+	scope := pkgImp.Scope()
+	objGopPkg := scope.Lookup(gopPackage)
+	if objGopPkg == nil { // not is a Go+ package
+		return
+	}
+
+	if scope.Lookup(gopPkgInit) != nil { // initialized
+		return
+	}
+	scope.Insert(types.NewConst(
+		token.NoPos, pkgImp, gopPkgInit, types.Typ[types.UntypedBool], constant.MakeBool(true),
+	))
+
+	pkgDeps, ok := objGopPkg.(*types.Const)
+	if !ok {
+		return
+	}
+
+	var gopDeps []string
+	if v := pkgDeps.Val(); v.Kind() == constant.String {
+		gopDeps = strings.Split(constant.StringVal(v), ",")
+	}
+
+	if debugImport {
+		log.Println("==> Import", pkgImp.Path())
+	}
+	InitThisGopPkg(pkgImp)
 	for _, depPath := range gopDeps {
 		imp, _ := importer.Import(depPath)
 		p.initGopPkg(importer, imp)
