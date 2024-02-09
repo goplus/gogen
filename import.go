@@ -452,10 +452,7 @@ func (p expDeps) named(t *types.Named) {
 		p.ret[at] = none{}
 		for i, n := 0, t.NumMethods(); i < n; i++ {
 			m := t.Method(i)
-			if m.Exported() {
-				sig := m.Type().(*types.Signature)
-				p.sig(sig)
-			}
+			p.method(m)
 		}
 		p.typ(t.Underlying())
 	}
@@ -467,8 +464,13 @@ func (p expDeps) interf(t *types.Interface) {
 	}
 	for i, n := 0, t.NumExplicitMethods(); i < n; i++ {
 		m := t.ExplicitMethod(i)
-		if m.Exported() {
-			sig := m.Type().(*types.Signature)
+		p.method(m)
+	}
+}
+
+func (p expDeps) method(m *types.Func) {
+	if m.Exported() {
+		if sig := m.Type().(*types.Signature); !isSigFuncEx(sig) {
 			p.sig(sig)
 		}
 	}

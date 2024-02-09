@@ -88,8 +88,8 @@ const (
 func CheckSigFuncEx(sig *types.Signature) (types.Type, bool) {
 	if sig.Params().Len() == 1 {
 		if param := sig.Params().At(0); param.Name() == overloadArgs {
-			if typ, ok := param.Type().(*types.Interface); ok && typ.NumMethods() == 1 {
-				if sig, ok := typ.Method(0).Type().(*types.Signature); ok {
+			if typ, ok := param.Type().(*types.Interface); ok && typ.NumExplicitMethods() == 1 {
+				if sig, ok := typ.ExplicitMethod(0).Type().(*types.Signature); ok {
 					if recv := sig.Recv(); recv != nil {
 						return recv.Type(), true
 					}
@@ -98,6 +98,15 @@ func CheckSigFuncEx(sig *types.Signature) (types.Type, bool) {
 		}
 	}
 	return nil, false
+}
+
+func isSigFuncEx(sig *types.Signature) bool {
+	if sig.Params().Len() == 1 {
+		if param := sig.Params().At(0); param.Name() == overloadArgs {
+			return true
+		}
+	}
+	return false
 }
 
 // sigFuncEx return func type ($overloadArgs ...interface{$overloadMethod()})
