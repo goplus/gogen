@@ -95,12 +95,6 @@ type Config struct {
 	// If Fset is nil, Load will use a new fileset, but preserve Fset's value.
 	Fset *token.FileSet
 
-	// Context represents all things between packages (optional).
-	Context *Context
-
-	// IsPkgtStandard checks a pkgPath is a Go standard package or not.
-	IsPkgtStandard func(pkgPath string) bool
-
 	// HandleErr is called to handle errors (optional).
 	HandleErr func(err error)
 
@@ -249,7 +243,11 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 		return specs[i].(*ast.ImportSpec).Path.Value < specs[j].(*ast.ImportSpec).Path.Value
 	})
 
-	addGopPkg := p.fname == this.conf.DefaultGoFile && shouldAddGopPkg(this)
+	var valGopPkg ast.Expr
+	var addGopPkg bool
+	if p.fname == this.conf.DefaultGoFile {
+		valGopPkg, addGopPkg = checkGopPkg(this)
+	}
 	if len(specs) == 0 && !addGopPkg {
 		return p.decls
 	}
@@ -261,7 +259,7 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			&ast.ValueSpec{
 				Names: []*ast.Ident{{Name: gopPackage}},
 				Values: []ast.Expr{
-					&ast.Ident{Name: "true"},
+					valGopPkg,
 				},
 			},
 		}})
@@ -286,7 +284,6 @@ type Package struct {
 	files          map[string]*File
 	file           *File
 	conf           *Config
-	ctx            *Context
 	builtin        PkgRef
 	pkgBig         PkgRef
 	utBigInt       *types.Named
@@ -294,8 +291,10 @@ type Package struct {
 	utBigFlt       *types.Named
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
-	allowRedecl    bool // for c2go
-	isGopPkg       bool
+
+	expObjTypes []types.Type // types of export objects
+	isGopPkg    bool
+	allowRedecl bool // for c2go
 }
 
 const (
@@ -310,10 +309,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 	fset := conf.Fset
 	if fset == nil {
 		fset = token.NewFileSet()
-	}
-	ctx := conf.Context
-	if ctx == nil {
-		ctx = NewContext(conf.IsPkgtStandard)
 	}
 	imp := conf.Importer
 	if imp == nil {
@@ -331,7 +326,6 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		file:  file,
 		files: files,
 		conf:  conf,
-		ctx:   ctx,
 	}
 	pkg.initAutoNames()
 	pkg.imp = imp

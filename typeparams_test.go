@@ -134,13 +134,13 @@ func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pkg := gt.NewPackage("", "main")
+	pkg := gt.NewPackage("", "test")
 	foo := pkg.Import("foo")
 	objTable := foo.Ref("Table")
 	typ := objTable.Type().(*types.Named)
 	tyInt := types.Typ[types.Int]
 
-	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+	cb := pkg.NewFunc(nil, "Example", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewPointer(typ), "tbl")
 	_, err = cb.VarVal("tbl").Member("col", gox.MemberFlagMethodAlias)
 	if err != nil {
@@ -151,15 +151,98 @@ func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
 		Val(foo.Ref("Row")).Typ(tyInt).Val(1, source("1")).Call(2).EndStmt().
 		End()
 
-	domTest(t, pkg, `package main
+	domTest(t, pkg, `package test
 
 import "foo"
 
-func main() {
+func Example() {
 	var tbl *foo.Table
 	foo.Gopt_Table_Gopx_Col__0[int](tbl, "bar")
 	foo.Gopx_Bar[int]("1")
 	foo.Gopx_Row__1[int](1)
+}
+`)
+}
+
+func TestCheckGopPkg(t *testing.T) {
+	const src = `package foo
+
+import "io"
+
+const GopPackage = "io"
+
+type basetype interface {
+	int | string
+}
+
+func Gopx_Bar[T basetype](name string) {
+}
+
+func Gopx_Row__0[T basetype](name string) {
+}
+
+func Gopx_Row__1[Array any](v int) {
+}
+
+type EmbIntf interface {
+	io.Reader
+	Close()
+}
+
+type Table struct {
+	EmbIntf
+	N int
+	b string
+}
+
+func Gopt_Table_Gopx_Col__0[T basetype](p *Table, name string) {
+}
+
+func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "test")
+	foo := pkg.Import("foo")
+	objTable := foo.Ref("Table")
+	typ := objTable.Type().(*types.Named)
+	tyInt := types.Typ[types.Int]
+
+	typSlice := types.NewSlice(types.NewPointer(typ))
+	typMap := types.NewMap(types.Typ[types.String], typSlice)
+
+	args := types.NewTuple(types.NewParam(0, pkg.Types, "tbls", typMap))
+	cb := pkg.NewFunc(nil, "Example", args, nil, false).BodyStart(pkg)
+	_, err = cb.VarVal("tbls").Val("Hi").Index(1, false).Val(0).Index(1, false).Member("col", gox.MemberFlagMethodAlias)
+	if err != nil {
+		t.Fatal("tbl.Member(col):", err)
+	}
+	cb.Typ(tyInt).Val("bar").Call(2).EndStmt().
+		Val(foo.Ref("Bar")).Typ(tyInt).Val("1").Call(2).EndStmt().
+		Val(foo.Ref("Row")).Typ(tyInt).Val(1, source("1")).Call(2).EndStmt().
+		End()
+
+	typChan := types.NewChan(types.SendRecv, typSlice)
+	typArray := types.NewArray(typChan, 2)
+	args = types.NewTuple(types.NewParam(0, pkg.Types, "", typArray))
+	pkg.NewFunc(nil, "Create", args, nil, false).BodyStart(pkg).End()
+
+	domTest(t, pkg, `package test
+
+import "foo"
+
+const GopPackage = "foo"
+
+func Example(tbls map[string][]*foo.Table) {
+	foo.Gopt_Table_Gopx_Col__0[int](tbls["Hi"][0], "bar")
+	foo.Gopx_Bar[int]("1")
+	foo.Gopx_Row__1[int](1)
+}
+func Create([2]chan []*foo.Table) {
 }
 `)
 }
