@@ -44,6 +44,14 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestInitGopPkg(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	pkg.Types.Scope().Insert(types.NewVar(
+		token.NoPos, pkg.Types, "GopPackage", types.Typ[types.Bool],
+	))
+	pkg.initGopPkg(nil, pkg.Types)
+}
+
 func TestCheckOverloads(t *testing.T) {
 	defer func() {
 		if e := recover(); e != "checkOverloads: should be string constant - foo" {
@@ -70,6 +78,9 @@ func TestCheckGopPkgNoop(t *testing.T) {
 		}
 	}()
 	var ed expDeps
+	tyParam := types.NewTypeParam(types.NewTypeName(0, pkg.Types, "T", nil), TyEmptyInterface)
+	ed.typ(tyParam)
+	ed.typ(types.NewUnion([]*types.Term{types.NewTerm(false, tyParam)}))
 	ed.typ(&unboundFuncParam{})
 }
 
