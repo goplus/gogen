@@ -19,6 +19,7 @@ import (
 	"go/types"
 	"log"
 	"sort"
+	"strings"
 	"syscall"
 
 	"github.com/goplus/gox/packages"
@@ -139,7 +140,8 @@ type importUsed bool
 type File struct {
 	decls []ast.Decl
 	fname string
-	imps  map[string]*ast.Ident // importPath => impRef
+	imps  map[string]*ast.Ident // importPath => impRef (nil means force-import)
+	dirty bool
 }
 
 func newFile(fname string) *File {
@@ -151,6 +153,7 @@ func (p *File) newImport(name, pkgPath string) *ast.Ident {
 	if id == nil {
 		id = &ast.Ident{Name: name, Obj: &ast.Object{Data: importUsed(false)}}
 		p.imps[pkgPath] = id
+		p.dirty = true
 	}
 	return id
 }
@@ -158,6 +161,14 @@ func (p *File) newImport(name, pkgPath string) *ast.Ident {
 func (p *File) forceImport(pkgPath string) {
 	if _, ok := p.imps[pkgPath]; !ok {
 		p.imps[pkgPath] = nil
+		p.dirty = true
+	}
+}
+
+func (p *File) markUsed(this *Package) {
+	if p.dirty {
+		astVisitor{this}.markUsed(p.decls)
+		p.dirty = false
 	}
 }
 
@@ -218,9 +229,37 @@ func (p astVisitor) markUsed(decls []ast.Decl) {
 	}
 }
 
-func (p *File) getDecls(this *Package) (decls []ast.Decl) {
-	astVisitor{this}.markUsed(p.decls)
+func isPkgInMod(pkgPath, modPath string) bool {
+	if strings.HasPrefix(pkgPath, modPath) {
+		suffix := pkgPath[len(modPath):]
+		return suffix == "" || suffix[0] == '/'
+	}
+	return false
+}
 
+const (
+	FlagDepModGop = 1 << iota // depends module github.com/goplus/gop
+	FlagDepModX               // depends module github.com/qiniu/x
+)
+
+// CheckGopDeps checks dependencies of Go+ modules.
+// The return flags can be FlagDepModGop and FlagDepModX.
+func (p *File) CheckGopDeps(this *Package) (flags int) {
+	p.markUsed(this)
+	for pkgPath, id := range p.imps {
+		if id == nil || id.Obj.Data.(importUsed) {
+			if isPkgInMod(pkgPath, "github.com/goplus/gop") {
+				flags |= FlagDepModGop
+			} else if isPkgInMod(pkgPath, "github.com/qiniu/x") {
+				flags |= FlagDepModX
+			}
+		}
+	}
+	return
+}
+
+func (p *File) getDecls(this *Package) (decls []ast.Decl) {
+	p.markUsed(this)
 	specs := make([]ast.Spec, 0, len(p.imps))
 	for pkgPath, id := range p.imps {
 		if id == nil { // force-used

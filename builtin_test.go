@@ -44,6 +44,21 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestCheckGopDeps(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	file := pkg.CurFile()
+	id := file.newImport("env", "github.com/goplus/gop/env")
+	file.forceImport("github.com/qiniu/x/errors")
+	file.getDecls(pkg)
+	if v := file.CheckGopDeps(pkg); v != FlagDepModX {
+		t.Fatal("CheckGopDeps:", v)
+	}
+	id.Obj.Data = importUsed(true)
+	if v := file.CheckGopDeps(pkg); v != FlagDepModGop|FlagDepModX {
+		t.Fatal("CheckGopDeps:", v)
+	}
+}
+
 func TestInitGopPkg(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	pkg.Types.Scope().Insert(types.NewVar(
