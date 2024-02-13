@@ -1053,7 +1053,7 @@ func TestBuiltinCall(t *testing.T) {
 
 func TestUnsafe(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
-	sizeof := pkg.unsafe().Ref("Sizeof")
+	sizeof := unsafeRef("Sizeof")
 	expr := toObjectExpr(pkg, sizeof)
 	if v, ok := expr.(*ast.SelectorExpr); ok {
 		if id, ok := v.X.(*ast.Ident); !ok || id.Name != "unsafe" || v.Sel.Name != "Sizeof" {

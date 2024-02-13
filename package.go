@@ -323,6 +323,7 @@ type Package struct {
 	files          map[string]*File
 	file           *File
 	conf           *Config
+	unsafe_        PkgRef
 	builtin        PkgRef
 	pkgBig         PkgRef
 	utBigInt       *types.Named
@@ -418,6 +419,11 @@ func (p *Package) Offsetsof(fields []*types.Var) []int64 {
 // Builtin returns the buitlin package.
 func (p *Package) Builtin() PkgRef {
 	return p.builtin
+}
+
+// Builtin returns the unsafe package.
+func (p *Package) Unsafe() PkgRef {
+	return p.unsafe_
 }
 
 // CB returns the code builder.

@@ -175,7 +175,7 @@ retry:
 
 func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
 	if t.Kind() == types.UnsafePointer {
-		return toObjectExpr(pkg, pkg.unsafe().Ref("Pointer"))
+		return toObjectExpr(pkg, unsafeRef("Pointer"))
 	}
 	if (t.Info() & types.IsUntyped) != 0 {
 		panic("unexpected: untyped type")

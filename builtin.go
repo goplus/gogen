@@ -38,6 +38,7 @@ func InitBuiltin(pkg *Package, builtin *types.Package, conf *Config) {
 	initBuiltinAssignOps(builtin)
 	initBuiltinFuncs(builtin)
 	initBuiltinTIs(pkg)
+	initUnsafeFuncs(pkg)
 }
 
 // ----------------------------------------------------------------------------
@@ -390,13 +391,18 @@ func initBuiltinFuncs(builtin *types.Package) {
 	// len & cap are special cases, because they may return a constant value.
 	gbl.Insert(NewInstruction(token.NoPos, builtin, "len", lenInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, builtin, "cap", capInstr{}))
+}
 
+func initUnsafeFuncs(pkg *Package) {
+	unsafe := types.NewPackage("unsafe", "unsafe")
+	gbl := unsafe.Scope()
 	// unsafe
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Sizeof", unsafeSizeofInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Alignof", unsafeAlignofInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Offsetof", unsafeOffsetofInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Add", unsafeAddInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Slice", unsafeSliceInstr{}))
+	pkg.unsafe_.Types = unsafe
 }
 
 func newBFunc(builtin *types.Package, name string, t typeBFunc) types.Object {
@@ -736,6 +742,10 @@ func init() {
 	}
 }
 
+func unsafeRef(name string) Ref {
+	return PkgRef{types.Unsafe}.Ref(name)
+}
+
 type unsafeSizeofInstr struct{}
 
 // func unsafe.Sizeof(x ArbitraryType) uintptr
@@ -743,7 +753,7 @@ func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, flags InstrFlags,
 	checkArgsCount(pkg, "unsafe.Sizeof", 1, len(args), src)
 
 	typ := types.Default(realType(args[0].Type))
-	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Sizeof"))
+	fn := toObjectExpr(pkg, unsafeRef("Sizeof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
@@ -760,7 +770,7 @@ func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, flags InstrFlags
 	checkArgsCount(pkg, "unsafe.Alignof", 1, len(args), src)
 
 	typ := types.Default(realType(args[0].Type))
-	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Alignof"))
+	fn := toObjectExpr(pkg, unsafeRef("Alignof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
@@ -804,7 +814,7 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 		pkg.cb.panicCodeErrorf(pos, "%v", err)
 	}
 	//var offset int64
-	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Offsetof"))
+	fn := toObjectExpr(pkg, unsafeRef("Offsetof"))
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
 		Type: types.Typ[types.Uintptr],
@@ -890,7 +900,7 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags, sr
 		}
 		pkg.cb.panicCodeErrorf(pos, "cannot use %v (type %v) as type int", s, t)
 	}
-	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Sizeof")).(*ast.SelectorExpr)
+	fn := toObjectExpr(pkg, unsafeRef("Sizeof")).(*ast.SelectorExpr)
 	fn.Sel.Name = "Add" // only in go v1.7+
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
@@ -920,7 +930,7 @@ func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, 
 		}
 		pkg.cb.panicCodeErrorf(pos, "non-integer len argument in unsafe.Slice - %v", t)
 	}
-	fn := toObjectExpr(pkg, pkg.unsafe().Ref("Sizeof")).(*ast.SelectorExpr)
+	fn := toObjectExpr(pkg, unsafeRef("Sizeof")).(*ast.SelectorExpr)
 	fn.Sel.Name = "Slice" // only in go v1.7+
 	ret = &Element{
 		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},

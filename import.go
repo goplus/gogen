@@ -549,10 +549,6 @@ func (p *Package) big() PkgRef {
 	return p.pkgBig
 }
 
-func (p *Package) unsafe() PkgRef {
-	return PkgRef{types.Unsafe}
-}
-
 // ----------------------------------------------------------------------------
 
 type null struct{}
