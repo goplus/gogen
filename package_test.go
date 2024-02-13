@@ -1770,7 +1770,7 @@ func TestUnsafeFunc(t *testing.T) {
 	tyT := pkg.NewType("T").InitType(pkg, typ)
 	tyUintptr := types.Typ[types.Uintptr]
 	builtin := pkg.Builtin()
-	unsafe := pkg.Unsafe()
+	unsafe := gox.PkgRef{types.Unsafe}
 	pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
 		NewVar(tyT, "a").NewVar(tyUintptr, "r").
 		VarRef(ctxRef(pkg, "r")).Val(unsafe.Ref("Sizeof")).VarVal("a").Call(1).Assign(1).EndStmt().
