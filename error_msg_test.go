@@ -123,8 +123,12 @@ func codeErrorTestDo(t *testing.T, pkg *gox.Package, msg string, source func(pkg
 					if ret := err.Error(); ret != msg {
 						t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
 					}
+				case error:
+					if ret := err.Error(); ret != msg {
+						t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
+					}
 				default:
-					t.Fatal("Unexpected error:", e)
+					t.Fatalf("Unexpected error: %v (%T)\n", e, e)
 				}
 			} else {
 				t.Fatal("no error?")
@@ -200,6 +204,16 @@ func TestErrTypeSwitch(t *testing.T) {
 				/**/ TypeSwitch("t").Val(v).TypeAssertThen().
 				/**/ Val(1, source("1", 2, 9)).TypeCase(1).
 				/**/ End().
+				End()
+		})
+}
+
+func TestErrAssignOp(t *testing.T) {
+	codeErrorTest(t, `boundType untyped int => string failed`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.String], "a").
+				VarRef(ctxRef(pkg, "a"), source("a")).Val(10).AssignOp(token.ADD_ASSIGN).
 				End()
 		})
 }

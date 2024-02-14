@@ -470,6 +470,14 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 
 // CallWith func
 func (p *CodeBuilder) CallWith(n int, flags InstrFlags, src ...ast.Node) *CodeBuilder {
+	if err := p.CallWithEx(n, flags, src...); err != nil {
+		panic(err)
+	}
+	return p
+}
+
+// CallWithEx func
+func (p *CodeBuilder) CallWithEx(n int, flags InstrFlags, src ...ast.Node) error {
 	fn := p.stk.Get(-(n + 1))
 	if t, ok := fn.Type.(*btiMethodType); ok {
 		n++
@@ -488,10 +496,13 @@ func (p *CodeBuilder) CallWith(n int, flags InstrFlags, src ...ast.Node) *CodeBu
 	}
 	s := getSrc(src)
 	fn.Src = s
-	ret := toFuncCall(p.pkg, fn, args, flags)
+	ret, err := matchFuncCall(p.pkg, fn, args, flags)
+	if err != nil {
+		return err
+	}
 	ret.Src = s
 	p.stk.Ret(n+1, ret)
-	return p
+	return nil
 }
 
 type closureParamInst struct {
