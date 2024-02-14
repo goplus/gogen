@@ -468,7 +468,7 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	return p.CallWith(n, flags)
 }
 
-// CallWith func
+// CallWith always panics on error, while CallWithEx returns err if match function call failed.
 func (p *CodeBuilder) CallWith(n int, flags InstrFlags, src ...ast.Node) *CodeBuilder {
 	if err := p.CallWithEx(n, flags, src...); err != nil {
 		panic(err)
@@ -476,7 +476,8 @@ func (p *CodeBuilder) CallWith(n int, flags InstrFlags, src ...ast.Node) *CodeBu
 	return p
 }
 
-// CallWithEx func
+// CallWith always panics on error, while CallWithEx returns err if match function call failed.
+// In most case, you should call CallWith instead of CallWithEx.
 func (p *CodeBuilder) CallWithEx(n int, flags InstrFlags, src ...ast.Node) error {
 	fn := p.stk.Get(-(n + 1))
 	if t, ok := fn.Type.(*btiMethodType); ok {
