@@ -477,6 +477,7 @@ func (p *CodeBuilder) CallWith(n int, flags InstrFlags, src ...ast.Node) *CodeBu
 }
 
 // CallWith always panics on error, while CallWithEx returns err if match function call failed.
+// If an error ocurs, CallWithEx pops all function arguments from the CodeBuilder stack.
 // In most case, you should call CallWith instead of CallWithEx.
 func (p *CodeBuilder) CallWithEx(n int, flags InstrFlags, src ...ast.Node) error {
 	fn := p.stk.Get(-(n + 1))
@@ -499,6 +500,7 @@ func (p *CodeBuilder) CallWithEx(n int, flags InstrFlags, src ...ast.Node) error
 	fn.Src = s
 	ret, err := matchFuncCall(p.pkg, fn, args, flags)
 	if err != nil {
+		p.stk.PopN(n)
 		return err
 	}
 	ret.Src = s
