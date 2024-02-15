@@ -757,14 +757,16 @@ func (p *printer) intersperseComments(next token.Position, tok token.Token) (wro
 		// use that information to decide more directly.
 		needsLinebreak := false
 		if p.mode&noExtraBlank == 0 &&
-			last.Text[1] == '*' && p.lineFor(last.Pos()) == next.Line &&
-			tok != token.COMMA &&
-			(tok != token.RPAREN || p.prevOpen == token.LPAREN) &&
-			(tok != token.RBRACK || p.prevOpen == token.LBRACK) {
-			if p.containsLinebreak() && p.mode&noExtraLinebreak == 0 && p.level == 0 {
-				needsLinebreak = true
-			} else {
-				p.writeByte(' ', 1)
+			last.Text[1] == '*' {
+			if line := p.lineFor(last.Pos()); (line == 0 || line == next.Line) &&
+				tok != token.COMMA &&
+				(tok != token.RPAREN || p.prevOpen == token.LPAREN) &&
+				(tok != token.RBRACK || p.prevOpen == token.LBRACK) {
+				if p.containsLinebreak() && p.mode&noExtraLinebreak == 0 && p.level == 0 {
+					needsLinebreak = true
+				} else {
+					p.writeByte(' ', 1)
+				}
 			}
 		}
 		// Ensure that there is a line break after a //-style comment,
