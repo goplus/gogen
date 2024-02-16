@@ -1524,6 +1524,23 @@ func main() {
 `)
 }
 
+func TestFuncDoc2(t *testing.T) {
+	pkg := newMainPackage()
+	fn := pkg.NewFunc(nil, "main", nil, nil, false).SetComments(pkg, comment("\n/*\n doc\n*/"))
+	fn.BodyStart(pkg).End()
+	if fn.Comments() == nil {
+		t.Fatal("TestFuncDoc2 failed: no doc?")
+	}
+	domTest(t, pkg, `package main
+
+/*
+ doc
+*/
+func main() {
+}
+`)
+}
+
 func TestFuncBasic(t *testing.T) {
 	pkg := newMainPackage()
 	v := pkg.NewParam(token.NoPos, "v", gox.TyByte)
