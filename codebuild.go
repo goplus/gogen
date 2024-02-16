@@ -468,8 +468,18 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	return p.CallWith(n, flags)
 }
 
-// CallWith func
+// CallWith always panics on error, while CallWithEx returns err if match function call failed.
 func (p *CodeBuilder) CallWith(n int, flags InstrFlags, src ...ast.Node) *CodeBuilder {
+	if err := p.CallWithEx(n, flags, src...); err != nil {
+		panic(err)
+	}
+	return p
+}
+
+// CallWith always panics on error, while CallWithEx returns err if match function call failed.
+// If an error ocurs, CallWithEx pops all function arguments from the CodeBuilder stack.
+// In most case, you should call CallWith instead of CallWithEx.
+func (p *CodeBuilder) CallWithEx(n int, flags InstrFlags, src ...ast.Node) error {
 	fn := p.stk.Get(-(n + 1))
 	if t, ok := fn.Type.(*btiMethodType); ok {
 		n++
@@ -488,10 +498,14 @@ func (p *CodeBuilder) CallWith(n int, flags InstrFlags, src ...ast.Node) *CodeBu
 	}
 	s := getSrc(src)
 	fn.Src = s
-	ret := toFuncCall(p.pkg, fn, args, flags)
+	ret, err := matchFuncCall(p.pkg, fn, args, flags)
+	if err != nil {
+		p.stk.PopN(n)
+		return err
+	}
 	ret.Src = s
 	p.stk.Ret(n+1, ret)
-	return p
+	return nil
 }
 
 type closureParamInst struct {

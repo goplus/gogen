@@ -123,8 +123,12 @@ func codeErrorTestDo(t *testing.T, pkg *gox.Package, msg string, source func(pkg
 					if ret := err.Error(); ret != msg {
 						t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
 					}
+				case error:
+					if ret := err.Error(); ret != msg {
+						t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
+					}
 				default:
-					t.Fatal("Unexpected error:", e)
+					t.Fatalf("Unexpected error: %v (%T)\n", e, e)
 				}
 			} else {
 				t.Fatal("no error?")
@@ -200,6 +204,16 @@ func TestErrTypeSwitch(t *testing.T) {
 				/**/ TypeSwitch("t").Val(v).TypeAssertThen().
 				/**/ Val(1, source("1", 2, 9)).TypeCase(1).
 				/**/ End().
+				End()
+		})
+}
+
+func TestErrAssignOp(t *testing.T) {
+	codeErrorTest(t, `boundType untyped int => string failed`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.String], "a").
+				VarRef(ctxRef(pkg, "a"), source("a")).Val(10).AssignOp(token.ADD_ASSIGN).
 				End()
 		})
 }
@@ -1133,7 +1147,7 @@ func TestErrUnsafe(t *testing.T) {
 	codeErrorTest(t,
 		`./foo.gop:6:15: missing argument to function call: unsafe.Sizeof()`,
 		func(pkg *gox.Package) {
-			builtin := pkg.Builtin()
+			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(builtin.Ref("Sizeof")).CallWith(0, 0, source("unsafe.Sizeof()", 6, 2)).EndStmt().
 				EndStmt().
@@ -1142,7 +1156,7 @@ func TestErrUnsafe(t *testing.T) {
 	codeErrorTest(t,
 		`./foo.gop:6:15: too many arguments to function call: unsafe.Sizeof(1, 2)`,
 		func(pkg *gox.Package) {
-			builtin := pkg.Builtin()
+			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(builtin.Ref("Sizeof")).Val(1).Val(2).CallWith(2, 0, source("unsafe.Sizeof(1, 2)", 6, 2)).EndStmt().
 				EndStmt().
@@ -1151,7 +1165,7 @@ func TestErrUnsafe(t *testing.T) {
 	codeErrorTest(t,
 		`./foo.gop:6:17: invalid expression unsafe.Offsetof(1)`,
 		func(pkg *gox.Package) {
-			builtin := pkg.Builtin()
+			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(builtin.Ref("Offsetof")).Val(1).CallWith(1, 0, source("unsafe.Offsetof(1)", 6, 2)).EndStmt().
 				EndStmt().
@@ -1168,7 +1182,7 @@ func TestErrUnsafe(t *testing.T) {
 			foo := pkg.NewType("foo").InitType(pkg, typ)
 			recv := pkg.NewParam(token.NoPos, "a", foo)
 			pkg.NewFunc(recv, "Bar", nil, nil, false).BodyStart(pkg).End()
-			builtin := pkg.Builtin()
+			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(foo, "a").
 				Val(builtin.Ref("Offsetof")).VarVal("a").MemberVal("Bar").CallWith(1, 0, source("unsafe.Offsetof(a.Bar)", 14, 2)).EndStmt().
@@ -1177,7 +1191,7 @@ func TestErrUnsafe(t *testing.T) {
 		})
 	codeErrorTest(t, `./foo.gop:17:26: invalid expression unsafe.Offsetof(t.M.m): selector implies indirection of embedded t.M`,
 		func(pkg *gox.Package) {
-			builtin := pkg.Builtin()
+			builtin := pkg.Unsafe()
 			fieldsM := []*types.Var{
 				types.NewField(token.NoPos, pkg.Types, "m", types.Typ[types.Int], false),
 				types.NewField(token.NoPos, pkg.Types, "n", types.Typ[types.String], false),
@@ -1199,7 +1213,7 @@ func TestErrUnsafe(t *testing.T) {
 		`./foo.gop:7:12: cannot use a (type int) as type unsafe.Pointer in argument to unsafe.Add`,
 		func(pkg *gox.Package) {
 			tyInt := types.Typ[types.Int]
-			builtin := pkg.Builtin()
+			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyInt, "a").
 				Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val(10).CallWith(2, 0, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
@@ -1209,7 +1223,7 @@ func TestErrUnsafe(t *testing.T) {
 		`./foo.gop:7:12: cannot use "hello" (type untyped string) as type int`,
 		func(pkg *gox.Package) {
 			tyUP := types.Typ[types.UnsafePointer]
-			builtin := pkg.Builtin()
+			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyUP, "a").
 				Val(builtin.Ref("Add")).Val(ctxRef(pkg, "a"), source("a", 7, 14)).Val("hello", source(`"hello"`, 7, 16)).CallWith(2, 0, source("unsafe.Add(a, 10)", 7, 2)).EndStmt().
@@ -1219,7 +1233,7 @@ func TestErrUnsafe(t *testing.T) {
 		`./foo.gop:7:14: first argument to unsafe.Slice must be pointer; have int`,
 		func(pkg *gox.Package) {
 			tyInt := types.Typ[types.Int]
-			builtin := pkg.Builtin()
+			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyInt, "a").
 				Val(builtin.Ref("Slice")).VarVal("a").Val(10).CallWith(2, 0, source(`unsafe.Slice(a, 10)`, 7, 2)).EndStmt().
@@ -1229,7 +1243,7 @@ func TestErrUnsafe(t *testing.T) {
 		`./foo.gop:7:14: non-integer len argument in unsafe.Slice - untyped string`,
 		func(pkg *gox.Package) {
 			tyInt := types.Typ[types.Int]
-			builtin := pkg.Builtin()
+			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVarStart(nil, "ar").
 				Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).

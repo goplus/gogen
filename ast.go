@@ -175,7 +175,7 @@ retry:
 
 func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
 	if t.Kind() == types.UnsafePointer {
-		return toObjectExpr(pkg, pkg.unsafe().Ref("Pointer"))
+		return toObjectExpr(pkg, unsafeRef("Pointer"))
 	}
 	if (t.Info() & types.IsUntyped) != 0 {
 		panic("unexpected: untyped type")
@@ -289,10 +289,12 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 			}
 		}
 	case *types.Builtin:
-		if o := pkg.builtin.TryRef(v.Name()); o != nil {
-			return toObject(pkg, o, src)
+		name := v.Name()
+		o := pkg.builtin.TryRef(name)
+		if o == nil {
+			o = pkg.unsafe_.Ref(name)
 		}
-		log.Panicln("TODO: unsupported builtin -", v.Name())
+		return toObject(pkg, o, src)
 	case types.Object:
 		if v == iotaObj {
 			v := pkg.cb.iotav
