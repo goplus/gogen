@@ -20,6 +20,7 @@ import (
 	"go/types"
 	"os"
 	"os/exec"
+	"sync"
 
 	"golang.org/x/tools/go/gcexportdata"
 )
@@ -30,6 +31,7 @@ type Importer struct {
 	loaded map[string]*types.Package
 	fset   *token.FileSet
 	dir    string
+	m      sync.RWMutex
 }
 
 // NewImporter creates an Importer object that meets types.Importer interface.
@@ -60,9 +62,12 @@ func (p *Importer) Import(pkgPath string) (pkg *types.Package, err error) {
 // Two calls to ImportFrom with the same path and dir must
 // return the same package.
 func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*types.Package, error) {
+	p.m.RLock()
 	if ret, ok := p.loaded[pkgPath]; ok && ret.Complete() {
+		p.m.RUnlock()
 		return ret, nil
 	}
+	p.m.RUnlock()
 	expfile, err := FindExport(dir, pkgPath)
 	if err != nil {
 		return nil, err
@@ -70,18 +75,20 @@ func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*type
 	return p.loadByExport(expfile, pkgPath)
 }
 
-func (p *Importer) loadByExport(expfile string, pkgPath string) (pkg *types.Package, err error) {
+func (p *Importer) loadByExport(expfile string, pkgPath string) (*types.Package, error) {
 	f, err := os.Open(expfile)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer f.Close()
 
 	r, err := gcexportdata.NewReader(f)
-	if err == nil {
-		pkg, err = gcexportdata.Read(r, p.fset, p.loaded, pkgPath)
+	if err != nil {
+		return nil, err
 	}
-	return
+	p.m.Lock()
+	defer p.m.Unlock()
+	return gcexportdata.Read(r, p.fset, p.loaded, pkgPath)
 }
 
 // ----------------------------------------------------------------------------
