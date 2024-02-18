@@ -786,6 +786,14 @@ retry:
 
 // MapLit func
 func (p *CodeBuilder) MapLit(typ types.Type, arity int, src ...ast.Node) *CodeBuilder {
+	if err := p.MapLitEx(typ, arity, src...); err != nil {
+		panic(err)
+	}
+	return p
+}
+
+// MapLit func
+func (p *CodeBuilder) MapLitEx(typ types.Type, arity int, src ...ast.Node) error {
 	if debugInstr {
 		log.Println("MapLit", typ, arity)
 	}
@@ -793,15 +801,17 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int, src ...ast.Node) *CodeBu
 	var typExpr ast.Expr
 	var pkg = p.pkg
 	if typ != nil {
+		var ok bool
 		switch tt := typ.(type) {
 		case *types.Named:
 			typExpr = toNamedType(pkg, tt)
-			t = p.getUnderlying(tt).(*types.Map)
+			t, ok = p.getUnderlying(tt).(*types.Map)
 		case *types.Map:
 			typExpr = toMapType(pkg, tt)
-			t = tt
-		default:
-			log.Panicln("MapLit: typ isn't a map type -", reflect.TypeOf(typ))
+			t, ok = tt, true
+		}
+		if !ok {
+			return p.newCodeErrorf(getPos(src), "type %v isn't a map", typ)
 		}
 	}
 	if arity == 0 {
@@ -812,10 +822,10 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int, src ...ast.Node) *CodeBu
 		}
 		ret := &ast.CompositeLit{Type: typExpr}
 		p.stk.Push(&internal.Elem{Type: typ, Val: ret, Src: getSrc(src)})
-		return p
+		return nil
 	}
 	if (arity & 1) != 0 {
-		log.Panicln("MapLit: invalid arity, can't be odd -", arity)
+		return p.newCodeErrorf(getPos(src), "MapLit: invalid arity, can't be odd - %d", arity)
 	}
 	var key, val types.Type
 	var args = p.stk.GetArgs(arity)
@@ -835,11 +845,11 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int, src ...ast.Node) *CodeBu
 		if check {
 			if !AssignableTo(pkg, args[i].Type, key) {
 				src, pos := p.loadExpr(args[i].Src)
-				p.panicCodeErrorf(
+				return p.newCodeErrorf(
 					pos, "cannot use %s (type %v) as type %v in map key", src, args[i].Type, key)
 			} else if !AssignableTo(pkg, args[i+1].Type, val) {
 				src, pos := p.loadExpr(args[i+1].Src)
-				p.panicCodeErrorf(
+				return p.newCodeErrorf(
 					pos, "cannot use %s (type %v) as type %v in map value", src, args[i+1].Type, val)
 			}
 		}
@@ -847,7 +857,7 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int, src ...ast.Node) *CodeBu
 	p.stk.Ret(arity, &internal.Elem{
 		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
 	})
-	return p
+	return nil
 }
 
 func (p *CodeBuilder) toBoundArrayLen(elts []*internal.Elem, arity, limit int) int {

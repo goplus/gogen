@@ -817,6 +817,30 @@ func TestErrMapLit(t *testing.T) {
 		})
 }
 
+func TestErrMapLit2(t *testing.T) {
+	codeErrorTest(t, "-: MapLit: invalid arity, can't be odd - 1",
+		func(pkg *gox.Package) {
+			tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val("1").
+				MapLit(tyMap, 1).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t, "-: type string isn't a map",
+		func(pkg *gox.Package) {
+			tyMap := types.Typ[types.String]
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val("1").
+				Val("Hi", source(`"Hi"`)).
+				Val("!", source(`"!"`)).
+				BinaryOp(token.ADD, source(`"Hi" + "!"`, 1, 5)).
+				MapLit(tyMap, 2).
+				EndStmt().
+				End()
+		})
+}
+
 func TestErrArrayLit(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:1:5: cannot use 32 (type untyped int) as type string in array literal",
 		func(pkg *gox.Package) {
