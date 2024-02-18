@@ -75,7 +75,7 @@ func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*type
 	return p.loadByExport(expfile, pkgPath)
 }
 
-func (p *Importer) loadByExport(expfile string, pkgPath string) (*types.Package, error) {
+func (p *Importer) loadByExport(expfile string, pkgPath string) (ret *types.Package, err error) {
 	f, err := os.Open(expfile)
 	if err != nil {
 		return nil, err
@@ -83,12 +83,12 @@ func (p *Importer) loadByExport(expfile string, pkgPath string) (*types.Package,
 	defer f.Close()
 
 	r, err := gcexportdata.NewReader(f)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		p.m.Lock() // use mutex because Import should be multi-thread safe
+		defer p.m.Unlock()
+		ret, err = gcexportdata.Read(r, p.fset, p.loaded, pkgPath)
 	}
-	p.m.Lock()
-	defer p.m.Unlock()
-	return gcexportdata.Read(r, p.fset, p.loaded, pkgPath)
+	return
 }
 
 // ----------------------------------------------------------------------------
