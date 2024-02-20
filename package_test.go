@@ -1249,7 +1249,7 @@ func main() {
 		pkg.CB().TypeAssertThen()
 	})
 	safeRun(t, func() {
-		pkg.CB().Case(1)
+		pkg.CB().Case()
 	})
 	safeRun(t, func() {
 		pkg.CB().Fallthrough()
@@ -2163,13 +2163,13 @@ func TestSwitch(t *testing.T) {
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		/**/ Switch().DefineVarStart(0, "x").Val(3).EndInit(1).Val(ctxRef(pkg, "x")).Then(). // switch x := 3; x {
-		/**/ Val(1).Val(2).Case(2). // case 1, 2:
+		/**/ Case().Val(1).Val(2).Then(). // case 1, 2:
 		/******/ Val(fmt.Ref("Println")).Val("1 or 2").Call(1).EndStmt().
 		/******/ End().
-		/**/ Val(3).Case(1). // case 3:
+		/**/ Case().Val(3).Then(). // case 3:
 		/******/ Val(fmt.Ref("Println")).Val("3").Call(1).EndStmt().
 		/******/ End().
-		/**/ Case(0). // default:
+		/**/ CaseDefaultThen(). // default:
 		/******/ Val(fmt.Ref("Println")).Val("other").Call(1).EndStmt().
 		/******/ End().
 		/**/ End(). // end switch
@@ -2197,14 +2197,14 @@ func TestSwitchNoTag(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		/**/ DefineVarStart(0, "x").Val(3).EndInit(1).
 		/**/ Switch().None().Then(). // switch {
-		/**/ Val(ctxRef(pkg, "x")).Val(2).BinaryOp(token.EQL).Case(1). // case x == 2:
+		/**/ Case().Val(ctxRef(pkg, "x")).Val(2).BinaryOp(token.EQL).Then(). // case x == 2:
 		/******/ Val(fmt.Ref("Println")).Val("x = 2").Call(1).EndStmt().
 		/******/ Fallthrough().
 		/******/ End().
-		/**/ Val(ctxRef(pkg, "x")).Val(3).BinaryOp(token.LSS).Case(1). // case x < 3:
+		/**/ Case().Val(ctxRef(pkg, "x")).Val(3).BinaryOp(token.LSS).Then(). // case x < 3:
 		/******/ Val(fmt.Ref("Println")).Val("x < 3").Call(1).EndStmt().
 		/******/ End().
-		/**/ Case(0). // default:
+		/**/ CaseDefaultThen(). // default:
 		/******/ Val(fmt.Ref("Println")).Val("other").Call(1).EndStmt().
 		/******/ End().
 		/**/ End(). // end switch

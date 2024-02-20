@@ -2546,15 +2546,20 @@ func (p *CodeBuilder) Switch(src ...ast.Node) *CodeBuilder {
 }
 
 // Case starts case body of a switch..case statement.
-func (p *CodeBuilder) Case(n int, src ...ast.Node) *CodeBuilder { // n=0 means default case
+func (p *CodeBuilder) Case(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
-		log.Println("Case", n)
+		log.Println("Case")
 	}
 	if flow, ok := p.current.codeBlock.(*switchStmt); ok {
-		flow.Case(p, n, src...)
+		flow.Case(p, src...)
 		return p
 	}
 	panic("use switch..case please")
+}
+
+// CaseDefaultThen starts default clause of a switch..case statement.
+func (p *CodeBuilder) CaseDefaultThen(src ...ast.Node) *CodeBuilder {
+	return p.Case(src...).Then(src...)
 }
 
 func (p *CodeBuilder) NewLabel(pos token.Pos, name string) *Label {

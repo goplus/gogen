@@ -130,10 +130,14 @@ func (p *ifStmt) End(cb *CodeBuilder, src ast.Node) {
 //
 // switch init; tag then
 //
-//	expr1, expr2, ..., exprN case(N)
+//	case expr1, expr2, ..., exprN then
 //	  ...
 //	  end
-//	expr1, expr2, ..., exprM case(M)
+//	case expr1, expr2, ..., exprM then
+//	  ...
+//	  end
+//
+//	caseDefaultThen
 //	  ...
 //	  end
 //
@@ -159,28 +163,8 @@ func (p *switchStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	}
 }
 
-func (p *switchStmt) Case(cb *CodeBuilder, n int, src ...ast.Node) {
-	var list []ast.Expr
-	if n > 0 {
-		list = make([]ast.Expr, n)
-		for i, arg := range cb.stk.GetArgs(n) {
-			if p.tag.Val != nil { // switch tag {...}
-				if !ComparableTo(cb.pkg, arg, p.tag) {
-					src, pos := cb.loadExpr(arg.Src)
-					cb.panicCodeErrorf(
-						pos, "cannot use %s (type %v) as type %v", src, arg.Type, types.Default(p.tag.Type))
-				}
-			} else { // switch {...}
-				if !types.AssignableTo(arg.Type, types.Typ[types.Bool]) && arg.Type != TyEmptyInterface {
-					src, pos := cb.loadExpr(arg.Src)
-					cb.panicCodeErrorf(pos, "cannot use %s (type %v) as type bool", src, arg.Type)
-				}
-			}
-			list[i] = arg.Val
-		}
-		cb.stk.PopN(n)
-	}
-	stmt := &caseStmt{list: list}
+func (p *switchStmt) Case(cb *CodeBuilder, src ...ast.Node) {
+	stmt := &caseStmt{tag: p.tag}
 	cb.startBlockStmt(stmt, src, "case statement", &stmt.old)
 }
 
@@ -196,8 +180,32 @@ func (p *switchStmt) End(cb *CodeBuilder, src ast.Node) {
 }
 
 type caseStmt struct {
+	tag  *internal.Elem
 	list []ast.Expr
 	old  codeBlockCtx
+}
+
+func (p *caseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
+	n := cb.stk.Len()
+	if n > 0 {
+		p.list = make([]ast.Expr, n)
+		for i, arg := range cb.stk.GetArgs(n) {
+			if p.tag.Val != nil { // switch tag {...}
+				if !ComparableTo(cb.pkg, arg, p.tag) {
+					src, pos := cb.loadExpr(arg.Src)
+					cb.panicCodeErrorf(
+						pos, "cannot use %s (type %v) as type %v", src, arg.Type, types.Default(p.tag.Type))
+				}
+			} else { // switch {...}
+				if !types.AssignableTo(arg.Type, types.Typ[types.Bool]) && arg.Type != TyEmptyInterface {
+					src, pos := cb.loadExpr(arg.Src)
+					cb.panicCodeErrorf(pos, "cannot use %s (type %v) as type bool", src, arg.Type)
+				}
+			}
+			p.list[i] = arg.Val
+		}
+		cb.stk.PopN(n)
+	}
 }
 
 func (p *caseStmt) Fallthrough(cb *CodeBuilder) {
