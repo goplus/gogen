@@ -276,12 +276,17 @@ func (p *commCase) End(cb *CodeBuilder, src ast.Node) {
 // ----------------------------------------------------------------------------
 //
 // typeSwitch(name) init; expr typeAssertThen
-// type1, type2, ... typeN typeCase(N)
+// typeCase type1, type2, ... typeN then
 //
 //	...
 //	end
 //
-// type1, type2, ... typeM typeCase(M)
+// typeCase type1, type2, ... typeM then
+//
+//	...
+//	end
+//
+// typeDefaultThen
 //
 //	...
 //	end
@@ -313,42 +318,9 @@ func (p *typeSwitchStmt) TypeAssertThen(cb *CodeBuilder) {
 	p.x, p.xSrc, p.xType = x.Val, x.Src, xType
 }
 
-func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, n int, src ...ast.Node) {
-	var list []ast.Expr
-	var typ types.Type
-	if n > 0 {
-		list = make([]ast.Expr, n)
-		args := cb.stk.GetArgs(n)
-		for i, arg := range args {
-			typ = arg.Type
-			if tt, ok := typ.(*TypeType); ok {
-				typ = tt.Type()
-				if missing := cb.missingMethod(typ, p.xType); missing != "" {
-					xsrc, _ := cb.loadExpr(p.xSrc)
-					pos := getSrcPos(arg.Src)
-					cb.panicCodeErrorf(
-						pos, "impossible type switch case: %s (type %v) cannot have dynamic type %v (missing %s method)",
-						xsrc, p.xType, typ, missing)
-				}
-			} else if typ != types.Typ[types.UntypedNil] {
-				src, pos := cb.loadExpr(arg.Src)
-				cb.panicCodeErrorf(pos, "%s (type %v) is not a type", src, typ)
-			}
-			list[i] = arg.Val
-		}
-		cb.stk.PopN(n)
-	}
-
-	stmt := &typeCaseStmt{list: list}
+func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, src ...ast.Node) {
+	stmt := &typeCaseStmt{pss: p}
 	cb.startBlockStmt(stmt, src, "type case statement", &stmt.old)
-
-	if p.name != "" {
-		if n != 1 { // default, or case with multi expr
-			typ = p.xType
-		}
-		name := types.NewParam(token.NoPos, cb.pkg.Types, p.name, typ)
-		cb.current.scope.Insert(name)
-	}
 }
 
 func (p *typeSwitchStmt) End(cb *CodeBuilder, src ast.Node) {
@@ -371,8 +343,44 @@ func (p *typeSwitchStmt) End(cb *CodeBuilder, src ast.Node) {
 }
 
 type typeCaseStmt struct {
+	pss  *typeSwitchStmt
 	list []ast.Expr
 	old  codeBlockCtx
+}
+
+func (p *typeCaseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
+	var typ types.Type
+	pss := p.pss
+	n := cb.stk.Len()
+	if n > 0 {
+		p.list = make([]ast.Expr, n)
+		args := cb.stk.GetArgs(n)
+		for i, arg := range args {
+			typ = arg.Type
+			if tt, ok := typ.(*TypeType); ok {
+				typ = tt.Type()
+				if missing := cb.missingMethod(typ, pss.xType); missing != "" {
+					xsrc, _ := cb.loadExpr(pss.xSrc)
+					pos := getSrcPos(arg.Src)
+					cb.panicCodeErrorf(
+						pos, "impossible type switch case: %s (type %v) cannot have dynamic type %v (missing %s method)",
+						xsrc, pss.xType, typ, missing)
+				}
+			} else if typ != types.Typ[types.UntypedNil] {
+				src, pos := cb.loadExpr(arg.Src)
+				cb.panicCodeErrorf(pos, "%s (type %v) is not a type", src, typ)
+			}
+			p.list[i] = arg.Val
+		}
+		cb.stk.PopN(n)
+	}
+	if pss.name != "" {
+		if n != 1 { // default, or case with multi expr
+			typ = pss.xType
+		}
+		name := types.NewParam(token.NoPos, cb.pkg.Types, pss.name, typ)
+		cb.current.scope.Insert(name)
+	}
 }
 
 func (p *typeCaseStmt) End(cb *CodeBuilder, src ast.Node) {

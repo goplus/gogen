@@ -915,13 +915,13 @@ func TestTypeSwitch(t *testing.T) {
 	newFuncDecl(pkg, "bar", types.NewTuple(p), nil)
 	newFuncDecl(pkg, "foo", types.NewTuple(v), nil).BodyStart(pkg).
 		/**/ TypeSwitch("t").Val(v).TypeAssertThen().
-		/****/ Typ(types.Typ[types.Int]).Typ(types.Typ[types.String]).TypeCase(2).
+		/****/ TypeCase().Typ(types.Typ[types.Int]).Typ(types.Typ[types.String]).Then().
 		/******/ Val(ctxRef(pkg, "bar")).VarRef(ctxRef(pkg, "t")).UnaryOp(token.AND).Call(1).EndStmt().
 		/****/ End().
-		/**/ Typ(types.Typ[types.Bool]).TypeCase(1).
+		/**/ TypeCase().Typ(types.Typ[types.Bool]).Then().
 		/******/ NewVarStart(types.Typ[types.Bool], "x").Val(ctxRef(pkg, "t")).EndInit(1).
 		/****/ End().
-		/****/ TypeCase(0).
+		/****/ TypeDefaultThen().
 		/******/ Val(ctxRef(pkg, "bar")).VarRef(ctxRef(pkg, "t")).UnaryOp(token.AND).Call(1).EndStmt().
 		/****/ End().
 		/**/ End().
@@ -951,7 +951,7 @@ func TestTypeSwitch2(t *testing.T) {
 	pkg.NewFunc(nil, "bar", types.NewTuple(p), nil, false).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
 		/**/ TypeSwitch("").Val(ctxRef(pkg, "bar")).Val(nil).Call(1).EndStmt().Val(v).TypeAssertThen().
-		/****/ Typ(types.Typ[types.Int]).TypeCase(1).
+		/****/ TypeCase().Typ(types.Typ[types.Int]).Then().
 		/******/ Val(ctxRef(pkg, "bar")).VarRef(ctxRef(pkg, "v")).UnaryOp(token.AND).Call(1).EndStmt().
 		/****/ End().
 		/**/ End().
@@ -1261,7 +1261,7 @@ func main() {
 		pkg.CB().RangeAssignThen(0)
 	})
 	safeRun(t, func() {
-		pkg.CB().TypeCase(1)
+		pkg.CB().TypeCase()
 	})
 	safeRun(t, func() {
 		pkg.CB().CommCase()
