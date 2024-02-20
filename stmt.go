@@ -226,11 +226,7 @@ type selectStmt struct {
 }
 
 func (p *selectStmt) CommCase(cb *CodeBuilder, n int, src ...ast.Node) {
-	var comm ast.Stmt
-	if n == 1 {
-		comm = cb.popStmt()
-	}
-	stmt := &commCase{comm: comm}
+	stmt := &commCase{n: n}
 	cb.startBlockStmt(stmt, src, "comm case statement", &stmt.old)
 }
 
@@ -241,14 +237,19 @@ func (p *selectStmt) End(cb *CodeBuilder, src ast.Node) {
 }
 
 type commCase struct {
-	comm ast.Stmt
-	old  codeBlockCtx
+	n   int
+	old codeBlockCtx
 }
 
 func (p *commCase) End(cb *CodeBuilder, src ast.Node) {
+	var comm ast.Stmt
+	if p.n == 1 {
+		comm = cb.current.stmts[0]
+		cb.current.stmts = cb.current.stmts[1:]
+	}
 	body, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
-	cb.emitStmt(&ast.CommClause{Comm: p.comm, Body: body})
+	cb.emitStmt(&ast.CommClause{Comm: comm, Body: body})
 }
 
 // ----------------------------------------------------------------------------
