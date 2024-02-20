@@ -133,11 +133,12 @@ func (p *ifStmt) End(cb *CodeBuilder, src ast.Node) {
 //	case expr1, expr2, ..., exprN then
 //	  ...
 //	  end
+//
 //	case expr1, expr2, ..., exprM then
 //	  ...
 //	  end
 //
-//	caseDefaultThen
+//	defaultThen
 //	  ...
 //	  end
 //

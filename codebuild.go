@@ -2550,7 +2550,7 @@ func (p *CodeBuilder) Switch(src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-// Case starts case body of a switch..case statement.
+// Case starts case clause of a switch statement.
 func (p *CodeBuilder) Case(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Case")
@@ -2562,8 +2562,8 @@ func (p *CodeBuilder) Case(src ...ast.Node) *CodeBuilder {
 	panic("use switch..case please")
 }
 
-// CaseDefaultThen starts default clause of a switch..case statement.
-func (p *CodeBuilder) CaseDefaultThen(src ...ast.Node) *CodeBuilder {
+// DefaultThen starts default clause of a switch statement.
+func (p *CodeBuilder) DefaultThen(src ...ast.Node) *CodeBuilder {
 	return p.Case(src...).Then(src...)
 }
 
