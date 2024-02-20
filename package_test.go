@@ -977,13 +977,13 @@ func TestSelect(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyXchg, "xchg").
 		/**/ Select().
-		/****/ CommCase(1).DefineVarStart(0, "x").Val(ctxRef(pkg, "xchg")).UnaryOp(token.ARROW).EndInit(1).
+		/****/ CommCase().DefineVarStart(0, "x").Val(ctxRef(pkg, "xchg")).UnaryOp(token.ARROW).EndInit(1).Then().
 		/******/ NewVarStart(types.Typ[types.Int], "t").Val(ctxRef(pkg, "x")).EndInit(1).
 		/****/ End().
-		/****/ CommCase(1).Val(ctxRef(pkg, "xchg")).Val(1).Send().
+		/****/ CommCase().Val(ctxRef(pkg, "xchg")).Val(1).Send().Then().
 		/******/ DefineVarStart(0, "x").Val(1).EndInit(1).
 		/****/ End().
-		/****/ CommCase(0).
+		/****/ CommCase().Then().
 		/******/ DefineVarStart(0, "x").Val("Hi").EndInit(1).
 		/****/ End().
 		/**/ End().
@@ -1264,10 +1264,7 @@ func main() {
 		pkg.CB().TypeCase(1)
 	})
 	safeRun(t, func() {
-		pkg.CB().CommCase(1)
-	})
-	safeRun(t, func() {
-		pkg.CB().CommCase(2)
+		pkg.CB().CommCase()
 	})
 	safeRun(t, func() {
 		pkg.CB().Val(2).Val(3).EndStmt()

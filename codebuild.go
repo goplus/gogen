@@ -2384,13 +2384,10 @@ func (p *CodeBuilder) If(src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-// Then starts body of a if/switch/for statement.
+// Then starts body of a if/switch/for/case statement.
 func (p *CodeBuilder) Then(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Then")
-	}
-	if p.stk.Len() == p.current.base {
-		panic("use None() for empty expr")
 	}
 	if flow, ok := p.current.codeBlock.(controlFlow); ok {
 		flow.Then(p, src...)
@@ -2522,15 +2519,12 @@ func (p *CodeBuilder) Select(src ...ast.Node) *CodeBuilder {
 }
 
 // CommCase starts case body of a select..case statement.
-func (p *CodeBuilder) CommCase(n int, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) CommCase(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
-		log.Println("CommCase", n)
-	}
-	if n > 1 {
-		panic("TODO: multi commStmt in select..case?")
+		log.Println("CommCase")
 	}
 	if flow, ok := p.current.codeBlock.(*selectStmt); ok {
-		flow.CommCase(p, n, src...)
+		flow.CommCase(p, src...)
 		return p
 	}
 	panic("use select..case please")
