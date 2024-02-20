@@ -167,16 +167,16 @@ func TestErrSwitch(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:5: cannot use 1 (type untyped int) as type string",
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Switch().Val(`"x"`, source("x", 1, 3)).Then(). // switch "x"
-				Val(1, source("1", 2, 5)).Val(2).Case(2).      // case 1, 2:
+				Switch().Val(`"x"`, source("x", 1, 3)).Then().  // switch "x"
+				Case().Val(1, source("1", 2, 5)).Val(2).Then(). // case 1, 2:
 				/**/ End().
 				End()
 		})
 	codeErrorTest(t, "./foo.gop:2:5: cannot use 1 (type untyped int) as type bool",
 		func(pkg *gox.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Switch().None().Then().                   // switch
-				Val(1, source("1", 2, 5)).Val(2).Case(2). // case 1, 2:
+				Switch().None().Then().                         // switch
+				Case().Val(1, source("1", 2, 5)).Val(2).Then(). // case 1, 2:
 				/**/ End().
 				End()
 		})
