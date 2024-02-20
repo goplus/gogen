@@ -2497,15 +2497,20 @@ func (p *CodeBuilder) TypeAssertThen() *CodeBuilder {
 }
 
 // TypeCase starts case body of a type switch statement.
-func (p *CodeBuilder) TypeCase(n int, src ...ast.Node) *CodeBuilder { // n=0 means default case
+func (p *CodeBuilder) TypeCase(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
-		log.Println("TypeCase", n)
+		log.Println("TypeCase")
 	}
 	if flow, ok := p.current.codeBlock.(*typeSwitchStmt); ok {
-		flow.TypeCase(p, n, src...)
+		flow.TypeCase(p, src...)
 		return p
 	}
 	panic("use switch x.(type) .. case please")
+}
+
+// TypeDefaultThen starts default clause of a type switch statement.
+func (p *CodeBuilder) TypeDefaultThen(src ...ast.Node) *CodeBuilder {
+	return p.TypeCase(src...).Then(src...)
 }
 
 // Select starts a select statement.

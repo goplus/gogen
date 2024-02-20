@@ -202,7 +202,7 @@ func TestErrTypeSwitch(t *testing.T) {
 			v := pkg.NewParam(token.NoPos, "v", tyInterf)
 			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
 				/**/ TypeSwitch("t").Val(v, source("v", 1, 5)).TypeAssertThen().
-				/**/ Typ(types.Typ[types.Int], source("int", 2, 9)).TypeCase(1).
+				/**/ TypeCase().Typ(types.Typ[types.Int], source("int", 2, 9)).Then().
 				/**/ End().
 				End()
 		})
@@ -211,7 +211,7 @@ func TestErrTypeSwitch(t *testing.T) {
 			v := pkg.NewParam(token.NoPos, "v", gox.TyEmptyInterface)
 			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
 				/**/ TypeSwitch("t").Val(v).TypeAssertThen().
-				/**/ Val(1, source("1", 2, 9)).TypeCase(1).
+				/**/ TypeCase().Val(1, source("1", 2, 9)).Then().
 				/**/ End().
 				End()
 		})
