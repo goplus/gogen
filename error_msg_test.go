@@ -154,6 +154,15 @@ func newFunc(
 	return fn
 }
 
+func TestErrIf(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:1:3: non-boolean condition in if statement",
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				If().Val(1, source("1", 1, 3)).Then(source("1", 1, 3)). // if 1
+				End()
+		})
+}
+
 func TestErrSwitch(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:5: cannot use 1 (type untyped int) as type string",
 		func(pkg *gox.Package) {

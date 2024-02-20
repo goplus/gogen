@@ -2518,7 +2518,7 @@ func (p *CodeBuilder) Select(src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-// CommCase starts case body of a select..case statement.
+// CommCase starts case clause of a select statement.
 func (p *CodeBuilder) CommCase(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("CommCase")
@@ -2528,6 +2528,11 @@ func (p *CodeBuilder) CommCase(src ...ast.Node) *CodeBuilder {
 		return p
 	}
 	panic("use select..case please")
+}
+
+// CommDefaultThen starts default clause of a select statement.
+func (p *CodeBuilder) CommDefaultThen(src ...ast.Node) *CodeBuilder {
+	return p.CommCase(src...).Then(src...)
 }
 
 // Switch starts a switch statement.

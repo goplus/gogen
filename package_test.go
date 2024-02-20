@@ -983,7 +983,7 @@ func TestSelect(t *testing.T) {
 		/****/ CommCase().Val(ctxRef(pkg, "xchg")).Val(1).Send().Then().
 		/******/ DefineVarStart(0, "x").Val(1).EndInit(1).
 		/****/ End().
-		/****/ CommCase().Then().
+		/****/ CommDefaultThen().
 		/******/ DefineVarStart(0, "x").Val("Hi").EndInit(1).
 		/****/ End().
 		/**/ End().

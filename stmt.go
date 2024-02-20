@@ -80,7 +80,7 @@ type ifStmt struct {
 func (p *ifStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	cond := cb.stk.Pop()
 	if !types.AssignableTo(cond.Type, types.Typ[types.Bool]) {
-		panic("TODO: if statement condition is not a boolean expr")
+		cb.panicCodeError(getPos(src), "non-boolean condition in if statement")
 	}
 	p.cond = cond.Val
 	switch stmts := cb.clearBlockStmt(); len(stmts) {
@@ -89,14 +89,14 @@ func (p *ifStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	case 1:
 		p.init = stmts[0]
 	default:
-		panic("TODO: if statement has too many init statements")
+		panic("if statement has too many init statements")
 	}
 	cb.startBlockStmt(p, src, "if body", &p.old2)
 }
 
 func (p *ifStmt) Else(cb *CodeBuilder, src ...ast.Node) {
 	if p.body != nil {
-		panic("TODO: else statement already exists")
+		panic("else statement already exists")
 	}
 
 	stmts, flows := cb.endBlockStmt(&p.old2)
@@ -145,6 +145,9 @@ type switchStmt struct {
 }
 
 func (p *switchStmt) Then(cb *CodeBuilder, src ...ast.Node) {
+	if cb.stk.Len() == cb.current.base {
+		panic("use None() for empty switch tag")
+	}
 	p.tag = cb.stk.Pop()
 	switch stmts := cb.clearBlockStmt(); len(stmts) {
 	case 0:
@@ -152,7 +155,7 @@ func (p *switchStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	case 1:
 		p.init = stmts[0]
 	default:
-		panic("TODO: switch statement has too many init statements")
+		panic("switch statement has too many init statements")
 	}
 }
 
@@ -210,12 +213,17 @@ func (p *caseStmt) End(cb *CodeBuilder, src ast.Node) {
 // ----------------------------------------------------------------------------
 //
 // select
-// commCase() commStmt1 Then()
+// commCase commStmt1 then
 //
 //	...
 //	end
 //
-// commCase() commStmt2 Then()
+// commCase commStmt2 then
+//
+//	...
+//	end
+//
+// commDefaultThen
 //
 //	...
 //	end
@@ -227,11 +235,6 @@ type selectStmt struct {
 
 func (p *selectStmt) CommCase(cb *CodeBuilder, src ...ast.Node) {
 	stmt := &commCase{}
-	stmt.then = func() {
-		if len(cb.current.stmts) == 1 {
-			stmt.comm = cb.popStmt()
-		}
-	}
 	cb.startBlockStmt(stmt, src, "comm case statement", &stmt.old)
 }
 
@@ -242,13 +245,18 @@ func (p *selectStmt) End(cb *CodeBuilder, src ast.Node) {
 }
 
 type commCase struct {
-	then func()
 	old  codeBlockCtx
 	comm ast.Stmt
 }
 
 func (p *commCase) Then(cb *CodeBuilder, src ...ast.Node) {
-	p.then()
+	switch len(cb.current.stmts) {
+	case 1:
+		p.comm = cb.popStmt()
+	case 0:
+	default:
+		panic("multi commStmt in comm clause?")
+	}
 }
 
 func (p *commCase) End(cb *CodeBuilder, src ast.Node) {

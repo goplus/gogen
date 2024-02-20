@@ -44,6 +44,70 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestSwitchStmtThen(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+	defer func() {
+		if e := recover(); e != "use None() for empty switch tag" {
+			t.Fatal("TestSwitchStmtThen:", e)
+		}
+	}()
+	cb.Switch().Then()
+}
+
+func TestSwitchStmtThen2(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+	defer func() {
+		if e := recover(); e != "switch statement has too many init statements" {
+			t.Fatal("TestSwitchStmtThen:", e)
+		}
+	}()
+	cb.Switch()
+	cb.emitStmt(&ast.EmptyStmt{})
+	cb.emitStmt(&ast.EmptyStmt{})
+	cb.None().Then()
+}
+
+func TestIfStmtThen(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+	defer func() {
+		if e := recover(); e != "if statement has too many init statements" {
+			t.Fatal("TestIfStmtThen:", e)
+		}
+	}()
+	cb.If()
+	cb.emitStmt(&ast.EmptyStmt{})
+	cb.emitStmt(&ast.EmptyStmt{})
+	cb.Val(true).Then()
+}
+
+func TestIfStmtElse(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+	defer func() {
+		if e := recover(); e != "else statement already exists" {
+			t.Fatal("TestIfStmtThen:", e)
+		}
+	}()
+	cb.If().Else().Else()
+}
+
+func TestCommCase(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+	cb.emitStmt(&ast.EmptyStmt{})
+	cb.emitStmt(&ast.EmptyStmt{})
+	defer func() {
+		if e := recover(); e != "multi commStmt in comm clause?" {
+			t.Fatal("TestCommCase:", e)
+		}
+	}()
+	c := &commCase{}
+	c.Then(cb)
+}
+
 func TestCheckGopDeps(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	file := pkg.CurFile()
