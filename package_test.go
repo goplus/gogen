@@ -977,10 +977,10 @@ func TestSelect(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyXchg, "xchg").
 		/**/ Select().
-		/****/ DefineVarStart(0, "x").Val(ctxRef(pkg, "xchg")).UnaryOp(token.ARROW).EndInit(1).CommCase(1).
+		/****/ CommCase(1).DefineVarStart(0, "x").Val(ctxRef(pkg, "xchg")).UnaryOp(token.ARROW).EndInit(1).
 		/******/ NewVarStart(types.Typ[types.Int], "t").Val(ctxRef(pkg, "x")).EndInit(1).
 		/****/ End().
-		/****/ Val(ctxRef(pkg, "xchg")).Val(1).Send().CommCase(1).
+		/****/ CommCase(1).Val(ctxRef(pkg, "xchg")).Val(1).Send().
 		/******/ DefineVarStart(0, "x").Val(1).EndInit(1).
 		/****/ End().
 		/****/ CommCase(0).
