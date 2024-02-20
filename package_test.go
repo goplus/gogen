@@ -2169,7 +2169,7 @@ func TestSwitch(t *testing.T) {
 		/**/ Case().Val(3).Then(). // case 3:
 		/******/ Val(fmt.Ref("Println")).Val("3").Call(1).EndStmt().
 		/******/ End().
-		/**/ CaseDefaultThen(). // default:
+		/**/ DefaultThen(). // default:
 		/******/ Val(fmt.Ref("Println")).Val("other").Call(1).EndStmt().
 		/******/ End().
 		/**/ End(). // end switch
@@ -2204,7 +2204,7 @@ func TestSwitchNoTag(t *testing.T) {
 		/**/ Case().Val(ctxRef(pkg, "x")).Val(3).BinaryOp(token.LSS).Then(). // case x < 3:
 		/******/ Val(fmt.Ref("Println")).Val("x < 3").Call(1).EndStmt().
 		/******/ End().
-		/**/ CaseDefaultThen(). // default:
+		/**/ DefaultThen(). // default:
 		/******/ Val(fmt.Ref("Println")).Val("other").Call(1).EndStmt().
 		/******/ End().
 		/**/ End(). // end switch
