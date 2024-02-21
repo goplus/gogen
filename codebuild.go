@@ -28,6 +28,7 @@ import (
 	"syscall"
 
 	"github.com/goplus/gox/internal"
+	xtoken "github.com/goplus/gox/token"
 	"golang.org/x/tools/go/types/typeutil"
 )
 
@@ -1351,7 +1352,7 @@ func (p *CodeBuilder) VarVal(name string, src ...ast.Node) *CodeBuilder {
 	if o == nil {
 		log.Panicf("VarVal: variable `%v` not found\n", name)
 	}
-	return p.Val(o)
+	return p.Val(o, src...)
 }
 
 // Val func
@@ -2196,15 +2197,18 @@ func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilde
 
 // BinaryOp func
 func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
+	const (
+		errNotFound = syscall.ENOENT
+	)
 	if debugInstr {
-		log.Println("BinaryOp", op)
+		log.Println("BinaryOp", xtoken.String(op))
 	}
 	pkg := p.pkg
 	name := goxPrefix + binaryOps[op]
 	args := p.stk.GetArgs(2)
 
 	var ret *internal.Elem
-	var err error = syscall.ENOENT
+	var err error = errNotFound
 	isUserDef := false
 	arg0 := args[0].Type
 	named0, ok0 := checkNamed(arg0)
@@ -2240,20 +2244,28 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 					CVal: binaryOp(p, op, args),
 				}, nil
 			}
-		} else {
-			lm := pkg.builtin.Ref(name)
+		} else if lm := pkg.builtin.TryRef(name); lm != nil {
 			ret, err = matchFuncCall(pkg, toObject(pkg, lm, nil), args, 0)
+		} else {
+			err = errNotFound
 		}
 	}
 
 	expr := getSrc(src)
 	if err != nil {
+		opstr := xtoken.String(op)
 		src, pos := p.loadExpr(expr)
 		if src == "" {
-			src = op.String()
+			src = opstr
 		}
-		p.panicCodeErrorf(
-			pos, "invalid operation: %s (mismatched types %v and %v)", src, arg0, args[1].Type)
+		if err != errNotFound {
+			p.panicCodeErrorf(
+				pos, "invalid operation: %s (mismatched types %v and %v)", src, arg0, args[1].Type)
+		} else {
+			arg0Src, _ := p.loadExpr(args[0].Src)
+			p.panicCodeErrorf(
+				pos, "invalid operation: operator %s not defined on %s (%v)", opstr, arg0Src, arg0)
+		}
 	}
 	ret.Src = expr
 	p.stk.Ret(2, ret)
@@ -2300,6 +2312,9 @@ var (
 		token.GEQ: "GE",
 		token.EQL: "EQ",
 		token.NEQ: "NE",
+
+		xtoken.SRARROW:   "PointTo", // ->
+		xtoken.BIDIARROW: "PointBi", // <>
 	}
 )
 

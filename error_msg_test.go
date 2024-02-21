@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/goplus/gox"
+	xtoken "github.com/goplus/gox/token"
 )
 
 type txtNode struct {
@@ -274,6 +275,17 @@ func TestErrBinaryOp(t *testing.T) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				/**/ If().Val(3).Val("Hi").BinaryOp(token.EQL, source(`3 == "Hi"`, 2, 9)).Then().
 				/**/ End().
+				End()
+		})
+}
+
+func TestErrBinaryOp2(t *testing.T) {
+	codeErrorTest(t, `-: invalid operation: operator <> not defined on a (int)`,
+		func(pkg *gox.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				NewVar(types.Typ[types.Int], "b").
+				VarVal("a", source("a")).VarVal("b").BinaryOp(xtoken.BIDIARROW).EndStmt().
 				End()
 		})
 }
