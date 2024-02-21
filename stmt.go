@@ -187,7 +187,7 @@ type caseStmt struct {
 }
 
 func (p *caseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
-	n := cb.stk.Len()
+	n := cb.stk.Len() - cb.current.base
 	if n > 0 {
 		p.list = make([]ast.Expr, n)
 		for i, arg := range cb.stk.GetArgs(n) {
@@ -352,7 +352,7 @@ type typeCaseStmt struct {
 func (p *typeCaseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	var typ types.Type
 	pss := p.pss
-	n := cb.stk.Len()
+	n := cb.stk.Len() - cb.current.base
 	if n > 0 {
 		p.list = make([]ast.Expr, n)
 		args := cb.stk.GetArgs(n)
