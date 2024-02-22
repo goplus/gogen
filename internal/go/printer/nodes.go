@@ -521,6 +521,8 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 		p.print(formfeed)
 	}
 
+	// fix https://github.com/goplus/gop/issues/1761
+	prefix := formfeed
 	if isStruct {
 
 		sep := vtab
@@ -595,9 +597,11 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 			p.flush(p.posFor(rbrace), token.RBRACE) // make sure we don't lose the last line comment
 			p.setLineComment("// contains filtered or unexported methods")
 		}
-
+		if len(list) == 0 {
+			prefix = ignore
+		}
 	}
-	p.print(unindent, formfeed, rbrace, token.RBRACE)
+	p.print(unindent, prefix, rbrace, token.RBRACE)
 }
 
 // ----------------------------------------------------------------------------
