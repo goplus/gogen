@@ -674,8 +674,7 @@ func main() {
 	var e bool = false
 	var f string = ""
 	var g unsafe.Pointer = nil
-	var h interface {
-	} = nil
+	var h interface{} = nil
 	var i [10]int = [10]int{}
 }
 `)
@@ -895,8 +894,7 @@ func TestTypeAssert(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-func foo(v interface {
-}) {
+func foo(v interface{}) {
 	x := v.(int)
 	y, ok := v.(string)
 }
@@ -928,10 +926,8 @@ func TestTypeSwitch(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-func bar(p *interface {
-})
-func foo(v interface {
-}) {
+func bar(p *interface{})
+func foo(v interface{}) {
 	switch t := v.(type) {
 	case int, string:
 		bar(&t)
@@ -958,11 +954,9 @@ func TestTypeSwitch2(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-func bar(p *interface {
-}) {
+func bar(p *interface{}) {
 }
-func foo(v interface {
-}) {
+func foo(v interface{}) {
 	switch bar(nil); v.(type) {
 	case int:
 		bar(&v)
@@ -1084,8 +1078,7 @@ func TestMapLit(t *testing.T) {
 
 var a = map[string]int{"a": 1, "b": 2}
 var b = map[string]float64{"a": 1, "b": 1.2}
-var c = map[string]interface {
-}{}
+var c = map[string]interface{}{}
 var d = map[int]bool{1: true}
 `)
 }
@@ -1125,8 +1118,7 @@ func TestSliceLit(t *testing.T) {
 
 var a = []string{"a", "b"}
 var b = []float64{1, 1.2, 3}
-var c = []interface {
-}{}
+var c = []interface{}{}
 var d = []int{1}
 `)
 }
@@ -1196,8 +1188,7 @@ func TestArrayLit(t *testing.T) {
 
 var a = [2]string{"a", "b"}
 var b = [...]float64{1, 1.2, 3}
-var c = [10]interface {
-}{}
+var c = [10]interface{}{}
 `)
 }
 
@@ -1921,8 +1912,7 @@ func TestEmptyInterface(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(v ...interface {
-}) {
+func foo(v ...interface{}) {
 }
 func main() {
 }
@@ -1988,8 +1978,7 @@ func TestFuncCallEllipsis(t *testing.T) {
 
 import "fmt"
 
-func foo(v ...interface {
-}) {
+func foo(v ...interface{}) {
 	fmt.Println(v...)
 }
 func main() {
@@ -2009,8 +1998,7 @@ func TestDelayedLoadUnused(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-func foo(format string, args ...interface {
-}) (int, error) {
+func foo(format string, args ...interface{}) (int, error) {
 }
 `)
 }
@@ -2030,8 +2018,7 @@ func TestDelayedLoadUsed(t *testing.T) {
 
 import "fmt"
 
-func foo(format string, args ...interface {
-}) (int, error) {
+func foo(format string, args ...interface{}) (int, error) {
 	return fmt.Printf(format, args...)
 }
 `)
@@ -2505,8 +2492,7 @@ func TestReturn(t *testing.T) {
 
 import "fmt"
 
-func foo(format string, args ...interface {
-}) (int, error) {
+func foo(format string, args ...interface{}) (int, error) {
 	return fmt.Printf(format, args...)
 }
 func main() {
@@ -2526,8 +2512,7 @@ func TestReturnExpr(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(format string, args ...interface {
-}) (int, error) {
+func foo(format string, args ...interface{}) (int, error) {
 	return 0, nil
 }
 func main() {
@@ -2548,8 +2533,7 @@ func TestReturnNamedResults(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(format string, args ...interface {
-}) (n int, err error) {
+func foo(format string, args ...interface{}) (n int, err error) {
 	n, err = 1, nil
 	return
 }
@@ -3220,8 +3204,7 @@ func TestBinaryOpCmpNil(t *testing.T) {
 	domTest(t, pkg, `package main
 
 func main() {
-	var a []interface {
-	}
+	var a []interface{}
 	var b bool = a != nil
 	var c bool = nil == a
 }
@@ -3289,8 +3272,7 @@ func TestReturnErr(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-func foo(format string, args ...interface {
-}) (int, error) {
+func foo(format string, args ...interface{}) (int, error) {
 	var _gop_err error
 	return 0, _gop_err
 }
@@ -3387,9 +3369,7 @@ import "fmt"
 func main() {
 	var _autoGo_1 int
 	{
-		var _autoGo_2 []interface {
-		} = []interface {
-		}{1}
+		var _autoGo_2 []interface{} = []interface{}{1}
 		n, err := fmt.Println(_autoGo_2...)
 		_autoGo_1 = n
 		goto _autoGo_3
@@ -3428,8 +3408,7 @@ import "fmt"
 func main() {
 	a, b := "Hi", 3
 	var c = b
-	var x, y interface {
-	}
+	var x, y interface{}
 	fmt.Println(a, b, c)
 	func(v string) {
 		fmt.Println(v)

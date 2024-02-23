@@ -1360,8 +1360,7 @@ func TestTypeAST(t *testing.T) {
 	expr := TypeAST(pkg, TyEmptyInterface)
 	b := bytes.NewBuffer(nil)
 	format.Node(b, fset, expr)
-	if b.String() != `interface {
-}` {
+	if b.String() != `interface{}` {
 		t.Fatal("TypeAST failed:", b.String())
 	}
 }
