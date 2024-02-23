@@ -516,7 +516,12 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 	}
 	// hasComments || !srcIsOneLine
 
-	p.print(blank, lbrace, token.LBRACE, indent)
+	if !isStruct && len(list) < 1 {
+		p.print(lbrace, token.LBRACE, indent)
+	} else {
+		p.print(blank, lbrace, token.LBRACE, indent)
+	}
+
 	if hasComments || len(list) > 0 {
 		p.print(formfeed)
 	}
