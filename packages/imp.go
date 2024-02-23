@@ -20,9 +20,19 @@ import (
 	"go/types"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"golang.org/x/tools/go/gcexportdata"
+)
+
+// pkgPath Caches
+var (
+	dirCache          = map[string]bool{}
+	dirCacheMutex     = sync.RWMutex{}
+	packageCacheMap   = map[string]string{}
+	packageCacheMutex = sync.RWMutex{}
+	waitCache         = sync.WaitGroup{}
 )
 
 // ----------------------------------------------------------------------------
@@ -39,6 +49,9 @@ func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 	dir := ""
 	if len(workDir) > 0 {
 		dir = workDir[0]
+	}
+	if len(packageCacheMap) == 0 {
+		initGoListCache(dir)
 	}
 	if fset == nil {
 		fset = token.NewFileSet()
@@ -96,6 +109,11 @@ func (p *Importer) loadByExport(expfile string, pkgPath string) (ret *types.Pack
 // FindExport lookups export file (.a) of a package by its pkgPath.
 // It returns empty if pkgPath not found.
 func FindExport(dir, pkgPath string) (expfile string, err error) {
+	waitCache.Wait()
+	expfile = packageCacheMap[pkgPath]
+	if len(expfile) > 0 {
+		return expfile, nil
+	}
 	data, err := golistExport(dir, pkgPath)
 	if err != nil {
 		return
@@ -104,6 +122,49 @@ func FindExport(dir, pkgPath string) (expfile string, err error) {
 	return
 }
 
+// https://github.com/goplus/gop/issues/1710
+// Not fully optimized
+// Retrieve all imports in the specified directory and cache them
+func goListExportCache(dir string, pkgs ...string) {
+	dirCacheMutex.Lock()
+	if dirCache[dir] {
+		dirCacheMutex.Unlock()
+		return
+	}
+	dirCache[dir] = true
+	dirCacheMutex.Unlock()
+	var stdout, stderr bytes.Buffer
+	commandStr := []string{"list", "-f", "{{.ImportPath}},{{.Export}}", "-export", "-e"}
+	commandStr = append(commandStr, pkgs...)
+	commandStr = append(commandStr, "all")
+	cmd := exec.Command("go", commandStr...)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	cmd.Dir = dir
+	err := cmd.Run()
+	if err == nil {
+		ret := stdout.String()
+		for _, v := range strings.Split(ret, "\n") {
+			s := strings.Split(v, ",")
+			if len(s) != 2 {
+				continue
+			}
+			packageCacheMutex.Lock()
+			packageCacheMap[s[0]] = s[1]
+			packageCacheMutex.Unlock()
+		}
+	}
+}
+func GoListExportCacheSync(dir string, pkgs ...string) {
+	waitCache.Add(1)
+	go func() {
+		defer waitCache.Done()
+		goListExportCache(dir, pkgs...)
+	}()
+}
+func initGoListCache(dir string) {
+	goListExportCache(dir)
+}
 func golistExport(dir, pkgPath string) (ret []byte, err error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("go", "list", "-f={{.Export}}", "-export", pkgPath)
