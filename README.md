@@ -57,13 +57,12 @@ This will dump Go source code to `stdout`. The following is the output content:
 ```go
 package main
 
-import fmt "fmt"
+import "fmt"
 
 func main() {
 	a, b := "Hi", 3
 	var c = b
-	var x, y interface {
-	}
+	var x, y interface{}
 	fmt.Println(a, b, c)
 	func(v string) {
 		fmt.Println(v)
