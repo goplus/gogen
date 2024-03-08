@@ -22,7 +22,7 @@ import (
 	"go/token"
 	"io"
 
-	"github.com/goplus/gox/internal/go/printer"
+	"github.com/goplus/gogen/internal/go/printer"
 )
 
 // Keep these in sync with cmd/gofmt/gofmt.go.

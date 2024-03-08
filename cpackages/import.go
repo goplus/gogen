@@ -16,24 +16,24 @@ package cpackages
 import (
 	"go/types"
 
-	"github.com/goplus/gox"
+	"github.com/goplus/gogen"
 )
 
 // ----------------------------------------------------------------------------
 
 type PkgRef struct {
-	pkg    gox.PkgRef
+	pkg    gogen.PkgRef
 	public map[string]string
 }
 
-func (p *PkgRef) Pkg() gox.PkgRef {
+func (p *PkgRef) Pkg() gogen.PkgRef {
 	return p.pkg
 }
 
 func (p *PkgRef) Lookup(name string) types.Object {
 	if goName, ok := p.public[name]; ok {
 		if goName == "" {
-			goName = gox.CPubName(name)
+			goName = gogen.CPubName(name)
 		}
 		return p.pkg.TryRef(goName)
 	}
@@ -41,20 +41,20 @@ func (p *PkgRef) Lookup(name string) types.Object {
 }
 
 func PubName(name string) string {
-	return gox.CPubName(name)
+	return gogen.CPubName(name)
 }
 
 // ----------------------------------------------------------------------------
 
 type Config struct {
-	Pkg       *gox.Package
+	Pkg       *gogen.Package
 	LookupPub func(pkgPath string) (pubfile string, err error)
 }
 
 type Importer struct {
 	loaded    map[string]PkgRef
 	lookupPub func(pkgPath string) (pubfile string, err error)
-	pkg       *gox.Package
+	pkg       *gogen.Package
 }
 
 func NewImporter(conf *Config) *Importer {

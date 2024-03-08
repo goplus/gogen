@@ -34,7 +34,7 @@ func TestImporterNormal(t *testing.T) {
 
 func TestImporterRecursive(t *testing.T) {
 	p := NewImporter(nil, "..")
-	pkg, err := p.Import("github.com/goplus/gox/internal/foo")
+	pkg, err := p.Import("github.com/goplus/gogen/internal/foo")
 	if err != nil {
 		t.Fatal("Import failed:", pkg, err)
 	}
@@ -42,7 +42,7 @@ func TestImporterRecursive(t *testing.T) {
 
 func TestImportBuiltin(t *testing.T) {
 	p := NewImporter(nil, "..")
-	pkg, err := p.Import("github.com/goplus/gox/internal/builtin")
+	pkg, err := p.Import("github.com/goplus/gogen/internal/builtin")
 	if err != nil {
 		t.Fatal("Import failed:", pkg, err)
 	}

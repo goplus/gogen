@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox
+package gogen
 
 import (
 	"errors"
@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/goplus/gox/internal"
+	"github.com/goplus/gogen/internal"
 )
 
 var (

@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox
+package gogen
 
 import (
 	"fmt"
@@ -61,7 +61,7 @@ var (
 
 // ----------------------------------------------------------------------------
 
-// IsTypeEx returns if t is a gox extended type or not.
+// IsTypeEx returns if t is a gogen extended type or not.
 func IsTypeEx(t types.Type) (ok bool) {
 	switch v := t.(type) {
 	case *types.Signature:

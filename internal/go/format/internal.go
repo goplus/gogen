@@ -16,7 +16,7 @@ import (
 	"go/token"
 	"strings"
 
-	"github.com/goplus/gox/internal/go/printer"
+	"github.com/goplus/gogen/internal/go/printer"
 )
 
 // parse parses src, which was read from the named file,

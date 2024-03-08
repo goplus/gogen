@@ -20,7 +20,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/goplus/gox/packages"
+	"github.com/goplus/gogen/packages"
 )
 
 type none = struct{}

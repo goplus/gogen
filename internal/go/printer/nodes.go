@@ -1658,7 +1658,7 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 }
 
 func checkSpecs(d *ast.GenDecl) {
-	if d.Tok == token.TYPE { // for gox.TypeDecl.Delete
+	if d.Tok == token.TYPE { // for gogen.TypeDecl.Delete
 		for i, spec := range d.Specs {
 			if spec.(*ast.TypeSpec).Name == nil {
 				leftSpecs := d.Specs[i+1:]

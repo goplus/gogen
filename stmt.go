@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox
+package gogen
 
 import (
 	"go/ast"
@@ -19,7 +19,7 @@ import (
 	"go/types"
 	"log"
 
-	"github.com/goplus/gox/internal"
+	"github.com/goplus/gogen/internal"
 )
 
 type controlFlow interface {

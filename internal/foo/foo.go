@@ -14,7 +14,7 @@
 package foo
 
 import (
-	"github.com/goplus/gox/internal/bar"
+	"github.com/goplus/gogen/internal/bar"
 )
 
 const (

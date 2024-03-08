@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox
+package gogen
 
 import (
 	"bytes"
@@ -25,9 +25,9 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/goplus/gox/internal"
-	"github.com/goplus/gox/internal/go/format"
-	"github.com/goplus/gox/packages"
+	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/go/format"
+	"github.com/goplus/gogen/packages"
 )
 
 var (
@@ -411,7 +411,7 @@ func TestContractName(t *testing.T) {
 func TestContract(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	at := types.NewPackage("foo", "foo")
-	foo := pkg.Import("github.com/goplus/gox/internal/foo")
+	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	tfoo := foo.Ref("Foo").Type()
 	tarr := types.NewArray(tyInt, 10)
 	testcases := []struct {
@@ -546,7 +546,7 @@ func TestAssignableTo(t *testing.T) {
 		}
 	}
 	if Default(pkg, types.Typ[types.UntypedInt]) != types.Typ[types.Int] {
-		t.Fatal("gox.Default failed")
+		t.Fatal("gogen.Default failed")
 	}
 }
 
@@ -1142,7 +1142,7 @@ func TestTryImport(t *testing.T) {
 
 func TestUntypeBig(t *testing.T) {
 	pkg := NewPackage("foo", "foo", gblConf)
-	big := pkg.Import("github.com/goplus/gox/internal/builtin")
+	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	big.EnsureImported()
 	pkg.utBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
 	pkg.utBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
