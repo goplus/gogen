@@ -50,13 +50,16 @@ func ctxRef(pkg *gox.Package, name string) gox.Ref {
 
 type eventRecorder struct{}
 
-func (p eventRecorder) Member(id ast.Node, obj types.Object) {
-}
-func (p eventRecorder) Call(fn ast.Node, obj types.Object) {
-}
+func (p eventRecorder) Member(id ast.Node, obj types.Object) {}
+func (p eventRecorder) Call(fn ast.Node, obj types.Object)   {}
 
 func newMainPackage(
 	implicitCast ...func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool) *gox.Package {
+	return newPackage("main", implicitCast...)
+}
+
+func newPackage(
+	name string, implicitCast ...func(pkg *gox.Package, V, T types.Type, pv *gox.Element) bool) *gox.Package {
 	conf := &gox.Config{
 		Fset:            gblFset,
 		Importer:        gblImp,
@@ -71,7 +74,7 @@ func newMainPackage(
 		conf.HandleErr = handleErr
 		handleErr = nil
 	}
-	return gox.NewPackage("", "main", conf)
+	return gox.NewPackage("", name, conf)
 }
 
 func domTest(t *testing.T, pkg *gox.Package, expected string) {
@@ -1612,8 +1615,6 @@ func TestDefOverloadFunc(t *testing.T) {
 		End()
 	domTest(t, pkg, `package main
 
-const GopPackage = true
-
 func bar__0() {
 }
 `)
@@ -1624,8 +1625,6 @@ func TestDefTemplateMethod(t *testing.T) {
 	pkg.NewFunc(nil, "Gopt_bar", nil, nil, false).BodyStart(pkg).
 		End()
 	domTest(t, pkg, `package main
-
-const GopPackage = true
 
 func Gopt_bar() {
 }
