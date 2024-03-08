@@ -201,7 +201,7 @@ func (p *UnionFields) Len() int {
 }
 
 func (p *UnionFields) getField(
-	cb *CodeBuilder, tfld *types.Named, name string, src ast.Node, ref bool) MemberKind {
+	cb *CodeBuilder, tfld *types.Named, name string, _ ast.Node, ref bool) MemberKind {
 	for _, v := range p.flds {
 		if v.Name == name {
 			obj := cb.stk.Pop()

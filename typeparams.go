@@ -257,7 +257,7 @@ func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []ty
 	return
 }
 
-func getParamsTypes(pkg *Package, tuple *types.Tuple, variadic bool) string {
+func getParamsTypes(tuple *types.Tuple, variadic bool) string {
 	n := tuple.Len()
 	if n == 0 {
 		return ""
@@ -279,7 +279,7 @@ func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args 
 		if nargs < nreq-1 {
 			caller := types.ExprString(fn.Val)
 			return nil, fmt.Errorf(
-				"not enough arguments in call to %s\n\thave (%v)\n\twant (%v)", caller, getTypes(args), getParamsTypes(pkg, sig.Params(), true))
+				"not enough arguments in call to %s\n\thave (%v)\n\twant (%v)", caller, getTypes(args), getParamsTypes(sig.Params(), true))
 		}
 		if flags&InstrFlagEllipsis != 0 {
 			return args, nil
@@ -307,7 +307,7 @@ func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args 
 		}
 		caller := types.ExprString(fn.Val)
 		return nil, fmt.Errorf(
-			"%s arguments in call to %s\n\thave (%v)\n\twant (%v)", fewOrMany, caller, getTypes(args), getParamsTypes(pkg, sig.Params(), false))
+			"%s arguments in call to %s\n\thave (%v)\n\twant (%v)", fewOrMany, caller, getTypes(args), getParamsTypes(sig.Params(), false))
 	}
 	return args, nil
 }

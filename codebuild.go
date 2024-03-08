@@ -1659,7 +1659,7 @@ retry:
 			return kind
 		}
 	case *types.Basic, *types.Slice, *types.Map, *types.Chan:
-		return p.btiMethod(p.getBuiltinTI(o), name, aliasName, flag, arg, srcExpr)
+		return p.btiMethod(p.getBuiltinTI(o), name, aliasName, flag, srcExpr)
 	}
 	return MemberInvalid
 }
@@ -1752,7 +1752,7 @@ func (p *CodeBuilder) method(
 		return MemberMethod
 	}
 	if t, ok := o.(*types.Named); ok {
-		kind = p.btiMethod(p.getBuiltinTI(t), name, aliasName, flag, arg, src)
+		kind = p.btiMethod(p.getBuiltinTI(t), name, aliasName, flag, src)
 	}
 	return
 }
@@ -1768,7 +1768,7 @@ func isTypeConvert(otyp, typ types.Type) (string, bool) {
 }
 
 func (p *CodeBuilder) btiMethod(
-	o *builtinTI, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
+	o *builtinTI, name, aliasName string, flag MemberFlag, src ast.Node) MemberKind {
 	if o != nil {
 		for i, n := 0, o.NumMethods(); i < n; i++ {
 			method := o.Method(i)

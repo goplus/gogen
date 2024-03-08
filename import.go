@@ -356,7 +356,7 @@ type expDeps struct {
 }
 
 func checkGopPkg(pkg *Package) (val ast.Expr, ok bool) {
-	if pkg.Types.Scope().Lookup(gopPackage) != nil {
+	if pkg.Types.Name() == "main" || pkg.Types.Scope().Lookup(gopPackage) != nil {
 		return
 	}
 	ed := expDeps{pkg.Types, make(map[*types.Package]none), make(map[types.Type]none)}

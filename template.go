@@ -375,7 +375,7 @@ func assignable(pkg *Package, v types.Type, t *types.Named, pv *internal.Elem) b
 				}
 			}
 			if pv.CVal != nil {
-				if checkUntypedOverflows(pkg, scope, tname, pv) {
+				if checkUntypedOverflows(scope, tname, pv) {
 					return false
 				}
 			}
