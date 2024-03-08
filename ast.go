@@ -789,7 +789,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 				o := t.Obj()
 				if at := o.Pkg(); at != nil {
 					tname := o.Name()
-					if checkUntypedOverflows(pkg, at.Scope(), tname, args[0]) {
+					if checkUntypedOverflows(at.Scope(), tname, args[0]) {
 						src, pos := pkg.cb.loadExpr(args[0].Src)
 						err = pkg.cb.newCodeError(pos, fmt.Sprintf("cannot convert %v (untyped int constant %v) to type %v", src, args[0].CVal, tname))
 						return
@@ -815,7 +815,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 			name := tname + "_Cast"
 			if cast := scope.Lookup(name); cast != nil {
 				if len(args) == 1 && args[0].CVal != nil {
-					if checkUntypedOverflows(pkg, scope, tname, args[0]) {
+					if checkUntypedOverflows(scope, tname, args[0]) {
 						src, pos := pkg.cb.loadExpr(args[0].Src)
 						err = pkg.cb.newCodeError(pos, fmt.Sprintf("cannot convert %v (untyped int constant %v) to type %v", src, args[0].CVal, tname))
 						return
@@ -1358,7 +1358,7 @@ func checkUntypedType(scope *types.Scope, tname string) bool {
 	return false
 }
 
-func checkUntypedOverflows(pkg *Package, scope *types.Scope, tname string, arg *internal.Elem) bool {
+func checkUntypedOverflows(scope *types.Scope, tname string, arg *internal.Elem) bool {
 	cmax, ok1 := scope.Lookup(tname + "_Max").(*types.Const)
 	cmin, ok2 := scope.Lookup(tname + "_Min").(*types.Const)
 	if ok1 || ok2 {
