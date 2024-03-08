@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox_test
+package gogen_test
 
 import (
 	"go/token"
@@ -20,8 +20,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/goplus/gox"
-	"github.com/goplus/gox/internal/goxdbg"
+	"github.com/goplus/gogen"
+	"github.com/goplus/gogen/internal/goxdbg"
 )
 
 func TestMethodToFunc(t *testing.T) {
@@ -86,7 +86,7 @@ var _ = (Itf).X
 	checkMethodToFunc(t, pkg, types.NewPointer(typ), "X", "(*hello.Foo).X")
 }
 
-func checkMethodToFunc(t *testing.T, pkg *gox.Package, typ types.Type, name, code string) {
+func checkMethodToFunc(t *testing.T, pkg *gogen.Package, typ types.Type, name, code string) {
 	t.Helper()
 	ret, err := pkg.MethodToFunc(typ, name)
 	if err != nil {
@@ -142,7 +142,7 @@ func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
 
 	cb := pkg.NewFunc(nil, "Example", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewPointer(typ), "tbl")
-	_, err = cb.VarVal("tbl").Member("col", gox.MemberFlagMethodAlias)
+	_, err = cb.VarVal("tbl").Member("col", gogen.MemberFlagMethodAlias)
 	if err != nil {
 		t.Fatal("tbl.Member(col):", err)
 	}
@@ -217,7 +217,7 @@ func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
 
 	args := types.NewTuple(types.NewParam(0, pkg.Types, "tbls", typMap))
 	cb := pkg.NewFunc(nil, "Example", args, nil, false).BodyStart(pkg)
-	_, err = cb.VarVal("tbls").Val("Hi").Index(1, false).Val(0).Index(1, false).Member("col", gox.MemberFlagMethodAlias)
+	_, err = cb.VarVal("tbls").Val("Hi").Index(1, false).Val(0).Index(1, false).Member("col", gogen.MemberFlagMethodAlias)
 	if err != nil {
 		t.Fatal("tbl.Member(col):", err)
 	}
@@ -285,7 +285,7 @@ func Gopx_Var_Cast__1[T map[string]any]() *Var__1[T] {
 	log.Println("==> Lookup", scope.Lookup("Var__0"))
 	objVar := pkgRef.Ref("Var")
 	typ := objVar.Type()
-	on, ok := gox.CheckOverloadNamed(typ)
+	on, ok := gogen.CheckOverloadNamed(typ)
 	if !ok {
 		t.Fatal("TestOverloadNamed: not TyOverloadNamed?")
 	}
@@ -323,7 +323,7 @@ func main() {
 				t.Fatal("TestOverloadNamed failed: no error?")
 			}
 		}()
-		ty3 := pkg.Instantiate(on, []types.Type{gox.TyByte})
+		ty3 := pkg.Instantiate(on, []types.Type{gogen.TyByte})
 		pkg.NewTypeDefs().NewType("t3").InitType(pkg, ty3)
 	}()
 	func() {
@@ -513,10 +513,10 @@ var MyInts = Int{1,2,3,4}
 		NewVarStart(tyInt, "n1").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
 		NewVarStart(tyInt, "n2").Val(fnAdd).Typ(tyString).Index(1, false).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
 		NewVarStart(tyInt, "n3").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
-		NewVarStart(tyInt, "n4").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
-		NewVarStart(tyInt, "n5").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
-		NewVarStart(tyInt, "n6").Val(fnAdd).Typ(tyString).Index(1, false).Val("hello").Val(myInts).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
-		NewVarStart(tyInt, "n7").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gox.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n4").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gogen.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n5").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gogen.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n6").Val(fnAdd).Typ(tyString).Index(1, false).Val("hello").Val(myInts).CallWith(2, gogen.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n7").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gogen.InstrFlagEllipsis).EndInit(1).
 		NewVarStart(tyIntPointer, "p1").Val(fnLoader).Typ(tyIntPointer).Index(1, false).Val(nil).Val(1).Call(2).EndInit(1).
 		NewVarStart(tyIntPointer, "p2").Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Val(nil).Val(1).Call(2).EndInit(1).
 		NewAutoVar(0, "fn1", &fn1).VarRef(fn1).Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Assign(1, 1).EndStmt().
@@ -589,7 +589,7 @@ var	SumInt = Sum[int]
 	default:
 		msg = `./foo.gop:5:40: uint does not satisfy foo.Number (uint missing in ~int | float64)`
 	}
-	codeErrorTestEx(t, pkg, msg, func(pkg *gox.Package) {
+	codeErrorTestEx(t, pkg, msg, func(pkg *gogen.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 			DefineVarStart(0, "sum").Val(fnSum).Typ(tyUint).Index(1, false, source(`foo.Sum[uint]`, 5, 40)).EndInit(1).
 			End()
@@ -627,7 +627,7 @@ var	AtInt = At[[]int]
 	default:
 		msg = `./foo.gop:5:40: T (type int) does not satisfy interface{~[]E}`
 	}
-	codeErrorTestEx(t, pkg, msg, func(pkg *gox.Package) {
+	codeErrorTestEx(t, pkg, msg, func(pkg *gogen.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 			NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyInt).Index(1, false, source(`foo.At[int]`, 5, 40)).EndInit(1).
 			End()
@@ -651,7 +651,7 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
 				End()
@@ -676,7 +676,7 @@ type Data[T1 any, T2 any] struct {
 	tyData := pkgRef.Ref("Data").Type()
 	tyInt := types.Typ[types.Int]
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: got 1 type arguments but foo.Data[T1, T2 any] has 2 type parameters`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
 				End()
@@ -701,7 +701,7 @@ type Data[T1 any, T2 any] struct {
 	tyData := pkgRef.Ref("Data").Type()
 	tyInt := types.Typ[types.Int]
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: got 3 type arguments but foo.Data[T1, T2 any] has 2 type parameters`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, false, source(`foo.Data[int,int,int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
 				End()
@@ -725,7 +725,7 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	fnTest := pkgRef.Ref("Test")
 	tyInt := types.Typ[types.Int]
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: got 3 type arguments but func[T1, T2 any](t1 T1, t2 T2) has 2 type parameters`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(fnTest).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, false, source(`foo.Test[int,int,int]`, 5, 40)).Val(1).Val(1).Call(2).EndStmt().
 				End()
@@ -750,7 +750,7 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: not enough arguments in call to foo.Test
 	have (untyped int)
 	want (T1, T2)`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(fnTest).Val(1).CallWith(1, 0, source("foo.Test(1)", 5, 40)).EndStmt().
 				End()
@@ -776,7 +776,7 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: too many arguments in call to foo.Test
 	have (untyped int, untyped int, untyped int)
 	want (T1, T2)`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(fnTest).Val(1).Val(2).Val(3).CallWith(3, 0, source("foo.Test(1,2,3)", 5, 40)).EndStmt().
 				End()
@@ -803,7 +803,7 @@ func Test[T1 any, T2 any]() {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: too many arguments in call to foo.Test
 	have (untyped int, untyped int)
 	want ()`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(fnTest).Val(1).Val(2).CallWith(2, 0, source("foo.Test(1,2)", 5, 40)).EndStmt().
 				End()
@@ -833,7 +833,7 @@ func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: not enough arguments in call to foo.Add
 	have ()
 	want (T1, ...T2)`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(fnAdd).CallWith(0, 0, source("foo.Add()", 5, 40)).EndStmt().
 				End()
@@ -862,7 +862,7 @@ func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
 
 	// not pass source to foo.Add
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: cannot infer T2 (-)`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(fnAdd).Val(1).CallWith(1, 0, source("foo.Add(1)", 5, 40)).EndStmt().
 				End()
@@ -904,7 +904,7 @@ func Sum[T Number](vec []T) T {
 	default:
 		msg = `./foo.gop:5:40: uint does not satisfy foo.Number (uint missing in ~int | float64)`
 	}
-	codeErrorTestEx(t, pkg, msg, func(pkg *gox.Package) {
+	codeErrorTestEx(t, pkg, msg, func(pkg *gogen.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 			Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyUintSlice, 3).CallWith(1, 0, source(`foo.Sum([]uint{1,2,3})`, 5, 40)).EndInit(1).
 			End()
@@ -928,7 +928,7 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(fnLoader).Typ(tyInt).Index(1, false, source(`foo.Loader[int]`, 5, 40)).Val(10).Val(nil).CallWith(2, 0, source(`foo.Loader[int]`, 5, 40)).EndStmt().
 				End()
@@ -951,7 +951,7 @@ type Data struct {
 	tyData := pkgRef.Ref("Data").Type()
 	tyInt := types.Typ[types.Int]
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: foo.Data is not a generic type`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
 				End()
@@ -965,7 +965,7 @@ func TestTypeParamErrGenericType2(t *testing.T) {
 	tyString := types.Typ[types.String]
 
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: string is not a generic type`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				DefineVarStart(0, "v1").Typ(tyString).Typ(tyInt).Index(1, false, source(`string[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
 				End()
@@ -990,7 +990,7 @@ func Loader(n int) string {
 	tyInt := types.Typ[types.Int]
 
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: invalid operation: cannot index foo.Loader (value of type func(n int) string)`,
-		func(pkg *gox.Package) {
+		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
 				End()

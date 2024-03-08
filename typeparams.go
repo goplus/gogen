@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox
+package gogen
 
 import (
 	"fmt"
@@ -23,8 +23,8 @@ import (
 	"strings"
 	_ "unsafe"
 
-	"github.com/goplus/gox/internal"
-	"github.com/goplus/gox/internal/goxdbg"
+	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/goxdbg"
 )
 
 // ----------------------------------------------------------------------------

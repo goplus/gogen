@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox
+package gogen
 
 import (
 	"go/token"

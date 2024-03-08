@@ -19,7 +19,7 @@ import (
 	"go/token"
 	"log"
 
-	"github.com/goplus/gox/internal/go/format"
+	"github.com/goplus/gogen/internal/go/format"
 )
 
 // Format formats node in canonical gofmt style.

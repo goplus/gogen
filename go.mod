@@ -1,4 +1,4 @@
-module github.com/goplus/gox
+module github.com/goplus/gogen
 
 go 1.18
 

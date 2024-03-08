@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox
+package gogen
 
 import (
 	"go/ast"
@@ -20,7 +20,7 @@ import (
 	"log"
 	"syscall"
 
-	"github.com/goplus/gox/internal"
+	"github.com/goplus/gogen/internal"
 )
 
 // ----------------------------------------------------------------------------

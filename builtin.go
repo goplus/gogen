@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox
+package gogen
 
 import (
 	"fmt"
@@ -1312,7 +1312,7 @@ func initBuiltinTIs(pkg *Package) {
 	{
 		ioxPkg := pkg.conf.PkgPathIox
 		if debugImportIox && ioxPkg == "" {
-			ioxPkg = "github.com/goplus/gox/internal/iox"
+			ioxPkg = "github.com/goplus/gogen/internal/iox"
 		}
 		if ioxPkg != "" {
 			if os := pkg.TryImport("os"); os.isValid() {

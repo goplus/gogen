@@ -11,14 +11,14 @@
  limitations under the License.
 */
 
-package gox_test
+package gogen_test
 
 import (
 	"go/token"
 	"go/types"
 	"testing"
 
-	"github.com/goplus/gox"
+	"github.com/goplus/gogen"
 )
 
 // ----------------------------------------------------------------------------
@@ -30,7 +30,7 @@ func TestBitFields(t *testing.T) {
 		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.Uint], false),
 	}
 	tyT := pkg.NewType("T").InitType(pkg, types.NewStruct(fields, nil))
-	pkg.SetVFields(tyT, gox.NewBitFields([]*gox.BitField{
+	pkg.SetVFields(tyT, gogen.NewBitFields([]*gogen.BitField{
 		{Name: "z1", FldName: "x", Off: 0, Bits: 1},
 		{Name: "z2", FldName: "x", Off: 1, Bits: 3},
 		{Name: "u1", FldName: "y", Off: 0, Bits: 1},
@@ -97,7 +97,7 @@ func TestUnionFields(t *testing.T) {
 	}
 	tyT := pkg.NewType("T").InitType(pkg, types.NewStruct(fields, nil))
 	tyFlt := types.Typ[types.Float32]
-	pkg.SetVFields(tyT, gox.NewUnionFields([]*gox.UnionField{
+	pkg.SetVFields(tyT, gogen.NewUnionFields([]*gogen.UnionField{
 		{Name: "z", Type: tyFlt},
 		{Name: "val", Type: tyFlt, Off: 4},
 	}))
@@ -162,7 +162,7 @@ func test() {
 
 func TestCFunc(t *testing.T) {
 	pkg := newMainPackage()
-	cfn := gox.NewCSignature(nil, nil, false)
+	cfn := gogen.NewCSignature(nil, nil, false)
 	pkg.NewFunc(nil, "test", nil, nil, false).BodyStart(pkg).
 		NewVar(cfn, "f").
 		VarVal("f").Call(0).EndStmt().

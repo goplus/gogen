@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox
+package gogen
 
 import (
 	"go/ast"
@@ -22,7 +22,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/goplus/gox/packages"
+	"github.com/goplus/gogen/packages"
 )
 
 type LoadNamedFunc = func(at *Package, typ *types.Named)
@@ -67,7 +67,7 @@ func fatal(msg string) {
 
 // ----------------------------------------------------------------------------
 
-// Recorder represents a gox event recorder.
+// Recorder represents a gogen event recorder.
 type Recorder interface {
 	// Member maps identifiers to the objects they denote.
 	Member(id ast.Node, obj types.Object)

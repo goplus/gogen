@@ -11,7 +11,7 @@
  limitations under the License.
 */
 
-package gox
+package gogen
 
 import (
 	"errors"
@@ -27,8 +27,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/goplus/gox/internal"
-	xtoken "github.com/goplus/gox/token"
+	"github.com/goplus/gogen/internal"
+	xtoken "github.com/goplus/gogen/token"
 	"golang.org/x/tools/go/types/typeutil"
 )
 
