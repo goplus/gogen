@@ -342,8 +342,7 @@ func TestBigRatIncDec(t *testing.T) {
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		VarRef(ctxRef(pkg, "a")).
-		IncDec(token.INC).
+		VarRef("a").IncDec(token.INC).
 		End()
 	domTest(t, pkg, `package main
 
@@ -357,18 +356,31 @@ func main() {
 `)
 }
 
+func TestErrValRef(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil ||
+			e.(error).Error() != "-:  is not a variable" {
+			t.Fatal("TestErrValRef:", e)
+		}
+	}()
+	pkg := newGopMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef("a").
+		End()
+}
+
 func TestErrBigRatIncDec(t *testing.T) {
 	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("TestErrBigRatIncDec: no error?")
+		if e := recover(); e == nil ||
+			e.(error).Error() != "-: operator Gop_Dec should return no results\n" {
+			t.Fatal("TestErrBigRatIncDec:", e)
 		}
 	}()
 	pkg := newGopMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		VarRef(ctxRef(pkg, "a")).
-		IncDec(token.DEC).
+		VarRef("a").IncDec(token.DEC).
 		End()
 }
 
@@ -970,6 +982,25 @@ func TestTemplateRecvMethod(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(bar.Ref("Game").Type(), "g").
 		VarVal("g").MemberVal("Run").Val("Hi").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gogen/internal/bar"
+
+func main() {
+	var g bar.Game
+	bar.Gopt_Game_Run(&g, "Hi")
+}
+`)
+}
+
+func TestTemplateRecvMethod2(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
+	tyGame := bar.Ref("Game").Type()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyGame, "g").
+		Typ(tyGame).MemberVal("Run").VarRef("g").UnaryOp(token.AND).Val("Hi").Call(2).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
