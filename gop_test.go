@@ -994,6 +994,25 @@ func main() {
 `)
 }
 
+func TestTemplateRecvMethod2(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
+	tyGame := bar.Ref("Game").Type()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyGame, "g").
+		Typ(tyGame).MemberVal("Run").VarRef("g").UnaryOp(token.AND).Val("Hi").Call(2).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gogen/internal/bar"
+
+func main() {
+	var g bar.Game
+	bar.Gopt_Game_Run(&g, "Hi")
+}
+`)
+}
+
 func TestErrTemplateRecvMethod(t *testing.T) {
 	pkg := newMainPackage()
 	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
