@@ -703,8 +703,10 @@ func (p *CodeBuilder) doVarRef(ref interface{}, src ast.Node, allowDebug bool) *
 			Val: underscore, // _
 		})
 	} else {
-		switch v := ref.(type) {
-		case *types.Var:
+		if v, ok := ref.(string); ok {
+			_, ref = p.Scope().LookupParent(v, token.NoPos)
+		}
+		if v, ok := ref.(*types.Var); ok {
 			if allowDebug && debugInstr {
 				log.Println("VarRef", v.Name(), v.Type())
 			}
@@ -718,7 +720,7 @@ func (p *CodeBuilder) doVarRef(ref interface{}, src ast.Node, allowDebug bool) *
 			p.stk.Push(&internal.Elem{
 				Val: toObjectExpr(p.pkg, v), Type: &refType{typ: v.Type()}, Src: src,
 			})
-		default:
+		} else {
 			code, pos := p.loadExpr(src)
 			p.panicCodeErrorf(pos, "%s is not a variable", code)
 		}
