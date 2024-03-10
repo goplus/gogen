@@ -342,8 +342,7 @@ func TestBigRatIncDec(t *testing.T) {
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		VarRef(ctxRef(pkg, "a")).
-		IncDec(token.INC).
+		VarRef("a").IncDec(token.INC).
 		End()
 	domTest(t, pkg, `package main
 
@@ -357,18 +356,31 @@ func main() {
 `)
 }
 
+func TestErrValRef(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil ||
+			e.(error).Error() != "-:  is not a variable" {
+			t.Fatal("TestErrValRef:", e)
+		}
+	}()
+	pkg := newGopMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		VarRef("a").
+		End()
+}
+
 func TestErrBigRatIncDec(t *testing.T) {
 	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("TestErrBigRatIncDec: no error?")
+		if e := recover(); e == nil ||
+			e.(error).Error() != "-: operator Gop_Dec should return no results\n" {
+			t.Fatal("TestErrBigRatIncDec:", e)
 		}
 	}()
 	pkg := newGopMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		VarRef(ctxRef(pkg, "a")).
-		IncDec(token.DEC).
+		VarRef("a").IncDec(token.DEC).
 		End()
 }
 
