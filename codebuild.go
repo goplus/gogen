@@ -1738,12 +1738,21 @@ func (p *CodeBuilder) method(
 		if autoprop && !methodHasAutoProperty(typ, 0) {
 			return memberBad
 		}
+
 		sel := selector(arg, found.Name())
-		p.stk.Ret(1, &internal.Elem{
+		ret := &internal.Elem{
 			Val:  sel,
 			Type: methodSigOf(typ, flag, arg, sel),
 			Src:  src,
-		})
+		}
+		// TODO: We should take `methodSigOf` more seriously
+		if trm, ok := ret.Type.(*TyTemplateRecvMethod); ok {
+			o := trm.Func
+			ret.Val = toObjectExpr(p.pkg, o)
+			ret.Type = o.Type()
+		}
+		p.stk.Ret(1, ret)
+
 		if p.rec != nil {
 			p.rec.Member(src, found)
 		}
@@ -1877,7 +1886,11 @@ func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.Selecto
 	}
 
 	sig := typ.(*types.Signature)
-	if _, ok := CheckFuncEx(sig); ok {
+	if t, ok := CheckFuncEx(sig); ok {
+		if trm, ok := t.(*TyTemplateRecvMethod); ok {
+			// TODO: We should take `methodSigOf` more seriously
+			return trm
+		}
 		return typ
 	}
 
