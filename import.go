@@ -141,7 +141,7 @@ func InitThisGopPkg(pkg *types.Package) {
 			for i, name := range names {
 				if name == "" {
 					if m.typ != nil {
-						name = "(" + tname + ")."
+						name = "."
 					}
 					name += m.name + "__" + indexTable[i:i+1]
 				}
@@ -169,24 +169,13 @@ func InitThisGopPkg(pkg *types.Package) {
 
 // name
 // .name
-// (T).name
 func lookupFunc(scope *types.Scope, name, tname string) types.Object {
-	first := name[0]
-	if first == '.' || first == '(' {
-		if first == '.' {
-			name = name[1:]
-		} else {
-			next := name[1:]
-			pos := strings.Index(next, ").")
-			if pos <= 0 {
-				log.Panicf("lookupFunc: %v not a valid method, use `(T).method` please\n", name)
-			}
-			tname, name = next[:pos], next[pos+2:]
-		}
+	if name[0] == '.' {
+		name = name[1:]
 		tobj := scope.Lookup(tname)
 		if tobj != nil {
 			if tn, ok := tobj.(*types.TypeName); ok {
-				if o, ok := tn.Type().(*types.Named); ok { // TODO: interface support
+				if o, ok := tn.Type().(*types.Named); ok { // TODO(xsw): interface support
 					for i, n := 0, o.NumMethods(); i < n; i++ {
 						method := o.Method(i)
 						if method.Name() == name {
@@ -208,8 +197,10 @@ type omthd struct {
 	name string
 }
 
-// TypeName_Method
-// _TypeName__Method
+// Func (no _ func name)
+// _Func (with _ func name)
+// TypeName_Method (no _ method name)
+// _TypeName__Method (with _ method name)
 func checkTypeMethod(scope *types.Scope, name string) (omthd, string) {
 	if pos := strings.IndexByte(name, '_'); pos >= 0 {
 		nsep := 1
