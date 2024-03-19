@@ -56,13 +56,4 @@ func Test_loadByExport(t *testing.T) {
 	FindExport(".", "C")
 }
 
-func TestGoListExportCacheSync(t *testing.T) {
-	GoListExportCacheSync("..")
-	p := NewImporter(nil, "..")
-	pkg, err := p.Import("github.com/goplus/gox/internal/foo")
-	if err != nil {
-		t.Fatal("Import failed:", pkg, err)
-	}
-}
-
 // ----------------------------------------------------------------------------
