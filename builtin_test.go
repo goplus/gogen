@@ -284,18 +284,6 @@ func TestCheckTypeMethod(t *testing.T) {
 	}()
 }
 
-func TestLookupFunc(t *testing.T) {
-	scope := types.NewScope(nil, 0, 0, "")
-	func() {
-		defer func() {
-			if e := recover(); e != "lookupFunc: notFound not found\n" {
-				t.Fatal("TestLookupFunc:", e)
-			}
-		}()
-		lookupFunc(scope, "notFound", "")
-	}()
-}
-
 func TestNewPosNode(t *testing.T) {
 	if ret := NewPosNode(1); ret.Pos() != 1 || ret.End() != 1 {
 		t.Fatal("NewPosNode(1): end -", ret.End())

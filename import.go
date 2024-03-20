@@ -137,7 +137,7 @@ func InitThisGopPkg(pkg *types.Package) {
 		if names, ok := checkOverloads(scope, gopoName); ok {
 			key := gopoName[len(gopoPrefix):]
 			m, tname := checkTypeMethod(scope, key)
-			fns := make([]types.Object, len(names))
+			fns := make([]types.Object, 0, len(names))
 			for i, name := range names {
 				if name == "" {
 					if m.typ != nil {
@@ -145,9 +145,13 @@ func InitThisGopPkg(pkg *types.Package) {
 					}
 					name += m.name + "__" + indexTable[i:i+1]
 				}
-				fns[i] = lookupFunc(scope, name, tname)
+				if obj := lookupFunc(scope, name, tname); obj != nil {
+					fns = append(fns, obj)
+				}
 			}
-			newOverload(pkg, scope, m, fns)
+			if len(fns) > 0 {
+				newOverload(pkg, scope, m, fns)
+			}
 			delete(overloads, m)
 		}
 	}
@@ -186,9 +190,10 @@ func lookupFunc(scope *types.Scope, name, tname string) types.Object {
 			}
 		}
 	} else if o := scope.Lookup(name); o != nil {
-		return o
+		if _, ok := o.Type().(*types.Signature); ok {
+			return o
+		}
 	}
-	log.Panicf("lookupFunc: %v not found\n", name)
 	return nil
 }
 
