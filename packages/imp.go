@@ -28,10 +28,11 @@ import (
 // ----------------------------------------------------------------------------
 
 type Importer struct {
-	loaded map[string]*types.Package
-	fset   *token.FileSet
-	dir    string
-	m      sync.RWMutex
+	loaded   map[string]*types.Package
+	fset     *token.FileSet
+	dir      string
+	m        sync.RWMutex
+	pkgCache *Cache
 }
 
 // NewImporter creates an Importer object that meets types.Importer interface.
@@ -45,7 +46,7 @@ func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 	}
 	loaded := make(map[string]*types.Package)
 	loaded["unsafe"] = types.Unsafe
-	return &Importer{loaded: loaded, fset: fset, dir: dir}
+	return &Importer{loaded: loaded, fset: fset, dir: dir, pkgCache: NewGoListCache(dir)}
 }
 
 func (p *Importer) Import(pkgPath string) (pkg *types.Package, err error) {
@@ -68,6 +69,10 @@ func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*type
 		return ret, nil
 	}
 	p.m.RUnlock()
+	cacheInfo, ok := p.pkgCache.GetPkgCache(pkgPath)
+	if ok {
+		return p.loadByExport(cacheInfo.PkgExport, pkgPath)
+	}
 	expfile, err := FindExport(dir, pkgPath)
 	if err != nil {
 		return nil, err
@@ -89,6 +94,10 @@ func (p *Importer) loadByExport(expfile string, pkgPath string) (ret *types.Pack
 		ret, err = gcexportdata.Read(r, p.fset, p.loaded, pkgPath)
 	}
 	return
+}
+
+func (p *Importer) GetPkgCache() *Cache {
+	return p.pkgCache
 }
 
 // ----------------------------------------------------------------------------
