@@ -78,6 +78,9 @@ func TestCache(t *testing.T) {
 		t.Fatal("Import:", err)
 	}
 	p.SetCache(diskCache{imp: NewImporter(nil)})
+	if p.Cache() == nil {
+		t.Fatal("Cache nil")
+	}
 	pkg, err := p.Import("fmt")
 	if err != nil || pkg.Path() != "fmt" {
 		t.Fatal("Import fmt:", pkg, err)
