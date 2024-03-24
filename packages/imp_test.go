@@ -53,7 +53,34 @@ func Test_loadByExport(t *testing.T) {
 	if _, err := p.loadByExport("/not-found", "notfound"); !os.IsNotExist(err) {
 		t.Fatal("Test_loadByExport: no error?")
 	}
-	FindExport(".", "C")
+	p.findExport(".", "C")
+}
+
+// ----------------------------------------------------------------------------
+
+type diskCache struct {
+	imp *Importer
+}
+
+func (p diskCache) Find(dir, pkgPath string) (expfile string, err error) {
+	if p.imp != nil {
+		return p.imp.findExport(dir, pkgPath)
+	}
+	return "", os.ErrNotExist
+}
+
+func TestDiskCache(t *testing.T) {
+	p := NewImporter(nil)
+	p.SetDiskCache(diskCache{})
+	_, err := p.Import("fmt")
+	if err != os.ErrNotExist {
+		t.Fatal("Import:", err)
+	}
+	p.SetDiskCache(diskCache{imp: NewImporter(nil)})
+	pkg, err := p.Import("fmt")
+	if err != nil || pkg.Path() != "fmt" {
+		t.Fatal("Import fmt:", pkg, err)
+	}
 }
 
 // ----------------------------------------------------------------------------
