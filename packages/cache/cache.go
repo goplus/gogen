@@ -31,11 +31,12 @@ type depPkg struct {
 
 type pkgCache struct {
 	expfile string
+	hash    string
 	deps    []depPkg
 }
 
 // PkgHash represents a package hash function.
-type PkgHash func(pkgPath string) (hash string)
+type PkgHash func(pkgPath string, self bool) (hash string)
 
 // Impl represents a cache.
 type Impl struct {
@@ -63,10 +64,12 @@ func (p *Impl) Prepare(dir string, pkgPath ...string) (err error) {
 	if err != nil {
 		return
 	}
+	h := p.h
 	for _, v := range ret {
-		pkg := &pkgCache{expfile: v.expfile, deps: make([]depPkg, 0, len(v.deps))}
+		deps := make([]depPkg, 0, len(v.deps))
+		pkg := &pkgCache{expfile: v.expfile, hash: h(v.path, true), deps: deps}
 		for _, dep := range v.deps {
-			pkg.deps = append(pkg.deps, depPkg{dep, p.h(dep)})
+			pkg.deps = append(pkg.deps, depPkg{dep, h(dep, false)})
 		}
 		p.cache.Store(v.path, pkg)
 	}
@@ -76,7 +79,7 @@ func (p *Impl) Prepare(dir string, pkgPath ...string) (err error) {
 // Find finds the cache for a pkgPath.
 func (p *Impl) Find(dir, pkgPath string) (expfile string, err error) {
 	val, ok := p.cache.Load(pkgPath)
-	if !ok || isDirty(val, p.h) {
+	if !ok || isDirty(pkgPath, val, p.h) {
 		err = p.Prepare(dir, pkgPath)
 		if val, ok = p.cache.Load(pkgPath); !ok {
 			if err == nil {
@@ -88,9 +91,13 @@ func (p *Impl) Find(dir, pkgPath string) (expfile string, err error) {
 	return val.(*pkgCache).expfile, nil
 }
 
-func isDirty(val any, h PkgHash) bool {
-	for _, dep := range val.(*pkgCache).deps {
-		if dep.hash == "" || h(dep.path) != dep.hash {
+func isDirty(pkgPath string, val any, h PkgHash) bool {
+	pkg := val.(*pkgCache)
+	if pkg.hash == "" || h(pkgPath, true) != pkg.hash {
+		return true
+	}
+	for _, dep := range pkg.deps {
+		if h(dep.path, false) != dep.hash {
 			return true
 		}
 	}
@@ -164,7 +171,7 @@ var (
 
 /*
 DiskCache cacheFile format:
-	<pkgPath> <exportFile> <depPkgNum>
+	<pkgPath> <exportFile> <pkgHash> <depPkgNum>
 		<depPkgPath1> <depPkgHash1>
 		<depPkgPath2> <depPkgHash2>
 		...
@@ -188,11 +195,11 @@ func (p *Impl) Load(cacheFile string) (err error) {
 func (p *Impl) loadCachePkgs(lines []string) error {
 	for len(lines) > 0 {
 		line := lines[0]
-		parts := strings.SplitN(line, "\t", 3)
-		if len(parts) != 3 || parts[0] == "" {
+		parts := strings.SplitN(line, "\t", 4)
+		if len(parts) != 4 || parts[0] == "" {
 			return errInvalidFormat
 		}
-		n, e := strconv.Atoi(parts[2])
+		n, e := strconv.Atoi(parts[3])
 		if e != nil || len(lines) < n+1 {
 			return errInvalidFormat
 		}
@@ -209,7 +216,7 @@ func (p *Impl) loadCachePkgs(lines []string) error {
 			}
 			deps = append(deps, depPkg{line[:pos], line[pos+1:]})
 		}
-		pkg := &pkgCache{expfile: parts[1], deps: deps}
+		pkg := &pkgCache{expfile: parts[1], hash: parts[2], deps: deps}
 		p.cache.Store(parts[0], pkg)
 		lines = lines[n+1:]
 	}
@@ -224,6 +231,8 @@ func (p *Impl) Save(cacheFile string) (err error) {
 		buf.WriteString(key.(string))
 		buf.WriteByte('\t')
 		buf.WriteString(pkg.expfile)
+		buf.WriteByte('\t')
+		buf.WriteString(pkg.hash)
 		buf.WriteByte('\t')
 		buf.WriteString(strconv.Itoa(len(pkg.deps)))
 		buf.WriteByte('\n')
