@@ -27,14 +27,19 @@ import (
 
 // ----------------------------------------------------------------------------
 
+type DiskCache interface {
+	Find(dir, pkgPath string) (expfile string, err error)
+}
+
 type Importer struct {
 	loaded map[string]*types.Package
 	fset   *token.FileSet
 	dir    string
+	cache  DiskCache
 	m      sync.RWMutex
 }
 
-// NewImporter creates an Importer object that meets types.Importer interface.
+// NewImporter creates an Importer object that meets types.ImporterFrom and types.Importer interface.
 func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 	dir := ""
 	if len(workDir) > 0 {
@@ -46,6 +51,11 @@ func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 	loaded := make(map[string]*types.Package)
 	loaded["unsafe"] = types.Unsafe
 	return &Importer{loaded: loaded, fset: fset, dir: dir}
+}
+
+// SetDiskCache sets an optional disk cache for the importer.
+func (p *Importer) SetDiskCache(cache DiskCache) {
+	p.cache = cache
 }
 
 func (p *Importer) Import(pkgPath string) (pkg *types.Package, err error) {
@@ -68,7 +78,7 @@ func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*type
 		return ret, nil
 	}
 	p.m.RUnlock()
-	expfile, err := FindExport(dir, pkgPath)
+	expfile, err := p.findExport(dir, pkgPath)
 	if err != nil {
 		return nil, err
 	}
@@ -93,9 +103,12 @@ func (p *Importer) loadByExport(expfile string, pkgPath string) (ret *types.Pack
 
 // ----------------------------------------------------------------------------
 
-// FindExport lookups export file (.a) of a package by its pkgPath.
+// findExport lookups export file (.a) of a package by its pkgPath.
 // It returns empty if pkgPath not found.
-func FindExport(dir, pkgPath string) (expfile string, err error) {
+func (p *Importer) findExport(dir, pkgPath string) (expfile string, err error) {
+	if c := p.cache; c != nil {
+		return c.Find(dir, pkgPath)
+	}
 	data, err := golistExport(dir, pkgPath)
 	if err != nil {
 		return
