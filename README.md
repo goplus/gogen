@@ -30,7 +30,7 @@ func main() {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "a", "b").Val("Hi").Val(3).EndInit(2). // a, b := "Hi", 3
 		NewVarStart(nil, "c").VarVal("b").EndInit(1).                      // var c = b
-		NewVar(gogen.TyEmptyInterface, "x", "y").                            // var x, y interface{}
+		NewVar(gogen.TyEmptyInterface, "x", "y").                          // var x, y interface{}
 		Val(fmt.Ref("Println")).
 		/**/ VarVal("a").VarVal("b").VarVal("c"). // fmt.Println(a, b, c)
 		/**/ Call(3).EndStmt().
