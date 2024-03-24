@@ -1107,3 +1107,53 @@ func main() {
 }
 `)
 }
+
+func TestTypeParamsArgumentsSignature(t *testing.T) {
+	switch runtime.Version()[:6] {
+	case "go1.18", "go1.19", "go1.20":
+		t.Skip("not support arguments with typeparam signature")
+	}
+
+	const src = `package foo
+
+import "fmt"
+
+func ListMap[T any](ar []T, fn func(v T) T, dump func(i int, v T)) {
+	for i, v := range ar {
+		ar[i] = fn(v)
+		dump(i,ar[i])
+	}
+}
+
+func Add[N ~int](x N) N {
+	return x+x
+}
+
+func Dump[T any](i int, v T) {
+	fmt.Println(i,v)
+}
+
+var Numbers = []int{1,2,3,4}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	fooRef := pkg.Import("foo")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fooRef.Ref("ListMap")).
+		Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")).
+		Call(3).EndStmt().
+		End()
+
+	domTest(t, pkg, `package main
+
+import "foo"
+
+func main() {
+	foo.ListMap(foo.Numbers, foo.Add, foo.Dump)
+}
+`)
+}
