@@ -61,6 +61,11 @@ func (p *Importer) SetCache(cache Cache) {
 	p.cache = cache
 }
 
+// Cache returns the cache of the importer.
+func (p *Importer) Cache() Cache {
+	return p.cache
+}
+
 // Import returns the imported package for the given import path.
 func (p *Importer) Import(pkgPath string) (pkg *types.Package, err error) {
 	return p.ImportFrom(pkgPath, p.dir, 0)
@@ -108,7 +113,6 @@ func (p *Importer) loadByExport(expfile string, pkgPath string) (ret *types.Pack
 // ----------------------------------------------------------------------------
 
 // findExport lookups export file (.a) of a package by its pkgPath.
-// It returns empty if pkgPath not found.
 func (p *Importer) findExport(dir, pkgPath string) (expfile string, err error) {
 	if c := p.cache; c != nil {
 		return c.Find(dir, pkgPath)
