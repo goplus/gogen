@@ -28,16 +28,18 @@ import (
 
 // ----------------------------------------------------------------------------
 
-type DiskCache interface {
+// Cache represents a cache for the importer.
+type Cache interface {
 	Find(dir, pkgPath string) (expfile string, err error)
 }
 
+// Importer represents a Go package importer.
 type Importer struct {
 	loaded map[string]*types.Package
 	fset   *token.FileSet
 	dir    string
 	m      sync.RWMutex
-	cache  DiskCache
+	cache  Cache
 }
 
 // NewImporter creates an Importer object that meets types.ImporterFrom and types.Importer interface.
@@ -54,11 +56,12 @@ func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 	return &Importer{loaded: loaded, fset: fset, dir: dir}
 }
 
-// SetDiskCache sets an optional disk cache for the importer.
-func (p *Importer) SetDiskCache(cache DiskCache) {
+// SetDiskCache sets an optional cache for the importer.
+func (p *Importer) SetCache(cache Cache) {
 	p.cache = cache
 }
 
+// Import returns the imported package for the given import path.
 func (p *Importer) Import(pkgPath string) (pkg *types.Package, err error) {
 	return p.ImportFrom(pkgPath, p.dir, 0)
 }
