@@ -56,7 +56,7 @@ func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 	return &Importer{loaded: loaded, fset: fset, dir: dir}
 }
 
-// SetDiskCache sets an optional cache for the importer.
+// SetCache sets an optional cache for the importer.
 func (p *Importer) SetCache(cache Cache) {
 	p.cache = cache
 }
