@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/tools/go/gcexportdata"
 )
@@ -35,8 +36,8 @@ type Importer struct {
 	loaded map[string]*types.Package
 	fset   *token.FileSet
 	dir    string
-	cache  DiskCache
 	m      sync.RWMutex
+	cache  DiskCache
 }
 
 // NewImporter creates an Importer object that meets types.ImporterFrom and types.Importer interface.
@@ -109,6 +110,7 @@ func (p *Importer) findExport(dir, pkgPath string) (expfile string, err error) {
 	if c := p.cache; c != nil {
 		return c.Find(dir, pkgPath)
 	}
+	atomic.AddInt32(&nlist, 1)
 	data, err := golistExport(dir, pkgPath)
 	if err != nil {
 		return
@@ -130,6 +132,15 @@ func golistExport(dir, pkgPath string) (ret []byte, err error) {
 		err = errors.New(stderr.String())
 	}
 	return
+}
+
+var (
+	nlist int32
+)
+
+// ListTimes returns the number of times of calling `go list`.
+func ListTimes() int {
+	return int(atomic.LoadInt32(&nlist))
 }
 
 // ----------------------------------------------------------------------------

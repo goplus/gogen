@@ -70,6 +70,7 @@ func (p diskCache) Find(dir, pkgPath string) (expfile string, err error) {
 }
 
 func TestDiskCache(t *testing.T) {
+	nlist = 0
 	p := NewImporter(nil)
 	p.SetDiskCache(diskCache{})
 	_, err := p.Import("fmt")
@@ -80,6 +81,9 @@ func TestDiskCache(t *testing.T) {
 	pkg, err := p.Import("fmt")
 	if err != nil || pkg.Path() != "fmt" {
 		t.Fatal("Import fmt:", pkg, err)
+	}
+	if v := ListTimes(); v != 1 {
+		t.Fatal("ListTimes:", v)
 	}
 }
 
