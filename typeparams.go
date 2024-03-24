@@ -318,6 +318,13 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []ty
 		return nil, err
 	}
 	xlist := make([]*operand, len(args))
+	tp := sig.TypeParams()
+	n := tp.Len()
+	tparams := make([]*types.TypeParam, n)
+	for i := 0; i < n; i++ {
+		tparams[i] = tp.At(i)
+	}
+	var targList []*internal.Elem
 	for i, arg := range args {
 		xlist[i] = &operand{
 			mode: value,
@@ -325,18 +332,33 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []ty
 			typ:  arg.Type,
 			val:  arg.CVal,
 		}
-	}
-	tp := sig.TypeParams()
-	n := tp.Len()
-	tparams := make([]*types.TypeParam, n)
-	for i := 0; i < n; i++ {
-		tparams[i] = tp.At(i)
+		if sig, ok := arg.Type.(*types.Signature); ok {
+			if tp := sig.TypeParams(); tp != nil {
+				for i := 0; i < n; i++ {
+					tparams = append(tparams, tp.At(i))
+				}
+				targList = append(targList, arg)
+			}
+		}
 	}
 	targs, err = infer(pkg, fn.Val, tparams, targs, sig.Params(), xlist)
 	if err != nil {
 		return nil, err
 	}
-	return types.Instantiate(pkg.cb.ctxt, sig, targs, true)
+	typ, err := types.Instantiate(pkg.cb.ctxt, sig, targs[:n], true)
+	if err == nil {
+		for _, targ := range targList {
+			tsig := targ.Type.(*types.Signature)
+			tp := tsig.TypeParams()
+			tn := tp.Len()
+			tt, err := types.Instantiate(pkg.cb.ctxt, tsig, targs[n:n+tn], true)
+			if err == nil {
+				targ.Type = tt
+			}
+			n += tn
+		}
+	}
+	return typ, err
 }
 
 func inferFuncTargs(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type) (types.Type, error) {
