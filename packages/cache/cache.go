@@ -106,7 +106,7 @@ type exportPkg struct {
 func golistExport(dir string, pkgPath []string) (ret []exportPkg, err error) {
 	var stdout, stderr bytes.Buffer
 	var args = make([]string, 0, 3+len(pkgPath))
-	args = append(args, "list", "-f='{{.ImportPath}}\t{{.Export}}\t{{.Deps}}'", "-export")
+	args = append(args, "list", "-f={{.ImportPath}}\t{{.Export}}\t{{.Deps}}", "-export")
 	args = append(args, pkgPath...)
 	cmd := exec.Command("go", args...)
 	cmd.Stdout = &stdout
@@ -144,7 +144,8 @@ var (
 func parseExport(line string) (ret exportPkg, err error) {
 	parts := strings.SplitN(line, "\t", 3)
 	if len(parts) != 3 {
-		return ret, errInvalidFormat
+		err = errInvalidFormat
+		return
 	}
 	deps := parts[2]
 	if len(deps) > 2 {
@@ -155,6 +156,11 @@ func parseExport(line string) (ret exportPkg, err error) {
 }
 
 // ----------------------------------------------------------------------------
+
+var (
+	readFile  = os.ReadFile
+	writeFile = os.WriteFile
+)
 
 /*
 DiskCache cacheFile format:
@@ -168,7 +174,7 @@ DiskCache cacheFile format:
 
 // Load loads the cache from a file.
 func (p *Impl) Load(cacheFile string) (err error) {
-	b, err := os.ReadFile(cacheFile)
+	b, err := readFile(cacheFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil
@@ -230,7 +236,7 @@ func (p *Impl) Save(cacheFile string) (err error) {
 		}
 		return true
 	})
-	return os.WriteFile(cacheFile, buf.Bytes(), 0666)
+	return writeFile(cacheFile, buf.Bytes(), 0666)
 }
 
 // ----------------------------------------------------------------------------
