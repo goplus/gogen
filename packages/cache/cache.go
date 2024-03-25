@@ -232,6 +232,9 @@ func (p *Impl) loadCachePkgs(lines []string) error {
 
 // Save saves the cache to a file.
 func (p *Impl) Save(cacheFile string) (err error) {
+	if atomic.LoadInt32(&p.nlist) == 0 { // not dirty
+		return
+	}
 	var buf bytes.Buffer
 	p.cache.Range(func(key, val any) bool {
 		pkg := val.(*pkgCache)
