@@ -611,7 +611,7 @@ retry:
 	case *types.Signature:
 		if t.TypeParams() != nil {
 			if (flags & instrFlagGopxFunc) == 0 {
-				rt, err := inferFunc(pkg, fn, t, nil, args, flags)
+				rt, err := InferFunc(pkg, fn, t, nil, args, flags)
 				if err != nil {
 					return nil, pkg.cb.newCodeError(getSrcPos(fn.Src), err.Error())
 				}
