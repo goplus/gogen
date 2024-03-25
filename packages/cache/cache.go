@@ -24,6 +24,11 @@ import (
 	"sync/atomic"
 )
 
+const (
+	HashInvalid = "?"
+	HashSkip    = ""
+)
+
 type depPkg struct {
 	path string
 	hash string // empty means dirty cache
@@ -69,7 +74,9 @@ func (p *Impl) Prepare(dir string, pkgPath ...string) (err error) {
 		deps := make([]depPkg, 0, len(v.deps))
 		pkg := &pkgCache{expfile: v.expfile, hash: h(v.path, true), deps: deps}
 		for _, dep := range v.deps {
-			pkg.deps = append(pkg.deps, depPkg{dep, h(dep, false)})
+			if hash := h(dep, false); hash != HashSkip {
+				pkg.deps = append(pkg.deps, depPkg{dep, hash})
+			}
 		}
 		p.cache.Store(v.path, pkg)
 	}
@@ -93,7 +100,7 @@ func (p *Impl) Find(dir, pkgPath string) (expfile string, err error) {
 
 func isDirty(pkgPath string, val any, h PkgHash) bool {
 	pkg := val.(*pkgCache)
-	if pkg.hash == "" || h(pkgPath, true) != pkg.hash {
+	if pkg.hash == HashInvalid || h(pkgPath, true) != pkg.hash {
 		return true
 	}
 	for _, dep := range pkg.deps {

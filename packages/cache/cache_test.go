@@ -23,7 +23,7 @@ import (
 )
 
 func dirtyPkgHash(pkgPath string, self bool) string {
-	return ""
+	return HashInvalid
 }
 
 func nodirtyPkgHash(pkgPath string, self bool) string {
