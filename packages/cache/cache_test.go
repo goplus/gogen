@@ -22,11 +22,11 @@ import (
 	"github.com/goplus/gogen/packages"
 )
 
-func dirtyPkgHash(pkgPath string) string {
+func dirtyPkgHash(pkgPath string, self bool) string {
 	return ""
 }
 
-func nodirtyPkgHash(pkgPath string) string {
+func nodirtyPkgHash(pkgPath string, self bool) string {
 	return "1"
 }
 
@@ -105,6 +105,20 @@ func TestBasic(t *testing.T) {
 	}
 }
 
+func TestIsDirty(t *testing.T) {
+	c := &pkgCache{"1.a", "a", []depPkg{
+		{"b", "b"},
+	}}
+	if !isDirty("a", c, func(pkgPath string, self bool) (hash string) {
+		if self {
+			return pkgPath
+		}
+		return ""
+	}) {
+		t.Fatal("isDirty: is not dirty")
+	}
+}
+
 func TestParseExport(t *testing.T) {
 	if _, e := parseExports("abc"); e != errInvalidFormat {
 		t.Fatal("parseExports failed:", e)
@@ -116,13 +130,13 @@ func TestErrLoadCache(t *testing.T) {
 	if err := c.loadCachePkgs([]string{"abc"}); err != errInvalidFormat {
 		t.Fatal("loadCachePkgs failed:", err)
 	}
-	if err := c.loadCachePkgs([]string{"abc\tefg\t3"}); err != errInvalidFormat {
+	if err := c.loadCachePkgs([]string{"abc\tefg\thash\t3"}); err != errInvalidFormat {
 		t.Fatal("loadCachePkgs failed:", err)
 	}
-	if err := c.loadCachePkgs([]string{"abc\tefg\t1", "x"}); err != errInvalidFormat {
+	if err := c.loadCachePkgs([]string{"abc\tefg\thash\t1", "x"}); err != errInvalidFormat {
 		t.Fatal("loadCachePkgs failed:", err)
 	}
-	if err := c.loadCachePkgs([]string{"abc\tefg\t1", "\tx"}); err != errInvalidFormat {
+	if err := c.loadCachePkgs([]string{"abc\tefg\thash\t1", "\tx"}); err != errInvalidFormat {
 		t.Fatal("loadCachePkgs failed:", err)
 	}
 }
