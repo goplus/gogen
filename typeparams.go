@@ -70,7 +70,7 @@ func (p *inferFuncType) Instance() *types.Signature {
 }
 
 func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem, flags InstrFlags) *types.Signature {
-	tyRet, err := inferFunc(p.pkg, p.fn, p.typ, p.targs, args, flags)
+	tyRet, err := InferFunc(p.pkg, p.fn, p.typ, p.targs, args, flags)
 	if err != nil {
 		pos := getSrcPos(p.src)
 		p.pkg.cb.panicCodeErrorf(pos, "%v", err)
@@ -312,7 +312,8 @@ func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args 
 	return args, nil
 }
 
-func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type, args []*internal.Elem, flags InstrFlags) (types.Type, error) {
+// InferFunc attempts to infer and instantiates the generic function instantiation with given func and args.
+func InferFunc(pkg *Package, fn *Element, sig *types.Signature, targs []types.Type, args []*Element, flags InstrFlags) (types.Type, error) {
 	args, err := checkInferArgs(pkg, fn, sig, args, flags)
 	if err != nil {
 		return nil, err
