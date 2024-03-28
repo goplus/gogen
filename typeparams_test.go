@@ -1118,7 +1118,7 @@ func TestTypeParamsArgumentsSignature(t *testing.T) {
 
 import "fmt"
 
-func ListMap[T any](ar []T, fn func(v T) T, dump func(i int, v T)) {
+func ListMap[X any, T any](v X, ar []T, fn func(v T) T, dump func(i int, v T)) {
 	for i, v := range ar {
 		ar[i] = fn(v)
 		dump(i,ar[i])
@@ -1144,8 +1144,8 @@ var Numbers = []int{1,2,3,4}
 	fooRef := pkg.Import("foo")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fooRef.Ref("ListMap")).
-		Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")).
-		Call(3).EndStmt().
+		Val(100).Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")).
+		Call(4).EndStmt().
 		End()
 
 	domTest(t, pkg, `package main
@@ -1153,7 +1153,7 @@ var Numbers = []int{1,2,3,4}
 import "foo"
 
 func main() {
-	foo.ListMap(foo.Numbers, foo.Add, foo.Dump)
+	foo.ListMap(100, foo.Numbers, foo.Add, foo.Dump)
 }
 `)
 }
