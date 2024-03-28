@@ -333,9 +333,9 @@ func InferFunc(pkg *Package, fn *Element, sig *types.Signature, targs []types.Ty
 			typ:  arg.Type,
 			val:  arg.CVal,
 		}
-		if sig, ok := arg.Type.(*types.Signature); ok {
-			if tp := sig.TypeParams(); tp != nil {
-				for i := 0; i < n; i++ {
+		if tsig, ok := arg.Type.(*types.Signature); ok {
+			if tp := tsig.TypeParams(); tp != nil {
+				for i := 0; i < tp.Len(); i++ {
 					tparams = append(tparams, tp.At(i))
 				}
 				targList = append(targList, arg)
