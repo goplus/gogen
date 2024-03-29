@@ -314,51 +314,7 @@ func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args 
 
 // InferFunc attempts to infer and instantiates the generic function instantiation with given func and args.
 func InferFunc(pkg *Package, fn *Element, sig *types.Signature, targs []types.Type, args []*Element, flags InstrFlags) (types.Type, error) {
-	args, err := checkInferArgs(pkg, fn, sig, args, flags)
-	if err != nil {
-		return nil, err
-	}
-	xlist := make([]*operand, len(args))
-	tp := sig.TypeParams()
-	n := tp.Len()
-	tparams := make([]*types.TypeParam, n)
-	for i := 0; i < n; i++ {
-		tparams[i] = tp.At(i)
-	}
-	var targList []*internal.Elem
-	for i, arg := range args {
-		xlist[i] = &operand{
-			mode: value,
-			expr: arg.Val,
-			typ:  arg.Type,
-			val:  arg.CVal,
-		}
-		if sig, ok := arg.Type.(*types.Signature); ok {
-			if tp := sig.TypeParams(); tp != nil {
-				for i := 0; i < n; i++ {
-					tparams = append(tparams, tp.At(i))
-				}
-				targList = append(targList, arg)
-			}
-		}
-	}
-	targs, err = infer(pkg, fn.Val, tparams, targs, sig.Params(), xlist)
-	if err != nil {
-		return nil, err
-	}
-	typ, err := types.Instantiate(pkg.cb.ctxt, sig, targs[:n], true)
-	if err == nil {
-		for _, targ := range targList {
-			tsig := targ.Type.(*types.Signature)
-			tp := tsig.TypeParams()
-			tn := tp.Len()
-			tt, err := types.Instantiate(pkg.cb.ctxt, tsig, targs[n:n+tn], true)
-			if err == nil {
-				targ.Type = tt
-			}
-			n += tn
-		}
-	}
+	_, typ, err := inferFunc(pkg, fn, sig, targs, args, flags)
 	return typ, err
 }
 
@@ -530,6 +486,69 @@ func (p *Package) Instantiate(orig types.Type, targs []types.Type, src ...ast.No
 		p.cb.handleCodeError(getPos(src), err.Error())
 	}
 	return ret
+}
+
+func paramsToArgs(sig *types.Signature) []*internal.Elem {
+	n := sig.Params().Len()
+	args := make([]*internal.Elem, n)
+	for i := 0; i < n; i++ {
+		p := sig.Params().At(i)
+		args[i] = &internal.Elem{
+			Val:  ast.NewIdent(p.Name()),
+			Type: p.Type(),
+		}
+	}
+	return args
+}
+
+func instanceInferFunc(pkg *Package, arg *internal.Elem, tsig *inferFuncType, sig *types.Signature) error {
+	args := paramsToArgs(sig)
+	targs, _, err := inferFunc(tsig.pkg, tsig.fn, tsig.typ, tsig.targs, args, 0)
+	if err != nil {
+		return err
+	}
+	arg.Type = sig
+	index := make([]ast.Expr, len(targs))
+	for i, a := range targs {
+		index[i] = toType(pkg, a)
+	}
+	var x ast.Expr
+	switch v := arg.Val.(type) {
+	case *ast.IndexExpr:
+		x = v.X
+	case *ast.IndexListExpr:
+		x = v.X
+	}
+	arg.Val = &ast.IndexListExpr{
+		Indices: index,
+		X:       x,
+	}
+	return nil
+}
+
+func instanceFunc(pkg *Package, arg *internal.Elem, tsig *types.Signature, sig *types.Signature) error {
+	args := paramsToArgs(sig)
+	targs, _, err := inferFunc(pkg, &internal.Elem{Val: arg.Val}, tsig, nil, args, 0)
+	if err != nil {
+		return err
+	}
+	arg.Type = sig
+	if len(targs) == 1 {
+		arg.Val = &ast.IndexExpr{
+			Index: toType(pkg, targs[0]),
+			X:     arg.Val,
+		}
+	} else {
+		index := make([]ast.Expr, len(targs))
+		for i, a := range targs {
+			index[i] = toType(pkg, a)
+		}
+		arg.Val = &ast.IndexListExpr{
+			Indices: index,
+			X:       arg.Val,
+		}
+	}
+	return nil
 }
 
 // ----------------------------------------------------------------------------

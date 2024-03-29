@@ -1109,28 +1109,35 @@ func main() {
 }
 
 func TestTypeParamsArgumentsSignature(t *testing.T) {
-	switch runtime.Version()[:6] {
-	case "go1.18", "go1.19", "go1.20":
-		t.Skip("not support arguments with typeparam signature")
-	}
-
 	const src = `package foo
 
 import "fmt"
 
-func ListMap[T any](ar []T, fn func(v T) T, dump func(i int, v T)) {
+func ListMap[X any, T any](x X, ar []T, fn func(v T) T, dump func(i int,x X, v T)) {
 	for i, v := range ar {
 		ar[i] = fn(v)
-		dump(i,ar[i])
+		dump(i, x, ar[i])
 	}
 }
+
+func ListMapv[X any, T any](x X, ar []T, fn func(v T) T, dump ...func(i int,x X, v T)) {
+	for i, v := range ar {
+		ar[i] = fn(v)
+		dump[0](i, x, ar[i])
+	}
+}
+
 
 func Add[N ~int](x N) N {
 	return x+x
 }
 
-func Dump[T any](i int, v T) {
-	fmt.Println(i,v)
+func Dump[N any, X any, Y any](i N, x X, y Y) {
+	fmt.Println(i, x, y)
+}
+
+func Dump2[X any, Y any](i int, x X, y Y) {
+	fmt.Println(i, x, y)
 }
 
 var Numbers = []int{1,2,3,4}
@@ -1142,18 +1149,44 @@ var Numbers = []int{1,2,3,4}
 	}
 	pkg := gt.NewPackage("", "main")
 	fooRef := pkg.Import("foo")
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+	pkg.NewFunc(nil, "_", nil, nil, false).BodyStart(pkg).
 		Val(fooRef.Ref("ListMap")).
-		Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")).
-		Call(3).EndStmt().
+		Val(100).Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")).
+		Call(4).EndStmt().
+		Val(fooRef.Ref("ListMap")).
+		Val("a").Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")).
+		Typ(types.Typ[types.Int]).Index(1, false).
+		Call(4).EndStmt().
+		Val(fooRef.Ref("ListMap")).
+		Val("a").Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump2")).
+		Call(4).EndStmt().
 		End()
-
+	pkg.NewFunc(nil, "_", nil, nil, false).BodyStart(pkg).
+		Val(fooRef.Ref("ListMapv")).
+		Val(100).Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")). //.SliceLit(tyFuncList, 1).
+		Val(fooRef.Ref("Dump")).
+		Typ(types.Typ[types.Int]).Index(1, false).
+		Val(fooRef.Ref("Dump2")).
+		Call(6, false).EndStmt().
+		Val(fooRef.Ref("ListMapv")).
+		Val("a").Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")). //.SliceLit(tyFuncList, 1).
+		Val(fooRef.Ref("Dump")).
+		Typ(types.Typ[types.Int]).Index(1, false).
+		Val(fooRef.Ref("Dump2")).
+		Call(6, false).EndStmt().
+		End()
 	domTest(t, pkg, `package main
 
 import "foo"
 
-func main() {
-	foo.ListMap(foo.Numbers, foo.Add, foo.Dump)
+func _() {
+	foo.ListMap(100, foo.Numbers, foo.Add[int], foo.Dump[int, int, int])
+	foo.ListMap("a", foo.Numbers, foo.Add[int], foo.Dump[int, string, int])
+	foo.ListMap("a", foo.Numbers, foo.Add[int], foo.Dump2[string, int])
+}
+func _() {
+	foo.ListMapv(100, foo.Numbers, foo.Add[int], foo.Dump[int, int, int], foo.Dump[int, int, int], foo.Dump2[int, int])
+	foo.ListMapv("a", foo.Numbers, foo.Add[int], foo.Dump[int, string, int], foo.Dump[int, string, int], foo.Dump2[string, int])
 }
 `)
 }
