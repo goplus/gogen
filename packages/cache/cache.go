@@ -16,6 +16,7 @@ package cache
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -84,21 +85,21 @@ func (p *Impl) Prepare(dir string, pkgPath ...string) (err error) {
 }
 
 // Find finds the cache for a pkgPath.
-func (p *Impl) Find(dir, pkgPath string) (expfile string, err error) {
+func (p *Impl) Find(dir, pkgPath string) (f io.ReadCloser, err error) {
 	val, ok := p.cache.Load(pkgPath)
-	if !ok || isDirty(pkgPath, val, p.h) {
+	if !ok || isDirty(&f, pkgPath, val, p.h) {
 		err = p.Prepare(dir, pkgPath)
-		if val, ok = p.cache.Load(pkgPath); !ok {
-			if err == nil {
-				err = os.ErrNotExist
-			}
-			return
+		if val, ok = p.cache.Load(pkgPath); ok {
+			return os.Open(val.(*pkgCache).expfile)
+		}
+		if err == nil {
+			err = os.ErrNotExist
 		}
 	}
-	return val.(*pkgCache).expfile, nil
+	return
 }
 
-func isDirty(pkgPath string, val any, h PkgHash) bool {
+func isDirty(pf *io.ReadCloser, pkgPath string, val any, h PkgHash) bool {
 	pkg := val.(*pkgCache)
 	if pkg.hash == HashInvalid || h(pkgPath, true) != pkg.hash {
 		return true
@@ -108,7 +109,9 @@ func isDirty(pkgPath string, val any, h PkgHash) bool {
 			return true
 		}
 	}
-	return false
+	f, err := os.Open(pkg.expfile)
+	*pf = f
+	return err != nil
 }
 
 type exportPkg struct {

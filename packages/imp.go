@@ -18,6 +18,7 @@ import (
 	"errors"
 	"go/token"
 	"go/types"
+	"io"
 	"os"
 	"os/exec"
 	"sync"
@@ -30,7 +31,7 @@ import (
 
 // Cache represents a cache for the importer.
 type Cache interface {
-	Find(dir, pkgPath string) (expfile string, err error)
+	Find(dir, pkgPath string) (f io.ReadCloser, err error)
 }
 
 // Importer represents a Go package importer.
@@ -87,20 +88,15 @@ func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*type
 		return ret, nil
 	}
 	p.m.RUnlock()
-	expfile, err := p.findExport(dir, pkgPath)
-	if err != nil {
-		return nil, err
-	}
-	return p.loadByExport(expfile, pkgPath)
-}
-
-func (p *Importer) loadByExport(expfile string, pkgPath string) (ret *types.Package, err error) {
-	f, err := os.Open(expfile)
+	f, err := p.findExport(dir, pkgPath)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+	return p.loadByExport(f, pkgPath)
+}
 
+func (p *Importer) loadByExport(f io.ReadCloser, pkgPath string) (ret *types.Package, err error) {
 	r, err := gcexportdata.NewReader(f)
 	if err == nil {
 		p.m.Lock() // use mutex because Import should be multi-thread safe
@@ -113,7 +109,7 @@ func (p *Importer) loadByExport(expfile string, pkgPath string) (ret *types.Pack
 // ----------------------------------------------------------------------------
 
 // findExport lookups export file (.a) of a package by its pkgPath.
-func (p *Importer) findExport(dir, pkgPath string) (expfile string, err error) {
+func (p *Importer) findExport(dir, pkgPath string) (f io.ReadCloser, err error) {
 	if c := p.cache; c != nil {
 		return c.Find(dir, pkgPath)
 	}
@@ -122,8 +118,8 @@ func (p *Importer) findExport(dir, pkgPath string) (expfile string, err error) {
 	if err != nil {
 		return
 	}
-	expfile = string(bytes.TrimSuffix(data, []byte{'\n'}))
-	return
+	expfile := string(bytes.TrimSuffix(data, []byte{'\n'}))
+	return os.Open(expfile)
 }
 
 func golistExport(dir, pkgPath string) (ret []byte, err error) {
