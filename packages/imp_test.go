@@ -53,9 +53,11 @@ func TestImportBuiltin(t *testing.T) {
 func Test_loadByExport(t *testing.T) {
 	p := NewImporter(nil)
 	if _, err := loadByExport(p, "/not-found", "notfound"); !os.IsNotExist(err) {
+		t.Fatal("Test_loadByExport:", err)
+	}
+	if _, err := p.findExport(".", "C"); err == nil {
 		t.Fatal("Test_loadByExport: no error?")
 	}
-	p.findExport(".", "C")
 }
 
 func loadByExport(p *Importer, expfile, pkgPath string) (pkg *types.Package, err error) {
