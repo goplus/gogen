@@ -109,7 +109,7 @@ func TestIsDirty(t *testing.T) {
 	c := &pkgCache{"1.a", "a", []depPkg{
 		{"b", "b"},
 	}}
-	if !isDirty("a", c, func(pkgPath string, self bool) (hash string) {
+	if !isDirty(nil, "a", c, func(pkgPath string, self bool) (hash string) {
 		if self {
 			return pkgPath
 		}
