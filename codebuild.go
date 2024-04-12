@@ -1526,11 +1526,14 @@ const (
 	MemberFlagRef MemberFlag = -1
 
 	// private state
-	memberFlagMethodToFunc MemberFlag = -2
+	memberFlagMethodToFunc MemberFlag = 0x80
 )
 
 func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
-	// flag > 0: (flag == MemberFlagMethodAlias || flag == MemberFlagAutoProperty)
+	// flag > 0 means:
+	//   flag == MemberFlagMethodAlias ||
+	//   flag == MemberFlagAutoProperty ||
+	//   flag == memberFlagMethodToFunc
 	if flag > 0 && name != "" {
 		if c := name[0]; c >= 'a' && c <= 'z' {
 			return string(rune(c)+('A'-'a')) + name[1:], flag
