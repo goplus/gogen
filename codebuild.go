@@ -1526,16 +1526,21 @@ const (
 	MemberFlagRef MemberFlag = -1
 
 	// private state
-	memberFlagMethodToFunc MemberFlag = -2
+	memberFlagMethodToFunc MemberFlag = 0x80
 )
 
 func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
-	// flag > 0: (flag == MemberFlagMethodAlias || flag == MemberFlagAutoProperty)
+	// flag > 0 means:
+	//   flag == MemberFlagMethodAlias ||
+	//   flag == MemberFlagAutoProperty ||
+	//   flag == memberFlagMethodToFunc
 	if flag > 0 && name != "" {
 		if c := name[0]; c >= 'a' && c <= 'z' {
 			return string(rune(c)+('A'-'a')) + name[1:], flag
 		}
-		flag = MemberFlagVal
+		if flag != memberFlagMethodToFunc {
+			flag = MemberFlagVal
+		}
 	}
 	return "", flag
 }
@@ -1556,12 +1561,13 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	if flag == MemberFlagRef {
 		kind = p.refMember(at, name, arg.Val, srcExpr)
 	} else {
-		t, isType := at.(*TypeType)
+		var aliasName string
+		var t, isType = at.(*TypeType)
 		if isType { // (T).method or (*T).method
 			at = t.Type()
 			flag = memberFlagMethodToFunc
 		}
-		aliasName, flag := aliasNameOf(name, flag)
+		aliasName, flag = aliasNameOf(name, flag)
 		kind = p.findMember(at, name, aliasName, flag, arg, srcExpr)
 		if isType && kind != MemberMethod {
 			code, pos := p.loadExpr(srcExpr)
