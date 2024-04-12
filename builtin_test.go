@@ -206,7 +206,10 @@ func TestErrMethodSig(t *testing.T) {
 		arg := &Element{
 			Type: &TypeType{typ: types.NewPointer(recv)},
 		}
-		methodSigOf(method, memberFlagMethodToFunc, arg, &ast.SelectorExpr{Sel: ast.NewIdent("bar")})
+		ret := &Element{
+			Val: &ast.SelectorExpr{Sel: ast.NewIdent("bar")},
+		}
+		pkg.cb.methodSigOf(method, memberFlagMethodToFunc, arg, ret)
 	})
 }
 
@@ -797,6 +800,7 @@ func TestTypeEx(t *testing.T) {
 		&unboundMapElemType{},
 		&TyOverloadFunc{},
 		&TyOverloadMethod{},
+		&TyStaticMethod{},
 		&TyTemplateRecvMethod{},
 		&TyInstruction{},
 		&TyOverloadNamed{Obj: types.NewTypeName(0, pkg.Types, "bar", tyInt)},

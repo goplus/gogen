@@ -976,6 +976,22 @@ func bar(v *foo.Foo2) {
 
 // ----------------------------------------------------------------------------
 
+func TestStaticMethod(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Typ(bar.Ref("Game").Type()).MemberVal("New").Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gogen/internal/bar"
+
+func main() {
+	bar.Gops_Game_New()
+}
+`)
+}
+
 func TestTemplateRecvMethod(t *testing.T) {
 	pkg := newMainPackage()
 	bar := pkg.Import("github.com/goplus/gogen/internal/bar")

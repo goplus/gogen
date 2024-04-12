@@ -215,6 +215,21 @@ func (p *tyTypeAsParams) funcEx()                {}
 
 // ----------------------------------------------------------------------------
 
+type TyStaticMethod struct {
+	Func types.Object
+}
+
+func (p *TyStaticMethod) Obj() types.Object      { return p.Func }
+func (p *TyStaticMethod) Underlying() types.Type { return p }
+func (p *TyStaticMethod) String() string         { return "TyStaticMethod" }
+func (p *TyStaticMethod) funcEx()                {}
+
+func NewStaticMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, fn types.Object) *types.Func {
+	return newMethodEx(typ, pos, pkg, name, &TyStaticMethod{fn})
+}
+
+// ----------------------------------------------------------------------------
+
 type TyTemplateRecvMethod struct {
 	Func types.Object
 }
