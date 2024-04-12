@@ -611,7 +611,7 @@ retry:
 	case *types.Signature:
 		if t.TypeParams() != nil {
 			if (flags & instrFlagGopxFunc) == 0 {
-				rt, err := inferFunc(pkg, fn, t, nil, args, flags)
+				rt, err := InferFunc(pkg, fn, t, nil, args, flags)
 				if err != nil {
 					return nil, pkg.cb.newCodeError(getSrcPos(fn.Src), err.Error())
 				}
@@ -1255,6 +1255,21 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 		case *types.Named:
 			typ = t.Underlying()
 			goto retry
+		}
+	}
+	// check generic type instance
+	if psig, ok := param.(*types.Signature); ok {
+		switch tsig := arg.Type.(type) {
+		case *inferFuncType:
+			if err := instanceInferFunc(pkg, arg, tsig, psig); err == nil {
+				return nil
+			}
+		case *types.Signature:
+			if tsig.TypeParams() != nil {
+				if err := instanceFunc(pkg, arg, tsig, psig); err == nil {
+					return nil
+				}
+			}
 		}
 	}
 	switch t := param.(type) {

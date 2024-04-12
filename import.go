@@ -81,12 +81,18 @@ func isGopoConst(name string) bool {
 }
 
 func isGopFunc(name string) bool {
-	return isOverload(name) || strings.HasPrefix(name, goptPrefix) || strings.HasPrefix(name, gopxPrefix)
+	return isOverload(name) || isGopCommon(name)
 }
 
 func isOverload(name string) bool {
 	n := len(name)
 	return n > 3 && name[n-3:n-1] == "__"
+}
+
+// Gop?_xxx
+func isGopCommon(name string) bool {
+	const n = len(commonPrefix)
+	return len(name) > n+2 && name[n+1] == '_' && name[:n] == commonPrefix
 }
 
 // InitThisGopPkg initializes a Go+ package.
@@ -130,24 +136,28 @@ func InitThisGopPkg(pkg *types.Package) {
 			key := omthd{nil, name[:len(name)-3]}
 			overloads[key] = append(overloads[key], o)
 		} else {
-			checkGoptGopx(pkg, scope, name, o)
+			checkGoptsx(pkg, scope, name, o)
 		}
 	}
 	for _, gopoName := range gopos {
 		if names, ok := checkOverloads(scope, gopoName); ok {
 			key := gopoName[len(gopoPrefix):]
 			m, tname := checkTypeMethod(scope, key)
-			fns := make([]types.Object, len(names))
+			fns := make([]types.Object, 0, len(names))
 			for i, name := range names {
 				if name == "" {
 					if m.typ != nil {
-						name = "(" + tname + ")."
+						name = "."
 					}
 					name += m.name + "__" + indexTable[i:i+1]
 				}
-				fns[i] = lookupFunc(scope, name, tname)
+				if obj := lookupFunc(scope, name, tname); obj != nil {
+					fns = append(fns, obj)
+				}
 			}
-			newOverload(pkg, scope, m, fns)
+			if len(fns) > 0 {
+				newOverload(pkg, scope, m, fns)
+			}
 			delete(overloads, m)
 		}
 	}
@@ -169,24 +179,13 @@ func InitThisGopPkg(pkg *types.Package) {
 
 // name
 // .name
-// (T).name
 func lookupFunc(scope *types.Scope, name, tname string) types.Object {
-	first := name[0]
-	if first == '.' || first == '(' {
-		if first == '.' {
-			name = name[1:]
-		} else {
-			next := name[1:]
-			pos := strings.Index(next, ").")
-			if pos <= 0 {
-				log.Panicf("lookupFunc: %v not a valid method, use `(T).method` please\n", name)
-			}
-			tname, name = next[:pos], next[pos+2:]
-		}
+	if name[0] == '.' {
+		name = name[1:]
 		tobj := scope.Lookup(tname)
 		if tobj != nil {
 			if tn, ok := tobj.(*types.TypeName); ok {
-				if o, ok := tn.Type().(*types.Named); ok { // TODO: interface support
+				if o, ok := tn.Type().(*types.Named); ok { // TODO(xsw): interface support
 					for i, n := 0, o.NumMethods(); i < n; i++ {
 						method := o.Method(i)
 						if method.Name() == name {
@@ -197,9 +196,10 @@ func lookupFunc(scope *types.Scope, name, tname string) types.Object {
 			}
 		}
 	} else if o := scope.Lookup(name); o != nil {
-		return o
+		if _, ok := o.Type().(*types.Signature); ok {
+			return o
+		}
 	}
-	log.Panicf("lookupFunc: %v not found\n", name)
 	return nil
 }
 
@@ -208,8 +208,10 @@ type omthd struct {
 	name string
 }
 
-// TypeName_Method
-// _TypeName__Method
+// Func (no _ func name)
+// _Func (with _ func name)
+// TypeName_Method (no _ method name)
+// _TypeName__Method (with _ method name)
 func checkTypeMethod(scope *types.Scope, name string) (omthd, string) {
 	if pos := strings.IndexByte(name, '_'); pos >= 0 {
 		nsep := 1
@@ -239,29 +241,51 @@ func checkTypeMethod(scope *types.Scope, name string) (omthd, string) {
 // Gopx_Func
 // Gopt_TypeName_Method
 // Gopt__TypeName__Method
-func checkGoptGopx(pkg *types.Package, scope *types.Scope, name string, o types.Object) {
-	if strings.HasPrefix(name, goptPrefix) { // Gopt_xxx
-		name = name[len(goptPrefix):]
-		if m, tname := checkTypeMethod(pkg.Scope(), name); m.typ != nil {
-			if debugImport {
-				log.Println("==> NewTemplateRecvMethod", tname, m.name)
+// Gops_TypeName_Method
+// Gops__TypeName__Method
+func checkGoptsx(pkg *types.Package, scope *types.Scope, name string, o types.Object) {
+	const n = len(commonPrefix)
+	const n2 = n + 2
+	if isGopCommon(name) {
+		switch ch := name[n]; ch {
+		case gopsCh, goptCh: // Gops_xxx, Gopt_xxx
+			name = name[n2:]
+			if m, tname := checkTypeMethod(pkg.Scope(), name); m.typ != nil {
+				if ch == goptCh {
+					if debugImport {
+						log.Println("==> NewTemplateRecvMethod", tname, m.name)
+					}
+					NewTemplateRecvMethod(m.typ, token.NoPos, pkg, m.name, o)
+				} else {
+					if debugImport {
+						log.Println("==> NewStaticMethod", tname, m.name)
+					}
+					NewStaticMethod(m.typ, token.NoPos, pkg, m.name, o)
+				}
 			}
-			NewTemplateRecvMethod(m.typ, token.NoPos, pkg, m.name, o)
-		}
-	} else if strings.HasPrefix(name, gopxPrefix) { // Gopx_xxx
-		aname := name[len(gopxPrefix):]
-		o := newFuncEx(token.NoPos, pkg, nil, aname, &tyTypeAsParams{o})
-		scope.Insert(o)
-		if debugImport {
-			log.Println("==> AliasFunc", name, "=>", aname)
+		case gopxCh: // Gopx_xxx
+			aname := name[n2:]
+			o := newFuncEx(token.NoPos, pkg, nil, aname, &tyTypeAsParams{o})
+			scope.Insert(o)
+			if debugImport {
+				log.Println("==> AliasFunc", name, "=>", aname)
+			}
 		}
 	}
 }
 
 const (
+	commonPrefix = "Gop"
+
+	goptCh = 't' // template method
+	gopsCh = 's' // static method
+	gopxCh = 'x' // type as parameters function/method
+
 	goptPrefix = "Gopt_" // template method
-	gopoPrefix = "Gopo_" // overload function/method
+	gopsPrefix = "Gops_" // static method
 	gopxPrefix = "Gopx_" // type as parameters function/method
+	gopoPrefix = "Gopo_" // overload function/method
+
 	gopPackage = "GopPackage"
 	gopPkgInit = "__gop_inited"
 )
@@ -293,7 +317,7 @@ func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Ob
 		}
 		o := NewOverloadFunc(token.NoPos, pkg, m.name, fns...)
 		scope.Insert(o)
-		checkGoptGopx(pkg, scope, m.name, o)
+		checkGoptsx(pkg, scope, m.name, o)
 	} else {
 		if debugImport {
 			log.Println("==> NewOverloadMethod", m.typ.Obj().Name(), m.name)

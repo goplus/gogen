@@ -206,7 +206,10 @@ func TestErrMethodSig(t *testing.T) {
 		arg := &Element{
 			Type: &TypeType{typ: types.NewPointer(recv)},
 		}
-		methodSigOf(method, memberFlagMethodToFunc, arg, &ast.SelectorExpr{Sel: ast.NewIdent("bar")})
+		ret := &Element{
+			Val: &ast.SelectorExpr{Sel: ast.NewIdent("bar")},
+		}
+		pkg.cb.methodSigOf(method, memberFlagMethodToFunc, arg, ret)
 	})
 }
 
@@ -281,26 +284,6 @@ func TestCheckTypeMethod(t *testing.T) {
 			}
 		}()
 		checkTypeMethod(scope, "_notFound__method")
-	}()
-}
-
-func TestLookupFunc(t *testing.T) {
-	scope := types.NewScope(nil, 0, 0, "")
-	func() {
-		defer func() {
-			if e := recover(); e != "lookupFunc: (T not a valid method, use `(T).method` please\n" {
-				t.Fatal("TestLookupFunc:", e)
-			}
-		}()
-		lookupFunc(scope, "(T", "")
-	}()
-	func() {
-		defer func() {
-			if e := recover(); e != "lookupFunc: notFound not found\n" {
-				t.Fatal("TestLookupFunc:", e)
-			}
-		}()
-		lookupFunc(scope, "notFound", "")
 	}()
 }
 
@@ -817,6 +800,7 @@ func TestTypeEx(t *testing.T) {
 		&unboundMapElemType{},
 		&TyOverloadFunc{},
 		&TyOverloadMethod{},
+		&TyStaticMethod{},
 		&TyTemplateRecvMethod{},
 		&TyInstruction{},
 		&TyOverloadNamed{Obj: types.NewTypeName(0, pkg.Types, "bar", tyInt)},

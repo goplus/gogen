@@ -1526,16 +1526,21 @@ const (
 	MemberFlagRef MemberFlag = -1
 
 	// private state
-	memberFlagMethodToFunc MemberFlag = -2
+	memberFlagMethodToFunc MemberFlag = 0x80
 )
 
 func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
-	// flag > 0: (flag == MemberFlagMethodAlias || flag == MemberFlagAutoProperty)
+	// flag > 0 means:
+	//   flag == MemberFlagMethodAlias ||
+	//   flag == MemberFlagAutoProperty ||
+	//   flag == memberFlagMethodToFunc
 	if flag > 0 && name != "" {
 		if c := name[0]; c >= 'a' && c <= 'z' {
 			return string(rune(c)+('A'-'a')) + name[1:], flag
 		}
-		flag = MemberFlagVal
+		if flag != memberFlagMethodToFunc {
+			flag = MemberFlagVal
+		}
 	}
 	return "", flag
 }
@@ -1556,12 +1561,13 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	if flag == MemberFlagRef {
 		kind = p.refMember(at, name, arg.Val, srcExpr)
 	} else {
-		t, isType := at.(*TypeType)
+		var aliasName string
+		var t, isType = at.(*TypeType)
 		if isType { // (T).method or (*T).method
 			at = t.Type()
 			flag = memberFlagMethodToFunc
 		}
-		aliasName, flag := aliasNameOf(name, flag)
+		aliasName, flag = aliasNameOf(name, flag)
 		kind = p.findMember(at, name, aliasName, flag, arg, srcExpr)
 		if isType && kind != MemberMethod {
 			code, pos := p.loadExpr(srcExpr)
@@ -1740,16 +1746,9 @@ func (p *CodeBuilder) method(
 		}
 
 		sel := selector(arg, found.Name())
-		ret := &internal.Elem{
-			Val:  sel,
-			Type: methodSigOf(typ, flag, arg, sel),
-			Src:  src,
-		}
-		// TODO: We should take `methodSigOf` more seriously
-		if trm, ok := ret.Type.(*TyTemplateRecvMethod); ok {
-			o := trm.Func
-			ret.Val = toObjectExpr(p.pkg, o)
-			ret.Type = o.Type()
+		ret := &internal.Elem{Val: sel, Src: src}
+		if t, set := p.methodSigOf(typ, flag, arg, ret); set {
+			ret.Type = t
 		}
 		p.stk.Ret(1, ret)
 
@@ -1869,7 +1868,7 @@ func toFuncSig(sig *types.Signature, recv *types.Var) *types.Signature {
 func methodToFuncSig(pkg *Package, o types.Object, fn *Element) *types.Signature {
 	sig := o.Type().(*types.Signature)
 	recv := sig.Recv()
-	if recv == nil {
+	if recv == nil { // special signature
 		fn.Val = toObjectExpr(pkg, o)
 		return sig
 	}
@@ -1880,20 +1879,24 @@ func methodToFuncSig(pkg *Package, o types.Object, fn *Element) *types.Signature
 	return toFuncSig(sig, recv)
 }
 
-func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.SelectorExpr) types.Type {
+func (p *CodeBuilder) methodSigOf(typ types.Type, flag MemberFlag, arg, ret *Element) (types.Type, bool) {
 	if flag != memberFlagMethodToFunc {
-		return methodCallSig(typ)
+		return methodCallSig(typ), true
 	}
 
 	sig := typ.(*types.Signature)
 	if t, ok := CheckFuncEx(sig); ok {
-		if trm, ok := t.(*TyTemplateRecvMethod); ok {
-			// TODO: We should take `methodSigOf` more seriously
-			return trm
+		switch ext := t.(type) {
+		case *TyStaticMethod:
+			return p.funcExSigOf(ext.Func, ret)
+		case *TyTemplateRecvMethod:
+			return p.funcExSigOf(ext.Func, ret)
 		}
-		return typ
+		// TODO: We should take `methodSigOf` more seriously
+		return typ, true
 	}
 
+	sel := ret.Val.(*ast.SelectorExpr)
 	at := arg.Type.(*TypeType).typ
 	recv := sig.Recv().Type()
 	_, isPtr := recv.(*types.Pointer) // recv is a pointer
@@ -1909,12 +1912,19 @@ func methodSigOf(typ types.Type, flag MemberFlag, arg *Element, sel *ast.Selecto
 	}
 	sel.X = &ast.ParenExpr{X: sel.X}
 
-	return toFuncSig(sig, types.NewVar(token.NoPos, nil, "", at))
+	return toFuncSig(sig, types.NewVar(token.NoPos, nil, "", at)), true
+}
+
+func (p *CodeBuilder) funcExSigOf(o types.Object, ret *Element) (types.Type, bool) {
+	ret.Val = toObjectExpr(p.pkg, o)
+	ret.Type = o.Type()
+	return nil, false
 }
 
 func methodCallSig(typ types.Type) types.Type {
 	sig := typ.(*types.Signature)
 	if _, ok := CheckFuncEx(sig); ok {
+		// TODO: We should take `methodSigOf` more seriously
 		return typ
 	}
 	return types.NewSignatureType(nil, nil, nil, sig.Params(), sig.Results(), sig.Variadic())

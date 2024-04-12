@@ -14,6 +14,8 @@
 package packages
 
 import (
+	"go/types"
+	"io"
 	"os"
 	"testing"
 )
@@ -50,10 +52,54 @@ func TestImportBuiltin(t *testing.T) {
 
 func Test_loadByExport(t *testing.T) {
 	p := NewImporter(nil)
-	if _, err := p.loadByExport("/not-found", "notfound"); !os.IsNotExist(err) {
+	if _, err := loadByExport(p, "/not-found", "notfound"); !os.IsNotExist(err) {
+		t.Fatal("Test_loadByExport:", err)
+	}
+	if _, err := p.findExport(".", "C"); err == nil {
 		t.Fatal("Test_loadByExport: no error?")
 	}
-	FindExport(".", "C")
+}
+
+func loadByExport(p *Importer, expfile, pkgPath string) (pkg *types.Package, err error) {
+	f, err := os.Open(expfile)
+	if err != nil {
+		return
+	}
+	return p.loadByExport(f, pkgPath)
+}
+
+// ----------------------------------------------------------------------------
+
+type diskCache struct {
+	imp *Importer
+}
+
+func (p diskCache) Find(dir, pkgPath string) (f io.ReadCloser, err error) {
+	if p.imp != nil {
+		return p.imp.findExport(dir, pkgPath)
+	}
+	return nil, os.ErrNotExist
+}
+
+func TestCache(t *testing.T) {
+	nlist = 0
+	p := NewImporter(nil)
+	p.SetCache(diskCache{})
+	_, err := p.Import("fmt")
+	if err != os.ErrNotExist {
+		t.Fatal("Import:", err)
+	}
+	p.SetCache(diskCache{imp: NewImporter(nil)})
+	if p.Cache() == nil {
+		t.Fatal("Cache nil")
+	}
+	pkg, err := p.Import("fmt")
+	if err != nil || pkg.Path() != "fmt" {
+		t.Fatal("Import fmt:", pkg, err)
+	}
+	if v := ListTimes(); v != 1 {
+		t.Fatal("ListTimes:", v)
+	}
 }
 
 // ----------------------------------------------------------------------------

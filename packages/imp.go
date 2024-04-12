@@ -18,23 +18,32 @@ import (
 	"errors"
 	"go/token"
 	"go/types"
+	"io"
 	"os"
 	"os/exec"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/tools/go/gcexportdata"
 )
 
 // ----------------------------------------------------------------------------
 
+// Cache represents a cache for the importer.
+type Cache interface {
+	Find(dir, pkgPath string) (f io.ReadCloser, err error)
+}
+
+// Importer represents a Go package importer.
 type Importer struct {
 	loaded map[string]*types.Package
 	fset   *token.FileSet
 	dir    string
 	m      sync.RWMutex
+	cache  Cache
 }
 
-// NewImporter creates an Importer object that meets types.Importer interface.
+// NewImporter creates an Importer object that meets types.ImporterFrom and types.Importer interface.
 func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 	dir := ""
 	if len(workDir) > 0 {
@@ -48,6 +57,17 @@ func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 	return &Importer{loaded: loaded, fset: fset, dir: dir}
 }
 
+// SetCache sets an optional cache for the importer.
+func (p *Importer) SetCache(cache Cache) {
+	p.cache = cache
+}
+
+// Cache returns the cache of the importer.
+func (p *Importer) Cache() Cache {
+	return p.cache
+}
+
+// Import returns the imported package for the given import path.
 func (p *Importer) Import(pkgPath string) (pkg *types.Package, err error) {
 	return p.ImportFrom(pkgPath, p.dir, 0)
 }
@@ -68,20 +88,15 @@ func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*type
 		return ret, nil
 	}
 	p.m.RUnlock()
-	expfile, err := FindExport(dir, pkgPath)
-	if err != nil {
-		return nil, err
-	}
-	return p.loadByExport(expfile, pkgPath)
-}
-
-func (p *Importer) loadByExport(expfile string, pkgPath string) (ret *types.Package, err error) {
-	f, err := os.Open(expfile)
+	f, err := p.findExport(dir, pkgPath)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+	return p.loadByExport(f, pkgPath)
+}
 
+func (p *Importer) loadByExport(f io.ReadCloser, pkgPath string) (ret *types.Package, err error) {
 	r, err := gcexportdata.NewReader(f)
 	if err == nil {
 		p.m.Lock() // use mutex because Import should be multi-thread safe
@@ -93,15 +108,18 @@ func (p *Importer) loadByExport(expfile string, pkgPath string) (ret *types.Pack
 
 // ----------------------------------------------------------------------------
 
-// FindExport lookups export file (.a) of a package by its pkgPath.
-// It returns empty if pkgPath not found.
-func FindExport(dir, pkgPath string) (expfile string, err error) {
+// findExport lookups export file (.a) of a package by its pkgPath.
+func (p *Importer) findExport(dir, pkgPath string) (f io.ReadCloser, err error) {
+	if c := p.cache; c != nil {
+		return c.Find(dir, pkgPath)
+	}
+	atomic.AddInt32(&nlist, 1)
 	data, err := golistExport(dir, pkgPath)
 	if err != nil {
 		return
 	}
-	expfile = string(bytes.TrimSuffix(data, []byte{'\n'}))
-	return
+	expfile := string(bytes.TrimSuffix(data, []byte{'\n'}))
+	return os.Open(expfile)
 }
 
 func golistExport(dir, pkgPath string) (ret []byte, err error) {
@@ -117,6 +135,15 @@ func golistExport(dir, pkgPath string) (ret []byte, err error) {
 		err = errors.New(stderr.String())
 	}
 	return
+}
+
+var (
+	nlist int32
+)
+
+// ListTimes returns the number of times of calling `go list`.
+func ListTimes() int {
+	return int(atomic.LoadInt32(&nlist))
 }
 
 // ----------------------------------------------------------------------------
