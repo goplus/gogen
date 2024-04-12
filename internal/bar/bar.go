@@ -33,4 +33,8 @@ func Gopt_Game_Run(game Gamer, resource string) {
 	game.RunLoop()
 }
 
+func Gops_Game_New() *Game {
+	return nil
+}
+
 // -----------------------------------------------------------------------------
