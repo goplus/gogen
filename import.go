@@ -100,6 +100,7 @@ func InitThisGopPkg(pkg *types.Package) {
 	scope := pkg.Scope()
 	gopos := make([]string, 0, 4)
 	overloads := make(map[omthd][]types.Object)
+	mobjectIndexs := make(map[types.Object]int)
 	onameds := make(map[string][]*types.Named)
 	names := scope.Names()
 	for _, name := range names {
@@ -126,6 +127,7 @@ func InitThisGopPkg(pkg *types.Package) {
 					mthd := mName[:len(mName)-3]
 					key := omthd{named, mthd}
 					overloads[key] = append(overloads[key], m)
+					mobjectIndexs[m] = i
 				}
 			}
 			if isOverload(name) { // overload named
@@ -156,7 +158,7 @@ func InitThisGopPkg(pkg *types.Package) {
 				}
 			}
 			if len(fns) > 0 {
-				newOverload(pkg, scope, m, fns)
+				newOverload(pkg, scope, m, fns, nil)
 			}
 			delete(overloads, m)
 		}
@@ -164,7 +166,7 @@ func InitThisGopPkg(pkg *types.Package) {
 	for key, items := range overloads {
 		off := len(key.name) + 2
 		fns := overloadFuncs(off, items)
-		newOverload(pkg, scope, key, fns)
+		newOverload(pkg, scope, key, fns, mobjectIndexs)
 	}
 	for name, items := range onameds {
 		off := len(name) + 2
@@ -310,7 +312,7 @@ func checkOverloads(scope *types.Scope, gopoName string) (ret []string, exists b
 	return
 }
 
-func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Object) {
+func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Object, mobjectIndexs map[types.Object]int) {
 	if m.typ == nil {
 		if debugImport {
 			log.Println("==> NewOverloadFunc", m.name)
@@ -322,7 +324,7 @@ func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Ob
 		if debugImport {
 			log.Println("==> NewOverloadMethod", m.typ.Obj().Name(), m.name)
 		}
-		NewOverloadMethod(m.typ, token.NoPos, pkg, m.name, fns...)
+		NewOverloadMethod(m.typ, token.NoPos, pkg, m.name, mobjectIndexs, fns...)
 	}
 }
 
