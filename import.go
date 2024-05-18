@@ -378,6 +378,8 @@ const (
 
 // ----------------------------------------------------------------------------
 
+type none = struct{}
+
 type expDeps struct {
 	this   *types.Package
 	ret    map[*types.Package]none

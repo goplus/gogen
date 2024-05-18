@@ -143,7 +143,6 @@ type CodeBuilder struct {
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
 	closureParamInsts
-	vFieldsMgr
 	iotav       int
 	commentOnce bool
 	noSkipConst bool
@@ -1462,11 +1461,9 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, sr
 	switch o := indirect(typ).(type) {
 	case *types.Named:
 		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
-			name = p.getFieldName(o, name)
 			if p.fieldRef(argVal, struc, name, src) {
 				return MemberField
 			}
-			return p.refVField(o, name, argVal)
 		}
 	case *types.Struct:
 		if p.fieldRef(argVal, o, name, src) {
@@ -1496,7 +1493,7 @@ func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast
 			if t, ok := fldt.(*types.Named); ok {
 				u := p.getUnderlying(t)
 				if struc, ok := u.(*types.Struct); ok {
-					if p.fieldRef(x, struc, name, src) || p.refVField(t, name, nil) != MemberInvalid {
+					if p.fieldRef(x, struc, name, src) {
 						return true
 					}
 				}
@@ -1626,7 +1623,6 @@ retry:
 			u := p.getUnderlying(t) // may cause to loadNamed (delay-loaded)
 			struc, fstruc := u.(*types.Struct)
 			if fstruc {
-				name = p.getFieldName(t, name)
 				if kind := p.normalField(struc, name, arg, srcExpr); kind != MemberInvalid {
 					return kind
 				}
@@ -1635,9 +1631,6 @@ retry:
 				return kind
 			}
 			if fstruc {
-				if kind := p.findVField(t, name, arg, srcExpr); kind != MemberInvalid {
-					return kind
-				}
 				return p.embeddedField(struc, name, aliasName, flag, arg, srcExpr)
 			}
 		case *types.Struct:
@@ -1650,16 +1643,13 @@ retry:
 		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
 		}
-		if _, ok := typ.(*types.Struct); ok {
-			name = p.getFieldName(o, name)
-		}
 		goto retry
 	case *types.Struct:
 		if kind := p.field(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
 		}
 		if named != nil {
-			return p.findVField(named, name, arg, srcExpr)
+			return MemberInvalid
 		}
 	case *types.Interface:
 		o.Complete()
@@ -2116,24 +2106,11 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 		}
 	}
 	if lhs == rhs {
-		mkBlockStmt = hasBfRefType(args)
-		if mkBlockStmt { // {
-			args = copyArgs(args)
-			p.stk.PopN(lhs << 1)
-			p.Block()
-		}
 		for i := 0; i < lhs; i++ {
 			lhsType := args[i].Type
-			bfr, bfAssign := lhsType.(*bfRefType)
-			if bfAssign {
-				lhsType = &refType{typ: bfr.typ}
-			}
 			checkAssignType(p.pkg, lhsType, args[lhs+i])
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
-			if bfAssign {
-				bfr.assign(p, &stmt.Lhs[i], &stmt.Rhs[i])
-			}
 		}
 	} else {
 		pos := getSrcPos(src)
@@ -2148,15 +2125,6 @@ done:
 		p.stk.PopN(lhs + rhs)
 	}
 	return p
-}
-
-func hasBfRefType(args []*internal.Elem) bool {
-	for _, arg := range args {
-		if _, ok := arg.Type.(*bfRefType); ok {
-			return true
-		}
-	}
-	return false
 }
 
 func lookupMethod(t *types.Named, name string) types.Object {
