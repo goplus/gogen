@@ -160,6 +160,10 @@ func getRecv(recvTypePos func() token.Pos) token.Pos {
 	return token.NoPos
 }
 
+func IsMethodRecv(recv *types.Var) bool {
+	return recv != nil
+}
+
 // NewFuncWith creates a new function (should have a function body).
 func (p *Package) NewFuncWith(
 	pos token.Pos, name string, sig *types.Signature, recvTypePos func() token.Pos) (*Func, error) {

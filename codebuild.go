@@ -1461,11 +1461,9 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, sr
 	switch o := indirect(typ).(type) {
 	case *types.Named:
 		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
-			name = p.getFieldName(o, name)
 			if p.fieldRef(argVal, struc, name, src) {
 				return MemberField
 			}
-			return p.refVField(o, name, argVal)
 		}
 	case *types.Struct:
 		if p.fieldRef(argVal, o, name, src) {
@@ -1495,7 +1493,7 @@ func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast
 			if t, ok := fldt.(*types.Named); ok {
 				u := p.getUnderlying(t)
 				if struc, ok := u.(*types.Struct); ok {
-					if p.fieldRef(x, struc, name, src) || p.refVField(t, name, nil) != MemberInvalid {
+					if p.fieldRef(x, struc, name, src) {
 						return true
 					}
 				}
@@ -1625,7 +1623,6 @@ retry:
 			u := p.getUnderlying(t) // may cause to loadNamed (delay-loaded)
 			struc, fstruc := u.(*types.Struct)
 			if fstruc {
-				name = p.getFieldName(t, name)
 				if kind := p.normalField(struc, name, arg, srcExpr); kind != MemberInvalid {
 					return kind
 				}
@@ -1634,9 +1631,6 @@ retry:
 				return kind
 			}
 			if fstruc {
-				if kind := p.findVField(t, name, arg, srcExpr); kind != MemberInvalid {
-					return kind
-				}
 				return p.embeddedField(struc, name, aliasName, flag, arg, srcExpr)
 			}
 		case *types.Struct:
@@ -1649,16 +1643,13 @@ retry:
 		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
 		}
-		if _, ok := typ.(*types.Struct); ok {
-			name = p.getFieldName(o, name)
-		}
 		goto retry
 	case *types.Struct:
 		if kind := p.field(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
 		}
 		if named != nil {
-			return p.findVField(named, name, arg, srcExpr)
+			return MemberInvalid
 		}
 	case *types.Interface:
 		o.Complete()
