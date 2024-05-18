@@ -7,6 +7,8 @@ gogen - Code generator for the Go language
 [![Coverage Status](https://codecov.io/gh/goplus/gogen/branch/main/graph/badge.svg)](https://codecov.io/gh/goplus/gogen)
 [![GoDoc](https://pkg.go.dev/badge/github.com/goplus/gogen.svg)](https://pkg.go.dev/github.com/goplus/gogen)
 
+`gogen` is a general-purpose Go code generation toolkit. Like the Go compiler, It can perform type checking of expressions. For example, if you generate an expression like `"Hello" + 1`, it will report the corresponding error.
+
 ## Quick start
 
 Create a file named `hellogen.go`, like below:

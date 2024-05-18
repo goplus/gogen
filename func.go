@@ -132,6 +132,7 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	}
 }
 
+// NewFuncDecl creates a new function without function body (declaration only).
 func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) *Func {
 	f, err := p.NewFuncWith(pos, name, sig, nil)
 	if err != nil {
@@ -142,7 +143,7 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 	return f
 }
 
-// NewFunc func
+// NewFunc creates a new function (should have a function body).
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
 	sig := types.NewSignatureType(recv, nil, nil, params, results, variadic)
 	f, err := p.NewFuncWith(token.NoPos, name, sig, nil)
@@ -159,7 +160,7 @@ func getRecv(recvTypePos func() token.Pos) token.Pos {
 	return token.NoPos
 }
 
-// NewFuncWith func
+// NewFuncWith creates a new function (should have a function body).
 func (p *Package) NewFuncWith(
 	pos token.Pos, name string, sig *types.Signature, recvTypePos func() token.Pos) (*Func, error) {
 	if name == "" {
