@@ -15,6 +15,12 @@ package gogen
 
 import (
 	"go/ast"
+	"go/types"
+)
+
+/*
+import (
+	"go/ast"
 	"go/token"
 	"go/types"
 	"strconv"
@@ -265,6 +271,27 @@ func IsMethodRecv(recv *types.Var) bool {
 
 func isCSigRecv(recv *types.Var) bool {
 	return recv.Type() == types.Typ[types.UntypedNil]
+}
+*/
+
+type none = struct{}
+
+// ----------------------------------------------------------------------------
+
+func (p *CodeBuilder) getFieldName(t *types.Named, name string) string {
+	return name
+}
+
+func (p *CodeBuilder) findVField(t *types.Named, name string, arg *Element, src ast.Node) MemberKind {
+	return MemberInvalid
+}
+
+func (p *CodeBuilder) refVField(t *types.Named, name string, src ast.Node) MemberKind {
+	return MemberInvalid
+}
+
+func IsMethodRecv(recv *types.Var) bool {
+	return recv != nil
 }
 
 // ----------------------------------------------------------------------------

@@ -701,8 +701,6 @@ retry:
 			case *tyTypeAsParams:
 				return matchFuncCall(pkg, chgObject(pkg, ft.obj, fn), args, flags|instrFlagGopxFunc)
 			}
-		} else if IsCSignature(t) {
-			sig = types.NewSignatureType(nil, nil, nil, t.Params(), t.Results(), t.Variadic())
 		} else {
 			sig = t
 		}
@@ -950,11 +948,13 @@ func restoreArgs(args []*internal.Elem, backup []backupElem) {
 	}
 }
 
+/*
 func copyArgs(args []*internal.Elem) []*internal.Elem {
 	backup := make([]*internal.Elem, len(args))
 	copy(backup, args)
 	return backup
 }
+*/
 
 func untypeBig(pkg *Package, cval constant.Value, tyRet types.Type) (*internal.Elem, bool) {
 	switch tyRet {

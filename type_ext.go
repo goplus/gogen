@@ -137,6 +137,7 @@ func (p *TySubst) String() string {
 	return fmt.Sprintf("substType{real: %v}", p.Real)
 }
 
+// TODO(xsw): check only c2go uses this function.
 func NewSubst(pos token.Pos, pkg *types.Package, name string, real types.Object) *types.Var {
 	return types.NewVar(pos, pkg, name, &TySubst{Real: real})
 }
@@ -189,22 +190,8 @@ func DerefType(typ types.Type) (types.Type, bool) {
 	switch t := typ.(type) {
 	case *refType:
 		return t.Elem(), true
-	case *bfRefType:
-		return t.typ, true
 	}
 	return typ, false
-}
-
-// bfRefType: bit field refType
-type bfRefType struct {
-	typ  *types.Basic
-	off  int
-	bits int
-}
-
-func (p *bfRefType) Underlying() types.Type { return p }
-func (p *bfRefType) String() string {
-	return fmt.Sprintf("bfRefType{typ: %v:%d off: %d}", p.typ, p.bits, p.off)
 }
 
 // unboundType: unbound type

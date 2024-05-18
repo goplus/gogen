@@ -143,7 +143,6 @@ type CodeBuilder struct {
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
 	closureParamInsts
-	vFieldsMgr
 	iotav       int
 	commentOnce bool
 	noSkipConst bool
@@ -2116,24 +2115,11 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 		}
 	}
 	if lhs == rhs {
-		mkBlockStmt = hasBfRefType(args)
-		if mkBlockStmt { // {
-			args = copyArgs(args)
-			p.stk.PopN(lhs << 1)
-			p.Block()
-		}
 		for i := 0; i < lhs; i++ {
 			lhsType := args[i].Type
-			bfr, bfAssign := lhsType.(*bfRefType)
-			if bfAssign {
-				lhsType = &refType{typ: bfr.typ}
-			}
 			checkAssignType(p.pkg, lhsType, args[lhs+i])
 			stmt.Lhs[i] = args[i].Val
 			stmt.Rhs[i] = args[lhs+i].Val
-			if bfAssign {
-				bfr.assign(p, &stmt.Lhs[i], &stmt.Rhs[i])
-			}
 		}
 	} else {
 		pos := getSrcPos(src)
@@ -2148,15 +2134,6 @@ done:
 		p.stk.PopN(lhs + rhs)
 	}
 	return p
-}
-
-func hasBfRefType(args []*internal.Elem) bool {
-	for _, arg := range args {
-		if _, ok := arg.Type.(*bfRefType); ok {
-			return true
-		}
-	}
-	return false
 }
 
 func lookupMethod(t *types.Named, name string) types.Object {

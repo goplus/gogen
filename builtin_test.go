@@ -302,25 +302,6 @@ func TestGetSrcPos(t *testing.T) {
 	}
 }
 
-func TestExportFields(t *testing.T) {
-	pkg := NewPackage("", "foo", nil)
-	fields := []*types.Var{
-		types.NewField(token.NoPos, pkg.Types, "Y", types.Typ[types.Int], false),
-		types.NewField(token.NoPos, pkg.Types, "X__u", types.Typ[types.String], false),
-	}
-	tyT := pkg.NewType("T").InitType(pkg, types.NewStruct(fields, nil))
-	pkg.ExportFields(tyT)
-	if name := pkg.cb.getFieldName(tyT, "y"); name != "Y" {
-		t.Fatal("getFieldName y:", name)
-	}
-	if name := pkg.cb.getFieldName(tyT, "__u"); name != "X__u" {
-		t.Fatal("getFieldName __u:", name)
-	}
-	if CPubName("123") != "123" {
-		t.Fatal("CPubName(123) failed")
-	}
-}
-
 func TestIsTypeEx(t *testing.T) {
 	pkg := types.NewPackage("", "foo")
 	o := NewInstruction(0, pkg, "bar", lenInstr{})
@@ -699,13 +680,6 @@ func TestToVariadic(t *testing.T) {
 
 func TestToType(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
-	cf := NewCSignature(nil, nil, false)
-	if !IsCSignature(cf) {
-		t.Fatal("IsCSignature failed: not c function?")
-	}
-	if v := typString(pkg, cf); v != "func()" {
-		t.Fatal("toType failed:", v)
-	}
 	toType(pkg, &unboundType{tBound: tyInt})
 	defer func() {
 		if e := recover(); e == nil {
@@ -715,6 +689,7 @@ func TestToType(t *testing.T) {
 	toType(pkg, &unboundType{})
 }
 
+/*
 func typString(pkg *Package, t types.Type) string {
 	v := toType(pkg, t)
 	var b bytes.Buffer
@@ -724,6 +699,7 @@ func typString(pkg *Package, t types.Type) string {
 	}
 	return b.String()
 }
+*/
 
 func TestMethodAutoProperty(t *testing.T) {
 	pkg := types.NewPackage("", "")
@@ -786,16 +762,11 @@ func TestHasAutoProperty(t *testing.T) {
 
 func TestTypeEx(t *testing.T) {
 	subst := &TySubst{}
-	bfReft := &bfRefType{typ: tyInt}
-	if typ, ok := DerefType(bfReft); !ok || typ != tyInt {
-		t.Fatal("TestDerefType failed")
-	}
 	pkg := NewPackage("example.com/foo", "foo", gblConf)
 	tyInt := types.Typ[types.Int]
 	typs := []types.Type{
 		&refType{},
 		subst,
-		bfReft,
 		&unboundType{},
 		&unboundMapElemType{},
 		&TyOverloadFunc{},
@@ -810,9 +781,6 @@ func TestTypeEx(t *testing.T) {
 		&unboundProxyParam{},
 		&TemplateParamType{},
 		&TemplateSignature{},
-	}
-	if v := bfReft.String(); v != "bfRefType{typ: int:0 off: 0}" {
-		t.Fatal("bfRefType.String:", v)
 	}
 	if v := subst.String(); v != "substType{real: <nil>}" {
 		t.Fatal("substType.String:", v)
@@ -1305,37 +1273,6 @@ func TestCallIncDec(t *testing.T) {
 		{Type: &refType{typ: types.Typ[types.String]}},
 	}
 	callIncDec(pkg, args, token.INC)
-}
-
-func TestVFields(t *testing.T) {
-	pkg := NewPackage("", "foo", gblConf)
-	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "bar", nil), tyInt, nil)
-	_, ok := pkg.VFields(typ)
-	if ok {
-		t.Fatal("VFields?")
-	}
-	{
-		flds := NewUnionFields([]*UnionField{
-			{Name: "foo"},
-		})
-		if flds.Len() != 1 {
-			t.Fatal("UnionFields.len != 1")
-		}
-		if flds.At(0).Name != "foo" {
-			t.Fatal("UnionField.name != foo")
-		}
-	}
-	{
-		flds := NewBitFields([]*BitField{
-			{Name: "foo"},
-		})
-		if flds.Len() != 1 {
-			t.Fatal("BitFields.len != 1")
-		}
-		if flds.At(0).Name != "foo" {
-			t.Fatal("BitField.name != foo")
-		}
-	}
 }
 
 func TestTypeAST(t *testing.T) {
