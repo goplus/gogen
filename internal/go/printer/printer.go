@@ -359,7 +359,7 @@ func (p *printer) writeCommentPrefix(pos, next token.Position, prev *ast.Comment
 		return
 	}
 
-	if pos.Line == p.last.Line && (prev == nil || (len(prev.Text) > 1 && prev.Text[1] != '/')) {
+	if pos.Line == p.last.Line && (prev == nil || len(prev.Text) > 1 && prev.Text[1] != '/') {
 		// comment on the same line as last item:
 		// separate with at least one separator
 		hasSep := false
