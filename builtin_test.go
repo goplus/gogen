@@ -59,6 +59,7 @@ func namedType(pkgName, tName string) types.Type {
 }
 
 func testValWithUnitPanic(t *testing.T, name string, cb *CodeBuilder, typ types.Type, unit string) {
+	t.Helper()
 	t.Run(name, func(t *testing.T) {
 		defer func() {
 			if e := recover(); e == nil {
