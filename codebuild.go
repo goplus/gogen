@@ -1392,9 +1392,9 @@ func (p *CodeBuilder) ValWithUnit(v *ast.BasicLit, t types.Type, unit string) *C
 	if !ok {
 		panic("TODO: ValWithUnit: t isn't a named type")
 	}
-	o := named.Obj()
 	e := toExpr(p.pkg, v, v)
-	if o.Pkg().Path() == "time" && o.Name() == "Duration" { // time.Duration
+	o := named.Obj()
+	if o.Name() == "Duration" && o.Pkg().Path() == "time" { // time.Duration
 		u, ok := timeDurationUnits[unit]
 		if !ok {
 			panic("TODO: ValWithUnit: unknown unit of time.Duration - " + unit)

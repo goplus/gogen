@@ -44,6 +44,31 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+func TestValWithUnit(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+	testValWithUnitPanic(t, "no unit for int", cb, types.Typ[types.Int], "m")
+	testValWithUnitPanic(t, "y is not unit of time.Duration", cb, namedType("time", "Duration"), "y")
+	testValWithUnitPanic(t, "user defined type: not impl", cb, namedType("foo", "Bar"), "m")
+	cb.ValWithUnit(&ast.BasicLit{Value: "1", Kind: token.INT}, namedType("time", "Duration"), "m")
+}
+
+func namedType(pkgName, tName string) types.Type {
+	pkg := types.NewPackage(pkgName, "")
+	return types.NewNamed(types.NewTypeName(0, pkg, tName, nil), types.Typ[types.Int64], nil)
+}
+
+func testValWithUnitPanic(t *testing.T, name string, cb *CodeBuilder, typ types.Type, unit string) {
+	t.Run(name, func(t *testing.T) {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("TestErrValWithUnit: no panic?")
+			}
+		}()
+		cb.ValWithUnit(&ast.BasicLit{Value: "1", Kind: token.INT}, typ, unit)
+	})
+}
+
 func TestSwitchStmtThen(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	cb := pkg.CB()
