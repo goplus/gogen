@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/goplus/gogen/internal"
 	xtoken "github.com/goplus/gogen/token"
@@ -1380,6 +1381,44 @@ func (p *CodeBuilder) Val(v interface{}, src ...ast.Node) *CodeBuilder {
 func (p *CodeBuilder) pushVal(v interface{}, src ast.Node) *CodeBuilder {
 	p.stk.Push(toExpr(p.pkg, v, src))
 	return p
+}
+
+// ValWithUnit func
+func (p *CodeBuilder) ValWithUnit(v *ast.BasicLit, t types.Type, unit string) *CodeBuilder {
+	if debugInstr {
+		log.Println("ValWithUnit", v.Value, t, unit)
+	}
+	named, ok := t.(*types.Named)
+	if !ok {
+		panic("TODO: ValWithUnit: t isn't a named type")
+	}
+	o := named.Obj()
+	e := toExpr(p.pkg, v, v)
+	if o.Pkg().Path() == "time" && o.Name() == "Duration" { // time.Duration
+		u, ok := timeDurationUnits[unit]
+		if !ok {
+			panic("TODO: ValWithUnit: unknown unit of time.Duration - " + unit)
+		}
+		val := constant.BinaryOp(e.CVal, token.MUL, constant.MakeInt64(int64(u)))
+		e.CVal = val
+		e.Val = &ast.BasicLit{Kind: token.INT, Value: val.ExactString()}
+		e.Type = t
+		p.Val(e, v)
+	} else {
+		panic("TODO: notimpl")
+	}
+	return p
+}
+
+var timeDurationUnits = map[string]time.Duration{
+	"ns": time.Nanosecond,
+	"us": time.Microsecond,
+	"µs": time.Microsecond,
+	"ms": time.Millisecond,
+	"s":  time.Second,
+	"m":  time.Minute,
+	"h":  time.Hour,
+	"d":  24 * time.Hour,
 }
 
 // Star func
