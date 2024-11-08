@@ -2563,6 +2563,88 @@ func main() {
 `)
 }
 
+func TestMultiFiles(t *testing.T) {
+	pkg := newMainPackage()
+
+	_, err := pkg.SetCurFile("a.go", true)
+	if err != nil {
+		t.Fatal("pkg.SetCurFile failed:", err)
+	}
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+
+	_, err = pkg.SetCurFile("b.go", true)
+	if err != nil {
+		t.Fatal("pkg.SetCurFile failed:", err)
+	}
+	pkg.NewFunc(nil, "demo", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+
+	domTestEx(t, pkg, `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Hello")
+}
+`, "a.go")
+
+	domTestEx(t, pkg, `package main
+
+import "fmt"
+
+func demo() {
+	fmt.Println("Hello")
+}
+`, "b.go")
+}
+
+func TestImportMultiFiles(t *testing.T) {
+	pkg := newMainPackage()
+
+	_, err := pkg.SetCurFile("a.go", true)
+	if err != nil {
+		t.Fatal("pkg.SetCurFile failed:", err)
+	}
+	fmt := pkg.Import("fmt")
+	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(gogen.TyByte))
+	pkg.NewFunc(nil, "fmt", gogen.NewTuple(v), nil, false).BodyStart(pkg).End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+
+	_, err = pkg.SetCurFile("b.go", true)
+	if err != nil {
+		t.Fatal("pkg.SetCurFile failed:", err)
+	}
+	pkg.NewFunc(nil, "demo", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+
+	domTestEx(t, pkg, `package main
+
+import fmt1 "fmt"
+
+func fmt(v []byte) {
+}
+func main() {
+	fmt1.Println("Hello")
+}
+`, "a.go")
+
+	domTestEx(t, pkg, `package main
+
+import fmt1 "fmt"
+
+func demo() {
+	fmt1.Println("Hello")
+}
+`, "b.go")
+}
+
 func TestImportUnused(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.Import("fmt")
