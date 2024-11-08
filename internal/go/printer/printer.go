@@ -359,7 +359,7 @@ func (p *printer) writeCommentPrefix(pos, next token.Position, prev *ast.Comment
 		return
 	}
 
-	if pos.Line == p.last.Line && (prev == nil || prev.Text[1] != '/') {
+	if pos.Line == p.last.Line && (prev == nil || len(prev.Text) > 1 && prev.Text[1] != '/') {
 		// comment on the same line as last item:
 		// separate with at least one separator
 		hasSep := false
@@ -457,7 +457,7 @@ func (p *printer) writeCommentPrefix(pos, next token.Position, prev *ast.Comment
 
 		// make sure there is at least one line break
 		// if the previous comment was a line comment
-		if n == 0 && prev != nil && prev.Text[1] == '/' {
+		if n == 0 && prev != nil && len(prev.Text) > 1 && prev.Text[1] == '/' {
 			n = 1
 		}
 
@@ -567,7 +567,7 @@ func stripCommonPrefix(lines []string) {
 		// for the opening /*, assume up to 3 blanks or a tab. This
 		// whitespace may be found as suffix in the common prefix.
 		first := lines[0]
-		if isBlank(first[2:]) {
+		if len(first) > 2 && isBlank(first[2:]) {
 			// no comment text on the first line:
 			// reduce prefix by up to 3 blanks or a tab
 			// if present - this keeps comment text indented
@@ -594,8 +594,12 @@ func stripCommonPrefix(lines []string) {
 				suffix = suffix[2:n]
 			} else {
 				// otherwise assume two blanks
-				suffix[0], suffix[1] = ' ', ' '
-				suffix = suffix[0:n]
+				if len(suffix) > 1 {
+					suffix[0], suffix[1] = ' ', ' '
+				}
+				if len(suffix) > n {
+					suffix = suffix[0:n]
+				}
 			}
 			// Shorten the computed common prefix by the length of
 			// suffix, if it is found as suffix of the prefix.
@@ -643,7 +647,7 @@ func (p *printer) writeComment(comment *ast.Comment) {
 	}
 
 	// shortcut common case of //-style comments
-	if text[1] == '/' {
+	if len(text) > 1 && text[1] == '/' {
 		p.writeString(pos, trimRight(text), true)
 		return
 	}
@@ -756,7 +760,7 @@ func (p *printer) intersperseComments(next token.Position, tok token.Token) (wro
 		// to track whether we're inside an expression or statement and
 		// use that information to decide more directly.
 		needsLinebreak := false
-		if p.mode&noExtraBlank == 0 &&
+		if p.mode&noExtraBlank == 0 && len(last.Text) > 1 &&
 			last.Text[1] == '*' {
 			if line := p.lineFor(last.Pos()); (line == 0 || line == next.Line) &&
 				tok != token.COMMA &&
@@ -771,7 +775,7 @@ func (p *printer) intersperseComments(next token.Position, tok token.Token) (wro
 		}
 		// Ensure that there is a line break after a //-style comment,
 		// before EOF, and before a closing '}' unless explicitly disabled.
-		if last.Text[1] == '/' ||
+		if len(last.Text) > 1 && last.Text[1] == '/' ||
 			tok == token.EOF ||
 			tok == token.RBRACE && p.mode&noExtraLinebreak == 0 {
 			needsLinebreak = true

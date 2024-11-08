@@ -192,7 +192,7 @@ func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 		if id, ok := x.(*ast.Ident); ok && id.Obj != nil {
 			if used, ok := id.Obj.Data.(importUsed); ok && bool(!used) {
 				id.Obj.Data = importUsed(true)
-				if name, renamed := p.this.requireName(id.Name); renamed {
+				if name, renamed := p.this.importName(id.Name); renamed {
 					id.Name = name
 					id.Obj.Name = name
 				}
@@ -317,6 +317,7 @@ type Package struct {
 	Docs ObjectDocs
 	Fset *token.FileSet
 
+	unitMgr
 	autoNames
 	cb             CodeBuilder
 	imp            types.Importer
@@ -367,7 +368,8 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		files: files,
 		conf:  conf,
 	}
-	pkg.initAutoNames()
+	pkg.unitMgr.init()
+	pkg.autoNames.init()
 	pkg.imp = imp
 	pkg.Types = conf.Types
 	if pkg.Types == nil {

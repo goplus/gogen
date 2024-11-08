@@ -585,7 +585,6 @@ func (p *Package) big() PkgRef {
 type null struct{}
 type autoNames struct {
 	names   map[string]null
-	reqIdx  int
 	autoIdx int
 }
 
@@ -593,7 +592,7 @@ const (
 	goxAutoPrefix = "_autoGo_"
 )
 
-func (p *autoNames) initAutoNames() {
+func (p *autoNames) init() {
 	p.names = make(map[string]null)
 }
 
@@ -611,14 +610,14 @@ func (p *autoNames) hasName(name string) bool {
 	return ok
 }
 
-func (p *autoNames) requireName(name string) (ret string, renamed bool) {
+func (p *autoNames) importName(name string) (ret string, renamed bool) {
 	ret = name
+	var idx int
 	for p.hasName(ret) {
-		p.reqIdx++
-		ret = name + strconv.Itoa(p.reqIdx)
+		idx++
+		ret = name + strconv.Itoa(idx)
 		renamed = true
 	}
-	p.useName(ret)
 	return
 }
 
