@@ -106,7 +106,7 @@ func (p *CodeBuilder) ValWithUnit(v *ast.BasicLit, t types.Type, unit string) *C
 	e := toExpr(pkg, v, v)
 	ot := named.Obj()
 	id := objectID{ot.Pkg().Path(), ot.Name()}
-	units, ok := pkg.getUnits(id, token.INT) // TODO: INT or FLOAT
+	units, ok := pkg.getUnits(id, token.INT) // TODO(xsw): INT or FLOAT
 	if !ok {
 		log.Panicf("TODO: ValWithUnit: no units of `%s.%s` found", id.pkg, id.name)
 	}
