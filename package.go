@@ -317,6 +317,7 @@ type Package struct {
 	Docs ObjectDocs
 	Fset *token.FileSet
 
+	unitMgr
 	autoNames
 	cb             CodeBuilder
 	imp            types.Importer
@@ -367,7 +368,8 @@ func NewPackage(pkgPath, name string, conf *Config) *Package {
 		files: files,
 		conf:  conf,
 	}
-	pkg.initAutoNames()
+	pkg.unitMgr.init()
+	pkg.autoNames.init()
 	pkg.imp = imp
 	pkg.Types = conf.Types
 	if pkg.Types == nil {

@@ -593,7 +593,7 @@ const (
 	goxAutoPrefix = "_autoGo_"
 )
 
-func (p *autoNames) initAutoNames() {
+func (p *autoNames) init() {
 	p.names = make(map[string]null)
 }
 
