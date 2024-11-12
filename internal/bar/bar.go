@@ -37,4 +37,8 @@ func Gops_Game_New() *Game {
 	return nil
 }
 
+type Info struct {
+	id int
+}
+
 // -----------------------------------------------------------------------------

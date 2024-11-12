@@ -2814,6 +2814,32 @@ func foo(t *testing.T) {
 `)
 }
 
+func TestEmbbedField(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "", bar.Ref("Info").Type(), true),
+		types.NewField(token.NoPos, pkg.Types, "id", types.Typ[types.String], false),
+	}
+	st := types.NewStruct(fields, nil)
+	typ := pkg.NewParam(token.NoPos, "t", types.NewPointer(st))
+	pkg.NewFunc(nil, "foo", types.NewTuple(typ), nil, false).BodyStart(pkg).
+		Val(ctxRef(pkg, "t")).
+		MemberRef("id").Val("0").Assign(1).
+		End()
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gogen/internal/bar"
+
+func foo(t *struct {
+	bar.Info
+	id string
+}) {
+	t.id = "0"
+}
+`)
+}
+
 func TestMemberAutoProperty(t *testing.T) {
 	pkg := newMainPackage()
 	test := pkg.Import("testing")

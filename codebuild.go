@@ -1513,6 +1513,7 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, sr
 }
 
 func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast.Node) bool {
+	var embed []*types.Var
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		if fld.Name() == name {
@@ -1525,16 +1526,19 @@ func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast
 			})
 			return true
 		} else if fld.Embedded() {
-			fldt := fld.Type()
-			if o, ok := fldt.(*types.Pointer); ok {
-				fldt = o.Elem()
-			}
-			if t, ok := fldt.(*types.Named); ok {
-				u := p.getUnderlying(t)
-				if struc, ok := u.(*types.Struct); ok {
-					if p.fieldRef(x, struc, name, src) {
-						return true
-					}
+			embed = append(embed, fld)
+		}
+	}
+	for _, fld := range embed {
+		fldt := fld.Type()
+		if o, ok := fldt.(*types.Pointer); ok {
+			fldt = o.Elem()
+		}
+		if t, ok := fldt.(*types.Named); ok {
+			u := p.getUnderlying(t)
+			if struc, ok := u.(*types.Struct); ok {
+				if p.fieldRef(x, struc, name, src) {
+					return true
 				}
 			}
 		}
