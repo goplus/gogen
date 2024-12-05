@@ -265,11 +265,26 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 		V = getElemTypeIf(V, pv)
 	}
 	if types.AssignableTo(V, T) {
-		if t, ok := T.(*types.Basic); ok { // untyped type
-			vkind := V.(*types.Basic).Kind()
-			tkind := t.Kind()
-			switch {
-			case vkind >= types.UntypedInt && vkind <= types.UntypedComplex:
+		return assignableTo(V, T, pv)
+	}
+	if t, ok := T.(*types.Named); ok {
+		ok = assignable(pkg, V, t, pv)
+		if debugMatch && pv != nil {
+			log.Println("==> AssignableConv", V, T, ok)
+		}
+		return ok
+	}
+	if pkg.implicitCast != nil {
+		return pkg.implicitCast(pkg, V, T, pv)
+	}
+	return false
+}
+
+func assignableTo(V, T types.Type, pv *Element) bool {
+	if t, ok := T.Underlying().(*types.Basic); ok { // untyped type
+		if v, ok := V.Underlying().(*types.Basic); ok {
+			tkind, vkind := t.Kind(), v.Kind()
+			if vkind >= types.UntypedInt && vkind <= types.UntypedComplex {
 				if tkind <= types.Uintptr && pv != nil && outOfRange(tkind, pv.CVal) {
 					if debugMatch {
 						log.Printf("==> AssignableConv %v (%v): value is out of %v range", V, pv.CVal, T)
@@ -290,19 +305,8 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 				}
 			}
 		}
-		return true
 	}
-	if t, ok := T.(*types.Named); ok {
-		ok = assignable(pkg, V, t, pv)
-		if debugMatch && pv != nil {
-			log.Println("==> AssignableConv", V, T, ok)
-		}
-		return ok
-	}
-	if pkg.implicitCast != nil {
-		return pkg.implicitCast(pkg, V, T, pv)
-	}
-	return false
+	return true
 }
 
 func outOfRange(tkind types.BasicKind, cval constant.Value) bool {
