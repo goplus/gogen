@@ -1341,4 +1341,23 @@ func TestToTag(t *testing.T) {
 	}
 }
 
+func TestAssignableUntyped(t *testing.T) {
+	f64 := types.NewNamed(types.NewTypeName(token.NoPos, nil, "Float64", nil),
+		types.Typ[types.UntypedFloat], nil)
+	i64 := types.NewNamed(types.NewTypeName(token.NoPos, nil, "Int64", nil),
+		types.Typ[types.UntypedInt], nil)
+	if assignableTo(f64, types.Typ[types.UntypedInt], nil) {
+		t.Fatal("error f2i")
+	}
+	if !assignableTo(f64, types.Typ[types.UntypedFloat], nil) {
+		t.Fatal("must f2f")
+	}
+	if !assignableTo(i64, types.Typ[types.UntypedInt], nil) {
+		t.Fatal("must i2i")
+	}
+	if !assignableTo(i64, types.Typ[types.UntypedFloat], nil) {
+		t.Fatal("must i2f")
+	}
+}
+
 // ----------------------------------------------------------------------------
