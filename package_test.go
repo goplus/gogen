@@ -22,6 +22,8 @@ import (
 	"go/types"
 	"log"
 	"os"
+	"runtime"
+	"strconv"
 	"syscall"
 	"testing"
 	"unsafe"
@@ -343,6 +345,23 @@ func bar(v mytype) rune {
 	if bar.String() != "func foo.bar(v byte) rune" {
 		t.Fatal("bar.Type:", bar)
 	}
+	// check typesalias
+	if isLeastGo122() {
+		t.Setenv("GODEBUG", "gotypesalias=1")
+		pkg, err := conf.Check("foo", fset, []*ast.File{f}, nil)
+		if err != nil {
+			t.Fatal("conf.Check:", err)
+		}
+		bar := pkg.Scope().Lookup("bar")
+		if bar.String() != "func foo.bar(v foo.mytype) rune" {
+			t.Fatal("bar.Type:", bar)
+		}
+	}
+}
+
+func isLeastGo122() bool {
+	ver, err := strconv.ParseInt(runtime.Version()[4:6], 10, 0)
+	return err == nil && ver >= 22
 }
 
 func TestMethods(t *testing.T) {

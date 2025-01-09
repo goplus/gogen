@@ -21,12 +21,15 @@ import (
 	"go/types"
 	"log"
 	"math/big"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"unsafe"
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/go/format"
+	"github.com/goplus/gogen/internal/typesutil"
 	"github.com/goplus/gogen/packages"
 )
 
@@ -687,6 +690,29 @@ func TestToType(t *testing.T) {
 		}
 	}()
 	toType(pkg, &unboundType{})
+}
+
+func isLeastGo122() bool {
+	ver, err := strconv.ParseInt(runtime.Version()[4:6], 10, 0)
+	return err == nil && ver >= 22
+}
+
+func TestToTypeAlias(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	alias := typesutil.NewAlias(types.NewTypeName(token.NoPos, nil, "Int", nil), types.Typ[types.Int])
+	if isLeastGo122() {
+		expr := toType(pkg, alias)
+		if ident, ok := expr.(*ast.Ident); !ok || ident.Name != "Int" {
+			t.Fatalf("bad alias %#v", expr)
+		}
+	} else {
+		defer func() {
+			if e := recover(); e == nil {
+				t.Fatal("TestToTypeAlias: no error?")
+			}
+		}()
+		toType(pkg, alias)
+	}
 }
 
 /*
