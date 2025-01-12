@@ -1470,7 +1470,7 @@ func (p *CodeBuilder) getBuiltinTI(typ types.Type) *BuiltinTI {
 
 // ----------------------------------------------------------------------------
 
-func (p *Package) GetBuiltinTI(typ types.Type) *BuiltinTI {
+func (p *Package) BuiltinTI(typ types.Type) *BuiltinTI {
 	return p.cb.getBuiltinTI(typ)
 }
 
