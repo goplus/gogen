@@ -1772,10 +1772,10 @@ func isTypeConvert(otyp, typ types.Type) (string, bool) {
 }
 
 func (p *CodeBuilder) btiMethod(
-	o *builtinTI, name, aliasName string, flag MemberFlag, src ast.Node) MemberKind {
+	o *BuiltinTI, name, aliasName string, flag MemberFlag, src ast.Node) MemberKind {
 	if o != nil {
-		for i, n := 0, o.NumMethods(); i < n; i++ {
-			method := o.Method(i)
+		for i, n := 0, o.numMethods(); i < n; i++ {
+			method := o.method(i)
 			v := method.name
 			if v == name || (flag > 0 && v == aliasName) {
 				autoprop := flag == MemberFlagAutoProperty && v == aliasName

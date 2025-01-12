@@ -1270,22 +1270,26 @@ type mthdSignature interface {
 	Params() *types.Tuple
 }
 
-type builtinTI struct {
+type BuiltinTI struct {
 	typ     types.Type
 	methods []*builtinMethod
 }
 
-func (p *builtinTI) NumMethods() int {
+func (p *BuiltinTI) AddMethod(name string, fn types.Object, eargs ...interface{}) {
+	p.methods = append(p.methods, &builtinMethod{name, fn, eargs})
+}
+
+func (p *BuiltinTI) numMethods() int {
 	return len(p.methods)
 }
 
-func (p *builtinTI) Method(i int) *builtinMethod {
+func (p *BuiltinTI) method(i int) *builtinMethod {
 	return p.methods[i]
 }
 
-func (p *builtinTI) lookupByName(name string) mthdSignature {
-	for i, n := 0, p.NumMethods(); i < n; i++ {
-		method := p.Method(i)
+func (p *BuiltinTI) lookupByName(name string) mthdSignature {
+	for i, n := 0, p.numMethods(); i < n; i++ {
+		method := p.method(i)
 		if method.name == name {
 			return method
 		}
@@ -1301,8 +1305,8 @@ var (
 
 func initBuiltinTIs(pkg *Package) {
 	var (
-		float64TI, intTI, int64TI, uint64TI *builtinTI
-		ioxTI, stringTI, stringSliceTI      *builtinTI
+		float64TI, intTI, int64TI, uint64TI *BuiltinTI
+		ioxTI, stringTI, stringSliceTI      *BuiltinTI
 	)
 	btiMap := new(typeutil.Map)
 	strconv := pkg.TryImport("strconv")
@@ -1317,7 +1321,7 @@ func initBuiltinTIs(pkg *Package) {
 		if ioxPkg != "" {
 			if os := pkg.TryImport("os"); os.isValid() {
 				if iox := pkg.TryImport(ioxPkg); iox.isValid() {
-					ioxTI = &builtinTI{
+					ioxTI = &BuiltinTI{
 						typ: os.Ref("File").Type(),
 						methods: []*builtinMethod{
 							{"Gop_Enum", iox.Ref("EnumLines"), nil},
@@ -1328,25 +1332,25 @@ func initBuiltinTIs(pkg *Package) {
 		}
 	}
 	if strconv.isValid() {
-		float64TI = &builtinTI{
+		float64TI = &BuiltinTI{
 			typ: types.Typ[types.Float64],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("FormatFloat"), bmExargs{'g', -1, 64}},
 			},
 		}
-		intTI = &builtinTI{
+		intTI = &BuiltinTI{
 			typ: types.Typ[types.Int],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("Itoa"), nil},
 			},
 		}
-		int64TI = &builtinTI{
+		int64TI = &BuiltinTI{
 			typ: types.Typ[types.Int64],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("FormatInt"), bmExargs{10}},
 			},
 		}
-		uint64TI = &builtinTI{
+		uint64TI = &BuiltinTI{
 			typ: types.Typ[types.Uint64],
 			methods: []*builtinMethod{
 				{"String", strconv.Ref("FormatUint"), bmExargs{10}},
@@ -1354,7 +1358,7 @@ func initBuiltinTIs(pkg *Package) {
 		}
 	}
 	if strings.isValid() && strconv.isValid() {
-		stringTI = &builtinTI{
+		stringTI = &BuiltinTI{
 			typ: types.Typ[types.String],
 			methods: []*builtinMethod{
 				{"Len", btoLen, nil},
@@ -1400,7 +1404,7 @@ func initBuiltinTIs(pkg *Package) {
 		}
 	}
 	if strings.isValid() {
-		stringSliceTI = &builtinTI{
+		stringSliceTI = &BuiltinTI{
 			typ: types.NewSlice(types.Typ[types.String]),
 			methods: []*builtinMethod{
 				{"Len", btoLen, nil},
@@ -1409,7 +1413,7 @@ func initBuiltinTIs(pkg *Package) {
 			},
 		}
 	}
-	tis := []*builtinTI{
+	tis := []*BuiltinTI{
 		ioxTI,
 		float64TI,
 		intTI,
@@ -1445,7 +1449,7 @@ func initBuiltinTIs(pkg *Package) {
 	pkg.cb.btiMap = btiMap
 }
 
-func (p *CodeBuilder) getBuiltinTI(typ types.Type) *builtinTI {
+func (p *CodeBuilder) getBuiltinTI(typ types.Type) *BuiltinTI {
 	switch t := typ.(type) {
 	case *types.Basic:
 		typ = types.Default(typ)
@@ -1459,9 +1463,15 @@ func (p *CodeBuilder) getBuiltinTI(typ types.Type) *builtinTI {
 		typ = tyChan
 	}
 	if bti := p.btiMap.At(typ); bti != nil {
-		return bti.(*builtinTI)
+		return bti.(*BuiltinTI)
 	}
 	return nil
+}
+
+// ----------------------------------------------------------------------------
+
+func (p *Package) BuiltinTI(typ types.Type) *BuiltinTI {
+	return p.cb.getBuiltinTI(typ)
 }
 
 // ----------------------------------------------------------------------------
