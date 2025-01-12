@@ -49,11 +49,20 @@ type Impl struct {
 	cache sync.Map // map[string]*pkgCache
 	h     PkgHash  // package hash func
 	nlist int32    // list count
+	tags  string
 }
 
 // New creates a new cache.
 func New(h PkgHash) *Impl {
 	return &Impl{h: h}
+}
+
+func (p *Impl) SetTags(tags string) {
+	p.tags = tags
+}
+
+func (p *Impl) Tags() string {
+	return p.tags
 }
 
 // ----------------------------------------------------------------------------
@@ -66,7 +75,7 @@ func (p *Impl) ListTimes() int {
 // Prepare prepares the cache for a list of pkgPath.
 func (p *Impl) Prepare(dir string, pkgPath ...string) (err error) {
 	atomic.AddInt32(&p.nlist, 1)
-	ret, err := golistExport(dir, pkgPath)
+	ret, err := golistExport(dir, pkgPath, p.tags)
 	if err != nil {
 		return
 	}
@@ -120,10 +129,14 @@ type exportPkg struct {
 	deps    []string
 }
 
-func golistExport(dir string, pkgPath []string) (ret []exportPkg, err error) {
+func golistExport(dir string, pkgPath []string, tags string) (ret []exportPkg, err error) {
 	var stdout, stderr bytes.Buffer
 	var args = make([]string, 0, 3+len(pkgPath))
-	args = append(args, "list", "-f={{.ImportPath}}\t{{.Export}}\t{{.Deps}}", "-export")
+	args = append(args, "list", "-f={{.ImportPath}}\t{{.Export}}\t{{.Deps}}")
+	if tags != "" {
+		args = append(args, "-tags="+tags)
+	}
+	args = append(args, "-export")
 	args = append(args, pkgPath...)
 	cmd := exec.Command("go", args...)
 	cmd.Stdout = &stdout
