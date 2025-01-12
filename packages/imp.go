@@ -41,6 +41,7 @@ type Importer struct {
 	dir    string
 	m      sync.RWMutex
 	cache  Cache
+	tags   string
 }
 
 // NewImporter creates an Importer object that meets types.ImporterFrom and types.Importer interface.
@@ -65,6 +66,14 @@ func (p *Importer) SetCache(cache Cache) {
 // Cache returns the cache of the importer.
 func (p *Importer) Cache() Cache {
 	return p.cache
+}
+
+func (p *Importer) SetTags(tags string) {
+	p.tags = tags
+}
+
+func (p *Importer) Tags() string {
+	return p.tags
 }
 
 // Import returns the imported package for the given import path.
@@ -114,7 +123,7 @@ func (p *Importer) findExport(dir, pkgPath string) (f io.ReadCloser, err error) 
 		return c.Find(dir, pkgPath)
 	}
 	atomic.AddInt32(&nlist, 1)
-	data, err := golistExport(dir, pkgPath)
+	data, err := golistExport(dir, pkgPath, p.tags)
 	if err != nil {
 		return
 	}
@@ -122,9 +131,14 @@ func (p *Importer) findExport(dir, pkgPath string) (f io.ReadCloser, err error) 
 	return os.Open(expfile)
 }
 
-func golistExport(dir, pkgPath string) (ret []byte, err error) {
+func golistExport(dir, pkgPath string, tags string) (ret []byte, err error) {
 	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("go", "list", "-f={{.Export}}", "-export", pkgPath)
+	args := []string{"list", "-f={{.Export}}"}
+	if tags != "" {
+		args = append(args, "-tags=", tags)
+	}
+	args = append(args, "-export", pkgPath)
+	cmd := exec.Command("go", args...)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	cmd.Dir = dir
