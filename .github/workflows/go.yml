@@ -30,5 +30,4 @@ jobs:
     - name: Codecov
       uses: codecov/codecov-action@v5
       with:
-        gcov_ignore: internal/*,chore/*,tutorial/*,token/*
         token: ${{ secrets.CODECOV_TOKEN }}
