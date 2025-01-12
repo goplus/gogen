@@ -1776,7 +1776,7 @@ func (p *CodeBuilder) btiMethod(
 	if o != nil {
 		for i, n := 0, o.numMethods(); i < n; i++ {
 			method := o.method(i)
-			v := method.name
+			v := method.Name
 			if v == name || (flag > 0 && v == aliasName) {
 				autoprop := flag == MemberFlagAutoProperty && v == aliasName
 				this := p.stk.Pop()
@@ -1785,14 +1785,14 @@ func (p *CodeBuilder) btiMethod(
 						Fun:  ast.NewIdent(fn),
 						Args: []ast.Expr{this.Val},
 					}
-					this.Type = &btiMethodType{Type: o.typ, eargs: method.eargs}
+					this.Type = &btiMethodType{Type: o.typ, eargs: method.Exargs}
 				} else {
-					this.Type = &btiMethodType{Type: this.Type, eargs: method.eargs}
+					this.Type = &btiMethodType{Type: this.Type, eargs: method.Exargs}
 				}
-				p.Val(method.fn, src)
+				p.Val(method.Fn, src)
 				p.stk.Push(this)
 				if p.rec != nil {
-					p.rec.Member(src, method.fn)
+					p.rec.Member(src, method.Fn)
 				}
 				if autoprop {
 					p.CallWith(0, 0, src)

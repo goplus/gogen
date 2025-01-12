@@ -40,7 +40,9 @@ func newGopBuiltinDefault(pkg *gogen.Package, conf *gogen.Config) *types.Package
 	gogen.InitBuiltin(pkg, builtin, conf)
 	initGopBuiltin(b, conf)
 	tiStr := pkg.BuiltinTI(types.Typ[types.String])
-	tiStr.AddMethod("Capitalize", b.Ref("Capitalize"))
+	tiStr.AddMethods(
+		&gogen.BuiltinMethod{Name: "Capitalize", Fn: b.Ref("Capitalize")},
+	)
 	return builtin
 }
 
