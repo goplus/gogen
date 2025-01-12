@@ -1,0 +1,6 @@
+coverage:
+  ignore:
+    - "internal"
+    - "chore"
+    - "tutorial"
+    - "token"

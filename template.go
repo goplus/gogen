@@ -89,7 +89,7 @@ func (p *unboundProxyParam) String() string {
 
 func getElemTypeIf(t types.Type, parg *internal.Elem) types.Type {
 	if parg != nil && parg.CVal != nil {
-		if tb, ok := t.(*types.Basic); ok && (tb.Info()&types.IsFloat) != 0 {
+		if tb, ok := t.(*types.Basic); ok && tb.Kind() == types.UntypedFloat {
 			if constant.ToInt(parg.CVal).Kind() == constant.Int {
 				return types.Typ[types.UntypedInt]
 			}
