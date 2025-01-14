@@ -1569,7 +1569,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 			flag = memberFlagMethodToFunc
 		}
 		aliasName, flag = aliasNameOf(name, flag)
-		kind = p.findMember(at, name, aliasName, flag, arg, srcExpr)
+		kind = p.findMember(at, name, aliasName, flag, arg, srcExpr, nil)
 		if isType && kind != MemberMethod {
 			code, pos := p.loadExpr(srcExpr)
 			return MemberInvalid, p.newCodeError(
@@ -1617,7 +1617,7 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 }
 
 func (p *CodeBuilder) findMember(
-	typ types.Type, name, aliasName string, flag MemberFlag, arg *Element, srcExpr ast.Node) MemberKind {
+	typ types.Type, name, aliasName string, flag MemberFlag, arg *Element, srcExpr ast.Node, visited map[*types.Struct]none) MemberKind {
 	var named *types.Named
 retry:
 	switch o := typ.(type) {
@@ -1635,10 +1635,10 @@ retry:
 				return kind
 			}
 			if fstruc {
-				return p.embeddedField(struc, name, aliasName, flag, arg, srcExpr)
+				return p.embeddedField(struc, name, aliasName, flag, arg, srcExpr, visited)
 			}
 		case *types.Struct:
-			if kind := p.field(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+			if kind := p.field(t, name, aliasName, flag, arg, srcExpr, visited); kind != MemberInvalid {
 				return kind
 			}
 		}
@@ -1649,7 +1649,7 @@ retry:
 		}
 		goto retry
 	case *types.Struct:
-		if kind := p.field(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+		if kind := p.field(o, name, aliasName, flag, arg, srcExpr, visited); kind != MemberInvalid {
 			return kind
 		}
 		if named != nil {
@@ -1829,10 +1829,18 @@ func (p *CodeBuilder) normalField(
 }
 
 func (p *CodeBuilder) embeddedField(
-	o *types.Struct, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
+	o *types.Struct, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node, visited map[*types.Struct]none) MemberKind {
+	if visited == nil {
+		visited = make(map[*types.Struct]none)
+	}
+	if _, ok := visited[o]; ok {
+		return MemberInvalid
+	}
+	visited[o] = none{}
+
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		if fld := o.Field(i); fld.Embedded() {
-			if kind := p.findMember(fld.Type(), name, aliasName, flag, arg, src); kind != MemberInvalid {
+			if kind := p.findMember(fld.Type(), name, aliasName, flag, arg, src, visited); kind != MemberInvalid {
 				return kind
 			}
 		}
@@ -1841,11 +1849,11 @@ func (p *CodeBuilder) embeddedField(
 }
 
 func (p *CodeBuilder) field(
-	o *types.Struct, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) MemberKind {
+	o *types.Struct, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node, visited map[*types.Struct]none) MemberKind {
 	if kind := p.normalField(o, name, arg, src); kind != MemberInvalid {
 		return kind
 	}
-	return p.embeddedField(o, name, aliasName, flag, arg, src)
+	return p.embeddedField(o, name, aliasName, flag, arg, src, visited)
 }
 
 func toFuncSig(sig *types.Signature, recv *types.Var) *types.Signature {
