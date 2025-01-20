@@ -583,9 +583,16 @@ func (p *Package) big() PkgRef {
 // ----------------------------------------------------------------------------
 
 type null struct{}
+
+type importName struct {
+	name string
+	file string
+}
+
 type autoNames struct {
-	names   map[string]null
-	autoIdx int
+	names       map[string]null
+	importNames map[importName]null
+	autoIdx     int
 }
 
 const (
@@ -594,6 +601,7 @@ const (
 
 func (p *autoNames) init() {
 	p.names = make(map[string]null)
+	p.importNames = make(map[importName]null)
 }
 
 func (p *autoNames) autoName() string {
@@ -610,14 +618,24 @@ func (p *autoNames) hasName(name string) bool {
 	return ok
 }
 
-func (p *autoNames) importName(name string) (ret string, renamed bool) {
+func (p *autoNames) useImportName(file, name string) {
+	p.importNames[importName{name, file}] = null{}
+}
+
+func (p *autoNames) hasImportName(file, name string) bool {
+	_, ok := p.importNames[importName{name, file}]
+	return ok
+}
+
+func (p *autoNames) importName(file, name string) (ret string, renamed bool) {
 	ret = name
 	var idx int
-	for p.hasName(ret) {
+	for p.hasName(ret) || p.hasImportName(file, ret) {
 		idx++
 		ret = name + strconv.Itoa(idx)
 		renamed = true
 	}
+	p.useImportName(file, ret)
 	return
 }
 

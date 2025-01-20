@@ -2621,6 +2621,73 @@ func demo() {
 `, "b.go")
 }
 
+type FmtPatchImporter struct{}
+
+func (m *FmtPatchImporter) Import(path string) (pkg *types.Package, err error) {
+	if path == "fmt@patch" {
+		fmtPkg, _ := gblImp.Import("fmt")
+		fmtPrintfObj := fmtPkg.Scope().Lookup("Printf")
+		patchPkg := types.NewPackage(path, "fmt")
+		patchPrintfObj := types.NewFunc(fmtPrintfObj.Pos(), patchPkg, "Printf", fmtPrintfObj.Type().(*types.Signature))
+		patchPkg.Scope().Insert(patchPrintfObj)
+		return patchPkg, nil
+	}
+	return gblImp.Import(path)
+}
+
+// TestPatchImport tests importing behavior for patched package.
+// See related issue: https://github.com/goplus/igop/pull/275
+func TestPatchImport(t *testing.T) {
+	pkg := gogen.NewPackage("", "main", &gogen.Config{
+		Fset:            gblFset,
+		Importer:        &FmtPatchImporter{},
+		Recorder:        eventRecorder{},
+		NodeInterpreter: nodeInterp{},
+		DbgPositioner:   nodeInterp{},
+	})
+
+	_, err := pkg.SetCurFile("a.go", true)
+	if err != nil {
+		t.Fatal("pkg.SetCurFile failed:", err)
+	}
+	fmt := pkg.Import("fmt")
+	fmt2 := pkg.Import("fmt@patch")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		Val(fmt2.Ref("Printf")).Val("Hello").Call(1).EndStmt().
+		End()
+
+	_, err = pkg.SetCurFile("b.go", true)
+	if err != nil {
+		t.Fatal("pkg.SetCurFile failed:", err)
+	}
+	pkg.NewFunc(nil, "demo", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+
+	domTestEx(t, pkg, `package main
+
+import (
+	"fmt"
+	fmt1 "fmt@patch"
+)
+
+func main() {
+	fmt.Println("Hello")
+	fmt1.Printf("Hello")
+}
+`, "a.go")
+
+	domTestEx(t, pkg, `package main
+
+import "fmt"
+
+func demo() {
+	fmt.Println("Hello")
+}
+`, "b.go")
+}
+
 func TestImportMultiFiles(t *testing.T) {
 	pkg := newMainPackage()
 
