@@ -167,7 +167,7 @@ func (p *File) forceImport(pkgPath string) {
 
 func (p *File) markUsed(this *Package) {
 	if p.dirty {
-		astVisitor{this}.markUsed(p.decls)
+		astVisitor{this, p}.markUsed(p.decls)
 		p.dirty = false
 	}
 }
@@ -178,7 +178,8 @@ func (p *File) Name() string {
 }
 
 type astVisitor struct {
-	this *Package
+	pkg  *Package
+	file *File
 }
 
 func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
@@ -192,7 +193,7 @@ func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 		if id, ok := x.(*ast.Ident); ok && id.Obj != nil {
 			if used, ok := id.Obj.Data.(importUsed); ok && bool(!used) {
 				id.Obj.Data = importUsed(true)
-				if name, renamed := p.this.importName(id.Name); renamed {
+				if name, renamed := p.pkg.importName(p.file.Name(), id.Name); renamed {
 					id.Name = name
 					id.Obj.Name = name
 				}
