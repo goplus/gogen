@@ -32,13 +32,17 @@ func initGopBuiltin(big gogen.PkgRef, conf *gogen.Config) {
 
 func newGopBuiltinDefault(pkg *gogen.Package, conf *gogen.Config) *types.Package {
 	fmt := pkg.Import("fmt")
-	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
+	b := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	builtin := types.NewPackage("", "")
 	if builtin.Scope().Insert(gogen.NewOverloadFunc(token.NoPos, builtin, "println", fmt.Ref("Println"))) != nil {
 		panic("println exists")
 	}
 	gogen.InitBuiltin(pkg, builtin, conf)
-	initGopBuiltin(big, conf)
+	initGopBuiltin(b, conf)
+	tiStr := pkg.BuiltinTI(types.Typ[types.String])
+	tiStr.AddMethods(
+		&gogen.BuiltinMethod{Name: "Capitalize", Fn: b.Ref("Capitalize")},
+	)
 	return builtin
 }
 

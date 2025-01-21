@@ -22,6 +22,8 @@ import (
 	"go/types"
 	"log"
 	"os"
+	"runtime"
+	"strconv"
 	"syscall"
 	"testing"
 	"unsafe"
@@ -343,6 +345,23 @@ func bar(v mytype) rune {
 	if bar.String() != "func foo.bar(v byte) rune" {
 		t.Fatal("bar.Type:", bar)
 	}
+	// check typesalias
+	if isLeastGo122() {
+		t.Setenv("GODEBUG", "gotypesalias=1")
+		pkg, err := conf.Check("foo", fset, []*ast.File{f}, nil)
+		if err != nil {
+			t.Fatal("conf.Check:", err)
+		}
+		bar := pkg.Scope().Lookup("bar")
+		if bar.String() != "func foo.bar(v foo.mytype) rune" {
+			t.Fatal("bar.Type:", bar)
+		}
+	}
+}
+
+func isLeastGo122() bool {
+	ver, err := strconv.ParseInt(runtime.Version()[4:6], 10, 0)
+	return err == nil && ver >= 22
 }
 
 func TestMethods(t *testing.T) {
@@ -2589,6 +2608,73 @@ import "fmt"
 
 func main() {
 	fmt.Println("Hello")
+}
+`, "a.go")
+
+	domTestEx(t, pkg, `package main
+
+import "fmt"
+
+func demo() {
+	fmt.Println("Hello")
+}
+`, "b.go")
+}
+
+type FmtPatchImporter struct{}
+
+func (m *FmtPatchImporter) Import(path string) (pkg *types.Package, err error) {
+	if path == "fmt@patch" {
+		fmtPkg, _ := gblImp.Import("fmt")
+		fmtPrintfObj := fmtPkg.Scope().Lookup("Printf")
+		patchPkg := types.NewPackage(path, "fmt")
+		patchPrintfObj := types.NewFunc(fmtPrintfObj.Pos(), patchPkg, "Printf", fmtPrintfObj.Type().(*types.Signature))
+		patchPkg.Scope().Insert(patchPrintfObj)
+		return patchPkg, nil
+	}
+	return gblImp.Import(path)
+}
+
+// TestPatchImport tests importing behavior for patched package.
+// See related issue: https://github.com/goplus/igop/pull/275
+func TestPatchImport(t *testing.T) {
+	pkg := gogen.NewPackage("", "main", &gogen.Config{
+		Fset:            gblFset,
+		Importer:        &FmtPatchImporter{},
+		Recorder:        eventRecorder{},
+		NodeInterpreter: nodeInterp{},
+		DbgPositioner:   nodeInterp{},
+	})
+
+	_, err := pkg.SetCurFile("a.go", true)
+	if err != nil {
+		t.Fatal("pkg.SetCurFile failed:", err)
+	}
+	fmt := pkg.Import("fmt")
+	fmt2 := pkg.Import("fmt@patch")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		Val(fmt2.Ref("Printf")).Val("Hello").Call(1).EndStmt().
+		End()
+
+	_, err = pkg.SetCurFile("b.go", true)
+	if err != nil {
+		t.Fatal("pkg.SetCurFile failed:", err)
+	}
+	pkg.NewFunc(nil, "demo", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+
+	domTestEx(t, pkg, `package main
+
+import (
+	"fmt"
+	fmt1 "fmt@patch"
+)
+
+func main() {
+	fmt.Println("Hello")
+	fmt1.Printf("Hello")
 }
 `, "a.go")
 

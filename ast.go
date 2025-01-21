@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/typesutil"
 )
 
 var (
@@ -168,6 +169,8 @@ retry:
 		return toObjectExpr(pkg, t.Obj())
 	case *Union:
 		return toUnionType(pkg, t)
+	case *typesutil.Alias:
+		return toObjectExpr(pkg, t.Obj())
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil
