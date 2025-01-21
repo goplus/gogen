@@ -1832,8 +1832,7 @@ func (p *CodeBuilder) embeddedField(
 	o *types.Struct, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node, visited map[*types.Struct]none) MemberKind {
 	if visited == nil {
 		visited = make(map[*types.Struct]none)
-	}
-	if _, ok := visited[o]; ok {
+	} else if _, ok := visited[o]; ok {
 		return MemberInvalid
 	}
 	visited[o] = none{}
