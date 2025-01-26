@@ -1386,4 +1386,26 @@ func TestAssignableUntyped(t *testing.T) {
 	}
 }
 
+func TestValidType(t *testing.T) {
+	var errs []error
+	conf := &Config{
+		HandleErr: func(err error) {
+			errs = append(errs, err)
+		},
+	}
+	pkg := NewPackage("", "foo", conf)
+	typeA := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "A", nil), nil, nil)
+	typeB := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "B", nil), nil, nil)
+	typeA.SetUnderlying(types.NewStruct([]*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "B", typeB, true), // Embed B.
+	}, nil))
+	typeB.SetUnderlying(types.NewStruct([]*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "A", typeA, true), // Embed A.
+	}, nil))
+	pkg.ValidType(typeA)
+	if len(errs) == 0 {
+		t.Fatal("TestValidType: no error?")
+	}
+}
+
 // ----------------------------------------------------------------------------
