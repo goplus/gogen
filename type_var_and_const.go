@@ -119,6 +119,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam)
 		setTypeParams(pkg, p.typ, spec, tparams)
 	}
 	spec.Type = toType(pkg, typ)
+	pkg.ValidType(p.typ)
 	return p.typ
 }
 
