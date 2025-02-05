@@ -495,6 +495,45 @@ func main() {
 `)
 }
 
+func TestFuncDef(t *testing.T) {
+	pkg := newMainPackage()
+	tyInt := types.Typ[types.Int]
+
+	def := pkg.NewTypeDefs()
+
+	// register decl & not init type
+	fn1 := pkg.NewFuncDef()
+	fn2 := pkg.NewFuncDef()
+
+	// init struct type
+	def.NewType("bar").InitType(pkg, types.NewStruct([]*types.Var{types.NewField(token.NoPos, pkg.Types, "b", tyInt, false)}, nil))
+
+	// init func type
+	fntype := types.NewSignatureType(nil, nil, nil, types.NewTuple(types.NewField(token.NoPos, pkg.Types, "b", pkg.Types.Scope().Lookup("bar").Type(), false)), nil, false)
+	err := fn1.InitTypeWith(token.NoPos, "foo", fntype, nil)
+	if err != nil {
+		t.Fatal("InitTypeWith failed:", err)
+	}
+	fn1.BodyStart(pkg).
+		NewVarStart(types.NewPointer(tyInt), "a").Val(pkg.Builtin().Ref("new")).
+		Val(ctxRef(pkg, "int")).Call(1).EndInit(1).
+		End()
+
+	fn2.SetDecl("foo2", fntype)
+
+	domTest(t, pkg, `package main
+
+type bar struct {
+	b int
+}
+
+func foo(b bar) {
+	var a *int = new(int)
+}
+func foo2(b bar)
+`)
+}
+
 func TestTypeConv(t *testing.T) { // TypeCast
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint32]

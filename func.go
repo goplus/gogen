@@ -63,6 +63,7 @@ type Func struct {
 	decl   *ast.FuncDecl
 	old    funcBodyCtx
 	arity1 int // 0 for normal, (arity+1) for inlineClosure
+	pkg    *Package
 }
 
 // Obj returns this function object.
@@ -138,8 +139,7 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 	if err != nil {
 		panic(err)
 	}
-	fn := f.decl
-	fn.Name, fn.Type = ident(name), toFuncType(p, sig)
+	f.SetDecl(name, sig)
 	return f
 }
 
@@ -167,11 +167,34 @@ func IsMethodRecv(recv *types.Var) bool {
 // NewFuncWith creates a new function (should have a function body).
 func (p *Package) NewFuncWith(
 	pos token.Pos, name string, sig *types.Signature, recvTypePos func() token.Pos) (*Func, error) {
+	fn := p.NewFuncDef()
+	err := fn.InitTypeWith(pos, name, sig, recvTypePos)
+	if err != nil {
+		return nil, err
+	}
+	return fn, nil
+}
+
+// NewFuncDef starts a func declaration block.
+func (p *Package) NewFuncDef() *Func {
+	decl := &ast.FuncDecl{}
+	p.file.decls = append(p.file.decls, decl)
+	return &Func{decl: decl, pkg: p}
+}
+
+func (p *Func) SetDecl(name string, sig *types.Signature) {
+	fn := p.decl
+	fn.Name, fn.Type = ident(name), toFuncType(p.pkg, sig)
+}
+
+// InitTypeWith init a new function (should have a function body).
+func (fn *Func) InitTypeWith(pos token.Pos, name string, sig *types.Signature, recvTypePos func() token.Pos) error {
 	if name == "" {
 		panic("no func name")
 	}
+	p := fn.pkg
 	cb := p.cb
-	fn := &Func{Func: types.NewFunc(pos, p.Types, name, sig)}
+	fn.Func = types.NewFunc(pos, p.Types, name, sig)
 	if recv := sig.Recv(); IsMethodRecv(recv) { // add method to this type
 		var t *types.Named
 		var ok bool
@@ -184,15 +207,15 @@ func (p *Package) NewFuncWith(
 			t, ok = typ.(*types.Named)
 		}
 		if !ok {
-			return nil, cb.newCodeErrorf(
+			return cb.newCodeErrorf(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is not a defined type)", typ, typ)
 		}
 		switch getUnderlying(p, t.Obj().Type()).(type) {
 		case *types.Interface:
-			return nil, cb.newCodeErrorf(
+			return cb.newCodeErrorf(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is an interface type)", typ, typ)
 		case *types.Pointer:
-			return nil, cb.newCodeErrorf(
+			return cb.newCodeErrorf(
 				getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		if name != "_" { // skip underscore
@@ -200,7 +223,7 @@ func (p *Package) NewFuncWith(
 		}
 	} else if name == "init" { // init is not a normal func
 		if sig.Params() != nil || sig.Results() != nil {
-			return nil, cb.newCodeErrorf(
+			return cb.newCodeErrorf(
 				pos, "func init must have no arguments and no return values")
 		}
 	} else if name != "_" { // skip underscore
@@ -208,7 +231,7 @@ func (p *Package) NewFuncWith(
 		if old != nil {
 			if !(p.allowRedecl && types.Identical(old.Type(), sig)) { // for c2go
 				oldPos := cb.fset.Position(old.Pos())
-				return nil, cb.newCodeErrorf(
+				return cb.newCodeErrorf(
 					pos, "%s redeclared in this block\n\t%v: other declaration of %s", name, oldPos, name)
 			}
 		}
@@ -221,10 +244,7 @@ func (p *Package) NewFuncWith(
 	if token.IsExported(name) {
 		p.expObjTypes = append(p.expObjTypes, sig)
 	}
-
-	fn.decl = &ast.FuncDecl{}
-	p.file.decls = append(p.file.decls, fn.decl)
-	return fn, nil
+	return nil
 }
 
 func (p *Package) newClosure(sig *types.Signature) *Func {
