@@ -837,7 +837,7 @@ func TestTypeEx(t *testing.T) {
 			typ.Underlying()
 		}()
 	}
-	bte := &boundTypeError{tyInt, TyByte}
+	bte := &BoundTypeError{Fset: pkg.cb.fset, a: tyInt, b: TyByte}
 	if bte.Error() != "boundType int => byte failed" {
 		t.Fatal("boundTypeError:", bte)
 	}
