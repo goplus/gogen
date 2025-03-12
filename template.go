@@ -98,15 +98,21 @@ func getElemTypeIf(t types.Type, parg *internal.Elem) types.Type {
 	return t
 }
 
-type boundTypeError struct {
+type BoundTypeError struct {
+	Fset dbgPositioner
+	Pos  token.Pos
 	a, b types.Type
 }
 
-func (p *boundTypeError) Error() string {
+func (p *BoundTypeError) Error() string {
 	return fmt.Sprintf("boundType %v => %v failed", p.a, p.b)
 }
 
 func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
+	var pos token.Pos
+	if parg != nil && parg.Src != nil {
+		pos = parg.Src.Pos()
+	}
 	switch p := param.(type) {
 	case *unboundFuncParam: // template function param
 		if p.tBound == nil {
@@ -116,7 +122,7 @@ func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 			p.boundTo(pkg, arg, parg)
 		} else if !AssignableConv(pkg, getElemTypeIf(arg, parg), p.tBound, parg) {
 			if !(isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.parg)) {
-				return &boundTypeError{a: arg, b: p.tBound}
+				return &BoundTypeError{Fset: pkg.cb.fset, Pos: pos, a: arg, b: p.tBound}
 			}
 			p.tBound = arg
 		}
@@ -137,7 +143,7 @@ func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
 		case *types.Map:
 			if t, ok := arg.(*types.Map); ok {
 				if err1 := boundType(pkg, t.Key(), param.Key(), nil); err1 != nil { // TODO: expr = nil
-					return &boundTypeError{a: t.Key(), b: param.Key()}
+					return &BoundTypeError{Fset: pkg.cb.fset, Pos: pos, a: t.Key(), b: param.Key()}
 				}
 				return boundType(pkg, t.Elem(), param.Elem(), nil) // TODO: expr = nil
 			}

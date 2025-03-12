@@ -837,7 +837,7 @@ func TestTypeEx(t *testing.T) {
 			typ.Underlying()
 		}()
 	}
-	bte := &boundTypeError{tyInt, TyByte}
+	bte := &BoundTypeError{Fset: pkg.cb.fset, a: tyInt, b: TyByte}
 	if bte.Error() != "boundType int => byte failed" {
 		t.Fatal("boundTypeError:", bte)
 	}
@@ -1383,6 +1383,28 @@ func TestAssignableUntyped(t *testing.T) {
 	}
 	if !assignableTo(i64, types.Typ[types.UntypedFloat], nil) {
 		t.Fatal("must i2f")
+	}
+}
+
+func TestValidType(t *testing.T) {
+	var errs []error
+	conf := &Config{
+		HandleErr: func(err error) {
+			errs = append(errs, err)
+		},
+	}
+	pkg := NewPackage("", "foo", conf)
+	typeA := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "A", nil), nil, nil)
+	typeB := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "B", nil), nil, nil)
+	typeA.SetUnderlying(types.NewStruct([]*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "B", typeB, true), // Embed B.
+	}, nil))
+	typeB.SetUnderlying(types.NewStruct([]*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "A", typeA, true), // Embed A.
+	}, nil))
+	pkg.ValidType(typeA)
+	if len(errs) == 0 {
+		t.Fatal("TestValidType: no error?")
 	}
 }
 
