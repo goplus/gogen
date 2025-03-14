@@ -5,6 +5,7 @@ package gogen
 
 import (
 	"fmt"
+	"go/token"
 	"go/types"
 	_ "unsafe"
 )
@@ -42,12 +43,12 @@ type error_ struct {
 //go:linkname checker_infer123 go/types.(*Checker).infer
 func checker_infer123(check *types.Checker, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *Tuple, args []*operand, reverse bool, err *error_) (inferred []types.Type)
 
-func checker_infer(check *types.Checker, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type, err error) {
+func checker_infer(check *types.Checker, conf *types.Config, fset *token.FileSet, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type) {
 	const CannotInferTypeArgs = 138
-	_err := &error_{check: check, code: CannotInferTypeArgs}
-	result = checker_infer123(check, posn, tparams, targs, params, args, true, _err)
-	if len(_err.desc) > 0 {
-		err = fmt.Errorf("%s", _err.desc[0].msg)
+	err := &error_{check: check, code: CannotInferTypeArgs}
+	result = checker_infer123(check, posn, tparams, targs, params, args, true, err)
+	for _, d := range err.desc {
+		conf.Error(types.Error{Fset: fset, Pos: d.posn.Pos(), Msg: d.msg})
 	}
 	return
 }
@@ -62,6 +63,6 @@ func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []ty
 		},
 	}
 	checker := types.NewChecker(conf, pkg.Fset, pkg.Types, nil)
-	result, err = checker_infer(checker, posn, tparams, targs, params, args)
+	result = checker_infer(checker, conf, pkg.Fset, posn, tparams, targs, params, args)
 	return
 }
