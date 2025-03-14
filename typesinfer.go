@@ -4,7 +4,7 @@
 package gogen
 
 import (
-	"fmt"
+	"errors"
 	"go/types"
 	_ "unsafe"
 )
@@ -31,7 +31,7 @@ func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []ty
 		Error: func(e error) {
 			err = e
 			if terr, ok := e.(types.Error); ok {
-				err = fmt.Errorf("%s", terr.Msg)
+				err = errors.New(terr.Msg)
 			}
 		},
 	}
