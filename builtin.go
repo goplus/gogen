@@ -53,86 +53,87 @@ type typeParam struct {
 	tidx int
 }
 
+var _builtinOps = [...]struct {
+	name    string
+	tparams []typeTParam
+	params  []typeParam
+	result  int
+}{
+	{"Add", []typeTParam{{"T", addable}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_Add[T addable](a, b T) T
+
+	{"Sub", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_Sub[T number](a, b T) T
+
+	{"Mul", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_Mul[T number](a, b T) T
+
+	{"Quo", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_Quo(a, b untyped_bigint) untyped_bigrat
+	// func Gop_Quo[T number](a, b T) T
+
+	{"Rem", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_Rem[T integer](a, b T) T
+
+	{"Or", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_Or[T integer](a, b T) T
+
+	{"Xor", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_Xor[T integer](a, b T) T
+
+	{"And", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_And[T integer](a, b T) T
+
+	{"AndNot", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_AndNot[T integer](a, b T) T
+
+	{"Lsh", []typeTParam{{"T", integer}, {"N", ninteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
+	// func Gop_Lsh[T integer, N ninteger](a T, n N) T
+
+	{"Rsh", []typeTParam{{"T", integer}, {"N", ninteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
+	// func Gop_Rsh[T integer, N ninteger](a T, n N) T
+
+	{"LT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+	// func Gop_LT[T orderable](a, b T) untyped_bool
+
+	{"LE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+	// func Gop_LE[T orderable](a, b T) untyped_bool
+
+	{"GT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+	// func Gop_GT[T orderable](a, b T) untyped_bool
+
+	{"GE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+	// func Gop_GE[T orderable](a, b T) untyped_bool
+
+	{"EQ", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+	// func Gop_EQ[T comparable](a, b T) untyped_bool
+
+	{"NE", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
+	// func Gop_NE[T comparable](a, b T) untyped_bool
+
+	{"LAnd", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_LAnd[T bool](a, b T) T
+
+	{"LOr", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	// func Gop_LOr[T bool](a, b T) T
+
+	{"Neg", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
+	// func Gop_Neg[T number](a T) T
+
+	{"Dup", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
+	// func Gop_Dup[T number](a T) T
+
+	{"Not", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}}, 0},
+	// func Gop_Not[T integer](a T) T
+
+	{"LNot", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}}, 0},
+	// func Gop_LNot[T bool](a T) T
+}
+
 // initBuiltinOps initializes operators of the builtin package.
 func initBuiltinOps(builtin *types.Package, conf *Config) {
-	ops := [...]struct {
-		name    string
-		tparams []typeTParam
-		params  []typeParam
-		result  int
-	}{
-		{"Add", []typeTParam{{"T", addable}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_Add[T addable](a, b T) T
-
-		{"Sub", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_Sub[T number](a, b T) T
-
-		{"Mul", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_Mul[T number](a, b T) T
-
-		{"Quo", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_Quo(a, b untyped_bigint) untyped_bigrat
-		// func Gop_Quo[T number](a, b T) T
-
-		{"Rem", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_Rem[T integer](a, b T) T
-
-		{"Or", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_Or[T integer](a, b T) T
-
-		{"Xor", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_Xor[T integer](a, b T) T
-
-		{"And", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_And[T integer](a, b T) T
-
-		{"AndNot", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_AndNot[T integer](a, b T) T
-
-		{"Lsh", []typeTParam{{"T", integer}, {"N", ninteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
-		// func Gop_Lsh[T integer, N ninteger](a T, n N) T
-
-		{"Rsh", []typeTParam{{"T", integer}, {"N", ninteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
-		// func Gop_Rsh[T integer, N ninteger](a T, n N) T
-
-		{"LT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_LT[T orderable](a, b T) untyped_bool
-
-		{"LE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_LE[T orderable](a, b T) untyped_bool
-
-		{"GT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_GT[T orderable](a, b T) untyped_bool
-
-		{"GE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_GE[T orderable](a, b T) untyped_bool
-
-		{"EQ", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_EQ[T comparable](a, b T) untyped_bool
-
-		{"NE", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-		// func Gop_NE[T comparable](a, b T) untyped_bool
-
-		{"LAnd", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_LAnd[T bool](a, b T) T
-
-		{"LOr", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-		// func Gop_LOr[T bool](a, b T) T
-
-		{"Neg", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
-		// func Gop_Neg[T number](a T) T
-
-		{"Dup", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
-		// func Gop_Dup[T number](a T) T
-
-		{"Not", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}}, 0},
-		// func Gop_Not[T integer](a T) T
-
-		{"LNot", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}}, 0},
-		// func Gop_LNot[T bool](a T) T
-	}
 	gbl := builtin.Scope()
-	for _, op := range ops {
+	for _, op := range _builtinOps {
 		tparams := newTParams(op.tparams)
 		n := len(op.params)
 		params := make([]*types.Var, n)
@@ -184,48 +185,49 @@ func newTParams(params []typeTParam) []*TemplateParamType {
 	return tparams
 }
 
+var _assignOps = [...]struct {
+	name     string
+	t        Contract
+	ninteger bool
+}{
+	{"AddAssign", addable, false},
+	// func Gop_AddAssign[T addable](a *T, b T)
+
+	{"SubAssign", number, false},
+	// func Gop_SubAssign[T number](a *T, b T)
+
+	{"MulAssign", number, false},
+	// func Gop_MulAssign[T number](a *T, b T)
+
+	{"QuoAssign", number, false},
+	// func Gop_QuoAssign[T number](a *T, b T)
+
+	{"RemAssign", integer, false},
+	// func Gop_RemAssign[T integer](a *T, b T)
+
+	{"OrAssign", integer, false},
+	// func Gop_OrAssign[T integer](a *T, b T)
+
+	{"XorAssign", integer, false},
+	// func Gop_XorAssign[T integer](a *T, b T)
+
+	{"AndAssign", integer, false},
+	// func Gop_Assign[T integer](a *T, b T)
+
+	{"AndNotAssign", integer, false},
+	// func Gop_AndNotAssign[T integer](a *T, b T)
+
+	{"LshAssign", integer, true},
+	// func Gop_LshAssign[T integer, N ninteger](a *T, n N)
+
+	{"RshAssign", integer, true},
+	// func Gop_RshAssign[T integer, N ninteger](a *T, n N)
+}
+
 // initBuiltinAssignOps initializes assign operators of the builtin package.
 func initBuiltinAssignOps(builtin *types.Package) {
-	ops := [...]struct {
-		name     string
-		t        Contract
-		ninteger bool
-	}{
-		{"AddAssign", addable, false},
-		// func Gop_AddAssign[T addable](a *T, b T)
-
-		{"SubAssign", number, false},
-		// func Gop_SubAssign[T number](a *T, b T)
-
-		{"MulAssign", number, false},
-		// func Gop_MulAssign[T number](a *T, b T)
-
-		{"QuoAssign", number, false},
-		// func Gop_QuoAssign[T number](a *T, b T)
-
-		{"RemAssign", integer, false},
-		// func Gop_RemAssign[T integer](a *T, b T)
-
-		{"OrAssign", integer, false},
-		// func Gop_OrAssign[T integer](a *T, b T)
-
-		{"XorAssign", integer, false},
-		// func Gop_XorAssign[T integer](a *T, b T)
-
-		{"AndAssign", integer, false},
-		// func Gop_Assign[T integer](a *T, b T)
-
-		{"AndNotAssign", integer, false},
-		// func Gop_AndNotAssign[T integer](a *T, b T)
-
-		{"LshAssign", integer, true},
-		// func Gop_LshAssign[T integer, N ninteger](a *T, n N)
-
-		{"RshAssign", integer, true},
-		// func Gop_RshAssign[T integer, N ninteger](a *T, n N)
-	}
 	gbl := builtin.Scope()
-	for _, op := range ops {
+	for _, op := range _assignOps {
 		tparams := newOpTParams(op.t, op.ninteger)
 		params := make([]*types.Var, 2)
 		params[0] = types.NewParam(token.NoPos, builtin, "a", NewPointer(tparams[0]))
