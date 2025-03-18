@@ -403,7 +403,10 @@ func initUnsafeFuncs(pkg *Package) {
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Alignof", unsafeAlignofInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Offsetof", unsafeOffsetofInstr{}))
 	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Add", unsafeAddInstr{}))
-	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Slice", unsafeSliceInstr{}))
+	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "Slice", unsafeDataInstr{"Slice", 2}))
+	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "SliceData", unsafeDataInstr{"SliceData", 1}))
+	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "String", unsafeDataInstr{"String", 2}))
+	gbl.Insert(NewInstruction(token.NoPos, types.Unsafe, "StringData", unsafeDataInstr{"StringData", 1}))
 	pkg.unsafe_.Types = unsafe
 }
 
@@ -911,34 +914,85 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags, sr
 	return
 }
 
-type unsafeSliceInstr struct{}
+type unsafeDataInstr struct {
+	name string
+	args int
+}
 
+// Go1.17+
 // func unsafe.Slice(ptr *ArbitraryType, len IntegerType) []ArbitraryType
-func (p unsafeSliceInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	checkArgsCount(pkg, "unsafe.Slice", 2, len(args), src)
-
-	t0, ok := args[0].Type.(*types.Pointer)
-	if !ok {
-		pos := getSrcPos(src)
-		if pos != token.NoPos {
-			pos += token.Pos(len("unsafe.Slice"))
+// Go1.20+
+// func unsafe.String(ptr *byte, len IntegerType) string
+// func unsafe.SliceData(slice []ArbitraryType) *ArbitraryType
+// func unsafe.StringData(str string) *byte
+func (unsafeDataInstr) checkFirstType(pkg *Package, fname string, arg *Element, src ast.Node) (ret types.Type, err error) {
+	var info string
+	switch fname {
+	case "unsafe.Slice":
+		if t, ok := arg.Type.(*types.Pointer); ok {
+			return types.NewSlice(t.Elem()), nil
 		}
-		pkg.cb.panicCodeErrorf(pos, "first argument to unsafe.Slice must be pointer; have %v", args[0].Type)
+		info = "pointer"
+	case "unsafe.String":
+		if t, ok := arg.Type.(*types.Pointer); ok && isBasicType(t.Elem(), types.Byte) {
+			return types.Typ[types.String], nil
+		}
+		info = "*byte"
+	case "unsafe.SliceData":
+		if t, ok := arg.Type.Underlying().(*types.Slice); ok {
+			return types.NewPointer(t.Elem()), nil
+		}
+		info = "slice"
+	case "unsafe.StringData":
+		if isBasicType(arg.Type, types.String) {
+			return types.NewPointer(types.Typ[types.Byte]), nil
+		}
+		info = "string"
 	}
-	if t := args[1].Type; !ninteger.Match(pkg, t) {
-		pos := getSrcPos(src)
-		if pos != token.NoPos {
-			pos += token.Pos(len("unsafe.Slice"))
+	pos := getSrcPos(src)
+	if pos != token.NoPos {
+		pos += token.Pos(len(fname))
+	}
+	return nil, pkg.cb.newCodeErrorf(pos, "first argument to %v must be %v; have %v", fname, info, arg.Type)
+}
+
+func (p unsafeDataInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
+	fname := "unsafe." + p.name
+	checkArgsCount(pkg, fname, p.args, len(args), src)
+
+	typ, err := p.checkFirstType(pkg, fname, args[0], src)
+	if err != nil {
+		return nil, err
+	}
+	if p.args == 2 {
+		if t := args[1].Type; !ninteger.Match(pkg, t) {
+			pos := getSrcPos(src)
+			if pos != token.NoPos {
+				pos += token.Pos(len(fname))
+			}
+			return nil, pkg.cb.newCodeErrorf(pos, "non-integer len argument in %v - %v", fname, t)
 		}
-		pkg.cb.panicCodeErrorf(pos, "non-integer len argument in unsafe.Slice - %v", t)
 	}
 	fn := toObjectExpr(pkg, unsafeRef("Sizeof")).(*ast.SelectorExpr)
-	fn.Sel.Name = "Slice" // only in go v1.7+
+	fn.Sel.Name = p.name
+	var exprs []ast.Expr
+	if p.args == 2 {
+		exprs = []ast.Expr{args[0].Val, args[1].Val}
+	} else {
+		exprs = []ast.Expr{args[0].Val}
+	}
 	ret = &Element{
-		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
-		Type: types.NewSlice(t0.Elem()),
+		Val:  &ast.CallExpr{Fun: fn, Args: exprs},
+		Type: typ,
 	}
 	return
+}
+
+func isBasicType(typ types.Type, kind types.BasicKind) bool {
+	if t, ok := typ.(*types.Basic); ok && t.Kind() == kind {
+		return true
+	}
+	return false
 }
 
 // ----------------------------------------------------------------------------
