@@ -301,7 +301,7 @@ func initBuiltinFuncs(builtin *types.Package) {
 		{"clear", []typeTParam{{"Type", clearable}}, []typeXParam{{"t", 0}}, nil},
 		// func clear[T clearable](t T)
 
-    {"max", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
+		{"max", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
 		//func max[T borderable](x T, y ...T) T
 
 		{"min", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
