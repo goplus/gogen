@@ -298,6 +298,9 @@ func initBuiltinFuncs(builtin *types.Package) {
 		{"delete", []typeTParam{{"Key", comparable}, {"Elem", any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
 		// func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
 
+		{"clear", []typeTParam{{"Type", clearable}}, []typeXParam{{"t", 0}}, nil},
+		// func clear[T clearable](t T)
+
 		{"max", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
 		//func max[T borderable](x T, y ...T) T
 
@@ -1283,6 +1286,28 @@ func (p integerT) String() string {
 	return "integer"
 }
 
+type clearableT struct {
+	// type slice, map
+}
+
+func (p clearableT) Match(pkg *Package, typ types.Type) bool {
+retry:
+	switch t := typ.(type) {
+	case *types.Slice:
+		return true
+	case *types.Map:
+		return true
+	case *types.Named:
+		typ = pkg.cb.getUnderlying(t)
+		goto retry
+	}
+	return false
+}
+
+func (p clearableT) String() string {
+	return "clearable"
+}
+
 // ----------------------------------------------------------------------------
 
 var (
@@ -1298,6 +1323,7 @@ var (
 	number     = numberT{}
 	addable    = addableT{}
 	comparable = comparableT{}
+	clearable  = clearableT{}
 	borderable = &basicContract{kindsOrderable, "orderable"}
 )
 
