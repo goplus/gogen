@@ -297,6 +297,12 @@ func initBuiltinFuncs(builtin *types.Package) {
 
 		{"delete", []typeTParam{{"Key", comparable}, {"Elem", any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
 		// func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
+
+		{"max", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
+		//func max[T borderable](x T, y ...T) T
+
+		{"min", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
+		//func min[T borderable](x T, y ...T) T
 	}
 	gbl := builtin.Scope()
 	for _, fn := range fns {
@@ -1292,6 +1298,7 @@ var (
 	number     = numberT{}
 	addable    = addableT{}
 	comparable = comparableT{}
+	borderable = &basicContract{kindsOrderable, "orderable"}
 )
 
 // ----------------------------------------------------------------------------
