@@ -25,3 +25,7 @@ func (t *Alias) Obj() *types.TypeName {
 func NewAlias(obj *types.TypeName, rhs types.Type) *Alias {
 	return &Alias{}
 }
+
+func Unalias(t types.Type) types.Type {
+	return t
+}

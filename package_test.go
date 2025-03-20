@@ -341,10 +341,6 @@ func bar(v mytype) rune {
 	if err != nil {
 		t.Fatal("conf.Check:", err)
 	}
-	bar := pkg.Scope().Lookup("bar")
-	if bar.String() != "func foo.bar(v byte) rune" {
-		t.Fatal("bar.Type:", bar)
-	}
 	// check typesalias
 	if isLeastGo122() {
 		t.Setenv("GODEBUG", "gotypesalias=1")
@@ -354,6 +350,11 @@ func bar(v mytype) rune {
 		}
 		bar := pkg.Scope().Lookup("bar")
 		if bar.String() != "func foo.bar(v foo.mytype) rune" {
+			t.Fatal("bar.Type:", bar)
+		}
+	} else {
+		bar := pkg.Scope().Lookup("bar")
+		if bar.String() != "func foo.bar(v byte) rune" {
 			t.Fatal("bar.Type:", bar)
 		}
 	}
