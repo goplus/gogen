@@ -23,6 +23,8 @@ import (
 	"path"
 	"strconv"
 	"strings"
+
+	"github.com/goplus/gogen/internal/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -437,7 +439,7 @@ retry:
 	case *types.Array:
 		typ = t.Elem()
 		goto retry
-	case *types.TypeParam, *types.Union:
+	case *types.TypeParam, *types.Union, *typesutil.Alias:
 	default:
 		log.Panicf("expDeps: unknown type - %T\n", typ)
 	}

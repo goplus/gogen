@@ -22,6 +22,7 @@ import (
 	"math/big"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -197,6 +198,9 @@ func DefaultConv(pkg *Package, t types.Type, pv *Element) types.Type {
 				if tn, ok := typName.(*types.TypeName); ok && tn.IsAlias() {
 					typ := tn.Type()
 					if pv != nil {
+						if _, ok := typ.(*typesutil.Alias); ok {
+							typ = typesutil.Unalias(typ)
+						}
 						if ok = assignable(pkg, t, typ.(*types.Named), pv); !ok {
 							log.Panicln("==> DefaultConv failed:", t, typ)
 						}

@@ -1258,6 +1258,9 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 		case *types.Named:
 			typ = t.Underlying()
 			goto retry
+		case *typesutil.Alias:
+			typ = typesutil.Unalias(t)
+			goto retry
 		}
 	}
 	// check generic type instance
