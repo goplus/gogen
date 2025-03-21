@@ -28,6 +28,7 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/typesutil"
 	xtoken "github.com/goplus/gogen/token"
 	"golang.org/x/tools/go/types/typeutil"
 )
@@ -1554,11 +1555,11 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	if debugInstr {
 		log.Println("Member", name, flag, "//", arg.Type)
 	}
-	switch arg.Type {
+	at := typesutil.Unalias(arg.Type)
+	switch at {
 	case p.pkg.utBigInt, p.pkg.utBigRat, p.pkg.utBigFlt:
-		arg.Type = DefaultConv(p.pkg, arg.Type, arg)
+		at = DefaultConv(p.pkg, arg.Type, arg)
 	}
-	at := arg.Type
 	if flag == MemberFlagRef {
 		kind = p.refMember(at, name, arg.Val, srcExpr)
 	} else {
@@ -1622,7 +1623,7 @@ func (p *CodeBuilder) findMember(
 retry:
 	switch o := typ.(type) {
 	case *types.Pointer:
-		switch t := o.Elem().(type) {
+		switch t := typesutil.Unalias(o.Elem()).(type) {
 		case *types.Named:
 			u := p.getUnderlying(t) // may cause to loadNamed (delay-loaded)
 			struc, fstruc := u.(*types.Struct)
