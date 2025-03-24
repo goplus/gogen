@@ -57,17 +57,18 @@ func (p eventRecorder) Call(fn ast.Node, obj types.Object)   {}
 
 func newMainPackage(
 	implicitCast ...func(pkg *gogen.Package, V, T types.Type, pv *gogen.Element) bool) *gogen.Package {
-	return newPackage("main", implicitCast...)
+	return newPackage("main", false, implicitCast...)
 }
 
 func newPackage(
-	name string, implicitCast ...func(pkg *gogen.Package, V, T types.Type, pv *gogen.Element) bool) *gogen.Package {
+	name string, gotypesalias bool, implicitCast ...func(pkg *gogen.Package, V, T types.Type, pv *gogen.Element) bool) *gogen.Package {
 	conf := &gogen.Config{
-		Fset:            gblFset,
-		Importer:        gblImp,
-		Recorder:        eventRecorder{},
-		NodeInterpreter: nodeInterp{},
-		DbgPositioner:   nodeInterp{},
+		Fset:             gblFset,
+		Importer:         gblImp,
+		Recorder:         eventRecorder{},
+		NodeInterpreter:  nodeInterp{},
+		DbgPositioner:    nodeInterp{},
+		EnableTypesalias: gotypesalias,
 	}
 	if len(implicitCast) > 0 {
 		conf.CanImplicitCast = implicitCast[0]
@@ -3804,6 +3805,61 @@ func main() {
 	m.Value()
 }
 `)
+}
+
+func TestTypeAliasInFunc(t *testing.T) {
+	if !isLeastGo122() {
+		t.Skip("skip")
+	}
+	pkg := newPackage("main", true)
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typ := types.NewStruct(fields, nil)
+	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+	foo := cb.NewType("foo").InitType(pkg, typ)
+	cb.AliasType("bar", typ)
+	a := cb.AliasType("a", foo)
+	cb.AliasType("b", a)
+	cb.End()
+	domTest(t, pkg, `package main
+
+func main() {
+	type foo struct {
+		x int
+		y string
+	}
+	type bar = struct {
+		x int
+		y string
+	}
+	type a = foo
+	type b = a
+}
+`)
+}
+
+func TestTypeAliasError(t *testing.T) {
+	if !isLeastGo122() {
+		t.Skip("skip")
+	}
+	defer func() {
+		v := recover()
+		if v == nil {
+			t.Fatal("no error?")
+		}
+	}()
+	pkg := newPackage("main", true)
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typ := types.NewStruct(fields, nil)
+	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+	cb.NewType("foo").InitType(pkg, typ)
+	cb.AliasType("foo", typ)
+	cb.End()
 }
 
 // ----------------------------------------------------------------------------
