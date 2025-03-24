@@ -626,9 +626,8 @@ func (p *CodeBuilder) NewType(name string, src ...ast.Node) *TypeDecl {
 }
 
 // AliasType func
-func (p *CodeBuilder) AliasType(name string, typ types.Type, src ...ast.Node) *types.Named {
-	decl := p.NewTypeDefs().AliasType(name, typ, src...)
-	return decl.typ
+func (p *CodeBuilder) AliasType(name string, typ types.Type, src ...ast.Node) types.Type {
+	return p.NewTypeDefs().AliasType(name, typ, src...)
 }
 
 // NewConstStart func
