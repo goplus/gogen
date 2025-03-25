@@ -3821,7 +3821,10 @@ func TestTypeAliasInFunc(t *testing.T) {
 	foo := cb.NewType("foo").InitType(pkg, typ)
 	cb.AliasType("bar", typ)
 	a := cb.AliasType("a", foo)
-	cb.AliasType("b", a)
+	alias := cb.AliasType("b", a)
+	if _, ok := alias.(*types.Named); ok {
+		t.Fatal("no named")
+	}
 	cb.End()
 	domTest(t, pkg, `package main
 

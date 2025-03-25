@@ -156,7 +156,7 @@ func (p *TypeDefs) AliasType(name string, typ types.Type, src ...ast.Node) types
 	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
-	if p.pkg.conf.EnableTypesalias {
+	if typesutil.SupportAlias && p.pkg.conf.EnableTypesalias {
 		return p.pkg.doNewAlias(p, getPos(src), name, typ, 1)
 	}
 	return p.pkg.doNewType(p, getPos(src), name, typ, 1).typ
