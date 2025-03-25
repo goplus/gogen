@@ -1311,8 +1311,9 @@ func initBuiltinTIs(pkg *Package) {
 	btiMap := new(typeutil.Map)
 	strconv := pkg.TryImport("strconv")
 	strings := pkg.TryImport("strings")
-	btoLen := types.Universe.Lookup("len")
-	btoCap := types.Universe.Lookup("cap")
+	universe := types.Universe
+	btoLen := universe.Lookup("len")
+	btoCap := universe.Lookup("cap")
 	{
 		ioxPkg := pkg.conf.PkgPathIox
 		if debugImportIox && ioxPkg == "" {
