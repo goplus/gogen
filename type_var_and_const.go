@@ -21,6 +21,7 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -151,11 +152,14 @@ func (p *TypeDefs) NewType(name string, src ...ast.Node) *TypeDecl {
 }
 
 // AliasType gives a specified type with a new name.
-func (p *TypeDefs) AliasType(name string, typ types.Type, src ...ast.Node) *TypeDecl {
+func (p *TypeDefs) AliasType(name string, typ types.Type, src ...ast.Node) types.Type {
 	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
-	return p.pkg.doNewType(p, getPos(src), name, typ, 1)
+	if typesutil.SupportAlias && p.pkg.conf.EnableTypesalias {
+		return p.pkg.doNewAlias(p, getPos(src), name, typ, 1)
+	}
+	return p.pkg.doNewType(p, getPos(src), name, typ, 1).typ
 }
 
 // Complete checks type declarations & marks completed.
@@ -188,9 +192,8 @@ func (p *TypeDefs) Complete() {
 // AliasType gives a specified type with a new name.
 //
 // Deprecated: use NewTypeDefs instead.
-func (p *Package) AliasType(name string, typ types.Type, src ...ast.Node) *types.Named {
-	decl := p.NewTypeDefs().AliasType(name, typ, src...)
-	return decl.typ
+func (p *Package) AliasType(name string, typ types.Type, src ...ast.Node) types.Type {
+	return p.NewTypeDefs().AliasType(name, typ, src...)
 }
 
 // NewType creates a new type (which need to call InitType later).
@@ -225,6 +228,22 @@ func (p *CodeBuilder) NewTypeDecls() (ret *TypeDefs, defineHere func()) {
 			p.emitStmt(&ast.DeclStmt{Decl: decl})
 		}
 	}
+}
+
+func (p *Package) doNewAlias(tdecl *TypeDefs, pos token.Pos, name string, typ types.Type, alias token.Pos) types.Type {
+	scope := tdecl.scope
+	typName := types.NewTypeName(pos, p.Types, name, nil)
+	if old := scope.Insert(typName); old != nil {
+		oldPos := p.cb.fset.Position(old.Pos())
+		p.cb.panicCodeErrorf(
+			pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
+	}
+	decl := tdecl.decl
+	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
+	decl.Specs = append(decl.Specs, spec)
+	spec.Type = toType(p, typ)
+	p.useName(name)
+	return typesutil.NewAlias(typName, typ)
 }
 
 func (p *Package) doNewType(tdecl *TypeDefs, pos token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {

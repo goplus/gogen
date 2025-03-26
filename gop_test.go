@@ -58,7 +58,7 @@ func newGopMainPackage() *gogen.Package {
 // ----------------------------------------------------------------------------
 
 func TestGopoConst(t *testing.T) {
-	pkg := newPackage("foo")
+	pkg := newPackage("foo", false)
 	pkg.CB().NewConstStart(nil, "Gopo_x").
 		Val("Hello").EndInit(1)
 	domTest(t, pkg, `package foo

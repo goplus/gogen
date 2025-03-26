@@ -1,14 +1,16 @@
 /*
- Copyright 2024 The GoPlus Authors (goplus.org)
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-     http://www.apache.org/licenses/LICENSE-2.0
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
+Copyright 2024 The GoPlus Authors (goplus.org)
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package gogen
@@ -18,6 +20,8 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+
+	"github.com/goplus/gogen/internal/typesutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -163,14 +167,25 @@ func Lookup(scope *types.Scope, name string) (obj types.Object) {
 // ----------------------------------------------------------------------------
 
 var (
-	TyByte = types.Universe.Lookup("byte").Type().(*types.Basic)
-	TyRune = types.Universe.Lookup("rune").Type().(*types.Basic)
+	TyByte *types.Basic
+	TyRune *types.Basic
+
+	TyError          types.Type
+	TyAny            types.Type
+	TyEmptyInterface types.Type
 )
 
-var (
+func init() {
+	universe := types.Universe
+	iotaObj = universe.Lookup("iota")
+	TyByte = universe.Lookup("byte").Type().(*types.Basic)
+	TyRune = universe.Lookup("rune").Type().(*types.Basic)
+	TyError = universe.Lookup("error").Type()
+	TyAny = universe.Lookup("any").Type()
 	TyEmptyInterface = types.NewInterfaceType(nil, nil)
-	TyError          = types.Universe.Lookup("error").Type()
-)
+}
+
+// ----------------------------------------------------------------------------
 
 // refType: &T
 type refType struct {
@@ -226,6 +241,8 @@ func realType(typ types.Type) types.Type {
 		if tn := t.Obj(); tn.IsAlias() {
 			return tn.Type()
 		}
+	case *typesutil.Alias:
+		return typesutil.Unalias(t)
 	}
 	return typ
 }

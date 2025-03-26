@@ -274,6 +274,9 @@ func Gopx_Var_Cast__1[T map[string]any]() *Var__1[T] {
 	return new(Var__1[T])
 }
 `
+	if isLeastGo122() {
+		t.Setenv("GODEBUG", "gotypesalias=1")
+	}
 	gt := newGoxTest()
 	_, err := gt.LoadGoPackage("foo", "foo.go", src)
 	if err != nil {
@@ -304,7 +307,21 @@ func Gopx_Var_Cast__1[T map[string]any]() *Var__1[T] {
 		Val(objVar).Typ(tyM).Call(1).EndStmt().
 		End()
 
-	domTest(t, pkg, `package main
+	if isLeastGo122() {
+		domTest(t, pkg, `package main
+
+import "foo"
+
+type t1 foo.Var__0[int]
+type t2 foo.Var__1[foo.M]
+
+func main() {
+	foo.Gopx_Var_Cast__0[int]()
+	foo.Gopx_Var_Cast__1[foo.M]()
+}
+`)
+	} else {
+		domTest(t, pkg, `package main
 
 import "foo"
 
@@ -316,6 +333,7 @@ func main() {
 	foo.Gopx_Var_Cast__1[map[string]any]()
 }
 `)
+	}
 
 	func() {
 		defer func() {
@@ -420,6 +438,9 @@ type (
 	SliceInt = Slice[[]int,int]
 )
 `
+	if isLeastGo122() {
+		t.Setenv("GODEBUG", "gotypesalias=1")
+	}
 	gt := newGoxTest()
 	_, err := gt.LoadGoPackage("foo", "foo.go", src)
 	if err != nil {
@@ -438,7 +459,18 @@ type (
 		NewVarStart(types.NewPointer(tyDataInt), "data").Typ(tyData).Typ(tyInt).Index(1, false).Star().Val(nil).Call(1).EndInit(1).
 		NewVarStart(types.NewPointer(tySliceInt), "slice").Typ(tySlice).Typ(tyIntSlice).Typ(tyInt).Index(2, false).Star().Val(nil).Call(1).EndInit(1).
 		End()
-	domTest(t, pkg, `package main
+	if isLeastGo122() {
+		domTest(t, pkg, `package main
+
+import "foo"
+
+func main() {
+	var data *foo.DataInt = (*foo.Data[int])(nil)
+	var slice *foo.SliceInt = (*foo.Slice[[]int, int])(nil)
+}
+`)
+	} else {
+		domTest(t, pkg, `package main
 
 import "foo"
 
@@ -447,6 +479,7 @@ func main() {
 	var slice *foo.Slice[[]int, int] = (*foo.Slice[[]int, int])(nil)
 }
 `)
+	}
 }
 
 func TestTypeParamsFunc(t *testing.T) {
@@ -650,7 +683,14 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	pkgRef := pkg.Import("foo")
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
-	codeErrorTestEx(t, pkg, `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`,
+	var msg string
+	switch runtime.Version()[:6] {
+	case "go1.24":
+		msg = `./foo.gop:5:40: cannot infer T2 (declared at foo.go:3:21)`
+	default:
+		msg = `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`
+	}
+	codeErrorTestEx(t, pkg, msg,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
@@ -927,7 +967,14 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	pkgRef := pkg.Import("foo")
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
-	codeErrorTestEx(t, pkg, `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`,
+	var msg string
+	switch runtime.Version()[:6] {
+	case "go1.24":
+		msg = `./foo.gop:5:40: cannot infer T2 (declared at foo.go:3:21)`
+	default:
+		msg = `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`
+	}
+	codeErrorTestEx(t, pkg, msg,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(fnLoader).Typ(tyInt).Index(1, false, source(`foo.Loader[int]`, 5, 40)).Val(10).Val(nil).CallWith(2, 0, source(`foo.Loader[int]`, 5, 40)).EndStmt().

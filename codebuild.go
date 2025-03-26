@@ -28,6 +28,7 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/typesutil"
 	xtoken "github.com/goplus/gogen/token"
 	"golang.org/x/tools/go/types/typeutil"
 )
@@ -625,9 +626,8 @@ func (p *CodeBuilder) NewType(name string, src ...ast.Node) *TypeDecl {
 }
 
 // AliasType func
-func (p *CodeBuilder) AliasType(name string, typ types.Type, src ...ast.Node) *types.Named {
-	decl := p.NewTypeDefs().AliasType(name, typ, src...)
-	return decl.typ
+func (p *CodeBuilder) AliasType(name string, typ types.Type, src ...ast.Node) types.Type {
+	return p.NewTypeDefs().AliasType(name, typ, src...)
 }
 
 // NewConstStart func
@@ -803,14 +803,17 @@ func (p *CodeBuilder) MapLitEx(typ types.Type, arity int, src ...ast.Node) error
 	var typExpr ast.Expr
 	var pkg = p.pkg
 	if typ != nil {
+		typExpr = toType(pkg, typ)
 		var ok bool
+	retry:
 		switch tt := typ.(type) {
 		case *types.Named:
-			typExpr = toNamedType(pkg, tt)
 			t, ok = p.getUnderlying(tt).(*types.Map)
 		case *types.Map:
-			typExpr = toMapType(pkg, tt)
 			t, ok = tt, true
+		case *typesutil.Alias:
+			typ = typesutil.Unalias(tt)
+			goto retry
 		}
 		if !ok {
 			return p.newCodeErrorf(getPos(src), "type %v isn't a map", typ)
@@ -922,15 +925,18 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 	var typExpr ast.Expr
 	var pkg = p.pkg
 	if typ != nil {
+		typExpr = toType(pkg, typ)
+	retry:
 		switch tt := typ.(type) {
 		case *types.Named:
-			typExpr = toNamedType(pkg, tt)
 			t = p.getUnderlying(tt).(*types.Slice)
 		case *types.Slice:
-			typExpr = toSliceType(pkg, tt)
 			t = tt
+		case *typesutil.Alias:
+			typ = typesutil.Unalias(typ)
+			goto retry
 		default:
-			log.Panicln("SliceLit: typ isn't a slice type -", reflect.TypeOf(typ))
+			p.panicCodeErrorf(getPos(src), "type %v isn't a slice", typ)
 		}
 	}
 	if keyVal { // in keyVal mode
@@ -1004,17 +1010,19 @@ func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...
 		log.Println("ArrayLit", typ, arity, keyVal)
 	}
 	var t *types.Array
-	var typExpr ast.Expr
 	var pkg = p.pkg
+	typExpr := toType(pkg, typ)
+retry:
 	switch tt := typ.(type) {
 	case *types.Named:
-		typExpr = toNamedType(pkg, tt)
 		t = p.getUnderlying(tt).(*types.Array)
 	case *types.Array:
-		typExpr = toArrayType(pkg, tt)
 		t = tt
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(tt)
+		goto retry
 	default:
-		log.Panicln("ArrayLit: typ isn't a array type -", reflect.TypeOf(typ))
+		p.panicCodeErrorf(getPos(src), "type %v isn't a array", typ)
 	}
 	if keyVal { // in keyVal mode
 		if (arity & 1) != 0 {
@@ -1069,17 +1077,19 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 		log.Println("StructLit", typ, arity, keyVal)
 	}
 	var t *types.Struct
-	var typExpr ast.Expr
 	var pkg = p.pkg
+	typExpr := toType(pkg, typ)
+retry:
 	switch tt := typ.(type) {
 	case *types.Named:
-		typExpr = toNamedType(pkg, tt)
 		t = p.getUnderlying(tt).(*types.Struct)
 	case *types.Struct:
-		typExpr = toStructType(pkg, tt)
 		t = tt
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(tt)
+		goto retry
 	default:
-		log.Panicln("StructLit: typ isn't a struct type -", reflect.TypeOf(typ))
+		p.panicCodeErrorf(getPos(src), "type %v isn't a struct", typ)
 	}
 	var elts []ast.Expr
 	var n = t.NumFields()
@@ -1554,11 +1564,11 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	if debugInstr {
 		log.Println("Member", name, flag, "//", arg.Type)
 	}
-	switch arg.Type {
+	at := typesutil.Unalias(arg.Type)
+	switch at {
 	case p.pkg.utBigInt, p.pkg.utBigRat, p.pkg.utBigFlt:
-		arg.Type = DefaultConv(p.pkg, arg.Type, arg)
+		at = DefaultConv(p.pkg, arg.Type, arg)
 	}
-	at := arg.Type
 	if flag == MemberFlagRef {
 		kind = p.refMember(at, name, arg.Val, srcExpr)
 	} else {
@@ -1622,7 +1632,7 @@ func (p *CodeBuilder) findMember(
 retry:
 	switch o := typ.(type) {
 	case *types.Pointer:
-		switch t := o.Elem().(type) {
+		switch t := typesutil.Unalias(o.Elem()).(type) {
 		case *types.Named:
 			u := p.getUnderlying(t) // may cause to loadNamed (delay-loaded)
 			struc, fstruc := u.(*types.Struct)

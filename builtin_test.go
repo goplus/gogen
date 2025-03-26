@@ -367,6 +367,7 @@ func TestContractName(t *testing.T) {
 		{number, "number"},
 		{addable, "addable"},
 		{comparable, "comparable"},
+		{clearable, "clearable"},
 	}
 	for _, c := range testcases {
 		if c.String() != c.name {
@@ -405,6 +406,10 @@ func TestContract(t *testing.T) {
 		{comparable, NewTemplateSignature(nil, nil, nil, nil, false), false},
 		{addable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil), false},
 		{addable, tfoo, true},
+		{clearable, types.NewMap(tyInt, tyInt), true},
+		{clearable, types.NewSlice(tyInt), true},
+		{clearable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.NewSlice(tyInt), nil), true},
+		{clearable, types.Typ[types.String], false},
 	}
 	for _, c := range testcases {
 		if c.Match(pkg, c.typ) != c.result {

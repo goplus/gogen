@@ -234,12 +234,8 @@ func toMapType(pkg *Package, t *types.Map) ast.Expr {
 	return &ast.MapType{Key: toType(pkg, t.Key()), Value: toType(pkg, t.Elem())}
 }
 
-var (
-	universeAny = types.Universe.Lookup("any")
-)
-
 func toInterface(pkg *Package, t *types.Interface) ast.Expr {
-	if t == universeAny.Type() {
+	if t == TyAny {
 		return ast.NewIdent("any")
 	} else if interfaceIsImplicit(t) && t.NumEmbeddeds() == 1 {
 		return toType(pkg, t.EmbeddedType(0))
@@ -355,7 +351,7 @@ func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
 }
 
 var (
-	iotaObj = types.Universe.Lookup("iota")
+	iotaObj types.Object
 )
 
 func toBasicKind(tok token.Token) types.BasicKind {
@@ -1257,6 +1253,9 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 			}
 		case *types.Named:
 			typ = t.Underlying()
+			goto retry
+		case *typesutil.Alias:
+			typ = typesutil.Unalias(t)
 			goto retry
 		}
 	}
