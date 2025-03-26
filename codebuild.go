@@ -936,7 +936,7 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 			typ = typesutil.Unalias(typ)
 			goto retry
 		default:
-			log.Panicln("SliceLit: typ isn't a slice type -", reflect.TypeOf(typ))
+			p.panicCodeErrorf(getPos(src), "type %v isn't a slice", typ)
 		}
 	}
 	if keyVal { // in keyVal mode
@@ -1022,7 +1022,7 @@ retry:
 		typ = typesutil.Unalias(tt)
 		goto retry
 	default:
-		log.Panicln("ArrayLit: typ isn't a array type -", reflect.TypeOf(typ))
+		p.panicCodeErrorf(getPos(src), "type %v isn't a array", typ)
 	}
 	if keyVal { // in keyVal mode
 		if (arity & 1) != 0 {
@@ -1089,7 +1089,7 @@ retry:
 		typ = typesutil.Unalias(tt)
 		goto retry
 	default:
-		log.Panicln("StructLit: typ isn't a struct type -", reflect.TypeOf(typ))
+		p.panicCodeErrorf(getPos(src), "type %v isn't a struct", typ)
 	}
 	var elts []ast.Expr
 	var n = t.NumFields()
@@ -1286,9 +1286,6 @@ retry:
 		}
 	case *types.Named:
 		typ = p.getUnderlying(t)
-		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
 		goto retry
 	}
 	src, pos := p.loadExpr(idxSrc)
