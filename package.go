@@ -131,6 +131,9 @@ type Config struct {
 
 	// NoSkipConstant is to disable optimization of skipping constant (optional).
 	NoSkipConstant bool
+
+	// EnableTypesalias is enable use goypesalias (optional).
+	EnableTypesalias bool
 }
 
 // ----------------------------------------------------------------------------

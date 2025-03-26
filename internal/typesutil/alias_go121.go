@@ -5,6 +5,8 @@ package typesutil
 
 import "go/types"
 
+const SupportAlias = false
+
 type Alias struct {
 }
 

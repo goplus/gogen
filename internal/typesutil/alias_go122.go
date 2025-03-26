@@ -5,6 +5,8 @@ package typesutil
 
 import "go/types"
 
+const SupportAlias = true
+
 type Alias = types.Alias
 
 func NewAlias(obj *types.TypeName, rhs types.Type) *Alias {

@@ -1441,3 +1441,38 @@ type M struct {
 				End()
 		})
 }
+
+func TestErrorLit(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:1:5: type int isn't a map",
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val(2).
+				MapLit(types.Typ[types.Int], 2, source("int{1:2}", 1, 5)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:1:5: type int isn't a array",
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val(2).
+				ArrayLitEx(types.Typ[types.Int], 2, true, source("int{1,2}", 1, 5)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:1:5: type int isn't a slice",
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val(2).
+				SliceLitEx(types.Typ[types.Int], 2, true, source("int{1,2}", 1, 5)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:1:5: type int isn't a struct",
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val(2).
+				StructLit(types.Typ[types.Int], 2, false, source("int{1,2}", 1, 5)).
+				EndStmt().
+				End()
+		})
+}
