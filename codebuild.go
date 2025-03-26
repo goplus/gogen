@@ -803,14 +803,17 @@ func (p *CodeBuilder) MapLitEx(typ types.Type, arity int, src ...ast.Node) error
 	var typExpr ast.Expr
 	var pkg = p.pkg
 	if typ != nil {
+		typExpr = toType(pkg, typ)
 		var ok bool
+	retry:
 		switch tt := typ.(type) {
 		case *types.Named:
-			typExpr = toNamedType(pkg, tt)
 			t, ok = p.getUnderlying(tt).(*types.Map)
 		case *types.Map:
-			typExpr = toMapType(pkg, tt)
 			t, ok = tt, true
+		case *typesutil.Alias:
+			typ = typesutil.Unalias(tt)
+			goto retry
 		}
 		if !ok {
 			return p.newCodeErrorf(getPos(src), "type %v isn't a map", typ)
@@ -922,13 +925,16 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 	var typExpr ast.Expr
 	var pkg = p.pkg
 	if typ != nil {
+		typExpr = toType(pkg, typ)
+	retry:
 		switch tt := typ.(type) {
 		case *types.Named:
-			typExpr = toNamedType(pkg, tt)
 			t = p.getUnderlying(tt).(*types.Slice)
 		case *types.Slice:
-			typExpr = toSliceType(pkg, tt)
 			t = tt
+		case *typesutil.Alias:
+			typ = typesutil.Unalias(typ)
+			goto retry
 		default:
 			log.Panicln("SliceLit: typ isn't a slice type -", reflect.TypeOf(typ))
 		}
@@ -1004,15 +1010,17 @@ func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...
 		log.Println("ArrayLit", typ, arity, keyVal)
 	}
 	var t *types.Array
-	var typExpr ast.Expr
 	var pkg = p.pkg
+	typExpr := toType(pkg, typ)
+retry:
 	switch tt := typ.(type) {
 	case *types.Named:
-		typExpr = toNamedType(pkg, tt)
 		t = p.getUnderlying(tt).(*types.Array)
 	case *types.Array:
-		typExpr = toArrayType(pkg, tt)
 		t = tt
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(tt)
+		goto retry
 	default:
 		log.Panicln("ArrayLit: typ isn't a array type -", reflect.TypeOf(typ))
 	}
@@ -1069,15 +1077,17 @@ func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...a
 		log.Println("StructLit", typ, arity, keyVal)
 	}
 	var t *types.Struct
-	var typExpr ast.Expr
 	var pkg = p.pkg
+	typExpr := toType(pkg, typ)
+retry:
 	switch tt := typ.(type) {
 	case *types.Named:
-		typExpr = toNamedType(pkg, tt)
 		t = p.getUnderlying(tt).(*types.Struct)
 	case *types.Struct:
-		typExpr = toStructType(pkg, tt)
 		t = tt
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(tt)
+		goto retry
 	default:
 		log.Panicln("StructLit: typ isn't a struct type -", reflect.TypeOf(typ))
 	}
@@ -1276,6 +1286,9 @@ retry:
 		}
 	case *types.Named:
 		typ = p.getUnderlying(t)
+		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
 		goto retry
 	}
 	src, pos := p.loadExpr(idxSrc)
