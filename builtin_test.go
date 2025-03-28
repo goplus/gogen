@@ -24,6 +24,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"unsafe"
 
@@ -1411,6 +1412,19 @@ func TestValidType(t *testing.T) {
 	if len(errs) == 0 {
 		t.Fatal("TestValidType: no error?")
 	}
+}
+
+func TestBuiltinRace(t *testing.T) {
+	var wg sync.WaitGroup
+	wg.Add(100)
+	for i := 0; i < 100; i++ {
+		go func() {
+			defer wg.Done()
+			p := NewPackage("", "foo", nil)
+			newBuiltinDefault(p, &Config{})
+		}()
+	}
+	wg.Wait()
 }
 
 // ----------------------------------------------------------------------------

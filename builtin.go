@@ -278,37 +278,70 @@ const (
 	xtChanIn
 )
 
+var _builtinFns = [...]struct {
+	name    string
+	tparams []typeTParam
+	params  []typeXParam
+	result  xType
+}{
+	{"copy", []typeTParam{{"Type", any}}, []typeXParam{{"dst", xtSlice}, {"src", xtSlice}}, types.Typ[types.Int]},
+	// func [Type any] copy(dst, src []Type) int
+
+	{"close", []typeTParam{{"Type", any}}, []typeXParam{{"c", xtChanIn}}, nil},
+	// func [Type any] close(c chan<- Type)
+
+	{"append", []typeTParam{{"Type", any}}, []typeXParam{{"slice", xtSlice}, {"elems", xtEllipsis}}, xtSlice},
+	// func [Type any] append(slice []Type, elems ...Type) []Type
+
+	{"delete", []typeTParam{{"Key", comparable}, {"Elem", any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
+	// func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
+
+	{"clear", []typeTParam{{"Type", clearable}}, []typeXParam{{"t", 0}}, nil},
+	// func clear[T clearable](t T)
+
+	{"max", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
+	//func max[T borderable](x T, y ...T) T
+
+	{"min", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
+	//func min[T borderable](x T, y ...T) T
+}
+
+var _builtinOverloads = [...]struct {
+	name string
+	fns  [3]typeBFunc
+}{
+	{"complex", [...]typeBFunc{
+		{[]typeBParam{{"r", types.UntypedFloat}, {"i", types.UntypedFloat}}, types.UntypedComplex},
+		{[]typeBParam{{"r", types.Float32}, {"i", types.Float32}}, types.Complex64},
+		{[]typeBParam{{"r", types.Float64}, {"i", types.Float64}}, types.Complex128},
+	}},
+	// func complex(r, i untyped_float) untyped_complex
+	// func complex(r, i float32) complex64
+	// func complex(r, i float64) complex128
+
+	{"real", [...]typeBFunc{
+		{[]typeBParam{{"c", types.UntypedComplex}}, types.UntypedFloat},
+		{[]typeBParam{{"c", types.Complex64}}, types.Float32},
+		{[]typeBParam{{"c", types.Complex128}}, types.Float64},
+	}},
+	// func real(c untyped_complex) untyped_float
+	// func real(c complex64) float32
+	// func real(c complex128) float64
+
+	{"imag", [...]typeBFunc{
+		{[]typeBParam{{"c", types.UntypedComplex}}, types.UntypedFloat},
+		{[]typeBParam{{"c", types.Complex64}}, types.Float32},
+		{[]typeBParam{{"c", types.Complex128}}, types.Float64},
+	}},
+	// func imag(c untyped_complex) untyped_float
+	// func imag(c complex64) float32
+	// func imag(c complex128) float64
+}
+
 // initBuiltinFuncs initializes builtin functions of the builtin package.
 func initBuiltinFuncs(builtin *types.Package) {
-	fns := [...]struct {
-		name    string
-		tparams []typeTParam
-		params  []typeXParam
-		result  xType
-	}{
-		{"copy", []typeTParam{{"Type", any}}, []typeXParam{{"dst", xtSlice}, {"src", xtSlice}}, types.Typ[types.Int]},
-		// func [Type any] copy(dst, src []Type) int
-
-		{"close", []typeTParam{{"Type", any}}, []typeXParam{{"c", xtChanIn}}, nil},
-		// func [Type any] close(c chan<- Type)
-
-		{"append", []typeTParam{{"Type", any}}, []typeXParam{{"slice", xtSlice}, {"elems", xtEllipsis}}, xtSlice},
-		// func [Type any] append(slice []Type, elems ...Type) []Type
-
-		{"delete", []typeTParam{{"Key", comparable}, {"Elem", any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
-		// func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
-
-		{"clear", []typeTParam{{"Type", clearable}}, []typeXParam{{"t", 0}}, nil},
-		// func clear[T clearable](t T)
-
-		{"max", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
-		//func max[T borderable](x T, y ...T) T
-
-		{"min", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
-		//func min[T borderable](x T, y ...T) T
-	}
 	gbl := builtin.Scope()
-	for _, fn := range fns {
+	for _, fn := range _builtinFns {
 		tparams := newTParams(fn.tparams)
 		n := len(fn.params)
 		params := make([]*types.Var, n)
@@ -342,38 +375,7 @@ func initBuiltinFuncs(builtin *types.Package) {
 		}
 		gbl.Insert(tfn)
 	}
-	overloads := [...]struct {
-		name string
-		fns  [3]typeBFunc
-	}{
-		{"complex", [...]typeBFunc{
-			{[]typeBParam{{"r", types.UntypedFloat}, {"i", types.UntypedFloat}}, types.UntypedComplex},
-			{[]typeBParam{{"r", types.Float32}, {"i", types.Float32}}, types.Complex64},
-			{[]typeBParam{{"r", types.Float64}, {"i", types.Float64}}, types.Complex128},
-		}},
-		// func complex(r, i untyped_float) untyped_complex
-		// func complex(r, i float32) complex64
-		// func complex(r, i float64) complex128
-
-		{"real", [...]typeBFunc{
-			{[]typeBParam{{"c", types.UntypedComplex}}, types.UntypedFloat},
-			{[]typeBParam{{"c", types.Complex64}}, types.Float32},
-			{[]typeBParam{{"c", types.Complex128}}, types.Float64},
-		}},
-		// func real(c untyped_complex) untyped_float
-		// func real(c complex64) float32
-		// func real(c complex128) float64
-
-		{"imag", [...]typeBFunc{
-			{[]typeBParam{{"c", types.UntypedComplex}}, types.UntypedFloat},
-			{[]typeBParam{{"c", types.Complex64}}, types.Float32},
-			{[]typeBParam{{"c", types.Complex128}}, types.Float64},
-		}},
-		// func imag(c untyped_complex) untyped_float
-		// func imag(c complex64) float32
-		// func imag(c complex128) float64
-	}
-	for _, overload := range overloads {
+	for _, overload := range _builtinOverloads {
 		fns := []types.Object{
 			newBFunc(builtin, overload.name, overload.fns[0]),
 			newBFunc(builtin, overload.name, overload.fns[1]),
