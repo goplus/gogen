@@ -46,10 +46,8 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
-    - name: Update golang.org/x/tools
-      run: |
-        go work init .
-        go work edit -replace golang.org/x/tools=golang.org/x/tools@v0.30
+    - name: Set types alias env
+      run: echo "GODEBUG=gotypesalias=1" >> $GITHUB_ENV
 
     - name: Build
       run: go build -v ./...
