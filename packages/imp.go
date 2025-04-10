@@ -16,6 +16,7 @@ package packages
 import (
 	"bytes"
 	"errors"
+	"go/importer"
 	"go/token"
 	"go/types"
 	"io"
@@ -23,8 +24,6 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
-
-	"golang.org/x/tools/go/gcexportdata"
 )
 
 // ----------------------------------------------------------------------------
@@ -36,12 +35,12 @@ type Cache interface {
 
 // Importer represents a Go package importer.
 type Importer struct {
-	loaded map[string]*types.Package
-	fset   *token.FileSet
-	dir    string
-	m      sync.RWMutex
-	cache  Cache
-	tags   string
+	fset  *token.FileSet
+	dir   string
+	cache Cache
+	tags  string
+	imp   types.Importer
+	fs    sync.Map
 }
 
 // NewImporter creates an Importer object that meets types.ImporterFrom and types.Importer interface.
@@ -53,9 +52,14 @@ func NewImporter(fset *token.FileSet, workDir ...string) *Importer {
 	if fset == nil {
 		fset = token.NewFileSet()
 	}
-	loaded := make(map[string]*types.Package)
-	loaded["unsafe"] = types.Unsafe
-	return &Importer{loaded: loaded, fset: fset, dir: dir}
+	r := &Importer{fset: fset, dir: dir}
+	r.imp = importer.ForCompiler(fset, "gc", r.lookup)
+	return r
+}
+
+func (p *Importer) lookup(pkgPath string) (io.ReadCloser, error) {
+	dir, _ := p.fs.Load(pkgPath)
+	return p.findExport(dir.(string), pkgPath)
 }
 
 // SetCache sets an optional cache for the importer.
@@ -91,28 +95,11 @@ func (p *Importer) Import(pkgPath string) (pkg *types.Package, err error) {
 // Two calls to ImportFrom with the same path and dir must
 // return the same package.
 func (p *Importer) ImportFrom(pkgPath, dir string, mode types.ImportMode) (*types.Package, error) {
-	p.m.RLock()
-	if ret, ok := p.loaded[pkgPath]; ok && ret.Complete() {
-		p.m.RUnlock()
-		return ret, nil
+	if pkgPath == "unsafe" {
+		return types.Unsafe, nil
 	}
-	p.m.RUnlock()
-	f, err := p.findExport(dir, pkgPath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return p.loadByExport(f, pkgPath)
-}
-
-func (p *Importer) loadByExport(f io.ReadCloser, pkgPath string) (ret *types.Package, err error) {
-	r, err := gcexportdata.NewReader(f)
-	if err == nil {
-		p.m.Lock() // use mutex because Import should be multi-thread safe
-		defer p.m.Unlock()
-		ret, err = gcexportdata.Read(r, p.fset, p.loaded, pkgPath)
-	}
-	return
+	p.fs.Store(pkgPath, dir)
+	return p.imp.Import(pkgPath)
 }
 
 // ----------------------------------------------------------------------------
