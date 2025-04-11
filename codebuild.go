@@ -768,6 +768,9 @@ retry:
 	case *types.Named:
 		typ = p.getUnderlying(t)
 		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
+		goto retry
 	}
 	ret := &ast.CompositeLit{}
 	switch t := typ.(type) {
