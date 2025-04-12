@@ -32,7 +32,6 @@ import (
 
 	"github.com/goplus/gogen"
 	"github.com/goplus/gogen/packages"
-	"golang.org/x/tools/go/gcexportdata"
 )
 
 var (
@@ -337,9 +336,7 @@ func bar(v mytype) rune {
 		t.Fatal("parser.ParseFile:", err)
 	}
 
-	packages := make(map[string]*types.Package)
-	imp := gcexportdata.NewImporter(fset, packages)
-	conf := types.Config{Importer: imp}
+	conf := types.Config{}
 	pkg, err := conf.Check("foo", fset, []*ast.File{f}, nil)
 	if err != nil {
 		t.Fatal("conf.Check:", err)
@@ -381,9 +378,7 @@ func (p *foo) Bar() {}
 		t.Fatal("parser.ParseFile:", err)
 	}
 
-	packages := make(map[string]*types.Package)
-	imp := gcexportdata.NewImporter(fset, packages)
-	conf := types.Config{Importer: imp}
+	conf := types.Config{}
 	pkg, err := conf.Check("foo", fset, []*ast.File{f}, nil)
 	if err != nil {
 		t.Fatal("conf.Check:", err)
