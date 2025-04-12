@@ -29,6 +29,7 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/typesutil"
+	"github.com/goplus/gogen/internal/typeutil"
 	xtoken "github.com/goplus/gogen/token"
 )
 
@@ -135,7 +136,7 @@ type CodeBuilder struct {
 	fset      dbgPositioner
 	comments  *ast.CommentGroup
 	pkg       *Package
-	btiMap    *typesutil.Map
+	btiMap    *typeutil.Map
 	valDecl   *ValueDecl
 	ctxt      *typesContext
 	interp    NodeInterpreter
