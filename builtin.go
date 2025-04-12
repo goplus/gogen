@@ -24,7 +24,7 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/tools/go/types/typeutil"
+	"github.com/goplus/gogen/internal/typesutil"
 )
 
 func newBuiltinDefault(pkg *Package, conf *Config) *types.Package {
@@ -1399,7 +1399,7 @@ func initBuiltinTIs(pkg *Package) {
 		float64TI, intTI, int64TI, uint64TI *BuiltinTI
 		ioxTI, stringTI, stringSliceTI      *BuiltinTI
 	)
-	btiMap := new(typeutil.Map)
+	btiMap := new(typesutil.Map)
 	strconv := pkg.TryImport("strconv")
 	strings := pkg.TryImport("strings")
 	btoLen := types.Universe.Lookup("len")

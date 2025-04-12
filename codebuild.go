@@ -30,7 +30,6 @@ import (
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/typesutil"
 	xtoken "github.com/goplus/gogen/token"
-	"golang.org/x/tools/go/types/typeutil"
 )
 
 func getSrc(node []ast.Node) ast.Node {
@@ -136,7 +135,7 @@ type CodeBuilder struct {
 	fset      dbgPositioner
 	comments  *ast.CommentGroup
 	pkg       *Package
-	btiMap    *typeutil.Map
+	btiMap    *typesutil.Map
 	valDecl   *ValueDecl
 	ctxt      *typesContext
 	interp    NodeInterpreter
