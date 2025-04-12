@@ -17,12 +17,9 @@ import (
 	"fmt"
 	"go/importer"
 	"go/token"
-	"go/types"
 	"os"
 	"path/filepath"
 	"runtime"
-
-	"golang.org/x/tools/go/gcexportdata"
 )
 
 func main() {
@@ -31,13 +28,7 @@ func main() {
 	fmt.Println("GOMODCACHE:", val)
 
 	var fset = token.NewFileSet()
-	var imp types.Importer
-	if true {
-		imp = importer.ForCompiler(fset, "source", nil)
-	} else {
-		packages := make(map[string]*types.Package)
-		imp = gcexportdata.NewImporter(fset, packages)
-	}
+	imp := importer.ForCompiler(fset, "source", nil)
 
 	_, err := imp.Import("go/types")
 	fmt.Println("Import result:", err)
