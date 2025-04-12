@@ -4,7 +4,7 @@
 
 // Package typeutil defines various utilities for types, such as [Map],
 // a hash table that maps [types.Type] to any value.
-package typesutil
+package typeutil
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 	"unsafe"
 
 	"github.com/goplus/gogen/internal/typeparams"
+	"github.com/goplus/gogen/internal/typesutil"
 )
 
 // Map is a hash-table-based mapping from types (types.Type) to
@@ -225,8 +226,8 @@ func (h hasher) hash(t types.Type) uint32 {
 	case *types.Basic:
 		return uint32(t.Kind())
 
-	case *Alias:
-		return h.hash(Unalias(t))
+	case *typesutil.Alias:
+		return h.hash(typesutil.Unalias(t))
 
 	case *types.Array:
 		return 9043 + 2*uint32(t.Len()) + 3*h.hash(t.Elem())
@@ -418,8 +419,8 @@ func (h hasher) shallowHash(t types.Type) uint32 {
 	// elements (mostly Slice, Pointer, Basic, Named),
 	// so there's no need to optimize anything else.
 	switch t := t.(type) {
-	case *Alias:
-		return h.shallowHash(Unalias(t))
+	case *typesutil.Alias:
+		return h.shallowHash(typesutil.Unalias(t))
 
 	case *types.Signature:
 		var hash uint32 = 604171
