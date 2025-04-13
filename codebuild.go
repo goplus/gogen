@@ -29,8 +29,8 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/typesutil"
-	"github.com/goplus/gogen/internal/typeutil"
 	xtoken "github.com/goplus/gogen/token"
+	"github.com/goplus/gogen/typeutil"
 )
 
 func getSrc(node []ast.Node) ast.Node {
