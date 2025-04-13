@@ -4,3 +4,4 @@ coverage:
     - "chore"
     - "tutorial"
     - "token"
+    - "typeutil"

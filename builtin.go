@@ -24,7 +24,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/goplus/gogen/internal/typeutil"
+	"github.com/goplus/gogen/typeutil"
 )
 
 func newBuiltinDefault(pkg *Package, conf *Config) *types.Package {
