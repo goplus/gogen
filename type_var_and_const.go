@@ -113,6 +113,8 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam)
 	}
 	if named, ok := typ.(*types.Named); ok {
 		p.typ.SetUnderlying(pkg.cb.getUnderlying(named))
+	} else if alias, ok := typ.(*typesutil.Alias); ok {
+		p.typ.SetUnderlying(alias.Underlying())
 	} else {
 		p.typ.SetUnderlying(typ)
 	}
