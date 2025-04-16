@@ -3856,6 +3856,26 @@ func main() {
 `)
 }
 
+func TestTypeAliasInInitType(t *testing.T) {
+	if !isLeastGo122() {
+		t.Skip("skip")
+	}
+	pkg := newPackage("main", true)
+	foo := pkg.NewType("foo").InitType(pkg, types.Typ[types.Float64])
+	foo2 := pkg.AliasType("foo2", types.Typ[types.Float64])
+	afoo := pkg.AliasType("afoo", foo)
+	pkg.NewType("tfoo").InitType(pkg, afoo)
+	pkg.NewType("tfoo2").InitType(pkg, foo2)
+	domTest(t, pkg, `package main
+
+type foo float64
+type foo2 = float64
+type afoo = foo
+type tfoo afoo
+type tfoo2 foo2
+`)
+}
+
 func TestTypeAliasError(t *testing.T) {
 	if !isLeastGo122() {
 		t.Skip("skip")
