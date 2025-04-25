@@ -57,6 +57,21 @@ func newGopMainPackage() *gogen.Package {
 
 // ----------------------------------------------------------------------------
 
+func TestConvertToClosure(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "x").Val(1).ConvertToClosure().EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	x := func() int {
+		return 1
+	}
+}
+`)
+}
+
 func TestGopoConst(t *testing.T) {
 	pkg := newPackage("foo", false)
 	pkg.CB().NewConstStart(nil, "Gopo_x").

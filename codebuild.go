@@ -620,6 +620,18 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 	return p.pkg.newClosure(sig)
 }
 
+// ConvertToClosure converts an expression into a closure.
+func (p *CodeBuilder) ConvertToClosure() *CodeBuilder {
+	pkg := p.pkg
+	e := p.stk.Pop()
+	ret := pkg.NewParam(token.NoPos, "", types.Default(e.Type))
+	p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg)
+	p.emitStmt(&ast.ReturnStmt{
+		Results: []ast.Expr{e.Val},
+	})
+	return p.End()
+}
+
 // NewType func
 func (p *CodeBuilder) NewType(name string, src ...ast.Node) *TypeDecl {
 	return p.NewTypeDefs().NewType(name, src...)
