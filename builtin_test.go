@@ -881,7 +881,7 @@ func TestStructFieldType(t *testing.T) {
 	}
 	struc := types.NewStruct(flds, nil)
 	cb.Val(nil)
-	if !cb.fieldRef(nil, struc, "val", nil) {
+	if !cb.fieldRef(nil, struc, "val", nil, nil) {
 		t.Fatal("structFieldType failed")
 	}
 }
@@ -899,7 +899,7 @@ func TestStructFieldType2(t *testing.T) {
 	}
 	struc := types.NewStruct(flds, nil)
 	cb.Val(nil)
-	if !cb.fieldRef(nil, struc, "val", nil) {
+	if !cb.fieldRef(nil, struc, "val", nil, nil) {
 		t.Fatal("structFieldType failed")
 	}
 }

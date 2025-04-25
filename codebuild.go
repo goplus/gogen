@@ -1482,23 +1482,23 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, src ast.Node) MemberKind {
+func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, src ast.Node, visited map[*types.Struct]none) MemberKind {
 	switch o := indirect(typ).(type) {
 	case *types.Named:
 		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
-			if p.fieldRef(argVal, struc, name, src) {
+			if p.fieldRef(argVal, struc, name, src, visited) {
 				return MemberField
 			}
 		}
 	case *types.Struct:
-		if p.fieldRef(argVal, o, name, src) {
+		if p.fieldRef(argVal, o, name, src, visited) {
 			return MemberField
 		}
 	}
 	return MemberInvalid
 }
 
-func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast.Node) bool {
+func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast.Node, visited map[*types.Struct]none) bool {
 	var embed []*types.Var
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
@@ -1515,6 +1515,13 @@ func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast
 			embed = append(embed, fld)
 		}
 	}
+	if visited == nil {
+		visited = make(map[*types.Struct]none)
+	} else if _, ok := visited[o]; ok {
+		return false
+	}
+	visited[o] = none{}
+
 	for _, fld := range embed {
 		fldt := fld.Type()
 		if o, ok := fldt.(*types.Pointer); ok {
@@ -1523,7 +1530,7 @@ func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast
 		if t, ok := fldt.(*types.Named); ok {
 			u := p.getUnderlying(t)
 			if struc, ok := u.(*types.Struct); ok {
-				if p.fieldRef(x, struc, name, src) {
+				if p.fieldRef(x, struc, name, src, visited) {
 					return true
 				}
 			}
@@ -1585,7 +1592,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 		at = DefaultConv(p.pkg, arg.Type, arg)
 	}
 	if flag == MemberFlagRef {
-		kind = p.refMember(at, name, arg.Val, srcExpr)
+		kind = p.refMember(at, name, arg.Val, srcExpr, nil)
 	} else {
 		var aliasName string
 		var t, isType = at.(*TypeType)

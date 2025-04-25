@@ -39,4 +39,8 @@ func TestCircularEmbeddedFieldLookup(t *testing.T) {
 	if kind != MemberInvalid {
 		t.Fatal("Member should return MemberInvalid for circular embedding")
 	}
+	kind, _ = cb.Member("any", MemberFlagRef)
+	if kind != MemberInvalid {
+		t.Fatal("Member should return MemberInvalid for circular embedding")
+	}
 }
