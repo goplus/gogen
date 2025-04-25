@@ -3982,4 +3982,67 @@ var _ tbar = tfoo{y: "abc"}
 	// sliceLit
 }
 
+func TestEmbedFields(t *testing.T) {
+	const src = `package foo
+
+const GopPackage = true
+
+type Sprite struct {
+}
+func (p *Sprite) Play__0(sound int) {
+}
+func (p *Sprite) Play__1(sound int, wait bool) {
+}
+
+type Game struct {
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "test")
+	foo := pkg.Import("foo")
+	objSprite := foo.Ref("Sprite")
+	typ := objSprite.Type().(*types.Named)
+	//tyInt := types.Typ[types.Int]
+	gameDecl := pkg.NewType("Game").InitType(pkg, types.NewStruct([]*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "play", types.Typ[types.Bool], false),
+	}, nil))
+	spriteDecl := pkg.NewType("Sprite").InitType(pkg, types.NewStruct([]*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "Sprite", typ, true),
+		types.NewField(token.NoPos, pkg.Types, "Game", types.NewPointer(gameDecl.Obj().Type()), true),
+	}, nil))
+
+	cb := pkg.NewFunc(nil, "Example", nil, nil, false).BodyStart(pkg).
+		NewVar(types.NewPointer(spriteDecl.Obj().Type()), "sprite").
+		If().Debug(func(cb *gogen.CodeBuilder) {
+		_, err = cb.VarVal("sprite").Member("play", gogen.MemberFlagAutoProperty)
+		if err != nil {
+			t.Fatal("tbl.Member(col):", err)
+		}
+	}).Then().End()
+	cb.End()
+
+	domTest(t, pkg, `package test
+
+import "foo"
+
+type Game struct {
+	play bool
+}
+type Sprite struct {
+	foo.Sprite
+	*Game
+}
+
+func Example() {
+	var sprite *Sprite
+	if sprite.play {
+	}
+}
+`)
+}
+
 // ----------------------------------------------------------------------------

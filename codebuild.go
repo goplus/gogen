@@ -1853,7 +1853,9 @@ func (p *CodeBuilder) embeddedField(
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		if fld := o.Field(i); fld.Embedded() {
 			if kind := p.findMember(fld.Type(), name, aliasName, flag, arg, src, visited); kind != MemberInvalid {
-				return kind
+				if kind != memberBad {
+					return kind
+				}
 			}
 		}
 	}
