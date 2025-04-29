@@ -2791,9 +2791,6 @@ func (p *CodeBuilder) End(src ...ast.Node) *CodeBuilder {
 		}
 		name := strings.TrimSuffix(strings.Title(typ.Name()), "Stmt")
 		log.Println("End //", name)
-		if p.stk.Len() > p.current.base {
-			panic("forget to call EndStmt()?")
-		}
 	}
 	p.current.End(p, getSrc(src))
 	return p
