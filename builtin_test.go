@@ -1451,4 +1451,12 @@ func TestAliasTypeMethod(t *testing.T) {
 	}
 }
 
+func TestAliasCheckInterface(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	alias := pkg.AliasType("Any", types.NewInterfaceType(nil, nil))
+	if typ, ok := pkg.cb.checkInterface(alias); typ == nil || !ok {
+		t.Fatal("TestCheckInterface failed:", typ, ok)
+	}
+}
+
 // ----------------------------------------------------------------------------
