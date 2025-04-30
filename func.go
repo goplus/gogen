@@ -109,6 +109,12 @@ func (p *Func) BodyStart(pkg *Package, src ...ast.Node) *CodeBuilder {
 		}
 		log.Printf("%v%v%v %v\n", tag, name, recv, sig)
 	}
+	if p.Name() != "" && pkg.cb.current.fn != nil {
+		if debugInstr {
+			log.Println("Unexpected ancestors", pkg.cb.current.fn)
+		}
+		pkg.cb.current.fn = nil
+	}
 	return pkg.cb.startFuncBody(p, src, &p.old)
 }
 
