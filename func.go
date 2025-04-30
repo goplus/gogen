@@ -85,13 +85,10 @@ func (p *Func) SetComments(pkg *Package, doc *ast.CommentGroup) *Func {
 // Ancestor returns ancestor of a closure function.
 // It returns itself if the specified func is a normal function.
 func (p *Func) Ancestor() *Func {
-	for {
-		if fn := p.old.fn; fn != nil {
-			p = fn
-			continue
-		}
-		return p
+	for p.Name() == "" && p.old.fn != nil {
+		p = p.old.fn
 	}
+	return p
 }
 
 // BodyStart func
