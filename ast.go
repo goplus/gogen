@@ -697,7 +697,7 @@ retry:
 					}
 				}
 				return
-			case *tyTypeAsParams:
+			case *TyTypeAsParams:
 				return matchFuncCall(pkg, chgObject(pkg, ft.obj, fn), args, flags|instrFlagGopxFunc)
 			}
 		} else {

@@ -47,7 +47,7 @@ func CheckFuncEx(sig *types.Signature) (ext TyFuncEx, ok bool) {
 
 // CheckSigFuncExObjects retruns hide recv type and objects from func($overloadArgs ...interface{$overloadMethod()})
 // The return type can be OverloadType (*TyOverloadFunc, *TyOverloadMethod, *TyOverloadNamed) or
-// *TyTemplateRecvMethod.
+// *TyTemplateRecvMethod *TyTypeAsParams.
 func CheckSigFuncExObjects(sig *types.Signature) (typ types.Type, objs []types.Object) {
 	if ext, ok := CheckSigFuncEx(sig); ok {
 		switch t := ext.(type) {
@@ -61,7 +61,7 @@ func CheckSigFuncExObjects(sig *types.Signature) (typ types.Type, objs []types.O
 				if ex, ok := CheckSigFuncEx(tsig); ok {
 					if t, ok := ex.(*TyOverloadFunc); ok {
 						objs = t.Funcs
-						break
+						return
 					}
 				}
 			}
@@ -72,6 +72,15 @@ func CheckSigFuncExObjects(sig *types.Signature) (typ types.Type, objs []types.O
 			for i, typ := range t.Types {
 				objs[i] = typ.Obj()
 			}
+		case *TyTypeAsParams:
+			typ = t
+			if tsig, ok := t.obj.Type().(*types.Signature); ok {
+				if _, ok := CheckSigFuncEx(tsig); ok {
+					_, objs = CheckSigFuncExObjects(tsig)
+					return
+				}
+			}
+			objs = []types.Object{t.obj}
 		}
 	}
 	return
@@ -84,7 +93,7 @@ const (
 
 // CheckSigFuncEx retrun hide recv type from func($overloadArgs ...interface{$overloadMethod()})
 // The return type can be OverloadType (*TyOverloadFunc, *TyOverloadMethod, *TyOverloadNamed) or
-// *TyTemplateRecvMethod.
+// *TyTemplateRecvMethod *TyTypeAsParams.
 func CheckSigFuncEx(sig *types.Signature) (types.Type, bool) {
 	if sig.Params().Len() == 1 {
 		if param := sig.Params().At(0); param.Name() == overloadArgs {
@@ -130,7 +139,7 @@ func newMethodEx(typ *types.Named, pos token.Pos, pkg *types.Package, name strin
 	typ.AddMethod(ofn)
 	if strings.HasPrefix(name, gopxPrefix) {
 		aname := name[len(gopxPrefix):]
-		ofnAlias := newFuncEx(pos, pkg, recv, aname, &tyTypeAsParams{ofn})
+		ofnAlias := newFuncEx(pos, pkg, recv, aname, &TyTypeAsParams{ofn})
 		typ.AddMethod(ofnAlias)
 		if debugImport {
 			log.Println("==> AliasMethod", typ, name, "=>", aname)
@@ -204,14 +213,14 @@ func CheckOverloadMethod(sig *types.Signature) (methods []types.Object, ok bool)
 
 // ----------------------------------------------------------------------------
 
-type tyTypeAsParams struct { // see TestTypeAsParamsFunc
+type TyTypeAsParams struct { // see TestTypeAsParamsFunc
 	obj types.Object
 }
 
-func (p *tyTypeAsParams) Obj() types.Object      { return p.obj }
-func (p *tyTypeAsParams) Underlying() types.Type { return p }
-func (p *tyTypeAsParams) String() string         { return "tyTypeAsParams" }
-func (p *tyTypeAsParams) funcEx()                {}
+func (p *TyTypeAsParams) Obj() types.Object      { return p.obj }
+func (p *TyTypeAsParams) Underlying() types.Type { return p }
+func (p *TyTypeAsParams) String() string         { return "tyTypeAsParams" }
+func (p *TyTypeAsParams) funcEx()                {}
 
 // ----------------------------------------------------------------------------
 

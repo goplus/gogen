@@ -774,6 +774,8 @@ func TestCheckSigFuncExObjects(t *testing.T) {
 		{"TyTemplateRecvMethod", sigFuncEx(nil, nil, &TyTemplateRecvMethod{types.NewParam(0, nil, "", tyInt)}), 1},
 		{"TyTemplateRecvMethod", sigFuncEx(nil, nil, &TyTemplateRecvMethod{fn}), 2},
 		{"TyOverloadNamed", sigFuncEx(nil, nil, &TyOverloadNamed{Types: []*types.Named{named}}), 1},
+		{"TyTypeAsParams", sigFuncEx(nil, nil, &TyTypeAsParams{fn}), 2},
+		{"TyTypeAsParams", sigFuncEx(nil, nil, &TyTypeAsParams{types.NewFunc(0, nil, "fn", nil)}), 1},
 	}
 	for n, test := range tests {
 		typ, objs := CheckSigFuncExObjects(test.sig)
@@ -808,7 +810,7 @@ func TestTypeEx(t *testing.T) {
 		&TyInstruction{},
 		&TyOverloadNamed{Obj: types.NewTypeName(0, pkg.Types, "bar", tyInt)},
 		&TypeType{},
-		&tyTypeAsParams{},
+		&TyTypeAsParams{},
 		&unboundFuncParam{},
 		&unboundProxyParam{},
 		&TemplateParamType{},

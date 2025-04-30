@@ -272,7 +272,7 @@ func checkGoptsx(pkg *types.Package, scope *types.Scope, name string, o types.Ob
 			}
 		case gopxCh: // Gopx_xxx
 			aname := name[n2:]
-			o := newFuncEx(token.NoPos, pkg, nil, aname, &tyTypeAsParams{o})
+			o := newFuncEx(token.NoPos, pkg, nil, aname, &TyTypeAsParams{o})
 			scope.Insert(o)
 			if debugImport {
 				log.Println("==> AliasFunc", name, "=>", aname)
