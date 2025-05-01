@@ -1455,7 +1455,15 @@ func TestAliasCheckInterface(t *testing.T) {
 	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
 	alias := pkg.AliasType("Any", types.NewInterfaceType(nil, nil))
 	if typ, ok := pkg.cb.checkInterface(alias); typ == nil || !ok {
-		t.Fatal("TestCheckInterface failed:", typ, ok)
+		t.Fatal("TestAliasCheckInterface failed:", typ, ok)
+	}
+}
+
+func TestAliasUnsigned(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	typ := pkg.AliasType("Int", types.Typ[types.Uint8])
+	if !isUnsigned(typ) {
+		t.Fatal("TestAliasUnsigned failed:", typ)
 	}
 }
 
