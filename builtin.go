@@ -24,6 +24,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/goplus/gogen/internal/typesutil"
 	"github.com/goplus/gogen/typeutil"
 )
 
@@ -1023,6 +1024,9 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
+		goto retry
 	}
 	return false
 }
@@ -1074,6 +1078,9 @@ retry:
 		return t.Kind() != types.UntypedNil // excluding nil
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
+		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
 		goto retry
 	case *types.Slice: // slice/map/func is very special
 		return false
@@ -1133,6 +1140,9 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
+		goto retry
 	}
 	return false
 }
@@ -1158,6 +1168,9 @@ retry:
 		return true
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
+		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
 		goto retry
 	}
 	return capable.Match(pkg, typ)
@@ -1185,6 +1198,9 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
+		goto retry
 	}
 	return false
 }
@@ -1200,6 +1216,7 @@ type addableT struct {
 }
 
 func (p addableT) Match(pkg *Package, typ types.Type) bool {
+retry:
 	switch t := typ.(type) {
 	case *types.Named:
 		switch t {
@@ -1217,6 +1234,9 @@ func (p addableT) Match(pkg *Package, typ types.Type) bool {
 				}
 			}
 		}
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
+		goto retry
 	}
 	c := &basicContract{kinds: kindsAddable}
 	return c.Match(pkg, typ)
@@ -1301,6 +1321,9 @@ retry:
 		return true
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
+		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
 		goto retry
 	}
 	return false

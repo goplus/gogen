@@ -1467,4 +1467,35 @@ func TestAliasUnsigned(t *testing.T) {
 	}
 }
 
+func TestAliasContract(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	at := types.NewPackage("foo", "foo")
+	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+	tfoo := foo.Ref("Foo").Type()
+	tarr := types.NewArray(tyInt, 10)
+	testcases := []struct {
+		Contract
+		typ    types.Type
+		result bool
+	}{
+		{integer, pkg.AliasType("Int", tyInt), true},
+		{capable, pkg.AliasType("Bar", types.NewNamed(types.NewTypeName(0, at, "bar", nil), tarr, nil)), true},
+		{lenable, pkg.AliasType("String", types.Typ[types.String]), true},
+		{makable, pkg.AliasType("Map", types.NewMap(tyInt, tyInt)), true},
+		{comparable, pkg.AliasType("Map1", types.NewMap(tyInt, tyInt)), false},
+		{comparable, pkg.AliasType("Chan1", types.NewChan(0, tyInt)), true},
+		{addable, pkg.AliasType("Bar1", types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil)), false},
+		{addable, pkg.AliasType("Foo1", tfoo), true},
+		{clearable, pkg.AliasType("Map2", types.NewMap(tyInt, tyInt)), true},
+		{clearable, pkg.AliasType("Slice1", types.NewSlice(tyInt)), true},
+		{clearable, pkg.AliasType("Bar2", types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.NewSlice(tyInt), nil)), true},
+		{clearable, pkg.AliasType("String1", types.Typ[types.String]), false},
+	}
+	for _, c := range testcases {
+		if c.Match(pkg, c.typ) != c.result {
+			t.Fatalf("%s.Match %v expect %v\n", c.String(), c.typ, c.result)
+		}
+	}
+}
+
 // ----------------------------------------------------------------------------
