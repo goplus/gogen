@@ -1498,4 +1498,16 @@ func TestAliasContract(t *testing.T) {
 	}
 }
 
+func TestAliasIsNumeric(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "MyInt", nil), types.Typ[types.Int], nil)
+	if !isNumeric(&pkg.cb, typ) {
+		t.Fatal("TestAliasIsNumeric: MyInt not isNumeric?")
+	}
+	alias := pkg.cb.AliasType("AliasInt", typ)
+	if !isNumeric(&pkg.cb, alias) {
+		t.Fatal("TestAliasIsNumeric: AliasInt not isNumeric?")
+	}
+}
+
 // ----------------------------------------------------------------------------

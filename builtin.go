@@ -623,11 +623,16 @@ func isNumeric(cb *CodeBuilder, typ types.Type) bool {
 	const (
 		numericFlags = types.IsInteger | types.IsFloat | types.IsComplex
 	)
-	if t, ok := typ.(*types.Named); ok {
-		typ = cb.getUnderlying(t)
-	}
-	if t, ok := typ.(*types.Basic); ok {
+retry:
+	switch t := typ.(type) {
+	case *types.Basic:
 		return (t.Info() & numericFlags) != 0
+	case *types.Named:
+		typ = cb.getUnderlying(t)
+		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
+		goto retry
 	}
 	return false
 }
