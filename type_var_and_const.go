@@ -259,11 +259,20 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos token.Pos, name string, typ typ
 	decl := tdecl.decl
 	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
 	decl.Specs = append(decl.Specs, spec)
+	var methods []*types.Func
 	if alias != 0 { // alias don't need to call InitType
+		if named, ok := typ.(*types.Named); ok {
+			if n := named.NumMethods(); n != 0 {
+				methods = make([]*types.Func, n)
+				for i := 0; i < n; i++ {
+					methods[i] = named.Method(i)
+				}
+			}
+		}
 		spec.Type = toType(p, typ)
 		typ = typ.Underlying() // typ.Underlying() may delay load and can be nil, it's reasonable
 	}
-	named := types.NewNamed(typName, typ, nil)
+	named := types.NewNamed(typName, typ, methods)
 	p.useName(name)
 	return &TypeDecl{typ: named, spec: spec}
 }

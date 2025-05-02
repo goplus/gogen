@@ -1429,4 +1429,26 @@ func TestBuiltinRace(t *testing.T) {
 	wg.Wait()
 }
 
+func TestAliasTypeMethod(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	at := types.NewPackage("foo", "foo")
+	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+	tfoo := foo.Ref("Foo").Type()
+	testcases := []struct {
+		Contract
+		typ    types.Type
+		result bool
+	}{
+		{addable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil), false},
+		{addable, tfoo, true},
+		{addable, pkg.AliasType("Foo1", tfoo), true},
+		{addable, pkg.AliasType("Foo2", pkg.AliasType("Foo3", tfoo)), true},
+	}
+	for _, c := range testcases {
+		if c.Match(pkg, c.typ) != c.result {
+			t.Fatalf("%s.Match %v expect %v\n", c.String(), c.typ, c.result)
+		}
+	}
+}
+
 // ----------------------------------------------------------------------------
