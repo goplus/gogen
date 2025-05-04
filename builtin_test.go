@@ -1429,4 +1429,85 @@ func TestBuiltinRace(t *testing.T) {
 	wg.Wait()
 }
 
+func TestAliasTypeMethod(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	at := types.NewPackage("foo", "foo")
+	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+	tfoo := foo.Ref("Foo").Type()
+	testcases := []struct {
+		Contract
+		typ    types.Type
+		result bool
+	}{
+		{addable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil), false},
+		{addable, tfoo, true},
+		{addable, pkg.AliasType("Foo1", tfoo), true},
+		{addable, pkg.AliasType("Foo2", pkg.AliasType("Foo3", tfoo)), true},
+	}
+	for _, c := range testcases {
+		if c.Match(pkg, c.typ) != c.result {
+			t.Fatalf("%s.Match %v expect %v\n", c.String(), c.typ, c.result)
+		}
+	}
+}
+
+func TestAliasCheckInterface(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	alias := pkg.AliasType("Any", types.NewInterfaceType(nil, nil))
+	if typ, ok := pkg.cb.checkInterface(alias); typ == nil || !ok {
+		t.Fatal("TestAliasCheckInterface failed:", typ, ok)
+	}
+}
+
+func TestAliasUnsigned(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	typ := pkg.AliasType("Int", types.Typ[types.Uint8])
+	if !isUnsigned(typ) {
+		t.Fatal("TestAliasUnsigned failed:", typ)
+	}
+}
+
+func TestAliasContract(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	at := types.NewPackage("foo", "foo")
+	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+	tfoo := foo.Ref("Foo").Type()
+	tarr := types.NewArray(tyInt, 10)
+	testcases := []struct {
+		Contract
+		typ    types.Type
+		result bool
+	}{
+		{integer, pkg.AliasType("Int", tyInt), true},
+		{capable, pkg.AliasType("Bar", types.NewNamed(types.NewTypeName(0, at, "bar", nil), tarr, nil)), true},
+		{lenable, pkg.AliasType("String", types.Typ[types.String]), true},
+		{makable, pkg.AliasType("Map", types.NewMap(tyInt, tyInt)), true},
+		{comparable, pkg.AliasType("Map1", types.NewMap(tyInt, tyInt)), false},
+		{comparable, pkg.AliasType("Chan1", types.NewChan(0, tyInt)), true},
+		{addable, pkg.AliasType("Bar1", types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil)), false},
+		{addable, pkg.AliasType("Foo1", tfoo), true},
+		{clearable, pkg.AliasType("Map2", types.NewMap(tyInt, tyInt)), true},
+		{clearable, pkg.AliasType("Slice1", types.NewSlice(tyInt)), true},
+		{clearable, pkg.AliasType("Bar2", types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.NewSlice(tyInt), nil)), true},
+		{clearable, pkg.AliasType("String1", types.Typ[types.String]), false},
+	}
+	for _, c := range testcases {
+		if c.Match(pkg, c.typ) != c.result {
+			t.Fatalf("%s.Match %v expect %v\n", c.String(), c.typ, c.result)
+		}
+	}
+}
+
+func TestAliasIsNumeric(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "MyInt", nil), types.Typ[types.Int], nil)
+	if !isNumeric(&pkg.cb, typ) {
+		t.Fatal("TestAliasIsNumeric: MyInt not isNumeric?")
+	}
+	alias := pkg.cb.AliasType("AliasInt", typ)
+	if !isNumeric(&pkg.cb, alias) {
+		t.Fatal("TestAliasIsNumeric: AliasInt not isNumeric?")
+	}
+}
+
 // ----------------------------------------------------------------------------

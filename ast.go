@@ -480,6 +480,9 @@ retry:
 	case *types.Named:
 		typ = t.Underlying()
 		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
+		goto retry
 	}
 	return false
 }
