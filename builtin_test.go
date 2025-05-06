@@ -1569,4 +1569,16 @@ func TestAliasOffsetof(t *testing.T) {
 	}
 }
 
+func TestAliasBasic(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	aliasType := pkg.AliasType("MyInt", types.Typ[types.Int])
+	elem := &Element{
+		Type: aliasType,
+		Val:  ast.NewIdent("v"),
+	}
+	if b := isBasicKind(&pkg.cb, elem, types.IsInteger); b != true {
+		t.Fatal("failed")
+	}
+}
+
 // ----------------------------------------------------------------------------

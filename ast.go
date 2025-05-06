@@ -516,6 +516,9 @@ retry:
 	case *types.Named:
 		argType = cb.getUnderlying(t)
 		goto retry
+	case *typesutil.Alias:
+		argType = typesutil.Unalias(t)
+		goto retry
 	}
 	return false
 }
