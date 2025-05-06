@@ -663,6 +663,9 @@ retry:
 	case *types.Named:
 		t0 = pkg.cb.getUnderlying(t)
 		goto retry
+	case *typesutil.Alias:
+		t0 = typesutil.Unalias(t)
+		goto retry
 	}
 	panic("TODO: <-ch not a chan type")
 }
@@ -856,6 +859,9 @@ retry:
 		goto retry
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
+		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
 		goto retry
 	}
 	return nil

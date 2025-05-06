@@ -1510,4 +1510,29 @@ func TestAliasIsNumeric(t *testing.T) {
 	}
 }
 
+func TestAliasGetStruct(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	st := types.NewStruct(
+		[]*types.Var{types.NewField(token.NoPos, pkg.Types, "F", types.Typ[types.Int], false)},
+		nil,
+	)
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "MyStruct", nil), st, nil)
+	if st := getStruct(pkg, pkg.AliasType("Alias", typ)); st == nil || st.NumFields() != 1 {
+		t.Fatal("getStruct failed", typ)
+	}
+}
+
+func TestAliasRecv(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	var instr recvInstr
+	elem := &Element{
+		Type: pkg.AliasType("MyChan", types.NewChan(types.SendRecv, types.Typ[types.Int])),
+		Val:  ast.NewIdent("ch"),
+	}
+	_, err := instr.Call(pkg, []*Element{elem}, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // ----------------------------------------------------------------------------
