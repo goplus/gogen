@@ -1510,4 +1510,75 @@ func TestAliasIsNumeric(t *testing.T) {
 	}
 }
 
+func TestAliasGetStruct(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	st := types.NewStruct(
+		[]*types.Var{types.NewField(token.NoPos, pkg.Types, "F", types.Typ[types.Int], false)},
+		nil,
+	)
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "MyStruct", nil), st, nil)
+	if st := getStruct(pkg, pkg.AliasType("Alias", typ)); st == nil || st.NumFields() != 1 {
+		t.Fatal("getStruct failed", typ)
+	}
+}
+
+func TestAliasRecv(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	var instr recvInstr
+	elem := &Element{
+		Type: pkg.AliasType("MyChan", types.NewChan(types.SendRecv, types.Typ[types.Int])),
+		Val:  ast.NewIdent("ch"),
+	}
+	_, err := instr.Call(pkg, []*Element{elem}, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAliasOffsetof(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	var instr unsafeOffsetofInstr
+	typ := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg.Types, "Point", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg.Types, "X", types.Typ[types.Int], false),
+			types.NewField(token.NoPos, pkg.Types, "Y", types.Typ[types.Int], false),
+		}, nil),
+		nil,
+	)
+	aliasType := pkg.AliasType("MyPoint", typ)
+	styp := types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg.Types, "Rect", nil),
+		types.NewStruct([]*types.Var{
+			types.NewField(token.NoPos, pkg.Types, "", aliasType, true),
+			types.NewField(token.NoPos, pkg.Types, "Width", types.Typ[types.Int], false),
+			types.NewField(token.NoPos, pkg.Types, "Height", types.Typ[types.Int], false),
+		}, nil),
+		nil,
+	)
+	elem := &Element{
+		Type: types.Typ[types.Int],
+		Val: selector(&Element{
+			Type: pkg.AliasType("MyRect", styp),
+			Val:  ast.NewIdent("rect"),
+		}, "Y"),
+	}
+	_, err := instr.Call(pkg, []*Element{elem}, 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAliasBasic(t *testing.T) {
+	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	aliasType := pkg.AliasType("MyInt", types.Typ[types.Int])
+	elem := &Element{
+		Type: aliasType,
+		Val:  ast.NewIdent("v"),
+	}
+	if b := isBasicKind(&pkg.cb, elem, types.IsInteger); b != true {
+		t.Fatal("failed")
+	}
+}
+
 // ----------------------------------------------------------------------------

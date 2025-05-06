@@ -663,6 +663,9 @@ retry:
 	case *types.Named:
 		t0 = pkg.cb.getUnderlying(t)
 		goto retry
+	case *typesutil.Alias:
+		t0 = typesutil.Unalias(t)
+		goto retry
 	}
 	panic("TODO: <-ch not a chan type")
 }
@@ -857,6 +860,9 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
+	case *typesutil.Alias:
+		typ = typesutil.Unalias(t)
+		goto retry
 	}
 	return nil
 }
@@ -878,11 +884,11 @@ func offsetof(pkg *Package, typ types.Type, index []int, recv ast.Node, sel stri
 	var indirectType int
 	for n, i := range index {
 		if n > 0 {
-			if t, ok := typ.(*types.Pointer); ok {
+			if t, ok := typesutil.Unalias(typ).(*types.Pointer); ok {
 				typ = t.Elem()
 				indirectType = n
 			}
-			if t, ok := typ.(*types.Named); ok {
+			if t, ok := typesutil.Unalias(typ).(*types.Named); ok {
 				typList = append(typList, t.Obj().Name())
 				typ = t.Underlying()
 			}
