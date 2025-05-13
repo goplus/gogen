@@ -25,6 +25,7 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/goxdbg"
+	"github.com/goplus/gogen/internal/typesalias"
 )
 
 // ----------------------------------------------------------------------------
@@ -84,6 +85,8 @@ func isGenericType(typ types.Type) bool {
 		return t.Obj() != nil && t.TypeArgs() == nil && t.TypeParams() != nil
 	case *types.Signature:
 		return t.TypeParams() != nil
+	case *typesalias.Alias:
+		return typesalias.TypeParams(t) != nil
 	}
 	return false
 }
@@ -187,9 +190,8 @@ func toRecvType(pkg *Package, typ types.Type) ast.Expr {
 	return expr
 }
 
-func toNamedType(pkg *Package, t *types.Named) ast.Expr {
-	expr := toObjectExpr(pkg, t.Obj())
-	if targs := t.TypeArgs(); targs != nil {
+func toTypeArgs(pkg *Package, expr ast.Expr, targs *types.TypeList) ast.Expr {
+	if targs != nil {
 		n := targs.Len()
 		indices := make([]ast.Expr, n)
 		for i := 0; i < n; i++ {
@@ -208,6 +210,16 @@ func toNamedType(pkg *Package, t *types.Named) ast.Expr {
 		}
 	}
 	return expr
+}
+
+func toNamedType(pkg *Package, t *types.Named) ast.Expr {
+	expr := toObjectExpr(pkg, t.Obj())
+	return toTypeArgs(pkg, expr, t.TypeArgs())
+}
+
+func toAliasType(pkg *Package, t *typesalias.Alias) ast.Expr {
+	expr := toObjectExpr(pkg, t.Obj())
+	return toTypeArgs(pkg, expr, typesalias.TypeArgs(t))
 }
 
 type operandMode byte

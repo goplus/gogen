@@ -24,7 +24,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/goplus/gogen/internal/typesutil"
+	"github.com/goplus/gogen/internal/typesalias"
 	"github.com/goplus/gogen/typeutil"
 )
 
@@ -630,8 +630,8 @@ retry:
 	case *types.Named:
 		typ = cb.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	return false
@@ -663,8 +663,8 @@ retry:
 	case *types.Named:
 		t0 = pkg.cb.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		t0 = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		t0 = typesalias.Unalias(t)
 		goto retry
 	}
 	panic("TODO: <-ch not a chan type")
@@ -860,8 +860,8 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	return nil
@@ -884,11 +884,11 @@ func offsetof(pkg *Package, typ types.Type, index []int, recv ast.Node, sel stri
 	var indirectType int
 	for n, i := range index {
 		if n > 0 {
-			if t, ok := typesutil.Unalias(typ).(*types.Pointer); ok {
+			if t, ok := typesalias.Unalias(typ).(*types.Pointer); ok {
 				typ = t.Elem()
 				indirectType = n
 			}
-			if t, ok := typesutil.Unalias(typ).(*types.Named); ok {
+			if t, ok := typesalias.Unalias(typ).(*types.Named); ok {
 				typList = append(typList, t.Obj().Name())
 				typ = t.Underlying()
 			}
@@ -1035,8 +1035,8 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	return false
@@ -1090,8 +1090,8 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	case *types.Slice: // slice/map/func is very special
 		return false
@@ -1151,8 +1151,8 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	return false
@@ -1180,8 +1180,8 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	return capable.Match(pkg, typ)
@@ -1209,8 +1209,8 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	return false
@@ -1245,8 +1245,8 @@ retry:
 				}
 			}
 		}
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	c := &basicContract{kinds: kindsAddable}
@@ -1333,8 +1333,8 @@ retry:
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	return false

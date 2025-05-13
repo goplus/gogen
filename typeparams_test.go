@@ -14,6 +14,7 @@
 package gogen_test
 
 import (
+	"go/ast"
 	"go/token"
 	"go/types"
 	"log"
@@ -1234,6 +1235,47 @@ func _() {
 func _() {
 	foo.ListMapv(100, foo.Numbers, foo.Add[int], foo.Dump[int, int, int], foo.Dump[int, int, int], foo.Dump2[int, int])
 	foo.ListMapv("a", foo.Numbers, foo.Add[int], foo.Dump[int, string, int], foo.Dump[int, string, int], foo.Dump2[string, int])
+}
+`)
+}
+
+func TestAliasTypeParams(t *testing.T) {
+	if !isLeastGo(24) {
+		t.Skip()
+	}
+	t.Setenv("GODEBUG", "gotypesalias=1")
+	const src = `package foo
+
+type Set[T comparable] = map[T]int
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackageEx("", "main", &gogen.Config{
+		Fset: gt.fset, Importer: gt.imp, EnableTypesalias: true},
+	)
+	fooRef := pkg.Import("foo")
+	fmtRef := pkg.Import("fmt")
+	set := pkg.Instantiate(fooRef.Ref("Set").Type(), []types.Type{types.Typ[types.String]})
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "mset").
+		Val(&ast.BasicLit{Kind: token.STRING, Value: `"hello"`}).Val(1).
+		Val(&ast.BasicLit{Kind: token.STRING, Value: `"world"`}).Val(2).
+		MapLit(set, 4).EndInit(1).
+		Val(fmtRef.Ref("Println")).Val(ctxRef(pkg, "mset")).Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import (
+	"fmt"
+	"foo"
+)
+
+func main() {
+	mset := foo.Set[string]{"hello": 1, "world": 2}
+	fmt.Println(mset)
 }
 `)
 }

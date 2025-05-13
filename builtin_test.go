@@ -30,7 +30,7 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/go/format"
-	"github.com/goplus/gogen/internal/typesutil"
+	"github.com/goplus/gogen/internal/typesalias"
 	"github.com/goplus/gogen/packages"
 )
 
@@ -705,7 +705,7 @@ func isLeastGo122() bool {
 
 func TestToTypeAlias(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
-	alias := typesutil.NewAlias(types.NewTypeName(token.NoPos, nil, "Int", nil), types.Typ[types.Int])
+	alias := typesalias.NewAlias(types.NewTypeName(token.NoPos, nil, "Int", nil), types.Typ[types.Int])
 	if isLeastGo122() {
 		expr := toType(pkg, alias)
 		if ident, ok := expr.(*ast.Ident); !ok || ident.Name != "Int" {

@@ -27,7 +27,7 @@ import (
 	"strings"
 
 	"github.com/goplus/gogen/internal"
-	"github.com/goplus/gogen/internal/typesutil"
+	"github.com/goplus/gogen/internal/typesalias"
 )
 
 var (
@@ -169,8 +169,8 @@ retry:
 		return toObjectExpr(pkg, t.Obj())
 	case *Union:
 		return toUnionType(pkg, t)
-	case *typesutil.Alias:
-		return toObjectExpr(pkg, t.Obj())
+	case *typesalias.Alias:
+		return toAliasType(pkg, t)
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil
@@ -480,8 +480,8 @@ retry:
 	case *types.Named:
 		typ = t.Underlying()
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	return false
@@ -516,8 +516,8 @@ retry:
 	case *types.Named:
 		argType = cb.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		argType = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		argType = typesalias.Unalias(t)
 		goto retry
 	}
 	return false
@@ -1260,8 +1260,8 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{
 		case *types.Named:
 			typ = t.Underlying()
 			goto retry
-		case *typesutil.Alias:
-			typ = typesutil.Unalias(t)
+		case *typesalias.Alias:
+			typ = typesalias.Unalias(t)
 			goto retry
 		}
 	}

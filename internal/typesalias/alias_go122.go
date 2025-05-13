@@ -1,11 +1,11 @@
 //go:build go1.22
 // +build go1.22
 
-package typesutil
+package typesalias
 
 import "go/types"
 
-const SupportAlias = true
+const Support = true
 
 type Alias = types.Alias
 

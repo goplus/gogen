@@ -154,6 +154,10 @@ func (p *goxTest) NewPackage(pkgPath string, name string) *gogen.Package {
 	return gogen.NewPackage(pkgPath, name, conf)
 }
 
+func (p *goxTest) NewPackageEx(pkgPath string, name string, conf *gogen.Config) *gogen.Package {
+	return gogen.NewPackage(pkgPath, name, conf)
+}
+
 type goxVar = types.Var
 
 // ----------------------------------------------------------------------------
@@ -361,8 +365,12 @@ func bar(v mytype) rune {
 }
 
 func isLeastGo122() bool {
+	return isLeastGo(22)
+}
+
+func isLeastGo(minor int64) bool {
 	ver, err := strconv.ParseInt(runtime.Version()[4:6], 10, 0)
-	return err == nil && ver >= 22
+	return err == nil && ver >= minor
 }
 
 func TestMethods(t *testing.T) {
