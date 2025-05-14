@@ -65,7 +65,6 @@ func TestConvertToClosure(t *testing.T) {
 		NamePos: token.Pos(1),
 	}).ConvertToClosure()
 
-	pkg.CB().InternalStack().Print()
 	// check the closure has src node
 	arg := pkg.CB().InternalStack().Get(-1)
 	if arg.Src == nil {
