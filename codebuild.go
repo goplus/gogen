@@ -629,7 +629,7 @@ func (p *CodeBuilder) ConvertToClosure() *CodeBuilder {
 	p.emitStmt(&ast.ReturnStmt{
 		Results: []ast.Expr{e.Val},
 	})
-	return p.End()
+	return p.End(e.Src)
 }
 
 // NewType func
