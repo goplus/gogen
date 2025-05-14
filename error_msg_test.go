@@ -49,7 +49,7 @@ var (
 )
 
 // text, line, column
-func source(text string, args ...interface{}) ast.Node {
+func source(text string, args ...any) ast.Node {
 	if len(args) < 2 {
 		return &txtNode{Msg: text}
 	}

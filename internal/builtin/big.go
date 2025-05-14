@@ -29,7 +29,7 @@ const (
 
 type Gop_ninteger = uint
 
-func Gop_istmp(a interface{}) bool {
+func Gop_istmp(a any) bool {
 	return false
 }
 

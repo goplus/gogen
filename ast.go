@@ -259,7 +259,7 @@ func toInterface(pkg *Package, t *types.Interface) ast.Expr {
 // -----------------------------------------------------------------------------
 // expression
 
-func toExpr(pkg *Package, val interface{}, src ast.Node) *internal.Elem {
+func toExpr(pkg *Package, val any, src ast.Node) *internal.Elem {
 	if val == nil {
 		return &internal.Elem{
 			Val:  identNil,
@@ -1030,7 +1030,7 @@ func matchFuncType(
 			}
 		}
 	}
-	var at interface{}
+	var at any
 	if fn == nil {
 		at = "closure argument" // fn = nil means it is a closure
 	} else {
@@ -1073,7 +1073,7 @@ func matchFuncType(
 }
 
 func matchFuncArgs(
-	pkg *Package, args []*internal.Elem, sig *types.Signature, at interface{}) error {
+	pkg *Package, args []*internal.Elem, sig *types.Signature, at any) error {
 	for i, arg := range args {
 		if err := matchType(pkg, arg, getParam(sig, i).Type(), at); err != nil {
 			return err
@@ -1150,7 +1150,7 @@ func isUnnamedParams(t *types.Tuple) bool {
 	return false
 }
 
-func matchElemType(pkg *Package, vals []*internal.Elem, elt types.Type, at interface{}) error {
+func matchElemType(pkg *Package, vals []*internal.Elem, elt types.Type, at any) error {
 	for _, val := range vals {
 		if err := matchType(pkg, val, elt, at); err != nil {
 			return err
@@ -1194,13 +1194,13 @@ type MatchError struct {
 	Src   ast.Node
 	Arg   types.Type
 	Param types.Type
-	At    interface{}
+	At    any
 
 	intr  NodeInterpreter
 	fstmt bool
 }
 
-func strval(at interface{}) string {
+func strval(at any) string {
 	switch v := at.(type) {
 	case string:
 		return v
@@ -1234,7 +1234,7 @@ func (p *MatchError) Error() string {
 }
 
 // TODO: use matchType to all assignable check
-func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) error {
+func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error {
 	if debugMatch {
 		cval := ""
 		if arg.CVal != nil {

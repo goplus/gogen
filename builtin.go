@@ -265,7 +265,7 @@ type typeBFunc struct {
 	result types.BasicKind
 }
 
-type xType = interface{}
+type xType = any
 type typeXParam struct {
 	name string
 	typ  xType // tidx | types.Type
@@ -455,7 +455,7 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 // ----------------------------------------------------------------------------
 
 type builtinFn struct {
-	fn   interface{}
+	fn   any
 	narg int
 }
 
@@ -1365,12 +1365,12 @@ var (
 
 // ----------------------------------------------------------------------------
 
-type bmExargs = []interface{}
+type bmExargs = []any
 
 type BuiltinMethod struct {
 	Name   string
 	Fn     types.Object
-	Exargs []interface{}
+	Exargs []any
 }
 
 func (p *BuiltinMethod) Results() *types.Tuple {

@@ -217,7 +217,7 @@ func (p *CodeBuilder) newCodeError(pos token.Pos, msg string) *CodeError {
 	return &CodeError{Msg: msg, Pos: pos, Fset: p.fset}
 }
 
-func (p *CodeBuilder) newCodeErrorf(pos token.Pos, format string, args ...interface{}) *CodeError {
+func (p *CodeBuilder) newCodeErrorf(pos token.Pos, format string, args ...any) *CodeError {
 	return p.newCodeError(pos, fmt.Sprintf(format, args...))
 }
 
@@ -225,7 +225,7 @@ func (p *CodeBuilder) handleCodeError(pos token.Pos, msg string) {
 	p.handleErr(p.newCodeError(pos, msg))
 }
 
-func (p *CodeBuilder) handleCodeErrorf(pos token.Pos, format string, args ...interface{}) {
+func (p *CodeBuilder) handleCodeErrorf(pos token.Pos, format string, args ...any) {
 	p.handleErr(p.newCodeError(pos, fmt.Sprintf(format, args...)))
 }
 
@@ -233,7 +233,7 @@ func (p *CodeBuilder) panicCodeError(pos token.Pos, msg string) {
 	panic(p.newCodeError(pos, msg))
 }
 
-func (p *CodeBuilder) panicCodeErrorf(pos token.Pos, format string, args ...interface{}) {
+func (p *CodeBuilder) panicCodeErrorf(pos token.Pos, format string, args ...any) {
 	panic(p.newCodeError(pos, fmt.Sprintf(format, args...)))
 }
 
@@ -701,11 +701,11 @@ func (p *CodeBuilder) NewAutoVar(pos token.Pos, name string, pv **types.Var) *Co
 }
 
 // VarRef func: p.VarRef(nil) means underscore (_)
-func (p *CodeBuilder) VarRef(ref interface{}, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) VarRef(ref any, src ...ast.Node) *CodeBuilder {
 	return p.doVarRef(ref, getSrc(src), true)
 }
 
-func (p *CodeBuilder) doVarRef(ref interface{}, src ast.Node, allowDebug bool) *CodeBuilder {
+func (p *CodeBuilder) doVarRef(ref any, src ast.Node, allowDebug bool) *CodeBuilder {
 	if ref == nil {
 		if allowDebug && debugInstr {
 			log.Println("VarRef _")
@@ -1382,7 +1382,7 @@ func (p *CodeBuilder) VarVal(name string, src ...ast.Node) *CodeBuilder {
 }
 
 // Val func
-func (p *CodeBuilder) Val(v interface{}, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) Val(v any, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		if o, ok := v.(types.Object); ok {
 			log.Println("Val", o.Name(), o.Type())
@@ -1402,7 +1402,7 @@ func (p *CodeBuilder) Val(v interface{}, src ...ast.Node) *CodeBuilder {
 	return p.pushVal(v, getSrc(src))
 }
 
-func (p *CodeBuilder) pushVal(v interface{}, src ast.Node) *CodeBuilder {
+func (p *CodeBuilder) pushVal(v any, src ast.Node) *CodeBuilder {
 	p.stk.Push(toExpr(p.pkg, v, src))
 	return p
 }
@@ -2209,7 +2209,7 @@ retry:
 //   - cb.UnaryOp(op token.Token)
 //   - cb.UnaryOp(op token.Token, twoValue bool)
 //   - cb.UnaryOp(op token.Token, twoValue bool, src ast.Node)
-func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilder {
+func (p *CodeBuilder) UnaryOp(op token.Token, params ...any) *CodeBuilder {
 	var src ast.Node
 	var flags InstrFlags
 	switch len(params) {

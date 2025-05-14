@@ -1224,7 +1224,7 @@ func TestVarVal(t *testing.T) {
 	cb.VarVal("unknown")
 }
 
-func isError(e interface{}, msg string) bool {
+func isError(e any, msg string) bool {
 	if e != nil {
 		if err, ok := e.(error); ok {
 			return err.Error() == msg
