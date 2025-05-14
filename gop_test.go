@@ -59,9 +59,21 @@ func newGopMainPackage() *gogen.Package {
 
 func TestConvertToClosure(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart(0, "x").Val(1).ConvertToClosure().EndInit(1).
-		End()
+	p := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "x").Val(1, &ast.Ident{
+		Name:    "x",
+		NamePos: token.Pos(1),
+	}).ConvertToClosure()
+
+	pkg.CB().InternalStack().Print()
+	// check the closure has src node
+	arg := pkg.CB().InternalStack().Get(-1)
+	if arg.Src == nil {
+		t.Fatal("closure has no src node")
+	}
+
+	p.EndInit(1).End()
+
 	domTest(t, pkg, `package main
 
 func main() {
@@ -70,6 +82,7 @@ func main() {
 	}
 }
 `)
+
 }
 
 func TestGopoConst(t *testing.T) {
