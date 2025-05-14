@@ -81,7 +81,6 @@ func main() {
 	}
 }
 `)
-
 }
 
 func TestGopoConst(t *testing.T) {
