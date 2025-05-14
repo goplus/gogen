@@ -14,7 +14,7 @@ import (
 	"unsafe"
 
 	"github.com/goplus/gogen/internal/typeparams"
-	"github.com/goplus/gogen/internal/typesutil"
+	"github.com/goplus/gogen/internal/typesalias"
 )
 
 // Map is a hash-table-based mapping from types (types.Type) to
@@ -226,8 +226,8 @@ func (h hasher) hash(t types.Type) uint32 {
 	case *types.Basic:
 		return uint32(t.Kind())
 
-	case *typesutil.Alias:
-		return h.hash(typesutil.Unalias(t))
+	case *typesalias.Alias:
+		return h.hash(typesalias.Unalias(t))
 
 	case *types.Array:
 		return 9043 + 2*uint32(t.Len()) + 3*h.hash(t.Elem())
@@ -419,8 +419,8 @@ func (h hasher) shallowHash(t types.Type) uint32 {
 	// elements (mostly Slice, Pointer, Basic, Named),
 	// so there's no need to optimize anything else.
 	switch t := t.(type) {
-	case *typesutil.Alias:
-		return h.shallowHash(typesutil.Unalias(t))
+	case *typesalias.Alias:
+		return h.shallowHash(typesalias.Unalias(t))
 
 	case *types.Signature:
 		var hash uint32 = 604171

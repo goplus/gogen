@@ -28,7 +28,7 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/internal"
-	"github.com/goplus/gogen/internal/typesutil"
+	"github.com/goplus/gogen/internal/typesalias"
 	xtoken "github.com/goplus/gogen/token"
 	"github.com/goplus/gogen/typeutil"
 )
@@ -780,8 +780,8 @@ retry:
 	case *types.Named:
 		typ = p.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	ret := &ast.CompositeLit{}
@@ -826,8 +826,8 @@ func (p *CodeBuilder) MapLitEx(typ types.Type, arity int, src ...ast.Node) error
 			t, ok = p.getUnderlying(tt).(*types.Map)
 		case *types.Map:
 			t, ok = tt, true
-		case *typesutil.Alias:
-			typ = typesutil.Unalias(tt)
+		case *typesalias.Alias:
+			typ = typesalias.Unalias(tt)
 			goto retry
 		}
 		if !ok {
@@ -947,8 +947,8 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 			t = p.getUnderlying(tt).(*types.Slice)
 		case *types.Slice:
 			t = tt
-		case *typesutil.Alias:
-			typ = typesutil.Unalias(typ)
+		case *typesalias.Alias:
+			typ = typesalias.Unalias(typ)
 			goto retry
 		default:
 			p.panicCodeErrorf(getPos(src), "type %v isn't a slice", typ)
@@ -1033,8 +1033,8 @@ retry:
 		t = p.getUnderlying(tt).(*types.Array)
 	case *types.Array:
 		t = tt
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(tt)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(tt)
 		goto retry
 	default:
 		p.panicCodeErrorf(getPos(src), "type %v isn't a array", typ)
@@ -1100,8 +1100,8 @@ retry:
 		t = p.getUnderlying(tt).(*types.Struct)
 	case *types.Struct:
 		t = tt
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(tt)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(tt)
 		goto retry
 	default:
 		p.panicCodeErrorf(getPos(src), "type %v isn't a struct", typ)
@@ -1586,7 +1586,7 @@ func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kin
 	if debugInstr {
 		log.Println("Member", name, flag, "//", arg.Type)
 	}
-	at := typesutil.Unalias(arg.Type)
+	at := typesalias.Unalias(arg.Type)
 	switch at {
 	case p.pkg.utBigInt, p.pkg.utBigRat, p.pkg.utBigFlt:
 		at = DefaultConv(p.pkg, arg.Type, arg)
@@ -1654,7 +1654,7 @@ func (p *CodeBuilder) findMember(
 retry:
 	switch o := typ.(type) {
 	case *types.Pointer:
-		switch t := typesutil.Unalias(o.Elem()).(type) {
+		switch t := typesalias.Unalias(o.Elem()).(type) {
 		case *types.Named:
 			u := p.getUnderlying(t) // may cause to loadNamed (delay-loaded)
 			struc, fstruc := u.(*types.Struct)
@@ -2533,8 +2533,8 @@ retry:
 	case *types.Named:
 		typ = p.getUnderlying(t)
 		goto retry
-	case *typesutil.Alias:
-		typ = typesutil.Unalias(t)
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
 		goto retry
 	}
 	return nil, false

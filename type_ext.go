@@ -21,7 +21,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/goplus/gogen/internal/typesutil"
+	"github.com/goplus/gogen/internal/typesalias"
 )
 
 // ----------------------------------------------------------------------------
@@ -241,8 +241,8 @@ func realType(typ types.Type) types.Type {
 		if tn := t.Obj(); tn.IsAlias() {
 			return tn.Type()
 		}
-	case *typesutil.Alias:
-		return typesutil.Unalias(t)
+	case *typesalias.Alias:
+		return typesalias.Unalias(t)
 	}
 	return typ
 }
