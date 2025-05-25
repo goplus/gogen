@@ -1,5 +1,5 @@
 /*
- Copyright 2023 The GoPlus Authors (goplus.org)
+ Copyright 2023 The XGo Authors (xgo.dev)
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
  You may obtain a copy of the License at
