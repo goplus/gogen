@@ -137,8 +137,8 @@ func newMethodEx(typ *types.Named, pos token.Pos, pkg *types.Package, name strin
 	recv := types.NewVar(token.NoPos, pkg, "recv", typ)
 	ofn := newFuncEx(pos, pkg, recv, name, t)
 	typ.AddMethod(ofn)
-	if strings.HasPrefix(name, gopxPrefix) {
-		aname := name[len(gopxPrefix):]
+	if strings.HasPrefix(name, xgoxPrefix) {
+		aname := name[len(xgoxPrefix):]
 		ofnAlias := newFuncEx(pos, pkg, recv, aname, &TyTypeAsParams{ofn})
 		typ.AddMethod(ofnAlias)
 		if debugImport {

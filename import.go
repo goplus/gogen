@@ -79,7 +79,7 @@ func (p PkgRef) EnsureImported() {
 }
 
 func isGopoConst(name string) bool {
-	return strings.HasPrefix(name, gopoPrefix)
+	return strings.HasPrefix(name, xgooPrefix)
 }
 
 func isGopFunc(name string) bool {
@@ -148,7 +148,7 @@ func InitThisGopPkgEx(pkg *types.Package, pos map[string]token.Pos) {
 	}
 	for _, gopoName := range gopos {
 		if names, ok := checkOverloads(scope, gopoName); ok {
-			key := gopoName[len(gopoPrefix):]
+			key := gopoName[len(xgooPrefix):]
 			m, tname := checkTypeMethod(scope, key)
 			fns := make([]types.Object, 0, len(names))
 			for i, name := range names {
@@ -255,10 +255,10 @@ func checkGoptsx(pkg *types.Package, scope *types.Scope, name string, o types.Ob
 	const n2 = n + 2
 	if isGopCommon(name) {
 		switch ch := name[n]; ch {
-		case gopsCh, goptCh: // Gops_xxx, Gopt_xxx
+		case xgosCh, xgotCh: // Gops_xxx, Gopt_xxx
 			name = name[n2:]
 			if m, tname := checkTypeMethod(pkg.Scope(), name); m.typ != nil {
-				if ch == goptCh {
+				if ch == xgotCh {
 					if debugImport {
 						log.Println("==> NewTemplateRecvMethod", tname, m.name)
 					}
@@ -270,7 +270,7 @@ func checkGoptsx(pkg *types.Package, scope *types.Scope, name string, o types.Ob
 					NewStaticMethod(m.typ, token.NoPos, pkg, m.name, o)
 				}
 			}
-		case gopxCh: // Gopx_xxx
+		case xgoxCh: // Gopx_xxx
 			aname := name[n2:]
 			o := newFuncEx(token.NoPos, pkg, nil, aname, &TyTypeAsParams{o})
 			scope.Insert(o)
@@ -284,17 +284,17 @@ func checkGoptsx(pkg *types.Package, scope *types.Scope, name string, o types.Ob
 const (
 	commonPrefix = "Gop"
 
-	goptCh = 't' // template method
-	gopsCh = 's' // static method
-	gopxCh = 'x' // type as parameters function/method
+	xgotCh = 't' // template method
+	xgosCh = 's' // static method
+	xgoxCh = 'x' // type as parameters function/method
 
-	goptPrefix = "Gopt_" // template method
-	gopsPrefix = "Gops_" // static method
-	gopxPrefix = "Gopx_" // type as parameters function/method
-	gopoPrefix = "Gopo_" // overload function/method
+	xgotPrefix = "Gopt_" // template method
+	xgosPrefix = "Gops_" // static method
+	xgoxPrefix = "Gopx_" // type as parameters function/method
+	xgooPrefix = "Gopo_" // overload function/method
 
-	gopPackage = "GopPackage"
-	gopPkgInit = "__gop_inited"
+	xgoPackage = "GopPackage"
+	xgoPkgInit = "__xgo_inited"
 )
 
 /*
@@ -389,7 +389,7 @@ type expDeps struct {
 }
 
 func checkGopPkg(pkg *Package) (val ast.Expr, ok bool) {
-	if pkg.Types.Name() == "main" || pkg.Types.Scope().Lookup(gopPackage) != nil {
+	if pkg.Types.Name() == "main" || pkg.Types.Scope().Lookup(xgoPackage) != nil {
 		return
 	}
 	ed := expDeps{pkg.Types, make(map[*types.Package]none), make(map[types.Type]none)}
@@ -398,7 +398,7 @@ func checkGopPkg(pkg *Package) (val ast.Expr, ok bool) {
 	}
 	var deps []string
 	for depPkg := range ed.ret {
-		if depPkg.Scope().Lookup(gopPackage) != nil {
+		if depPkg.Scope().Lookup(xgoPackage) != nil {
 			deps = append(deps, depPkg.Path())
 		}
 	}
@@ -502,16 +502,16 @@ func (p expDeps) struc(t *types.Struct) {
 // initGopPkg initializes a Go+ packages.
 func (p *Package) initGopPkg(importer types.Importer, pkgImp *types.Package) {
 	scope := pkgImp.Scope()
-	objGopPkg := scope.Lookup(gopPackage)
+	objGopPkg := scope.Lookup(xgoPackage)
 	if objGopPkg == nil { // not is a Go+ package
 		return
 	}
 
-	if scope.Lookup(gopPkgInit) != nil { // initialized
+	if scope.Lookup(xgoPkgInit) != nil { // initialized
 		return
 	}
 	scope.Insert(types.NewConst(
-		token.NoPos, pkgImp, gopPkgInit, types.Typ[types.UntypedBool], constant.MakeBool(true),
+		token.NoPos, pkgImp, xgoPkgInit, types.Typ[types.UntypedBool], constant.MakeBool(true),
 	))
 
 	pkgDeps, ok := objGopPkg.(*types.Const)
