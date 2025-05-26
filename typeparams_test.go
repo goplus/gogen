@@ -1279,3 +1279,87 @@ func main() {
 }
 `)
 }
+
+func TestGenericTypeOverloadMethod(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+	tyDataT := foo.Ref("Data").Type()
+	tyInt := types.Typ[types.Int]
+	tyData, _ := types.Instantiate(nil, tyDataT, []types.Type{tyInt}, true)
+	v := pkg.NewParam(token.NoPos, "v", tyData)
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "n").Val(v).
+		Debug(func(cb *gogen.CodeBuilder) {
+			cb.Member("size", gogen.MemberFlagMethodAlias)
+		}).
+		Call(0).EndInit(1).EndStmt().
+		Val(v).
+		Debug(func(cb *gogen.CodeBuilder) {
+			cb.Member("add", gogen.MemberFlagMethodAlias)
+		}).
+		Val(0).Val(1).Call(2).EndStmt().
+		Val(v).
+		Debug(func(cb *gogen.CodeBuilder) {
+			cb.Member("add", gogen.MemberFlagMethodAlias)
+		}).
+		Val(v).Call(1).EndStmt().
+		DefineVarStart(token.NoPos, "i").Val(v).
+		Debug(func(cb *gogen.CodeBuilder) {
+			cb.Member("indexOf", gogen.MemberFlagMethodAlias)
+		}).
+		Val(0).Val(1).Call(2).EndInit(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gogen/internal/foo"
+
+func bar(v foo.Data[int]) {
+	n := v.Size()
+	v.Add__0(0, 1)
+	v.Add__1(v)
+	i := v.IndexOf__1(0, 1)
+}
+`)
+}
+
+func TestGenericInterfaceOverloadMethod(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+	tyDataT := foo.Ref("DataInterface").Type()
+	tyInt := types.Typ[types.Int]
+	tyData, _ := types.Instantiate(nil, tyDataT, []types.Type{tyInt}, true)
+	v := pkg.NewParam(token.NoPos, "v", tyData)
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "n").Val(v).
+		Debug(func(cb *gogen.CodeBuilder) {
+			cb.Member("size", gogen.MemberFlagMethodAlias)
+		}).
+		Call(0).EndInit(1).EndStmt().
+		Val(v).
+		Debug(func(cb *gogen.CodeBuilder) {
+			cb.Member("add", gogen.MemberFlagMethodAlias)
+		}).
+		Val(0).Val(1).Call(2).EndStmt().
+		Val(v).
+		Debug(func(cb *gogen.CodeBuilder) {
+			cb.Member("add", gogen.MemberFlagMethodAlias)
+		}).
+		Val(v).Call(1).EndStmt().
+		DefineVarStart(token.NoPos, "i").Val(v).
+		Debug(func(cb *gogen.CodeBuilder) {
+			cb.Member("indexOf", gogen.MemberFlagMethodAlias)
+		}).
+		Val(0).Val(1).Call(2).EndInit(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gogen/internal/foo"
+
+func bar(v foo.DataInterface[int]) {
+	n := v.Size()
+	v.Add__0(0, 1)
+	v.Add__1(v)
+	i := v.IndexOf__1(0, 1)
+}
+`)
+}
