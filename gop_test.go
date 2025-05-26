@@ -788,10 +788,10 @@ import (
 )
 
 func bar(v foo.NodeSet) {
-	for _gop_it := v.Gop_Enum(); ; {
-		var _gop_ok bool
-		_, val, _gop_ok := _gop_it.Next()
-		if !_gop_ok {
+	for _xgo_it := v.Gop_Enum(); ; {
+		var _xgo_ok bool
+		_, val, _xgo_ok := _xgo_it.Next()
+		if !_xgo_ok {
 			break
 		}
 		fmt.Println(val)
@@ -817,10 +817,10 @@ import (
 )
 
 func bar(v *foo.Bar) {
-	for _gop_it := v.Gop_Enum(); ; {
-		var _gop_ok bool
-		val, _gop_ok := _gop_it.Next()
-		if !_gop_ok {
+	for _xgo_it := v.Gop_Enum(); ; {
+		var _xgo_ok bool
+		val, _xgo_ok := _xgo_it.Next()
+		if !_xgo_ok {
 			break
 		}
 		fmt.Println(val)
@@ -848,10 +848,10 @@ import (
 
 func bar(v *foo.Bar) {
 	var val string
-	for _gop_it := v.Gop_Enum(); ; {
-		var _gop_ok bool
-		val, _gop_ok = _gop_it.Next()
-		if !_gop_ok {
+	for _xgo_it := v.Gop_Enum(); ; {
+		var _xgo_ok bool
+		val, _xgo_ok = _xgo_it.Next()
+		if !_xgo_ok {
 			break
 		}
 		fmt.Println(val)
@@ -878,10 +878,10 @@ import (
 )
 
 func bar(v *foo.Bar) {
-	for _gop_it := v.Gop_Enum(); ; {
-		var _gop_ok bool
-		_, _gop_ok = _gop_it.Next()
-		if !_gop_ok {
+	for _xgo_it := v.Gop_Enum(); ; {
+		var _xgo_ok bool
+		_, _xgo_ok = _xgo_it.Next()
+		if !_xgo_ok {
 			break
 		}
 		fmt.Println("Hi")
@@ -909,10 +909,10 @@ import (
 )
 
 func bar(v *foo.Bar) {
-	for _gop_it := v.Gop_Enum(); ; {
-		var _gop_ok bool
-		_, _gop_ok = _gop_it.Next()
-		if !_gop_ok {
+	for _xgo_it := v.Gop_Enum(); ; {
+		var _xgo_ok bool
+		_, _xgo_ok = _xgo_it.Next()
+		if !_xgo_ok {
 			break
 		}
 		fmt.Println("Hi")
@@ -939,10 +939,10 @@ import (
 )
 
 func bar(v foo.NodeSet) {
-	for _gop_it := v.Gop_Enum(); ; {
-		var _gop_ok bool
-		_, _, _gop_ok = _gop_it.Next()
-		if !_gop_ok {
+	for _xgo_it := v.Gop_Enum(); ; {
+		var _xgo_ok bool
+		_, _, _xgo_ok = _xgo_it.Next()
+		if !_xgo_ok {
 			break
 		}
 		fmt.Println("Hi")

@@ -87,7 +87,7 @@ func CheckSigFuncExObjects(sig *types.Signature) (typ types.Type, objs []types.O
 }
 
 const (
-	overloadArgs   = "__gop_overload_args__"
+	overloadArgs   = "__xgo_overload_args__"
 	overloadMethod = "_"
 )
 
