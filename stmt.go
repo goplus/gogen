@@ -612,7 +612,7 @@ retry:
 }
 
 func (p *forRangeStmt) checkUdt(cb *CodeBuilder, o *types.Named) ([]types.Type, bool) {
-	if sig := findMethodType(cb, o, nameGopEnum); sig != nil {
+	if sig := findMethodType(cb, o, nameXGoEnum); sig != nil {
 		enumRet := sig.Results()
 		params := sig.Params()
 		switch params.Len() {
@@ -699,13 +699,13 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 		cb.emitStmt(p.stmt)
 	} else if n > 0 {
 		cb.stk.Push(p.x)
-		cb.MemberVal(nameGopEnum).Call(0)
+		cb.MemberVal(nameXGoEnum).Call(0)
 		callEnum := cb.stk.Pop().Val
 		/*
-			for _gop_it := X.Gop_Enum();; {
-				var _gop_ok bool
-				k, v, _gop_ok = _gop_it.Next()
-				if !_gop_ok {
+			for _xgo_it := X.Gop_Enum();; {
+				var _xgo_ok bool
+				k, v, _xgo_ok = _xgo_it.Next()
+				if !_xgo_ok {
 					break
 				}
 				...
@@ -714,7 +714,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 		lhs := make([]ast.Expr, n)
 		lhs[0] = p.stmt.Key
 		lhs[1] = p.stmt.Value
-		lhs[n-1] = identGopOk
+		lhs[n-1] = identXgoOk
 		if lhs[0] == nil { // bugfix: for range udt { ... }
 			lhs[0] = underscore
 			if p.stmt.Tok == token.ILLEGAL {
@@ -740,7 +740,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 		copy(body[3:], stmts)
 		stmt := &ast.ForStmt{
 			Init: &ast.AssignStmt{
-				Lhs: []ast.Expr{identGopIt},
+				Lhs: []ast.Expr{identXgoIt},
 				Tok: token.DEFINE,
 				Rhs: []ast.Expr{callEnum},
 			},
@@ -775,7 +775,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 		}
 		stmt := &ast.ExprStmt{
 			X: &ast.CallExpr{
-				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: identGopEnum},
+				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: identXGoEnum},
 				Args: []ast.Expr{
 					&ast.FuncLit{
 						Type: &ast.FuncType{Params: &ast.FieldList{List: args}},
@@ -789,10 +789,10 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 }
 
 var (
-	nameGopEnum  = "Gop_Enum"
-	identGopOk   = ident("_gop_ok")
-	identGopIt   = ident("_gop_it")
-	identGopEnum = ident(nameGopEnum)
+	nameXGoEnum  = "Gop_Enum"
+	identXgoOk   = ident("_xgo_ok")
+	identXgoIt   = ident("_xgo_it")
+	identXGoEnum = ident(nameXGoEnum)
 )
 
 var (
@@ -800,17 +800,17 @@ var (
 		Decl: &ast.GenDecl{
 			Tok: token.VAR,
 			Specs: []ast.Spec{
-				&ast.ValueSpec{Names: []*ast.Ident{identGopOk}, Type: ident("bool")},
+				&ast.ValueSpec{Names: []*ast.Ident{identXgoOk}, Type: ident("bool")},
 			},
 		},
 	}
 	stmtBreakIfNotGopOk = &ast.IfStmt{
-		Cond: &ast.UnaryExpr{Op: token.NOT, X: identGopOk},
+		Cond: &ast.UnaryExpr{Op: token.NOT, X: identXgoOk},
 		Body: &ast.BlockStmt{List: []ast.Stmt{&ast.BranchStmt{Tok: token.BREAK}}},
 	}
 	exprIterNext = []ast.Expr{
 		&ast.CallExpr{
-			Fun: &ast.SelectorExpr{X: identGopIt, Sel: ident("Next")},
+			Fun: &ast.SelectorExpr{X: identXgoIt, Sel: ident("Next")},
 		},
 	}
 )

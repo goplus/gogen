@@ -445,12 +445,12 @@ func foo() {
 	if pkg.CurFile().Name() != "test" {
 		t.Fatal("TestTestingFile: curfile =", pkg.CurFile().Name())
 	}
-	err = gogen.WriteFile("_gop_autogen_test.go", pkg, "test")
+	err = gogen.WriteFile("_xgo_autogen_test.go", pkg, "test")
 	pkg.RestoreCurFile(old)
 	if err != nil {
 		t.Fatal("gogen.WriteFile failed:", err)
 	}
-	os.Remove("_gop_autogen_test.go")
+	os.Remove("_xgo_autogen_test.go")
 	err = gogen.WriteTo(nil, pkg, "unknown")
 	if err != syscall.ENOENT {
 		t.Fatal("gogen.WriteTo failed:", err)
@@ -3483,14 +3483,14 @@ func TestReturnErr(t *testing.T) {
 	n := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
 	err := pkg.NewParam(token.NoPos, "", tyErr)
 	pkg.NewFunc(nil, "foo", gogen.NewTuple(format, args), gogen.NewTuple(n, err), true).BodyStart(pkg).
-		NewVar(tyErr, "_gop_err").
-		Val(ctxRef(pkg, "_gop_err")).ReturnErr(false).
+		NewVar(tyErr, "_xgo_err").
+		Val(ctxRef(pkg, "_xgo_err")).ReturnErr(false).
 		End()
 	domTest(t, pkg, `package main
 
 func foo(format string, args ...interface{}) (int, error) {
-	var _gop_err error
-	return 0, _gop_err
+	var _xgo_err error
+	return 0, _xgo_err
 }
 `)
 }
