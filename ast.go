@@ -770,7 +770,7 @@ retry:
 }
 
 func matchOverloadNamedTypeCast(pkg *Package, t *types.TypeName, src ast.Node, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
-	cast := gopxPrefix + t.Name() + "_Cast"
+	cast := xgoxPrefix + t.Name() + "_Cast"
 	o := t.Pkg().Scope().Lookup(cast)
 	if o == nil {
 		err := pkg.cb.newCodeErrorf(getSrcPos(src), "typecast %v not found", t.Type())
