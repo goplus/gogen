@@ -116,4 +116,36 @@ type NodeSeter interface {
 	Attr__1(k, v string) (ret NodeSeter)
 }
 
+type Data[T any] struct {
+	data []T
+}
+
+func (p *Data[T]) Size() int {
+	return len(p.data)
+}
+
+func (p *Data[T]) Add__0(v ...T) {
+	p.data = append(p.data, v...)
+}
+
+func (p *Data[T]) Add__1(v Data[T]) {
+	p.data = append(p.data, v.data...)
+}
+
+func (p *Data[T]) IndexOf__0(v T) int {
+	return -1
+}
+
+func (p *Data[T]) IndexOf__1(pos int, v T) int {
+	return -1
+}
+
+type DataInterface[T any] interface {
+	Size() int
+	Add__0(v ...T)
+	Add__1(v DataInterface[T])
+	IndexOf__0(v T) int
+	IndexOf__1(pos int, v T) int
+}
+
 // -----------------------------------------------------------------------------
