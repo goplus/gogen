@@ -2142,7 +2142,7 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 					lhs, caller, rhsVals.Len())
 			}
 			for i := 0; i < lhs; i++ {
-				val := &internal.Elem{Type: rhsVals.At(i).Type()}
+				val := &internal.Elem{Type: rhsVals.At(i).Type(), Src: src}
 				checkAssignType(p.pkg, args[i].Type, val)
 				stmt.Lhs[i] = args[i].Val
 			}
