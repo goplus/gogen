@@ -2510,9 +2510,9 @@ func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool, src ...ast.Node)
 		tyRet := types.NewTuple(
 			pkg.NewParam(token.NoPos, "", typ),
 			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
-		p.stk.Ret(1, &internal.Elem{Type: tyRet, Val: ret})
+		p.stk.Ret(1, &internal.Elem{Type: tyRet, Val: ret, Src: getSrc(src)})
 	} else {
-		p.stk.Ret(1, &internal.Elem{Type: typ, Val: ret})
+		p.stk.Ret(1, &internal.Elem{Type: typ, Val: ret, Src: getSrc(src)})
 	}
 	return p
 }
