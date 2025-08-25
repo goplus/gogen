@@ -546,6 +546,7 @@ func importPkg(this *Package, pkgPath string, src ast.Node) (PkgRef, error) {
 		if src != nil {
 			e.Fset = this.cb.fset
 			e.Pos = src.Pos()
+			e.End = src.End()
 		}
 		return PkgRef{}, e
 	} else {
@@ -642,10 +643,10 @@ func (p *autoNames) importName(file, name string) (ret string, renamed bool) {
 }
 
 type ImportError struct {
-	Fset dbgPositioner
-	Pos  token.Pos
-	Path string
-	Err  error
+	Fset     dbgPositioner
+	Pos, End token.Pos
+	Path     string
+	Err      error
 }
 
 func (p *ImportError) Unwrap() error {
