@@ -65,7 +65,8 @@ func (p *inferFuncType) Instance() *types.Signature {
 	tyRet, err := inferFuncTargs(p.pkg, p.fn, p.typ, p.targs)
 	if err != nil {
 		pos := getSrcPos(p.src)
-		p.pkg.cb.panicCodeErrorf(pos, "%v", err)
+		end := getSrcEnd(p.src)
+		p.pkg.cb.panicCodeErrorf(pos, end, "%v", err)
 	}
 	return tyRet.(*types.Signature)
 }
@@ -74,7 +75,8 @@ func (p *inferFuncType) InstanceWithArgs(args []*internal.Elem, flags InstrFlags
 	tyRet, err := InferFunc(p.pkg, p.fn, p.typ, p.targs, args, flags)
 	if err != nil {
 		pos := getSrcPos(p.src)
-		p.pkg.cb.panicCodeErrorf(pos, "%v", err)
+		end := getSrcEnd(p.src)
+		p.pkg.cb.panicCodeErrorf(pos, end, "%v", err)
 	}
 	return tyRet.(*types.Signature)
 }
@@ -102,10 +104,11 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 	srcExpr := getSrc(src)
 	if !isGenericType(typ) {
 		pos := getSrcPos(srcExpr)
+		end := getSrcEnd(srcExpr)
 		if tt {
-			p.panicCodeErrorf(pos, "%v is not a generic type", typ)
+			p.panicCodeErrorf(pos, end, "%v is not a generic type", typ)
 		} else {
-			p.panicCodeErrorf(pos, "invalid operation: cannot index %v (value of type %v)", types.ExprString(args[0].Val), typ)
+			p.panicCodeErrorf(pos, end, "invalid operation: cannot index %v (value of type %v)", types.ExprString(args[0].Val), typ)
 		}
 	}
 	targs := make([]types.Type, nidx)
@@ -132,7 +135,8 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 	}
 	if err != nil {
 		pos := getSrcPos(srcExpr)
-		p.panicCodeErrorf(pos, "%v", err)
+		end := getSrcEnd(srcExpr)
+		p.panicCodeErrorf(pos, end, "%v", err)
 	}
 	if debugMatch {
 		log.Println("==> InferType", tyRet)
@@ -413,8 +417,8 @@ func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Elem
 			arg := args[from+i]
 			t, ok := arg.Type.(*TypeType)
 			if !ok {
-				src, pos := p.cb.loadExpr(arg.Src)
-				err := p.cb.newCodeErrorf(pos, "%s (type %v) is not a type", src, arg.Type)
+				src, pos, end := p.cb.loadExpr(arg.Src)
+				err := p.cb.newCodeErrorf(pos, end, "%s (type %v) is not a type", src, arg.Type)
 				return fn, sig, args, err
 			}
 			targs[i] = t.typ
@@ -455,16 +459,16 @@ func (p *Package) Instantiate(orig types.Type, targs []types.Type, src ...ast.No
 				first = err
 			}
 		}
-		p.cb.handleCodeError(getPos(src), first.Error())
+		p.cb.handleCodeError(getPos(src), getEnd(src), first.Error())
 		return types.Typ[types.Invalid]
 	}
 	if !isGenericType(orig) {
-		p.cb.handleCodeErrorf(getPos(src), "%v is not a generic type", orig)
+		p.cb.handleCodeErrorf(getPos(src), getEnd(src), "%v is not a generic type", orig)
 		return types.Typ[types.Invalid]
 	}
 	ret, err := types.Instantiate(ctxt, orig, targs, true)
 	if err != nil {
-		p.cb.handleCodeError(getPos(src), err.Error())
+		p.cb.handleCodeError(getPos(src), getEnd(src), err.Error())
 	}
 	return ret
 }
