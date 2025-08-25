@@ -612,8 +612,8 @@ func callIncDec(pkg *Package, args []*Element, tok token.Token) (ret *Element, e
 	}
 	cb := &pkg.cb
 	if !isNumeric(cb, t.typ) {
-		text, pos := cb.loadExpr(args[0].Src)
-		cb.panicCodeErrorf(pos, "invalid operation: %s%v (non-numeric type %v)", text, tok, t.typ)
+		text, pos, end := cb.loadExpr(args[0].Src)
+		cb.panicCodeErrorf(pos, end, "invalid operation: %s%v (non-numeric type %v)", text, tok, t.typ)
 	}
 	cb.emitStmt(&ast.IncDecStmt{X: args[0].Val, Tok: tok})
 	return
@@ -745,14 +745,15 @@ func checkArgsCount(pkg *Package, fn string, n int, args int, src ast.Node) {
 		return
 	}
 	cb := &pkg.cb
-	text, pos := cb.loadExpr(src)
+	text, pos, end := cb.loadExpr(src)
 	if pos != token.NoPos {
 		pos += token.Pos(len(fn))
+		end += token.Pos(len(fn))
 	}
 	if args < n {
-		cb.panicCodeErrorf(pos, "missing argument to function call: %v", text)
+		cb.panicCodeErrorf(pos, end, "missing argument to function call: %v", text)
 	}
-	cb.panicCodeErrorf(pos, "too many arguments to function call: %v", text)
+	cb.panicCodeErrorf(pos, end, "too many arguments to function call: %v", text)
 }
 
 var (
@@ -814,29 +815,32 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, flags InstrFlag
 	var sel *ast.SelectorExpr
 	var ok bool
 	if sel, ok = args[0].Val.(*ast.SelectorExpr); !ok {
-		s, pos := pkg.cb.loadExpr(src)
+		s, pos, end := pkg.cb.loadExpr(src)
 		if pos != token.NoPos {
 			pos += token.Pos(len("unsafe.Offsetof"))
+			end += token.Pos(len("unsafe.Offsetof"))
 		}
-		pkg.cb.panicCodeErrorf(pos, "invalid expression %v", s)
+		pkg.cb.panicCodeErrorf(pos, end, "invalid expression %v", s)
 	}
 	if _, ok = args[0].Type.(*types.Signature); ok {
-		s, pos := pkg.cb.loadExpr(src)
+		s, pos, end := pkg.cb.loadExpr(src)
 		if pos != token.NoPos {
 			pos += token.Pos(len("unsafe.Offsetof"))
+			end += token.Pos(len("unsafe.Offsetof"))
 		}
-		pkg.cb.panicCodeErrorf(pos, "invalid expression %v: argument is a method value", s)
+		pkg.cb.panicCodeErrorf(pos, end, "invalid expression %v: argument is a method value", s)
 	}
 	recv := denoteRecv(sel)
 	typ := getStruct(pkg, recv.Type)
 	_, index, _ := types.LookupFieldOrMethod(typ, false, pkg.Types, sel.Sel.Name)
 	offset, err := offsetof(pkg, typ, index, recv.Src, sel.Sel.Name)
 	if err != nil {
-		_, pos := pkg.cb.loadExpr(src)
+		_, pos, end := pkg.cb.loadExpr(src)
 		if pos != token.NoPos {
 			pos += token.Pos(len("unsafe.Offsetof"))
+			end += token.Pos(len("unsafe.Offsetof"))
 		}
-		pkg.cb.panicCodeErrorf(pos, "%v", err)
+		pkg.cb.panicCodeErrorf(pos, end, "%v", err)
 	}
 	//var offset int64
 	fn := toObjectExpr(pkg, unsafeRef("Offsetof"))
@@ -898,7 +902,7 @@ func offsetof(pkg *Package, typ types.Type, index []int, recv ast.Node, sel stri
 		typ = s.Field(i).Type()
 	}
 	if indirectType > 0 {
-		s, _ := pkg.cb.loadExpr(recv)
+		s, _, _ := pkg.cb.loadExpr(recv)
 		return -1, fmt.Errorf("invalid expression unsafe.Offsetof(%v.%v.%v): selector implies indirection of embedded %v.%v",
 			s, strings.Join(typList, "."), sel,
 			s, strings.Join(typList[:indirectType], "."))
@@ -913,20 +917,24 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, flags InstrFlags, sr
 	checkArgsCount(pkg, "unsafe.Add", 2, len(args), src)
 
 	if ts := args[0].Type.String(); ts != "unsafe.Pointer" {
-		s, _ := pkg.cb.loadExpr(args[0].Src)
+		s, _, _ := pkg.cb.loadExpr(args[0].Src)
 		pos := getSrcPos(src)
+		end := getSrcEnd(src)
 		if pos != token.NoPos {
 			pos += token.Pos(len("unsafe.Add"))
+			end += token.Pos(len("unsafe.Add"))
 		}
-		pkg.cb.panicCodeErrorf(pos, "cannot use %v (type %v) as type unsafe.Pointer in argument to unsafe.Add", s, ts)
+		pkg.cb.panicCodeErrorf(pos, end, "cannot use %v (type %v) as type unsafe.Pointer in argument to unsafe.Add", s, ts)
 	}
 	if t := args[1].Type; !ninteger.Match(pkg, t) {
-		s, _ := pkg.cb.loadExpr(args[1].Src)
+		s, _, _ := pkg.cb.loadExpr(args[1].Src)
 		pos := getSrcPos(src)
+		end := getSrcEnd(src)
 		if pos != token.NoPos {
 			pos += token.Pos(len("unsafe.Add"))
+			end += token.Pos(len("unsafe.Add"))
 		}
-		pkg.cb.panicCodeErrorf(pos, "cannot use %v (type %v) as type int", s, t)
+		pkg.cb.panicCodeErrorf(pos, end, "cannot use %v (type %v) as type int", s, t)
 	}
 	fn := toObjectExpr(pkg, unsafeRef("Sizeof")).(*ast.SelectorExpr)
 	fn.Sel.Name = "Add" // only in go v1.7+
@@ -973,10 +981,12 @@ func (unsafeDataInstr) checkFirstType(pkg *Package, fname string, arg *Element, 
 		info = "string"
 	}
 	pos := getSrcPos(src)
+	end := getSrcEnd(src)
 	if pos != token.NoPos {
 		pos += token.Pos(len(fname))
+		end += token.Pos(len(fname))
 	}
-	return nil, pkg.cb.newCodeErrorf(pos, "first argument to %v must be %v; have %v", fname, info, arg.Type)
+	return nil, pkg.cb.newCodeErrorf(pos, end, "first argument to %v must be %v; have %v", fname, info, arg.Type)
 }
 
 func (p unsafeDataInstr) Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error) {
@@ -990,10 +1000,12 @@ func (p unsafeDataInstr) Call(pkg *Package, args []*Element, flags InstrFlags, s
 	if p.args == 2 {
 		if t := args[1].Type; !ninteger.Match(pkg, t) {
 			pos := getSrcPos(src)
+			end := getSrcEnd(src)
 			if pos != token.NoPos {
 				pos += token.Pos(len(fname))
+				end += token.Pos(len(fname))
 			}
-			return nil, pkg.cb.newCodeErrorf(pos, "non-integer len argument in %v - %v", fname, t)
+			return nil, pkg.cb.newCodeErrorf(pos, end, "non-integer len argument in %v - %v", fname, t)
 		}
 	}
 	fn := toObjectExpr(pkg, unsafeRef("Sizeof")).(*ast.SelectorExpr)

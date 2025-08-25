@@ -381,8 +381,8 @@ func TestErrNewVar(t *testing.T) {
 		func(pkg *gogen.Package) {
 			var x *types.Var
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				NewAutoVar(position(1, 5), "foo", &x).
-				NewAutoVar(position(2, 6), "foo", &x).
+				NewAutoVar(position(1, 5), position(1, 5), "foo", &x).
+				NewAutoVar(position(2, 6), position(2, 6), "foo", &x).
 				End()
 		})
 	codeErrorTest(t, "./foo.gop:2:9: cannot use 1 (type untyped int) as type string in assignment",
@@ -730,18 +730,18 @@ func TestErrRecv(t *testing.T) {
 func TestErrLabel(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:1: label foo already defined at ./foo.gop:1:1", func(pkg *gogen.Package) {
 		cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
-		l := cb.NewLabel(position(1, 1), "foo")
-		cb.NewLabel(position(2, 1), "foo")
+		l := cb.NewLabel(position(1, 1), position(1, 1), "foo")
+		cb.NewLabel(position(2, 1), position(2, 1), "foo")
 		cb.Goto(l)
 		cb.End()
 	})
 	codeErrorTest(t, "./foo.gop:1:1: label foo defined and not used", func(pkg *gogen.Package) {
 		cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
-		cb.NewLabel(position(1, 1), "foo")
+		cb.NewLabel(position(1, 1), position(1, 1), "foo")
 		cb.End()
 	})
 	codeErrorTest(t, "./foo.gop:1:1: syntax error: non-declaration statement outside function body", func(pkg *gogen.Package) {
-		pkg.CB().NewLabel(position(1, 1), "foo")
+		pkg.CB().NewLabel(position(1, 1), position(1, 1), "foo")
 	})
 	/*	codeErrorTest(t, "./foo.gop:1:1: label foo is not defined", func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
