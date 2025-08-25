@@ -568,7 +568,7 @@ func TestNodeInterp(t *testing.T) {
 	if caller := getCaller(&internal.Elem{}); caller != "the function call" {
 		t.Fatal("TestNodeInterp getCaller failed:", caller)
 	}
-	if caller, pos := getFunExpr(nil); caller != "the closure call" || pos != token.NoPos {
+	if caller, pos, _ := getFunExpr(nil); caller != "the closure call" || pos != token.NoPos {
 		t.Fatal("TestNodeInterp getGoExpr failed:", caller, pos)
 	}
 }
@@ -1192,7 +1192,7 @@ func TestErrWriteFile(t *testing.T) {
 
 func TestLoadExpr(t *testing.T) {
 	var cb CodeBuilder
-	if src, pos := cb.loadExpr(nil); src != "" || pos != token.NoPos {
+	if src, pos, _ := cb.loadExpr(nil); src != "" || pos != token.NoPos {
 		t.Fatal("TestLoadExpr failed")
 	}
 }
