@@ -171,7 +171,9 @@ func (p *switchStmt) Case(cb *CodeBuilder, src ...ast.Node) {
 
 func (p *switchStmt) End(cb *CodeBuilder, src ast.Node) {
 	if p.tag == nil {
-		cb.endBlockStmt(&p.old)
+		if cb != nil {
+			cb.endBlockStmt(&p.old)
+		}
 		return
 	}
 	stmts, flows := cb.endBlockStmt(&p.old)
@@ -692,7 +694,9 @@ const (
 
 func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 	if p.stmt == nil {
-		cb.endBlockStmt(&p.old)
+		if cb != nil {
+			cb.endBlockStmt(&p.old)
+		}
 		return
 	}
 	stmts, flows := cb.endBlockStmt(&p.old)
