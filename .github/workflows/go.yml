@@ -37,7 +37,7 @@ jobs:
   Test_Alias:
     strategy:
       matrix:
-        go-version: [1.23.x, 1.24.x]
+        go-version: [1.23.x, 1.24.x, 1.25.x]
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
