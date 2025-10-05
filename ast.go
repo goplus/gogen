@@ -1236,7 +1236,7 @@ func (p *MatchError) Error() string {
 	return p.Message(pos.String() + ": ")
 }
 
-// TODO: use matchType to all assignable check
+// TODO(xsw): matchType vs. AssignableConv
 func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) error {
 	if debugMatch {
 		cval := ""
