@@ -315,11 +315,6 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 // ObjectDocs maps an object to its document.
 type ObjectDocs = map[types.Object]*ast.CommentGroup
 
-// ParamMeta stores metadata for parameters.
-type ParamMeta struct {
-	Optional bool
-}
-
 // Package type
 type Package struct {
 	PkgRef
@@ -399,22 +394,6 @@ func (p *Package) setDoc(o types.Object, doc *ast.CommentGroup) {
 		p.Docs = make(ObjectDocs)
 	}
 	p.Docs[o] = doc
-}
-
-func (p *Package) setParamOptional(param *types.Var) {
-	if p.ParamsMeta == nil {
-		p.ParamsMeta = make(map[*types.Var]*ParamMeta)
-	}
-	p.ParamsMeta[param] = &ParamMeta{Optional: true}
-}
-
-// IsParamOptional checks if a parameter is marked as optional.
-func (p *Package) IsParamOptional(param *types.Var) bool {
-	if p.ParamsMeta == nil {
-		return false
-	}
-	meta, ok := p.ParamsMeta[param]
-	return ok && meta.Optional
 }
 
 func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {
