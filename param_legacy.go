@@ -15,24 +15,23 @@ package gogen
 
 import "go/types"
 
-// ParamMeta stores metadata for parameters.
-type ParamMeta struct {
-	Optional bool
+// optionalVars manages optional parameter metadata for Go < 1.25.
+type optionalVars struct {
+	paramsMeta map[*types.Var]bool
 }
 
 // setParamOptional marks a parameter as optional using a map (for Go < 1.25).
-func (p *Package) setParamOptional(param *types.Var) {
-	if p.ParamsMeta == nil {
-		p.ParamsMeta = make(map[*types.Var]*ParamMeta)
+func (o *optionalVars) setParamOptional(param *types.Var) {
+	if o.paramsMeta == nil {
+		o.paramsMeta = make(map[*types.Var]bool)
 	}
-	p.ParamsMeta[param] = &ParamMeta{Optional: true}
+	o.paramsMeta[param] = true
 }
 
-// IsParamOptional checks if a parameter is marked as optional using the map (for Go < 1.25).
-func (p *Package) IsParamOptional(param *types.Var) bool {
-	if p.ParamsMeta == nil {
+// isParamOptional checks if a parameter is marked as optional using the map (for Go < 1.25).
+func (o *optionalVars) isParamOptional(param *types.Var) bool {
+	if o.paramsMeta == nil {
 		return false
 	}
-	meta, ok := p.ParamsMeta[param]
-	return ok && meta.Optional
+	return o.paramsMeta[param]
 }

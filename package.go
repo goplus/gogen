@@ -318,10 +318,10 @@ type ObjectDocs = map[types.Object]*ast.CommentGroup
 // Package type
 type Package struct {
 	PkgRef
-	Docs       ObjectDocs
-	ParamsMeta map[*types.Var]*ParamMeta
-	Fset       *token.FileSet
+	Docs ObjectDocs
+	Fset *token.FileSet
 
+	optionalVars
 	unitMgr
 	autoNames
 	cb             CodeBuilder
@@ -394,6 +394,11 @@ func (p *Package) setDoc(o types.Object, doc *ast.CommentGroup) {
 		p.Docs = make(ObjectDocs)
 	}
 	p.Docs[o] = doc
+}
+
+// IsParamOptional checks if a parameter is marked as optional.
+func (p *Package) IsParamOptional(param *types.Var) bool {
+	return p.optionalVars.isParamOptional(param)
 }
 
 func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {

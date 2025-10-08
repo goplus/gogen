@@ -15,12 +15,15 @@ package gogen
 
 import "go/types"
 
+// optionalVars manages optional parameter metadata for Go 1.25+.
+type optionalVars struct{}
+
 // setParamOptional marks a parameter as optional using types.Var.SetKind (Go 1.25+).
-func (p *Package) setParamOptional(param *types.Var) {
+func (o *optionalVars) setParamOptional(param *types.Var) {
 	param.SetKind(-1)
 }
 
-// IsParamOptional checks if a parameter is marked as optional using types.Var.Kind (Go 1.25+).
-func (p *Package) IsParamOptional(param *types.Var) bool {
+// isParamOptional checks if a parameter is marked as optional using types.Var.Kind (Go 1.25+).
+func (o *optionalVars) isParamOptional(param *types.Var) bool {
 	return param.Kind() == -1
 }
