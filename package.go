@@ -396,11 +396,6 @@ func (p *Package) setDoc(o types.Object, doc *ast.CommentGroup) {
 	p.Docs[o] = doc
 }
 
-// IsParamOptional checks if a parameter is marked as optional.
-func (p *Package) IsParamOptional(param *types.Var) bool {
-	return p.optionalVars.isParamOptional(param)
-}
-
 func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {
 	if p.commentedStmts == nil {
 		p.commentedStmts = make(map[ast.Stmt]*ast.CommentGroup)
