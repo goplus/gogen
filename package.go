@@ -321,6 +321,7 @@ type Package struct {
 	Docs ObjectDocs
 	Fset *token.FileSet
 
+	optionalVars
 	unitMgr
 	autoNames
 	cb             CodeBuilder

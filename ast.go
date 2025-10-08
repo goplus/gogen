@@ -89,6 +89,9 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 		item := t.At(i)
 		var names []*ast.Ident
 		if name := item.Name(); name != "" {
+			if pkg.optionalVars.isParamOptional(item) {
+				name = "__xgo_optional_" + name
+			}
 			names = []*ast.Ident{ident(name)}
 		}
 		typ := toType(pkg, item.Type())
@@ -389,6 +392,9 @@ func toObject(pkg *Package, v types.Object, src ast.Node) *internal.Elem {
 func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 	atPkg, name := v.Pkg(), v.Name()
 	if atPkg == nil || atPkg == pkg.Types { // at universe or at this package
+		if param, ok := v.(*types.Var); ok && pkg.optionalVars.isParamOptional(param) {
+			name = "__xgo_optional_" + name
+		}
 		return ident(name)
 	}
 	if atPkg == pkg.builtin.Types { // at builtin package

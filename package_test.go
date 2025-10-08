@@ -4053,4 +4053,39 @@ func Example() {
 `)
 }
 
+func TestNewParamEx(t *testing.T) {
+	pkg := newMainPackage()
+
+	regularParam := pkg.NewParam(token.NoPos, "regular", types.Typ[types.String])
+	optionalParam := pkg.NewParamEx(token.NoPos, "optional", types.Typ[types.Int], true)
+	nonOptionalParam := pkg.NewParamEx(token.NoPos, "nonOptional", types.Typ[types.Bool], false)
+
+	params := gogen.NewTuple(regularParam, optionalParam, nonOptionalParam)
+	pkg.NewFunc(nil, "testFunc", params, nil, false).BodyStart(pkg).End()
+
+	domTest(t, pkg, `package main
+
+func testFunc(regular string, __xgo_optional_optional int, nonOptional bool) {
+}
+`)
+}
+
+func TestNewParamExWithBodyRef(t *testing.T) {
+	pkg := newMainPackage()
+
+	bar := pkg.NewParamEx(token.NoPos, "bar", types.Typ[types.Int], true)
+	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+
+	pkg.NewFunc(nil, "foo", gogen.NewTuple(bar), gogen.NewTuple(ret), false).BodyStart(pkg).
+		Val(bar).Val(1).BinaryOp(token.ADD).Return(1).
+		End()
+
+	domTest(t, pkg, `package main
+
+func foo(__xgo_optional_bar int) int {
+	return __xgo_optional_bar + 1
+}
+`)
+}
+
 // ----------------------------------------------------------------------------
