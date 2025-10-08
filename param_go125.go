@@ -20,10 +20,10 @@ type optionalVars struct{}
 
 // setParamOptional marks a parameter as optional using types.Var.SetKind (Go 1.25+).
 func (o *optionalVars) setParamOptional(param *types.Var) {
-	param.SetKind(-1)
+	param.SetKind(0xff)
 }
 
 // isParamOptional checks if a parameter is marked as optional using types.Var.Kind (Go 1.25+).
 func (o *optionalVars) isParamOptional(param *types.Var) bool {
-	return param.Kind() == -1
+	return param.Kind() == 0xff
 }
