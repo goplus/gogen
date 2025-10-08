@@ -89,6 +89,9 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 		item := t.At(i)
 		var names []*ast.Ident
 		if name := item.Name(); name != "" {
+			if pkg.IsParamOptional(item) {
+				name = "__xgo_optional_" + name
+			}
 			names = []*ast.Ident{ident(name)}
 		}
 		typ := toType(pkg, item.Type())

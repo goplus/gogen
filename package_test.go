@@ -4077,7 +4077,7 @@ func TestNewParamEx(t *testing.T) {
 
 	domTest(t, pkg, `package main
 
-func testFunc(regular string, optional int, nonOptional bool) {
+func testFunc(regular string, __xgo_optional_optional int, nonOptional bool) {
 }
 `)
 }
