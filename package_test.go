@@ -4053,4 +4053,33 @@ func Example() {
 `)
 }
 
+func TestNewParamEx(t *testing.T) {
+	pkg := newMainPackage()
+
+	regularParam := pkg.NewParam(token.NoPos, "regular", types.Typ[types.String])
+	optionalParam := pkg.NewParamEx(token.NoPos, "optional", types.Typ[types.Int], true)
+	nonOptionalParam := pkg.NewParamEx(token.NoPos, "nonOptional", types.Typ[types.Bool], false)
+
+	if pkg.IsParamOptional(regularParam) {
+		t.Error("regularParam should not be optional")
+	}
+
+	if !pkg.IsParamOptional(optionalParam) {
+		t.Error("optionalParam should be optional")
+	}
+
+	if pkg.IsParamOptional(nonOptionalParam) {
+		t.Error("nonOptionalParam should not be optional")
+	}
+
+	params := gogen.NewTuple(regularParam, optionalParam, nonOptionalParam)
+	pkg.NewFunc(nil, "testFunc", params, nil, false).BodyStart(pkg).End()
+
+	domTest(t, pkg, `package main
+
+func testFunc(regular string, optional int, nonOptional bool) {
+}
+`)
+}
+
 // ----------------------------------------------------------------------------

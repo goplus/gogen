@@ -43,6 +43,15 @@ func (p *Package) NewParam(pos token.Pos, name string, typ types.Type) *Param {
 	return types.NewParam(pos, p.Types, name, typ)
 }
 
+// NewParamEx returns a new variable representing a function parameter with optional flag.
+func (p *Package) NewParamEx(pos token.Pos, name string, typ types.Type, optional bool) *Param {
+	param := types.NewParam(pos, p.Types, name, typ)
+	if optional {
+		p.setParamOptional(param)
+	}
+	return param
+}
+
 // ----------------------------------------------------------------------------
 
 // A Tuple represents an ordered list of variables; a nil *Tuple is a valid (empty) tuple.
