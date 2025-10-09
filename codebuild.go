@@ -427,7 +427,7 @@ func (p *CodeBuilder) ReturnErr(outer bool) *CodeBuilder {
 		if last.Type() == TyError { // last result is error
 			err := p.stk.Pop()
 			for i := 0; i < n-1; i++ {
-				p.doZeroLit(results.At(i).Type(), false)
+				p.stk.Push(p.pkg.Zero(results.At(i).Type()))
 			}
 			p.stk.Push(err)
 			p.returnResults(n)
@@ -769,51 +769,59 @@ func (p *CodeBuilder) None() *CodeBuilder {
 
 // ZeroLit func
 func (p *CodeBuilder) ZeroLit(typ types.Type) *CodeBuilder {
-	return p.doZeroLit(typ, true)
-}
-
-func (p *CodeBuilder) doZeroLit(typ types.Type, allowDebug bool) *CodeBuilder {
-	typ0 := typ
-	if allowDebug && debugInstr {
+	if debugInstr {
 		log.Println("ZeroLit //", typ)
 	}
+	p.stk.Push(p.pkg.Zero(typ))
+	return p
+}
+
+func (p *Package) Zero(typ types.Type) *Element {
+	var typ0 = typ
+	var val ast.Expr
+	var cval constant.Value
+
 retry:
 	switch t := typ.(type) {
 	case *types.Basic:
 		switch kind := t.Kind(); kind {
 		case types.Bool:
-			return p.Val(false)
+			val = boolean(false)
+			cval = constant.MakeBool(false)
 		case types.String:
-			return p.Val("")
+			val = stringLit("")
+			cval = constant.MakeString("")
 		case types.UnsafePointer:
-			return p.Val(nil)
+			val = ident("nil")
 		default:
-			return p.Val(0)
+			val = &ast.BasicLit{Kind: token.INT, Value: "0"}
+			cval = constant.MakeInt64(0)
 		}
 	case *types.Interface, *types.Map, *types.Slice, *types.Pointer, *types.Signature, *types.Chan:
-		return p.Val(nil)
+		val = ident("nil")
 	case *types.Named:
-		typ = p.getUnderlying(t)
+		typ = p.cb.getUnderlying(t)
 		goto retry
 	case *typesalias.Alias:
 		typ = typesalias.Unalias(t)
 		goto retry
-	}
-	ret := &ast.CompositeLit{}
-	switch t := typ.(type) {
-	case *unboundType:
-		if t.tBound == nil {
-			t.ptypes = append(t.ptypes, &ret.Type)
-		} else {
-			typ = t.tBound
-			typ0 = typ
-			ret.Type = toType(p.pkg, typ)
-		}
 	default:
-		ret.Type = toType(p.pkg, typ)
+		ret := &ast.CompositeLit{}
+		switch t := typ.(type) {
+		case *unboundType:
+			if t.tBound == nil {
+				t.ptypes = append(t.ptypes, &ret.Type)
+			} else {
+				typ = t.tBound
+				typ0 = typ
+				ret.Type = toType(p, typ)
+			}
+		default:
+			ret.Type = toType(p, typ)
+		}
+		val = ret
 	}
-	p.stk.Push(&internal.Elem{Type: typ0, Val: ret})
-	return p
+	return &Element{Val: val, Type: typ0, CVal: cval}
 }
 
 // MapLit func

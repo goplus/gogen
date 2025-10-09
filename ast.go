@@ -89,7 +89,7 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 		item := t.At(i)
 		var names []*ast.Ident
 		if name := item.Name(); name != "" {
-			if pkg.optionalVars.isParamOptional(item) {
+			if pkg.isParamOptional(item) {
 				name = "__xgo_optional_" + name
 			}
 			names = []*ast.Ident{ident(name)}
@@ -392,7 +392,7 @@ func toObject(pkg *Package, v types.Object, src ast.Node) *internal.Elem {
 func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 	atPkg, name := v.Pkg(), v.Name()
 	if atPkg == nil || atPkg == pkg.Types { // at universe or at this package
-		if param, ok := v.(*types.Var); ok && pkg.optionalVars.isParamOptional(param) {
+		if param, ok := v.(*types.Var); ok && pkg.isParamOptional(param) {
 			name = "__xgo_optional_" + name
 		}
 		return ident(name)
@@ -743,6 +743,7 @@ retry:
 		src, pos, end := pkg.cb.loadExpr(fn.Src)
 		pkg.cb.panicCodeErrorf(pos, end, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
+
 	// Fill in zero values for missing optional parameters
 	nreq := getParamLen(sig)
 	if sig.Variadic() {
@@ -1037,41 +1038,6 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 		return it.normalize(t.At(0).Type())
 	}
 	return it.normalizeTuple(t)
-}
-
-func (p *Package) Zero(typ types.Type) *Element {
-	var val ast.Expr
-	var cval constant.Value
-
-retry:
-	switch t := typ.(type) {
-	case *types.Basic:
-		switch kind := t.Kind(); kind {
-		case types.Bool:
-			val = boolean(false)
-			cval = constant.MakeBool(false)
-		case types.String:
-			val = stringLit("")
-			cval = constant.MakeString("")
-		case types.UnsafePointer:
-			val = ident("nil")
-		default:
-			val = &ast.BasicLit{Kind: token.INT, Value: "0"}
-			cval = constant.MakeInt64(0)
-		}
-	case *types.Interface, *types.Map, *types.Slice, *types.Pointer, *types.Signature, *types.Chan:
-		val = ident("nil")
-	case *types.Named:
-		typ = p.cb.getUnderlying(t)
-		goto retry
-	case *typesalias.Alias:
-		typ = typesalias.Unalias(t)
-		goto retry
-	default:
-		val = &ast.CompositeLit{Type: toType(p, typ)}
-	}
-
-	return &internal.Elem{Val: val, Type: typ, CVal: cval}
 }
 
 func matchFuncType(
