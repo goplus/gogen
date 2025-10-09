@@ -744,7 +744,7 @@ retry:
 		pkg.cb.panicCodeErrorf(pos, end, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
 	// Fill in zero values for missing optional parameters
-	if sig != nil && len(args) < getParamLen(sig) {
+	if len(args) < getParamLen(sig) {
 		nreq := getParamLen(sig)
 		n := len(args)
 		allOptional := true
@@ -760,7 +760,7 @@ retry:
 			copy(newArgs, args)
 			for i := n; i < nreq; i++ {
 				param := getParam(sig, i)
-				newArgs[i] = createZeroElem(pkg, param.Type())
+				newArgs[i] = pkg.Zero(param.Type())
 			}
 			args = newArgs
 		}
@@ -1035,7 +1035,7 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
-func createZeroElem(pkg *Package, typ types.Type) *internal.Elem {
+func (p *Package) Zero(typ types.Type) *internal.Elem {
 	var val ast.Expr
 	var cval constant.Value
 
@@ -1058,13 +1058,13 @@ retry:
 	case *types.Interface, *types.Map, *types.Slice, *types.Pointer, *types.Signature, *types.Chan:
 		val = ident("nil")
 	case *types.Named:
-		typ = pkg.cb.getUnderlying(t)
+		typ = p.cb.getUnderlying(t)
 		goto retry
 	case *typesalias.Alias:
 		typ = typesalias.Unalias(t)
 		goto retry
 	default:
-		val = &ast.CompositeLit{Type: toType(pkg, typ)}
+		val = &ast.CompositeLit{Type: toType(p, typ)}
 	}
 
 	return &internal.Elem{Val: val, Type: typ, CVal: cval}
