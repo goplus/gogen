@@ -153,7 +153,7 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 // and before any variadic parameter.
 // Valid order: positional → optional → variadic
 func (p *Package) validateParamOrder(cb *CodeBuilder, pos token.Pos, params *Tuple, variadic bool) error {
-	if params == nil || params.Len() == 0 {
+	if params.Len() == 0 {
 		return nil
 	}
 
