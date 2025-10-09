@@ -170,12 +170,12 @@ func (p *Package) validateParamOrder(cb *CodeBuilder, pos token.Pos, params *Tup
 		if isOptional {
 			if isVariadicParam {
 				// Optional parameter cannot also be variadic
-				return cb.newCodeErrorf(pos, pos, "variadic parameter cannot be optional")
+				return cb.newCodeErrorf(param.Pos(), param.Pos(), "variadic parameter cannot be optional")
 			}
 			foundOptional = true
 		} else if foundOptional && !isVariadicParam {
 			// Found a positional parameter after an optional one (and it's not the variadic param)
-			return cb.newCodeErrorf(pos, pos, "positional parameter %s must come before optional parameters", param.Name())
+			return cb.newCodeErrorf(param.Pos(), param.Pos(), "positional parameter %s must come before optional parameters", param.Name())
 		}
 	}
 
