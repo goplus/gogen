@@ -140,6 +140,9 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 
 // NewFuncDecl creates a new function without function body (declaration only).
 func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) *Func {
+	if err := p.validateParamOrder(sig.Params(), sig.Variadic()); err != nil {
+		panic(err)
+	}
 	f, err := p.NewFuncWith(pos, name, sig, nil)
 	if err != nil {
 		panic(err)
@@ -149,8 +152,44 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 	return f
 }
 
+// validateParamOrder validates that optional parameters come after positional parameters
+// and before any variadic parameter.
+// Valid order: positional → optional → variadic
+func (p *Package) validateParamOrder(params *Tuple, variadic bool) error {
+	if params == nil || params.Len() == 0 {
+		return nil
+	}
+
+	n := params.Len()
+	foundOptional := false
+
+	for i := 0; i < n; i++ {
+		param := params.At(i)
+		isOptional := p.isParamOptional(param)
+
+		// If variadic is true, the last parameter is the variadic parameter
+		isVariadicParam := variadic && i == n-1
+
+		if isOptional {
+			if isVariadicParam {
+				// Optional parameter cannot also be variadic
+				return fmt.Errorf("variadic parameter cannot be optional")
+			}
+			foundOptional = true
+		} else if foundOptional && !isVariadicParam {
+			// Found a positional parameter after an optional one (and it's not the variadic param)
+			return fmt.Errorf("positional parameter %s must come before optional parameters", param.Name())
+		}
+	}
+
+	return nil
+}
+
 // NewFunc creates a new function (should have a function body).
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
+	if err := p.validateParamOrder(params, variadic); err != nil {
+		panic(err)
+	}
 	sig := types.NewSignatureType(recv, nil, nil, params, results, variadic)
 	f, err := p.NewFuncWith(token.NoPos, name, sig, nil)
 	if err != nil {

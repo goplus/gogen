@@ -4057,15 +4057,15 @@ func TestNewParamEx(t *testing.T) {
 	pkg := newMainPackage()
 
 	regularParam := pkg.NewParam(token.NoPos, "regular", types.Typ[types.String])
-	optionalParam := pkg.NewParamEx(token.NoPos, "optional", types.Typ[types.Int], true)
 	nonOptionalParam := pkg.NewParamEx(token.NoPos, "nonOptional", types.Typ[types.Bool], false)
+	optionalParam := pkg.NewParamEx(token.NoPos, "optional", types.Typ[types.Int], true)
 
-	params := gogen.NewTuple(regularParam, optionalParam, nonOptionalParam)
+	params := gogen.NewTuple(regularParam, nonOptionalParam, optionalParam)
 	pkg.NewFunc(nil, "testFunc", params, nil, false).BodyStart(pkg).End()
 
 	domTest(t, pkg, `package main
 
-func testFunc(regular string, __xgo_optional_optional int, nonOptional bool) {
+func testFunc(regular string, nonOptional bool, __xgo_optional_optional int) {
 }
 `)
 }
@@ -4086,6 +4086,118 @@ func foo(__xgo_optional_bar int) int {
 	return __xgo_optional_bar + 1
 }
 `)
+}
+
+func TestValidateParamOrderValid(t *testing.T) {
+	pkg := newMainPackage()
+
+	positional1 := pkg.NewParam(token.NoPos, "a", types.Typ[types.String])
+	positional2 := pkg.NewParam(token.NoPos, "b", types.Typ[types.Int])
+	optional1 := pkg.NewParamEx(token.NoPos, "c", types.Typ[types.Bool], true)
+	optional2 := pkg.NewParamEx(token.NoPos, "d", types.Typ[types.Float64], true)
+
+	params := gogen.NewTuple(positional1, positional2, optional1, optional2)
+	pkg.NewFunc(nil, "validFunc", params, nil, false).BodyStart(pkg).End()
+
+	domTest(t, pkg, `package main
+
+func validFunc(a string, b int, __xgo_optional_c bool, __xgo_optional_d float64) {
+}
+`)
+}
+
+func TestValidateParamOrderValidWithVariadic(t *testing.T) {
+	pkg := newMainPackage()
+
+	positional := pkg.NewParam(token.NoPos, "a", types.Typ[types.String])
+	optional := pkg.NewParamEx(token.NoPos, "b", types.Typ[types.Int], true)
+	variadic := pkg.NewParam(token.NoPos, "args", types.NewSlice(types.Typ[types.String]))
+
+	params := gogen.NewTuple(positional, optional, variadic)
+	pkg.NewFunc(nil, "variadicFunc", params, nil, true).BodyStart(pkg).End()
+
+	domTest(t, pkg, `package main
+
+func variadicFunc(a string, __xgo_optional_b int, args ...string) {
+}
+`)
+}
+
+func TestValidateParamOrderInvalidPositionalAfterOptional(t *testing.T) {
+	pkg := newMainPackage()
+
+	positional1 := pkg.NewParam(token.NoPos, "a", types.Typ[types.String])
+	optional := pkg.NewParamEx(token.NoPos, "b", types.Typ[types.Int], true)
+	positional2 := pkg.NewParam(token.NoPos, "c", types.Typ[types.Bool])
+
+	params := gogen.NewTuple(positional1, optional, positional2)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected panic for positional parameter after optional parameter")
+		} else if err, ok := r.(error); ok {
+			expected := "positional parameter c must come before optional parameters"
+			if err.Error() != expected {
+				t.Errorf("Expected error message %q, got %q", expected, err.Error())
+			}
+		}
+	}()
+
+	pkg.NewFunc(nil, "invalidFunc", params, nil, false)
+}
+
+func TestValidateParamOrderOnlyOptional(t *testing.T) {
+	pkg := newMainPackage()
+
+	optional1 := pkg.NewParamEx(token.NoPos, "a", types.Typ[types.Int], true)
+	optional2 := pkg.NewParamEx(token.NoPos, "b", types.Typ[types.String], true)
+
+	params := gogen.NewTuple(optional1, optional2)
+	pkg.NewFunc(nil, "onlyOptionalFunc", params, nil, false).BodyStart(pkg).End()
+
+	domTest(t, pkg, `package main
+
+func onlyOptionalFunc(__xgo_optional_a int, __xgo_optional_b string) {
+}
+`)
+}
+
+func TestValidateParamOrderOnlyPositional(t *testing.T) {
+	pkg := newMainPackage()
+
+	positional1 := pkg.NewParam(token.NoPos, "a", types.Typ[types.Int])
+	positional2 := pkg.NewParam(token.NoPos, "b", types.Typ[types.String])
+
+	params := gogen.NewTuple(positional1, positional2)
+	pkg.NewFunc(nil, "onlyPositionalFunc", params, nil, false).BodyStart(pkg).End()
+
+	domTest(t, pkg, `package main
+
+func onlyPositionalFunc(a int, b string) {
+}
+`)
+}
+
+func TestValidateParamOrderInvalidOptionalAsVariadic(t *testing.T) {
+	pkg := newMainPackage()
+
+	positional := pkg.NewParam(token.NoPos, "a", types.Typ[types.String])
+	optionalVariadic := pkg.NewParamEx(token.NoPos, "args", types.NewSlice(types.Typ[types.String]), true)
+
+	params := gogen.NewTuple(positional, optionalVariadic)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Expected panic for optional variadic parameter")
+		} else if err, ok := r.(error); ok {
+			expected := "variadic parameter cannot be optional"
+			if err.Error() != expected {
+				t.Errorf("Expected error message %q, got %q", expected, err.Error())
+			}
+		}
+	}()
+
+	pkg.NewFunc(nil, "invalidFunc", params, nil, true)
 }
 
 // ----------------------------------------------------------------------------
