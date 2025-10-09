@@ -26,6 +26,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"unsafe"
@@ -4137,8 +4138,8 @@ func TestValidateParamOrderInvalidPositionalAfterOptional(t *testing.T) {
 			t.Error("Expected panic for positional parameter after optional parameter")
 		} else if err, ok := r.(error); ok {
 			expected := "positional parameter c must come before optional parameters"
-			if err.Error() != expected {
-				t.Errorf("Expected error message %q, got %q", expected, err.Error())
+			if !strings.Contains(err.Error(), expected) {
+				t.Errorf("Expected error message to contain %q, got %q", expected, err.Error())
 			}
 		}
 	}()
@@ -4191,8 +4192,8 @@ func TestValidateParamOrderInvalidOptionalAsVariadic(t *testing.T) {
 			t.Error("Expected panic for optional variadic parameter")
 		} else if err, ok := r.(error); ok {
 			expected := "variadic parameter cannot be optional"
-			if err.Error() != expected {
-				t.Errorf("Expected error message %q, got %q", expected, err.Error())
+			if !strings.Contains(err.Error(), expected) {
+				t.Errorf("Expected error message to contain %q, got %q", expected, err.Error())
 			}
 		}
 	}()
