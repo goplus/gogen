@@ -744,7 +744,7 @@ retry:
 		pkg.cb.panicCodeErrorf(pos, end, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
 	// Fill in zero values for missing optional parameters
-	if len(args) < getParamLen(sig) {
+	if !sig.Variadic() && len(args) < getParamLen(sig) {
 		nreq := getParamLen(sig)
 		n := len(args)
 		allOptional := true
@@ -1035,7 +1035,7 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
-func (p *Package) Zero(typ types.Type) *internal.Elem {
+func (p *Package) Zero(typ types.Type) *Element {
 	var val ast.Expr
 	var cval constant.Value
 
@@ -1107,19 +1107,9 @@ func matchFuncType(
 		if (flags & InstrFlagEllipsis) == 0 {
 			n1 := getParamLen(sig) - 1
 			if n < n1 {
-				allOptional := true
-				for i := n; i < n1; i++ {
-					param := getParam(sig, i)
-					if !pkg.isParamOptional(param) {
-						allOptional = false
-						break
-					}
-				}
-				if !allOptional {
-					caller, pos, end := getFunExpr(fn)
-					return pkg.cb.newCodeErrorf(pos, end, "not enough arguments in call to %v\n\thave (%v)\n\twant %v",
-						caller, getTypes(args), sig.Params())
-				}
+				caller, pos, end := getFunExpr(fn)
+				return pkg.cb.newCodeErrorf(pos, end, "not enough arguments in call to %v\n\thave (%v)\n\twant %v",
+					caller, getTypes(args), sig.Params())
 			}
 			tyVariadic, ok := getParam(sig, n1).Type().(*types.Slice)
 			if !ok {

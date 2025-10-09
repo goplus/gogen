@@ -4333,4 +4333,28 @@ func main() {
 `)
 }
 
+func TestOptionalParamWithVariadic(t *testing.T) {
+	pkg := newMainPackage()
+
+	x := pkg.NewParam(token.NoPos, "x", types.Typ[types.Int])
+	y := pkg.NewParamEx(token.NoPos, "y", types.Typ[types.Int], true)
+	z := pkg.NewParam(token.NoPos, "z", types.NewSlice(types.Typ[types.String]))
+
+	params := gogen.NewTuple(x, y, z)
+	pkg.NewFunc(nil, "test", params, nil, true).BodyStart(pkg).End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(pkg.Types.Scope().Lookup("test")).Val(1).Val(2).Val("a").Val("b").Call(4).EndStmt().
+		End()
+
+	domTest(t, pkg, `package main
+
+func test(x int, __xgo_optional_y int, z ...string) {
+}
+func main() {
+	test(1, 2, "a", "b")
+}
+`)
+}
+
 // ----------------------------------------------------------------------------
