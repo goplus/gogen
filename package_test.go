@@ -4344,7 +4344,7 @@ func TestOptionalParamWithVariadic(t *testing.T) {
 	pkg.NewFunc(nil, "test", params, nil, true).BodyStart(pkg).End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(pkg.Types.Scope().Lookup("test")).Val(1).Val(2).Val("a").Val("b").Call(4).EndStmt().
+		Val(pkg.Types.Scope().Lookup("test")).Val(1).Call(1).EndStmt().
 		End()
 
 	domTest(t, pkg, `package main
@@ -4352,7 +4352,7 @@ func TestOptionalParamWithVariadic(t *testing.T) {
 func test(x int, __xgo_optional_y int, z ...string) {
 }
 func main() {
-	test(1, 2, "a", "b")
+	test(1, 0)
 }
 `)
 }

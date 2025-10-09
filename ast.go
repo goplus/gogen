@@ -744,8 +744,12 @@ retry:
 		pkg.cb.panicCodeErrorf(pos, end, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
 	// Fill in zero values for missing optional parameters
-	if !sig.Variadic() && len(args) < getParamLen(sig) {
-		nreq := getParamLen(sig)
+	nreq := getParamLen(sig)
+	if sig.Variadic() {
+		// For variadic functions, don't include the variadic parameter in the count
+		nreq--
+	}
+	if len(args) < nreq {
 		n := len(args)
 		allOptional := true
 		for i := n; i < nreq; i++ {
