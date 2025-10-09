@@ -215,6 +215,9 @@ func (p *Package) NewFuncWith(
 	if name == "" {
 		panic("no func name")
 	}
+	if err := p.validateParamOrder(sig.Params(), sig.Variadic()); err != nil {
+		return nil, err
+	}
 	cb := p.cb
 	fn := &Func{Func: types.NewFunc(pos, p.Types, name, sig)}
 	if recv := sig.Recv(); IsMethodRecv(recv) { // add method to this type
