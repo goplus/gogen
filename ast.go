@@ -743,6 +743,33 @@ retry:
 		src, pos, end := pkg.cb.loadExpr(fn.Src)
 		pkg.cb.panicCodeErrorf(pos, end, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
+	// Fill in zero values for missing optional parameters
+	nreq := getParamLen(sig)
+	if sig.Variadic() {
+		// For variadic functions, don't include the variadic parameter in the count
+		nreq--
+	}
+	if len(args) < nreq {
+		n := len(args)
+		allOptional := true
+		for i := n; i < nreq; i++ {
+			param := getParam(sig, i)
+			if !pkg.isParamOptional(param) {
+				allOptional = false
+				break
+			}
+		}
+		if allOptional {
+			newArgs := make([]*internal.Elem, nreq)
+			copy(newArgs, args)
+			for i := n; i < nreq; i++ {
+				param := getParam(sig, i)
+				newArgs[i] = pkg.Zero(param.Type())
+			}
+			args = newArgs
+		}
+	}
+
 	if err = matchFuncType(pkg, args, flags, sig, fn); err != nil {
 		return
 	}
@@ -1010,6 +1037,41 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 		return it.normalize(t.At(0).Type())
 	}
 	return it.normalizeTuple(t)
+}
+
+func (p *Package) Zero(typ types.Type) *Element {
+	var val ast.Expr
+	var cval constant.Value
+
+retry:
+	switch t := typ.(type) {
+	case *types.Basic:
+		switch kind := t.Kind(); kind {
+		case types.Bool:
+			val = boolean(false)
+			cval = constant.MakeBool(false)
+		case types.String:
+			val = stringLit("")
+			cval = constant.MakeString("")
+		case types.UnsafePointer:
+			val = ident("nil")
+		default:
+			val = &ast.BasicLit{Kind: token.INT, Value: "0"}
+			cval = constant.MakeInt64(0)
+		}
+	case *types.Interface, *types.Map, *types.Slice, *types.Pointer, *types.Signature, *types.Chan:
+		val = ident("nil")
+	case *types.Named:
+		typ = p.cb.getUnderlying(t)
+		goto retry
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
+		goto retry
+	default:
+		val = &ast.CompositeLit{Type: toType(p, typ)}
+	}
+
+	return &internal.Elem{Val: val, Type: typ, CVal: cval}
 }
 
 func matchFuncType(
