@@ -219,7 +219,7 @@ type TyTypeAsParams struct { // see TestTypeAsParamsFunc
 
 func (p *TyTypeAsParams) Obj() types.Object      { return p.obj }
 func (p *TyTypeAsParams) Underlying() types.Type { return p }
-func (p *TyTypeAsParams) String() string         { return "tyTypeAsParams" }
+func (p *TyTypeAsParams) String() string         { return "TyTypeAsParams" }
 func (p *TyTypeAsParams) funcEx()                {}
 
 // ----------------------------------------------------------------------------
