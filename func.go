@@ -140,9 +140,6 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 
 // NewFuncDecl creates a new function without function body (declaration only).
 func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) *Func {
-	if err := p.validateParamOrder(sig.Params(), sig.Variadic()); err != nil {
-		panic(err)
-	}
 	f, err := p.NewFuncWith(pos, name, sig, nil)
 	if err != nil {
 		panic(err)
