@@ -1680,7 +1680,7 @@ func TestBuiltinFunc(t *testing.T) {
 	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(types.Typ[types.Int]))
 	array := pkg.NewParam(token.NoPos, "array", types.NewArray(types.Typ[types.Int], 10))
 	pkg.NewFunc(nil, "foo", gogen.NewTuple(v, array), nil, false).BodyStart(pkg).
-		NewAutoVar(token.NoPos, "a", &a).NewAutoVar(token.NoPos, "n", &n).
+		NewAutoVar(token.NoPos, token.NoPos, "a", &a).NewAutoVar(token.NoPos, token.NoPos, "n", &n).
 		VarRef(a).
 		/**/ Val(builtin.Ref("append")).Val(v).Val(1).Val(2).Call(3).
 		/**/ Assign(1).EndStmt().
@@ -2118,7 +2118,7 @@ func main() {
 func TestGoto(t *testing.T) {
 	pkg := newMainPackage()
 	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
-	l := cb.NewLabel(token.NoPos, "retry")
+	l := cb.NewLabel(token.NoPos, token.NoPos, "retry")
 	cb.Label(l).Goto(l).
 		End()
 	domTest(t, pkg, `package main
@@ -2133,8 +2133,8 @@ retry:
 func TestMultiLabel(t *testing.T) {
 	pkg := newMainPackage()
 	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
-	l := cb.NewLabel(token.NoPos, "retry")
-	l2 := cb.NewLabel(token.NoPos, "retry2")
+	l := cb.NewLabel(token.NoPos, token.NoPos, "retry")
+	l2 := cb.NewLabel(token.NoPos, token.NoPos, "retry2")
 	cb.Label(l).Label(l2).Goto(l).Goto(l2).
 		End()
 	domTest(t, pkg, `package main
@@ -2152,7 +2152,7 @@ retry2:
 func TestBreakContinue(t *testing.T) { // TODO: check invalid syntax
 	pkg := newMainPackage()
 	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
-	l := cb.NewLabel(token.NoPos, "retry")
+	l := cb.NewLabel(token.NoPos, token.NoPos, "retry")
 	cb.Label(l).Break(nil).Continue(nil).
 		Break(l).Continue(l).
 		End()
@@ -2300,7 +2300,7 @@ func main() {
 func TestLabeledFor(t *testing.T) {
 	pkg := newMainPackage()
 	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
-	l := cb.NewLabel(token.NoPos, "label")
+	l := cb.NewLabel(token.NoPos, token.NoPos, "label")
 	cb.Label(l).
 		/**/ For().DefineVarStart(0, "i").Val(0).EndInit(1). // for i := 0; i < 10; i=i+1 {
 		/******/ Val(ctxRef(pkg, "i")).Val(10).BinaryOp(token.LSS).Then().
@@ -2817,7 +2817,7 @@ func TestImportAndCallMethod(t *testing.T) {
 	pkg := newMainPackage()
 	strings := pkg.Import("strings")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewAutoVar(token.NoPos, "x", &x).
+		NewAutoVar(token.NoPos, token.NoPos, "x", &x).
 		VarRef(x).Val(strings.Ref("NewReplacer")).Val("?").Val("!").Call(2).
 		/**/ MemberVal("Replace").Val("hello, world???").Call(1).Assign(1).EndStmt().
 		Val(pkg.Builtin().Ref("println")).Val(x).Call(1).EndStmt().
@@ -2841,8 +2841,8 @@ func TestOverloadFunc(t *testing.T) {
 	c64 := pkg.NewParam(token.NoPos, "c64", types.Typ[types.Complex64])
 	c128 := pkg.NewParam(token.NoPos, "c128", types.Typ[types.Complex128])
 	pkg.NewFunc(nil, "foo", gogen.NewTuple(c64, c128), nil, false).BodyStart(pkg).
-		NewAutoVar(token.NoPos, "f", &f).NewAutoVar(token.NoPos, "g", &g).
-		NewAutoVar(token.NoPos, "x", &x).NewAutoVar(token.NoPos, "y", &y).
+		NewAutoVar(token.NoPos, token.NoPos, "f", &f).NewAutoVar(token.NoPos, token.NoPos, "g", &g).
+		NewAutoVar(token.NoPos, token.NoPos, "x", &x).NewAutoVar(token.NoPos, token.NoPos, "y", &y).
 		VarRef(f).Val(builtin.Ref("imag")).Val(c128).Call(1).Assign(1).EndStmt().
 		VarRef(g).Val(builtin.Ref("real")).Val(c64).Call(1).Assign(1).EndStmt().
 		VarRef(x).Val(builtin.Ref("complex")).Val(0).Val(f).Call(2).Assign(1).EndStmt().
@@ -3243,10 +3243,10 @@ func TestAssign(t *testing.T) {
 	var a, b, c, d, e, f, g *goxVar
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewAutoVar(token.NoPos, "a", &a).NewAutoVar(token.NoPos, "b", &b).
-		NewAutoVar(token.NoPos, "c", &c).NewAutoVar(token.NoPos, "d", &d).
-		NewAutoVar(token.NoPos, "e", &e).NewAutoVar(token.NoPos, "f", &f).
-		NewAutoVar(token.NoPos, "g", &g).
+		NewAutoVar(token.NoPos, token.NoPos, "a", &a).NewAutoVar(token.NoPos, token.NoPos, "b", &b).
+		NewAutoVar(token.NoPos, token.NoPos, "c", &c).NewAutoVar(token.NoPos, token.NoPos, "d", &d).
+		NewAutoVar(token.NoPos, token.NoPos, "e", &e).NewAutoVar(token.NoPos, token.NoPos, "f", &f).
+		NewAutoVar(token.NoPos, token.NoPos, "g", &g).
 		VarRef(a).VarRef(b).VarRef(d).VarRef(e).VarRef(f).VarRef(g).
 		Val("Hi").Val(3).Val(true).Val('!').Val(1.2).Val(&ast.BasicLit{Kind: token.FLOAT, Value: "12.3"}).
 		Assign(6).EndStmt().
@@ -3273,7 +3273,7 @@ func TestAssignFnCall(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewAutoVar(token.NoPos, "n", &n).NewAutoVar(token.NoPos, "err", &err).
+		NewAutoVar(token.NoPos, token.NoPos, "n", &n).NewAutoVar(token.NoPos, token.NoPos, "err", &err).
 		VarRef(n).VarRef(err).
 		Val(fmt.Ref("Println")).Val("Hello").Call(1).
 		Assign(2, 1).EndStmt().
@@ -3295,7 +3295,7 @@ func TestAssignUnderscore(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewAutoVar(token.NoPos, "err", &err).
+		NewAutoVar(token.NoPos, token.NoPos, "err", &err).
 		VarRef(nil).VarRef(err).
 		Val(fmt.Ref("Println")).Val("Hello").Call(1).
 		Assign(2, 1).EndStmt().
@@ -3315,8 +3315,8 @@ func TestOperator(t *testing.T) {
 	var a, b, c, d *goxVar
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewAutoVar(token.NoPos, "a", &a).NewAutoVar(token.NoPos, "b", &b).
-		NewAutoVar(token.NoPos, "c", &c).NewAutoVar(token.NoPos, "d", &d).
+		NewAutoVar(token.NoPos, token.NoPos, "a", &a).NewAutoVar(token.NoPos, token.NoPos, "b", &b).
+		NewAutoVar(token.NoPos, token.NoPos, "c", &c).NewAutoVar(token.NoPos, token.NoPos, "d", &d).
 		VarRef(a).Val("Hi").Assign(1).EndStmt().
 		VarRef(b).Val(a).Val("!").BinaryOp(token.ADD).Assign(1).EndStmt().
 		VarRef(c).Val(&ast.BasicLit{Kind: token.INT, Value: "13"}).Assign(1).EndStmt().
@@ -3341,7 +3341,7 @@ func TestOperatorComplex(t *testing.T) {
 	var a *goxVar
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewAutoVar(token.NoPos, "a", &a).
+		NewAutoVar(token.NoPos, token.NoPos, "a", &a).
 		VarRef(a).Val(123.1).Val(&ast.BasicLit{Kind: token.IMAG, Value: "3i"}).BinaryOp(token.SUB).Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -3357,7 +3357,7 @@ func TestBinaryOpUntyped(t *testing.T) {
 	var a *goxVar
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewAutoVar(token.NoPos, "a", &a).
+		NewAutoVar(token.NoPos, token.NoPos, "a", &a).
 		VarRef(a).Val("Hi").Val("!").BinaryOp(token.ADD).Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -4049,6 +4049,41 @@ func Example() {
 	var sprite *Sprite
 	if sprite.play {
 	}
+}
+`)
+}
+
+func TestNewParamEx(t *testing.T) {
+	pkg := newMainPackage()
+
+	regularParam := pkg.NewParam(token.NoPos, "regular", types.Typ[types.String])
+	optionalParam := pkg.NewParamEx(token.NoPos, "optional", types.Typ[types.Int], true)
+	nonOptionalParam := pkg.NewParamEx(token.NoPos, "nonOptional", types.Typ[types.Bool], false)
+
+	params := gogen.NewTuple(regularParam, optionalParam, nonOptionalParam)
+	pkg.NewFunc(nil, "testFunc", params, nil, false).BodyStart(pkg).End()
+
+	domTest(t, pkg, `package main
+
+func testFunc(regular string, __xgo_optional_optional int, nonOptional bool) {
+}
+`)
+}
+
+func TestNewParamExWithBodyRef(t *testing.T) {
+	pkg := newMainPackage()
+
+	bar := pkg.NewParamEx(token.NoPos, "bar", types.Typ[types.Int], true)
+	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+
+	pkg.NewFunc(nil, "foo", gogen.NewTuple(bar), gogen.NewTuple(ret), false).BodyStart(pkg).
+		Val(bar).Val(1).BinaryOp(token.ADD).Return(1).
+		End()
+
+	domTest(t, pkg, `package main
+
+func foo(__xgo_optional_bar int) int {
+	return __xgo_optional_bar + 1
 }
 `)
 }

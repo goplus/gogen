@@ -43,6 +43,15 @@ func (p *Package) NewParam(pos token.Pos, name string, typ types.Type) *Param {
 	return types.NewParam(pos, p.Types, name, typ)
 }
 
+// NewParamEx returns a new variable representing a function parameter with optional flag.
+func (p *Package) NewParamEx(pos token.Pos, name string, typ types.Type, optional bool) *Param {
+	param := types.NewParam(pos, p.Types, name, typ)
+	if optional {
+		p.setParamOptional(param)
+	}
+	return param
+}
+
 // ----------------------------------------------------------------------------
 
 // A Tuple represents an ordered list of variables; a nil *Tuple is a valid (empty) tuple.
@@ -182,15 +191,15 @@ func (p *Package) NewFuncWith(
 		}
 		if !ok {
 			return nil, cb.newCodeErrorf(
-				getRecv(recvTypePos), "invalid receiver type %v (%v is not a defined type)", typ, typ)
+				getRecv(recvTypePos), getRecv(recvTypePos), "invalid receiver type %v (%v is not a defined type)", typ, typ)
 		}
 		switch getUnderlying(p, t.Obj().Type()).(type) {
 		case *types.Interface:
 			return nil, cb.newCodeErrorf(
-				getRecv(recvTypePos), "invalid receiver type %v (%v is an interface type)", typ, typ)
+				getRecv(recvTypePos), getRecv(recvTypePos), "invalid receiver type %v (%v is an interface type)", typ, typ)
 		case *types.Pointer:
 			return nil, cb.newCodeErrorf(
-				getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
+				getRecv(recvTypePos), getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		if name != "_" { // skip underscore
 			t.AddMethod(fn.Func)
@@ -198,7 +207,7 @@ func (p *Package) NewFuncWith(
 	} else if name == "init" { // init is not a normal func
 		if sig.Params() != nil || sig.Results() != nil {
 			return nil, cb.newCodeErrorf(
-				pos, "func init must have no arguments and no return values")
+				pos, pos, "func init must have no arguments and no return values")
 		}
 	} else if name != "_" { // skip underscore
 		old := p.Types.Scope().Insert(fn.Obj())
@@ -206,7 +215,7 @@ func (p *Package) NewFuncWith(
 			if !(p.allowRedecl && types.Identical(old.Type(), sig)) { // for c2go
 				oldPos := cb.fset.Position(old.Pos())
 				return nil, cb.newCodeErrorf(
-					pos, "%s redeclared in this block\n\t%v: other declaration of %s", name, oldPos, name)
+					pos, pos, "%s redeclared in this block\n\t%v: other declaration of %s", name, oldPos, name)
 			}
 		}
 		p.useName(name)

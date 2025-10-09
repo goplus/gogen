@@ -80,7 +80,7 @@ type ifStmt struct {
 func (p *ifStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	cond := cb.stk.Pop()
 	if !types.AssignableTo(cond.Type, types.Typ[types.Bool]) {
-		cb.panicCodeError(getPos(src), "non-boolean condition in if statement")
+		cb.panicCodeError(getPos(src), getEnd(src), "non-boolean condition in if statement")
 	}
 	p.cond = cond.Val
 	switch stmts := cb.clearBlockStmt(); len(stmts) {
@@ -171,6 +171,9 @@ func (p *switchStmt) Case(cb *CodeBuilder, src ...ast.Node) {
 
 func (p *switchStmt) End(cb *CodeBuilder, src ast.Node) {
 	if p.tag == nil {
+		if cb != nil {
+			cb.endBlockStmt(&p.old)
+		}
 		return
 	}
 	stmts, flows := cb.endBlockStmt(&p.old)
@@ -193,14 +196,14 @@ func (p *caseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 		for i, arg := range cb.stk.GetArgs(n) {
 			if p.tag.Val != nil { // switch tag {...}
 				if !ComparableTo(cb.pkg, arg, p.tag) {
-					src, pos := cb.loadExpr(arg.Src)
+					src, pos, end := cb.loadExpr(arg.Src)
 					cb.panicCodeErrorf(
-						pos, "cannot use %s (type %v) as type %v", src, arg.Type, types.Default(p.tag.Type))
+						pos, end, "cannot use %s (type %v) as type %v", src, arg.Type, types.Default(p.tag.Type))
 				}
 			} else { // switch {...}
 				if !types.AssignableTo(arg.Type, types.Typ[types.Bool]) && arg.Type != TyEmptyInterface {
-					src, pos := cb.loadExpr(arg.Src)
-					cb.panicCodeErrorf(pos, "cannot use %s (type %v) as type bool", src, arg.Type)
+					src, pos, end := cb.loadExpr(arg.Src)
+					cb.panicCodeErrorf(pos, end, "cannot use %s (type %v) as type bool", src, arg.Type)
 				}
 			}
 			p.list[i] = arg.Val
@@ -361,15 +364,16 @@ func (p *typeCaseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 			if tt, ok := typ.(*TypeType); ok {
 				typ = tt.Type()
 				if missing := cb.missingMethod(typ, pss.xType); missing != "" {
-					xsrc, _ := cb.loadExpr(pss.xSrc)
+					xsrc, _, _ := cb.loadExpr(pss.xSrc)
 					pos := getSrcPos(arg.Src)
+					end := getSrcEnd(arg.Src)
 					cb.panicCodeErrorf(
-						pos, "impossible type switch case: %s (type %v) cannot have dynamic type %v (missing %s method)",
+						pos, end, "impossible type switch case: %s (type %v) cannot have dynamic type %v (missing %s method)",
 						xsrc, pss.xType, typ, missing)
 				}
 			} else if typ != types.Typ[types.UntypedNil] {
-				src, pos := cb.loadExpr(arg.Src)
-				cb.panicCodeErrorf(pos, "%s (type %v) is not a type", src, typ)
+				src, pos, end := cb.loadExpr(arg.Src)
+				cb.panicCodeErrorf(pos, end, "%s (type %v) is not a type", src, typ)
 			}
 			p.list[i] = arg.Val
 		}
@@ -506,14 +510,14 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 		case 2:
 			val = ident(names[1])
 		default:
-			cb.panicCodeError(pos, "too many variables in range")
+			cb.panicCodeError(pos, pos, "too many variables in range")
 		}
 		x := cb.stk.Pop()
 		pkg, scope := cb.pkg, cb.current.scope
 		typs := p.getKeyValTypes(cb, x.Type)
 		if typs == nil {
-			src, _ := cb.loadExpr(x.Src)
-			cb.panicCodeErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
+			src, _, _ := cb.loadExpr(x.Src)
+			cb.panicCodeErrorf(pos, pos, "cannot range over %v (type %v)", src, x.Type)
 		}
 		if typs[1] == nil { // chan
 			if names[0] == "_" && len(names) > 1 {
@@ -550,13 +554,13 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 		case 3:
 			key, val, x = *args[0], *args[1], *args[2]
 		default:
-			cb.panicCodeError(pos, "too many variables in range")
+			cb.panicCodeError(pos, pos, "too many variables in range")
 		}
 		cb.stk.PopN(n)
 		typs := p.getKeyValTypes(cb, x.Type)
 		if typs == nil {
-			src, _ := cb.loadExpr(x.Src)
-			cb.panicCodeErrorf(pos, "cannot range over %v (type %v)", src, x.Type)
+			src, _, _ := cb.loadExpr(x.Src)
+			cb.panicCodeErrorf(pos, pos, "cannot range over %v (type %v)", src, x.Type)
 		}
 		if p.udt != 0 {
 			p.x = &x
@@ -690,6 +694,9 @@ const (
 
 func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 	if p.stmt == nil {
+		if cb != nil {
+			cb.endBlockStmt(&p.old)
+		}
 		return
 	}
 	stmts, flows := cb.endBlockStmt(&p.old)
@@ -754,7 +761,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 			})
 		*/
 		if flows != 0 {
-			cb.panicCodeError(p.stmt.For, cantUseFlows)
+			cb.panicCodeError(p.stmt.For, p.stmt.For, cantUseFlows)
 		}
 		n = -n
 		def := p.stmt.Tok == token.DEFINE

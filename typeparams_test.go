@@ -553,7 +553,7 @@ var MyInts = Int{1,2,3,4}
 		NewVarStart(tyInt, "n7").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gogen.InstrFlagEllipsis).EndInit(1).
 		NewVarStart(tyIntPointer, "p1").Val(fnLoader).Typ(tyIntPointer).Index(1, false).Val(nil).Val(1).Call(2).EndInit(1).
 		NewVarStart(tyIntPointer, "p2").Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Val(nil).Val(1).Call(2).EndInit(1).
-		NewAutoVar(0, "fn1", &fn1).VarRef(fn1).Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Assign(1, 1).EndStmt().
+		NewAutoVar(0, 0, "fn1", &fn1).VarRef(fn1).Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Assign(1, 1).EndStmt().
 		Val(fn1).Val(nil).Val(1).Call(2).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -685,10 +685,9 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
 	var msg string
-	switch runtime.Version()[:6] {
-	case "go1.24":
+	if isLeastGo(24) {
 		msg = `./foo.gop:5:40: cannot infer T2 (declared at foo.go:3:21)`
-	default:
+	} else {
 		msg = `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`
 	}
 	codeErrorTestEx(t, pkg, msg,
@@ -969,10 +968,9 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
 	var msg string
-	switch runtime.Version()[:6] {
-	case "go1.24":
+	if isLeastGo(24) {
 		msg = `./foo.gop:5:40: cannot infer T2 (declared at foo.go:3:21)`
-	default:
+	} else {
 		msg = `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`
 	}
 	codeErrorTestEx(t, pkg, msg,
