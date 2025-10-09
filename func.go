@@ -153,10 +153,6 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 // and before any variadic parameter.
 // Valid order: positional → optional → variadic
 func (p *Package) validateParamOrder(cb *CodeBuilder, pos token.Pos, params *Tuple, variadic bool) error {
-	if params.Len() == 0 {
-		return nil
-	}
-
 	n := params.Len()
 	foundOptional := false
 
@@ -226,16 +222,16 @@ func (p *Package) NewFuncWith(
 			t, ok = typ.(*types.Named)
 		}
 		if !ok {
-			return nil, cb.newCodeErrorf(
-				getRecv(recvTypePos), getRecv(recvTypePos), "invalid receiver type %v (%v is not a defined type)", typ, typ)
+			posErr := getRecv(recvTypePos)
+			return nil, cb.newCodeErrorf(posErr, posErr, "invalid receiver type %v (%v is not a defined type)", typ, typ)
 		}
 		switch getUnderlying(p, t.Obj().Type()).(type) {
 		case *types.Interface:
-			return nil, cb.newCodeErrorf(
-				getRecv(recvTypePos), getRecv(recvTypePos), "invalid receiver type %v (%v is an interface type)", typ, typ)
+			posErr := getRecv(recvTypePos)
+			return nil, cb.newCodeErrorf(posErr, posErr, "invalid receiver type %v (%v is an interface type)", typ, typ)
 		case *types.Pointer:
-			return nil, cb.newCodeErrorf(
-				getRecv(recvTypePos), getRecv(recvTypePos), "invalid receiver type %v (%v is a pointer type)", typ, typ)
+			posErr := getRecv(recvTypePos)
+			return nil, cb.newCodeErrorf(posErr, posErr, "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		if name != "_" { // skip underscore
 			t.AddMethod(fn.Func)
