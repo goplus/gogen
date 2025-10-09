@@ -685,10 +685,9 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
 	var msg string
-	switch runtime.Version()[:6] {
-	case "go1.24":
+	if isLeastGo(24) {
 		msg = `./foo.gop:5:40: cannot infer T2 (declared at foo.go:3:21)`
-	default:
+	} else {
 		msg = `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`
 	}
 	codeErrorTestEx(t, pkg, msg,
@@ -969,10 +968,9 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	fnLoader := pkgRef.Ref("Loader")
 	tyInt := types.Typ[types.Int]
 	var msg string
-	switch runtime.Version()[:6] {
-	case "go1.24":
+	if isLeastGo(24) {
 		msg = `./foo.gop:5:40: cannot infer T2 (declared at foo.go:3:21)`
-	default:
+	} else {
 		msg = `./foo.gop:5:40: cannot infer T2 (foo.go:3:21)`
 	}
 	codeErrorTestEx(t, pkg, msg,
