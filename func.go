@@ -184,9 +184,6 @@ func (p *Package) validateParamOrder(params *Tuple, variadic bool) error {
 
 // NewFunc creates a new function (should have a function body).
 func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
-	if err := p.validateParamOrder(params, variadic); err != nil {
-		panic(err)
-	}
 	sig := types.NewSignatureType(recv, nil, nil, params, results, variadic)
 	f, err := p.NewFuncWith(token.NoPos, name, sig, nil)
 	if err != nil {
