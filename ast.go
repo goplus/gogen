@@ -743,6 +743,29 @@ retry:
 		src, pos, end := pkg.cb.loadExpr(fn.Src)
 		pkg.cb.panicCodeErrorf(pos, end, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
+	// Fill in zero values for missing optional parameters
+	if sig != nil && len(args) < getParamLen(sig) {
+		nreq := getParamLen(sig)
+		n := len(args)
+		allOptional := true
+		for i := n; i < nreq; i++ {
+			param := getParam(sig, i)
+			if !pkg.isParamOptional(param) {
+				allOptional = false
+				break
+			}
+		}
+		if allOptional {
+			newArgs := make([]*internal.Elem, nreq)
+			copy(newArgs, args)
+			for i := n; i < nreq; i++ {
+				param := getParam(sig, i)
+				newArgs[i] = createZeroElem(pkg, param.Type())
+			}
+			args = newArgs
+		}
+	}
+
 	if err = matchFuncType(pkg, args, flags, sig, fn); err != nil {
 		return
 	}
@@ -1012,6 +1035,41 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 	return it.normalizeTuple(t)
 }
 
+func createZeroElem(pkg *Package, typ types.Type) *internal.Elem {
+	var val ast.Expr
+	var cval constant.Value
+
+retry:
+	switch t := typ.(type) {
+	case *types.Basic:
+		switch kind := t.Kind(); kind {
+		case types.Bool:
+			val = boolean(false)
+			cval = constant.MakeBool(false)
+		case types.String:
+			val = stringLit("")
+			cval = constant.MakeString("")
+		case types.UnsafePointer:
+			val = ident("nil")
+		default:
+			val = &ast.BasicLit{Kind: token.INT, Value: "0"}
+			cval = constant.MakeInt64(0)
+		}
+	case *types.Interface, *types.Map, *types.Slice, *types.Pointer, *types.Signature, *types.Chan:
+		val = ident("nil")
+	case *types.Named:
+		typ = pkg.cb.getUnderlying(t)
+		goto retry
+	case *typesalias.Alias:
+		typ = typesalias.Unalias(t)
+		goto retry
+	default:
+		val = &ast.CompositeLit{Type: toType(pkg, typ)}
+	}
+
+	return &internal.Elem{Val: val, Type: typ, CVal: cval}
+}
+
 func matchFuncType(
 	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, fn *internal.Elem) error {
 	if (flags & InstrFlagTwoValue) != 0 {
@@ -1049,9 +1107,19 @@ func matchFuncType(
 		if (flags & InstrFlagEllipsis) == 0 {
 			n1 := getParamLen(sig) - 1
 			if n < n1 {
-				caller, pos, end := getFunExpr(fn)
-				return pkg.cb.newCodeErrorf(pos, end, "not enough arguments in call to %v\n\thave (%v)\n\twant %v",
-					caller, getTypes(args), sig.Params())
+				allOptional := true
+				for i := n; i < n1; i++ {
+					param := getParam(sig, i)
+					if !pkg.isParamOptional(param) {
+						allOptional = false
+						break
+					}
+				}
+				if !allOptional {
+					caller, pos, end := getFunExpr(fn)
+					return pkg.cb.newCodeErrorf(pos, end, "not enough arguments in call to %v\n\thave (%v)\n\twant %v",
+						caller, getTypes(args), sig.Params())
+				}
 			}
 			tyVariadic, ok := getParam(sig, n1).Type().(*types.Slice)
 			if !ok {
