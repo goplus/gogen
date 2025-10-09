@@ -89,7 +89,7 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 		item := t.At(i)
 		var names []*ast.Ident
 		if name := item.Name(); name != "" {
-			if pkg.optionalVars.isParamOptional(item) {
+			if pkg.isParamOptional(item) {
 				name = "__xgo_optional_" + name
 			}
 			names = []*ast.Ident{ident(name)}
@@ -392,7 +392,7 @@ func toObject(pkg *Package, v types.Object, src ast.Node) *internal.Elem {
 func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 	atPkg, name := v.Pkg(), v.Name()
 	if atPkg == nil || atPkg == pkg.Types { // at universe or at this package
-		if param, ok := v.(*types.Var); ok && pkg.optionalVars.isParamOptional(param) {
+		if param, ok := v.(*types.Var); ok && pkg.isParamOptional(param) {
 			name = "__xgo_optional_" + name
 		}
 		return ident(name)
@@ -743,6 +743,34 @@ retry:
 		src, pos, end := pkg.cb.loadExpr(fn.Src)
 		pkg.cb.panicCodeErrorf(pos, end, "cannot call non-function %s (type %v)", src, fn.Type)
 	}
+
+	// Fill in zero values for missing optional parameters
+	nreq := getParamLen(sig)
+	if sig.Variadic() {
+		// For variadic functions, don't include the variadic parameter in the count
+		nreq--
+	}
+	if len(args) < nreq {
+		n := len(args)
+		allOptional := true
+		for i := n; i < nreq; i++ {
+			param := getParam(sig, i)
+			if !pkg.isParamOptional(param) {
+				allOptional = false
+				break
+			}
+		}
+		if allOptional {
+			newArgs := make([]*internal.Elem, nreq)
+			copy(newArgs, args)
+			for i := n; i < nreq; i++ {
+				param := getParam(sig, i)
+				newArgs[i] = pkg.Zero(param.Type())
+			}
+			args = newArgs
+		}
+	}
+
 	if err = matchFuncType(pkg, args, flags, sig, fn); err != nil {
 		return
 	}
@@ -1242,7 +1270,7 @@ func (p *MatchError) Error() string {
 	return p.Message(pos.String() + ": ")
 }
 
-// TODO: use matchType to all assignable check
+// TODO(xsw): matchType vs. AssignableConv
 func matchType(pkg *Package, arg *internal.Elem, param types.Type, at interface{}) error {
 	if debugMatch {
 		cval := ""
