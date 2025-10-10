@@ -27,3 +27,19 @@ func (o *optionalVars) setParamOptional(param *types.Var) {
 func (o *optionalVars) isParamOptional(param *types.Var) bool {
 	return param.Kind() == 0xff
 }
+
+// markOptionalParamsInSignature marks all optional parameters in a function signature (Go 1.25+).
+func (p *Package) markOptionalParamsInSignature(sig *types.Signature) {
+	params := sig.Params()
+	if params == nil {
+		return
+	}
+
+	for i := 0; i < params.Len(); i++ {
+		param := params.At(i)
+		// Check if parameter is marked as optional (Kind() == 0xff)
+		if param.Kind() == 0xff {
+			p.setParamOptional(param)
+		}
+	}
+}

@@ -99,11 +99,17 @@ func isGopCommon(name string) bool {
 
 // InitThisGopPkg initializes a Go+ package.
 func InitThisGopPkg(pkg *types.Package) {
-	InitThisGopPkgEx(pkg, nil)
+	InitThisGopPkgEx(pkg, nil, nil)
 }
 
-// InitThisGopPkg initializes a Go+ package. pos map overload name to postion.
-func InitThisGopPkgEx(pkg *types.Package, pos map[string]token.Pos) {
+// InitThisGopPkgWith initializes a Go+ package with optional parameter marking support.
+func InitThisGopPkgWith(pkg *types.Package, p *Package) {
+	InitThisGopPkgEx(pkg, nil, p)
+}
+
+// InitThisGopPkgEx initializes a Go+ package. pos map overload name to position.
+// If p is not nil, optional parameters will be marked in the importing package.
+func InitThisGopPkgEx(pkg *types.Package, pos map[string]token.Pos, p *Package) {
 	scope := pkg.Scope()
 	gopos := make([]string, 0, 4)
 	overloads := make(map[omthd][]types.Object)
@@ -182,7 +188,49 @@ func InitThisGopPkgEx(pkg *types.Package, pos map[string]token.Pos) {
 		on := NewOverloadNamed(token.NoPos, pkg, name, nameds...)
 		scope.Insert(on)
 	}
+
+	// Mark optional parameters from imported package
+	if p != nil {
+		markImportedOptionalParams(p, pkg)
+	}
 }
+
+// markImportedOptionalParams marks all optional parameters from an imported package.
+// It iterates through all public functions and methods, checking each parameter's Kind()
+// to detect optional parameters (Kind() == 0xff) and marks them in the importing package.
+func markImportedOptionalParams(p *Package, pkgImp *types.Package) {
+	scope := pkgImp.Scope()
+	names := scope.Names()
+
+	for _, name := range names {
+		if !token.IsExported(name) {
+			continue
+		}
+
+		obj := scope.Lookup(name)
+		if obj == nil {
+			continue
+		}
+
+		// Check functions
+		if fn, ok := obj.(*types.Func); ok {
+			p.markOptionalParamsInSignature(fn.Type().(*types.Signature))
+		}
+
+		// Check methods of named types
+		if tn, ok := obj.(*types.TypeName); ok {
+			if named, ok := tn.Type().(*types.Named); ok {
+				for i := 0; i < named.NumMethods(); i++ {
+					method := named.Method(i)
+					if method.Exported() {
+						p.markOptionalParamsInSignature(method.Type().(*types.Signature))
+					}
+				}
+			}
+		}
+	}
+}
+
 
 // name
 // .name
@@ -527,7 +575,7 @@ func (p *Package) initGopPkg(importer types.Importer, pkgImp *types.Package) {
 	if debugImport {
 		log.Println("==> Import", pkgImp.Path())
 	}
-	InitThisGopPkg(pkgImp)
+	InitThisGopPkgWith(pkgImp, p)
 	for _, depPath := range gopDeps {
 		imp, _ := importer.Import(depPath)
 		p.initGopPkg(importer, imp)

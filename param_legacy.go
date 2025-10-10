@@ -35,3 +35,10 @@ func (o *optionalVars) isParamOptional(param *types.Var) bool {
 	}
 	return o.paramsMeta[param]
 }
+
+// markOptionalParamsInSignature marks all optional parameters in a function signature (Go < 1.25).
+// For Go < 1.25, optional parameter information is not persisted in compiled packages,
+// so this function has no effect. Optional parameters from imported packages cannot be detected.
+func (p *Package) markOptionalParamsInSignature(sig *types.Signature) {
+	// No-op for Go < 1.25: optional parameter metadata is not available in compiled packages
+}
