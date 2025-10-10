@@ -115,7 +115,7 @@ func TestCommCase(t *testing.T) {
 func TestCheckGopDeps(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	file := pkg.CurFile()
-	id := file.newImport("env", "github.com/goplus/gop/env")
+	id := file.newImport("env", "github.com/xgodev/xgo/env")
 	file.forceImport("github.com/qiniu/x/errors")
 	file.getDecls(pkg)
 	if v := file.CheckGopDeps(pkg); v != FlagDepModX {

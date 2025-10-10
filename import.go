@@ -91,7 +91,7 @@ func isOverload(name string) bool {
 	return n > 3 && name[n-3:n-1] == "__"
 }
 
-// Gop?_xxx
+// Xgo?_xxx
 func isGopCommon(name string) bool {
 	const n = len(commonPrefix)
 	return len(name) > n+2 && name[n+1] == '_' && name[:n] == commonPrefix
