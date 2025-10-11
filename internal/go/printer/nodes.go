@@ -526,7 +526,7 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 		p.print(formfeed)
 	}
 
-	// fix https://github.com/goplus/gop/issues/1761
+	// fix https://github.com/goplus/xgo/issues/1761
 	prefix := formfeed
 	if isStruct {
 

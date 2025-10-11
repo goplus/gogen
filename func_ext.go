@@ -248,7 +248,7 @@ func (p *TyTemplateRecvMethod) Underlying() types.Type { return p }
 func (p *TyTemplateRecvMethod) String() string         { return "TyTemplateRecvMethod" }
 func (p *TyTemplateRecvMethod) funcEx()                {}
 
-// NewTemplateRecvMethod - https://github.com/goplus/gop/issues/811
+// NewTemplateRecvMethod - https://github.com/goplus/xgo/issues/811
 func NewTemplateRecvMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, fn types.Object) *types.Func {
 	return newMethodEx(typ, pos, pkg, name, &TyTemplateRecvMethod{fn})
 }
