@@ -319,20 +319,77 @@ func checkOverloads(scope *types.Scope, gopoName string) (ret []string, exists b
 	return
 }
 
+func setOverloadFuncs(obj types.Object, fns []types.Object) bool {
+	sig, ok := obj.Type().(*types.Signature)
+	if !ok {
+		return false
+	}
+	ext, ok := CheckFuncEx(sig)
+	if !ok {
+		return false
+	}
+	typ, ok := ext.(*TyOverloadFunc)
+	if !ok {
+		return false
+	}
+	typ.Funcs = fns
+	return true
+}
+
+func setOverloadMethods(obj types.Object, fns []types.Object) bool {
+	sig, ok := obj.Type().(*types.Signature)
+	if !ok {
+		return false
+	}
+	ext, ok := CheckFuncEx(sig)
+	if !ok {
+		return false
+	}
+	typ, ok := ext.(*TyOverloadMethod)
+	if !ok {
+		return false
+	}
+	typ.Methods = fns
+	return true
+}
+
 func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Object, pos map[string]token.Pos) {
 	if m.typ == nil {
 		if debugImport {
 			log.Println("==> NewOverloadFunc", m.name)
 		}
-		o := NewOverloadFunc(pos[m.name], pkg, m.name, fns...)
-		scope.Insert(o)
-		checkGoptsx(pkg, scope, m.name, o)
+		if obj := scope.Lookup(m.name); obj != nil {
+			if !setOverloadFuncs(obj, fns) {
+				log.Panicf("object not overload func: %v", obj)
+			}
+			checkGoptsx(pkg, scope, m.name, obj)
+		} else {
+			o := NewOverloadFunc(pos[m.name], pkg, m.name, fns...)
+			scope.Insert(o)
+			checkGoptsx(pkg, scope, m.name, o)
+		}
 	} else {
 		if debugImport {
 			log.Println("==> NewOverloadMethod", m.typ.Obj().Name(), m.name)
 		}
-		NewOverloadMethod(m.typ, pos[m.typ.Obj().Name()+"."+m.name], pkg, m.name, fns...)
+		if obj := findMethod(m.typ, m.name); obj != nil {
+			if !setOverloadMethods(obj, fns) {
+				log.Panicf("object not overload method: %v", obj)
+			}
+		} else {
+			NewOverloadMethod(m.typ, pos[m.typ.Obj().Name()+"."+m.name], pkg, m.name, fns...)
+		}
 	}
+}
+
+func findMethod(typ *types.Named, name string) *types.Func {
+	n := typ.NumMethods()
+	for i := 0; i < n; i++ {
+		if m := typ.Method(i); m.Name() == name {
+			return m
+		}
+	}
+	return nil
 }
 
 func overloadFuncs(off int, items []types.Object) []types.Object {
