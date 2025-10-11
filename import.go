@@ -98,11 +98,6 @@ func isXGoCommon(name string) bool {
 
 // InitXGoPackage initializes a XGo package.
 func InitXGoPackage(pkg *types.Package) {
-	InitXGoPackageEx(pkg, nil)
-}
-
-// InitXGoPackageEx initializes a XGo package. pos map overload name to position.
-func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 	scope := pkg.Scope()
 	gopos := make([]string, 0, 4)
 	overloads := make(map[omthd][]types.Object)
@@ -162,7 +157,7 @@ func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 				}
 			}
 			if len(fns) > 0 {
-				newOverload(pkg, scope, m, fns, pos)
+				newOverload(token.NoPos, pkg, scope, m, fns)
 			}
 			delete(overloads, m)
 		}
@@ -170,7 +165,7 @@ func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 	for key, items := range overloads {
 		off := len(key.name) + 2
 		fns := overloadFuncs(off, items)
-		newOverload(pkg, scope, key, fns, pos)
+		newOverload(token.NoPos, pkg, scope, key, fns)
 	}
 	for name, items := range onameds {
 		off := len(name) + 2
@@ -319,21 +314,78 @@ func checkOverloads(scope *types.Scope, gopoName string) (ret []string, exists b
 	return
 }
 
-func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Object, pos map[string]token.Pos) {
+func setOverloadFuncs(obj types.Object, fns []types.Object) bool {
+	sig, ok := obj.Type().(*types.Signature)
+	if !ok {
+		return false
+	}
+	ext, ok := CheckFuncEx(sig)
+	if !ok {
+		return false
+	}
+	typ, ok := ext.(*TyOverloadFunc)
+	if !ok {
+		return false
+	}
+	typ.Funcs = fns
+	return true
+}
+
+func setOverloadMethods(obj types.Object, fns []types.Object) bool {
+	sig, ok := obj.Type().(*types.Signature)
+	if !ok {
+		return false
+	}
+	ext, ok := CheckFuncEx(sig)
+	if !ok {
+		return false
+	}
+	typ, ok := ext.(*TyOverloadMethod)
+	if !ok {
+		return false
+	}
+	typ.Methods = fns
+	return true
+}
+
+func newOverload(pos token.Pos, pkg *types.Package, scope *types.Scope, m omthd, fns []types.Object) {
 	if m.typ == nil {
 		if debugImport {
 			log.Println("==> NewOverloadFunc", m.name)
 		}
-		o := NewOverloadFunc(pos[m.name], pkg, m.name, fns...)
-		scope.Insert(o)
-		checkXGotsx(pkg, scope, m.name, o)
+		if obj := scope.Lookup(m.name); obj != nil {
+			if !setOverloadFuncs(obj, fns) {
+				log.Panicf("object not overload func: %v", obj)
+			}
+			checkXGotsx(pkg, scope, m.name, obj)
+		} else {
+			o := NewOverloadFunc(pos, pkg, m.name, fns...)
+			scope.Insert(o)
+			checkXGotsx(pkg, scope, m.name, o)
+		}
 	} else {
 		typName := m.typ.Obj().Name()
 		if debugImport {
 			log.Println("==> NewOverloadMethod", typName, m.name)
 		}
-		NewOverloadMethod(m.typ, pos[typName+"."+m.name], pkg, m.name, fns...)
+		if obj := findMethod(m.typ, m.name); obj != nil {
+			if !setOverloadMethods(obj, fns) {
+				log.Panicf("object not overload method: %v", obj)
+			}
+		} else {
+			NewOverloadMethod(m.typ, pos, pkg, m.name, fns...)
+		}
 	}
+}
+
+func findMethod(typ *types.Named, name string) *types.Func {
+	n := typ.NumMethods()
+	for i := 0; i < n; i++ {
+		if m := typ.Method(i); m.Name() == name {
+			return m
+		}
+	}
+	return nil
 }
 
 func overloadFuncs(off int, items []types.Object) []types.Object {
