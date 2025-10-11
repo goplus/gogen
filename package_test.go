@@ -1480,7 +1480,7 @@ func TestVarDecl(t *testing.T) {
 		return 2
 	}, token.NoPos, nil, "n", "s")
 	pkg.CB().NewVarStart(types.Typ[types.String], "x").
-		Val("Hello, ").Val("Go+").BinaryOp(token.ADD).
+		Val("Hello, ").Val("XGo").BinaryOp(token.ADD).
 		EndInit(1)
 	if decl.New(token.NoPos, types.Typ[types.String], "y").Ref("y") == nil {
 		t.Fatal("TestVarDecl failed: var y not found")
@@ -1492,7 +1492,7 @@ var (
 	n, s = 1 + 2, "1" + "2"
 	y    string
 )
-var x string = "Hello, " + "Go+"
+var x string = "Hello, " + "XGo"
 `)
 }
 
@@ -2174,7 +2174,7 @@ func TestGoDefer(t *testing.T) { // TODO: check invalid syntax
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).Val("Hi").Call(1).Go().
-		Val(fmt.Ref("Println")).Val("Go+").Call(1).Defer().
+		Val(fmt.Ref("Println")).Val("XGo").Call(1).Defer().
 		End()
 	domTest(t, pkg, `package main
 
@@ -2182,7 +2182,7 @@ import "fmt"
 
 func main() {
 	go fmt.Println("Hi")
-	defer fmt.Println("Go+")
+	defer fmt.Println("XGo")
 }
 `)
 }
@@ -4313,23 +4313,17 @@ func main() {
 func TestOptionalParamCallDifferentTypes(t *testing.T) {
 	pkg := newMainPackage()
 
-	name := pkg.NewParam(token.NoPos, "name", types.Typ[types.String])
-	age := pkg.NewParamEx(token.NoPos, "age", types.Typ[types.Int], true)
-	active := pkg.NewParamEx(token.NoPos, "active", types.Typ[types.Bool], true)
-
-	params := gogen.NewTuple(name, age, active)
-	pkg.NewFunc(nil, "createUser", params, nil, false).BodyStart(pkg).End()
-
+	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(pkg.Types.Scope().Lookup("createUser")).Val("Alice").Call(1).EndStmt().
+		Val(bar.Ref("CreateUser")).Val("Alice").Call(1).EndStmt().
 		End()
 
 	domTest(t, pkg, `package main
 
-func createUser(name string, __xgo_optional_age int, __xgo_optional_active bool) {
-}
+import "github.com/goplus/gogen/internal/bar"
+
 func main() {
-	createUser("Alice", 0, false)
+	bar.CreateUser("Alice", 0, false)
 }
 `)
 }

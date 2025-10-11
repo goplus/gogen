@@ -26,7 +26,7 @@ import (
 
 // ----------------------------------------------------------------------------
 
-// Go+ overload extended types
+// XGo overload extended types
 type OverloadType interface {
 	At(i int) types.Object
 	Len() int

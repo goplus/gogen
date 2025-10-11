@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	GopPackage = true // to indicate this is a Go+ package
+	GopPackage = true // to indicate this is a XGo package
 )
 
 //
-// Gop_: Go+ object prefix
+// Gop_: XGo object prefix
 // Gop_xxx_Cast: type Gop_xxx typecast
 // xxxx__N: the Nth overload function
 //

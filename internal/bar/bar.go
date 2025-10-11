@@ -14,7 +14,7 @@
 package bar
 
 const (
-	GopPackage = true // to indicate this is a Go+ package
+	GopPackage = true // to indicate this is a XGo package
 )
 
 // -----------------------------------------------------------------------------
@@ -39,6 +39,11 @@ func Gops_Game_New() *Game {
 
 type Info struct {
 	id int
+}
+
+// -----------------------------------------------------------------------------
+
+func CreateUser(name string, __xgo_optional_age int, __xgo_optional_active bool) {
 }
 
 // -----------------------------------------------------------------------------

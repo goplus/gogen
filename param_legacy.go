@@ -30,8 +30,5 @@ func (o *optionalVars) setParamOptional(param *types.Var) {
 
 // isParamOptional checks if a parameter is marked as optional using the map (for Go < 1.25).
 func (o *optionalVars) isParamOptional(param *types.Var) bool {
-	if o.paramsMeta == nil {
-		return false
-	}
 	return o.paramsMeta[param]
 }

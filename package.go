@@ -111,7 +111,7 @@ type Config struct {
 	// DefaultGoFile specifies default file name. It can be empty.
 	DefaultGoFile string
 
-	// PkgPathIox specifies package path of github.com/goplus/gop/builtin/iox
+	// PkgPathIox specifies package path of github.com/goplus/xgo/builtin/iox
 	PkgPathIox string
 
 	// NewBuiltin is to create the builin package (optional).
@@ -242,20 +242,21 @@ func isPkgInMod(pkgPath, modPath string) bool {
 }
 
 const (
-	FlagDepModGop = 1 << iota // depends module github.com/goplus/gop
+	FlagDepModGop = 1 << iota // depends module github.com/goplus/xgo
 	FlagDepModX               // depends module github.com/qiniu/x
 )
 
-// CheckGopDeps checks dependencies of Go+ modules.
+// CheckGopDeps checks dependencies of XGo modules.
 // The return flags can be FlagDepModGop and FlagDepModX.
 func (p *File) CheckGopDeps(this *Package) (flags int) {
 	p.markUsed(this)
 	for pkgPath, id := range p.imps {
 		if id == nil || id.Obj.Data.(importUsed) {
-			if isPkgInMod(pkgPath, "github.com/goplus/gop") {
-				flags |= FlagDepModGop
-			} else if isPkgInMod(pkgPath, "github.com/qiniu/x") {
+			if isPkgInMod(pkgPath, "github.com/qiniu/x") {
 				flags |= FlagDepModX
+			} else if isPkgInMod(pkgPath, "github.com/goplus/xgo") ||
+				isPkgInMod(pkgPath, "github.com/goplus/gop") {
+				flags |= FlagDepModGop
 			}
 		}
 	}

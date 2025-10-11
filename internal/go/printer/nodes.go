@@ -526,7 +526,7 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 		p.print(formfeed)
 	}
 
-	// fix https://github.com/goplus/gop/issues/1761
+	// fix https://github.com/goplus/xgo/issues/1761
 	prefix := formfeed
 	if isStruct {
 
@@ -1282,7 +1282,7 @@ func (p *printer) indentList(list []ast.Expr) bool {
 func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 	p.print(stmt.Pos())
 
-	if p.commentedStmts != nil { // by Go+
+	if p.commentedStmts != nil { // by XGo
 		if comments, ok := p.commentedStmts[stmt]; ok {
 			p.setComment(comments)
 		}

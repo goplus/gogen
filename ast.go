@@ -90,7 +90,7 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 		var names []*ast.Ident
 		if name := item.Name(); name != "" {
 			if pkg.isParamOptional(item) {
-				name = "__xgo_optional_" + name
+				name = xgoOptionalPrefix + name
 			}
 			names = []*ast.Ident{ident(name)}
 		}
@@ -393,7 +393,7 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 	atPkg, name := v.Pkg(), v.Name()
 	if atPkg == nil || atPkg == pkg.Types { // at universe or at this package
 		if param, ok := v.(*types.Var); ok && pkg.isParamOptional(param) {
-			name = "__xgo_optional_" + name
+			name = xgoOptionalPrefix + name
 		}
 		return ident(name)
 	}
@@ -755,7 +755,7 @@ retry:
 		allOptional := true
 		for i := n; i < nreq; i++ {
 			param := getParam(sig, i)
-			if !pkg.isParamOptional(param) {
+			if !isParamOptional(pkg, param) {
 				allOptional = false
 				break
 			}
@@ -801,6 +801,16 @@ retry:
 		Val: &ast.CallExpr{
 			Fun: fn.Val, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 	}, nil
+}
+
+// isParamOptional checks if a parameter is marked as optional.
+// If the parameter is from another package, it checks if its name
+// has the prefix xgoOptionalPrefix.
+func isParamOptional(pkg *Package, param *types.Var) bool {
+	if param.Pkg() == pkg.Types {
+		return pkg.isParamOptional(param)
+	}
+	return strings.HasPrefix(param.Name(), xgoOptionalPrefix)
 }
 
 func matchOverloadNamedTypeCast(pkg *Package, t *types.TypeName, src ast.Node, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
