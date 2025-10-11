@@ -295,6 +295,8 @@ const (
 
 	xgoPackage = "GopPackage"
 	xgoPkgInit = "__xgo_inited"
+
+	xgoOptionalPrefix = "__xgo_optional_"
 )
 
 /*
