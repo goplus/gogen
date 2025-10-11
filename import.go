@@ -102,7 +102,7 @@ func InitThisGopPkg(pkg *types.Package) {
 	InitThisGopPkgEx(pkg, nil)
 }
 
-// InitThisGopPkg initializes a XGo package. pos map overload name to postion.
+// InitThisGopPkg initializes a XGo package. pos map overload name to position.
 func InitThisGopPkgEx(pkg *types.Package, pos map[string]token.Pos) {
 	scope := pkg.Scope()
 	gopos := make([]string, 0, 4)
