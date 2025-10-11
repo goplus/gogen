@@ -97,12 +97,12 @@ func isGopCommon(name string) bool {
 	return len(name) > n+2 && name[n+1] == '_' && name[:n] == commonPrefix
 }
 
-// InitThisGopPkg initializes a Go+ package.
+// InitThisGopPkg initializes a XGo package.
 func InitThisGopPkg(pkg *types.Package) {
 	InitThisGopPkgEx(pkg, nil)
 }
 
-// InitThisGopPkg initializes a Go+ package. pos map overload name to postion.
+// InitThisGopPkg initializes a XGo package. pos map overload name to position.
 func InitThisGopPkgEx(pkg *types.Package, pos map[string]token.Pos) {
 	scope := pkg.Scope()
 	gopos := make([]string, 0, 4)
@@ -499,11 +499,11 @@ func (p expDeps) struc(t *types.Struct) {
 	}
 }
 
-// initGopPkg initializes a Go+ packages.
+// initGopPkg initializes a XGo packages.
 func (p *Package) initGopPkg(importer types.Importer, pkgImp *types.Package) {
 	scope := pkgImp.Scope()
 	objGopPkg := scope.Lookup(xgoPackage)
-	if objGopPkg == nil { // not is a Go+ package
+	if objGopPkg == nil { // not is a XGo package
 		return
 	}
 

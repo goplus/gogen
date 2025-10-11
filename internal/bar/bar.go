@@ -14,7 +14,7 @@
 package bar
 
 const (
-	GopPackage = true // to indicate this is a Go+ package
+	GopPackage = true // to indicate this is a XGo package
 )
 
 // -----------------------------------------------------------------------------

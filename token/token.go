@@ -17,7 +17,7 @@ import (
 	"go/token"
 )
 
-// Token is the set of lexical tokens of the Go/Go+ programming language.
+// Token is the set of lexical tokens of the Go/XGo programming language.
 type Token = token.Token
 
 const (
