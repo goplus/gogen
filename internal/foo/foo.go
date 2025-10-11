@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	GopPackage = true // to indicate this is a Go+ package
+	GopPackage = true // to indicate this is a XGo package
 )
 
 func CallBar() *bar.Game {

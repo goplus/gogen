@@ -90,7 +90,7 @@ type printer struct {
 	cachedPos  token.Pos
 	cachedLine int // line corresponding to cachedPos
 
-	// by Go+
+	// by XGo
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
 }
 
@@ -1362,7 +1362,7 @@ type CommentedNode struct {
 	Comments []*ast.CommentGroup
 }
 
-// by Go+
+// by XGo
 type CommentedNodes struct {
 	Node           interface{}
 	CommentedStmts map[ast.Stmt]*ast.CommentGroup

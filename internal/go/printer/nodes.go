@@ -1282,7 +1282,7 @@ func (p *printer) indentList(list []ast.Expr) bool {
 func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 	p.print(stmt.Pos())
 
-	if p.commentedStmts != nil { // by Go+
+	if p.commentedStmts != nil { // by XGo
 		if comments, ok := p.commentedStmts[stmt]; ok {
 			p.setComment(comments)
 		}

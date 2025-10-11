@@ -1480,7 +1480,7 @@ func TestVarDecl(t *testing.T) {
 		return 2
 	}, token.NoPos, nil, "n", "s")
 	pkg.CB().NewVarStart(types.Typ[types.String], "x").
-		Val("Hello, ").Val("Go+").BinaryOp(token.ADD).
+		Val("Hello, ").Val("XGo").BinaryOp(token.ADD).
 		EndInit(1)
 	if decl.New(token.NoPos, types.Typ[types.String], "y").Ref("y") == nil {
 		t.Fatal("TestVarDecl failed: var y not found")
@@ -1492,7 +1492,7 @@ var (
 	n, s = 1 + 2, "1" + "2"
 	y    string
 )
-var x string = "Hello, " + "Go+"
+var x string = "Hello, " + "XGo"
 `)
 }
 
@@ -2174,7 +2174,7 @@ func TestGoDefer(t *testing.T) { // TODO: check invalid syntax
 	fmt := pkg.Import("fmt")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).Val("Hi").Call(1).Go().
-		Val(fmt.Ref("Println")).Val("Go+").Call(1).Defer().
+		Val(fmt.Ref("Println")).Val("XGo").Call(1).Defer().
 		End()
 	domTest(t, pkg, `package main
 
@@ -2182,7 +2182,7 @@ import "fmt"
 
 func main() {
 	go fmt.Println("Hi")
-	defer fmt.Println("Go+")
+	defer fmt.Println("XGo")
 }
 `)
 }

@@ -246,7 +246,7 @@ const (
 	FlagDepModX               // depends module github.com/qiniu/x
 )
 
-// CheckGopDeps checks dependencies of Go+ modules.
+// CheckGopDeps checks dependencies of XGo modules.
 // The return flags can be FlagDepModGop and FlagDepModX.
 func (p *File) CheckGopDeps(this *Package) (flags int) {
 	p.markUsed(this)
