@@ -4313,23 +4313,17 @@ func main() {
 func TestOptionalParamCallDifferentTypes(t *testing.T) {
 	pkg := newMainPackage()
 
-	name := pkg.NewParam(token.NoPos, "name", types.Typ[types.String])
-	age := pkg.NewParamEx(token.NoPos, "age", types.Typ[types.Int], true)
-	active := pkg.NewParamEx(token.NoPos, "active", types.Typ[types.Bool], true)
-
-	params := gogen.NewTuple(name, age, active)
-	pkg.NewFunc(nil, "createUser", params, nil, false).BodyStart(pkg).End()
-
+	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Val(pkg.Types.Scope().Lookup("createUser")).Val("Alice").Call(1).EndStmt().
+		Val(bar.Ref("CreateUser")).Val("Alice").Call(1).EndStmt().
 		End()
 
 	domTest(t, pkg, `package main
 
-func createUser(name string, __xgo_optional_age int, __xgo_optional_active bool) {
-}
+import "github.com/goplus/gogen/internal/bar"
+
 func main() {
-	createUser("Alice", 0, false)
+	bar.CreateUser("Alice", 0, false)
 }
 `)
 }

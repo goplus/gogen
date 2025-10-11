@@ -755,7 +755,7 @@ retry:
 		allOptional := true
 		for i := n; i < nreq; i++ {
 			param := getParam(sig, i)
-			if !pkg.isParamOptional(param) {
+			if !isParamOptional(pkg, param) {
 				allOptional = false
 				break
 			}
@@ -801,6 +801,16 @@ retry:
 		Val: &ast.CallExpr{
 			Fun: fn.Val, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 	}, nil
+}
+
+// isParamOptional checks if a parameter is marked as optional.
+// If the parameter is from another package, it checks if its name
+// has the prefix "__xgo_optional_".
+func isParamOptional(pkg *Package, param *types.Var) bool {
+	if param.Pkg() == pkg.Types {
+		return pkg.isParamOptional(param)
+	}
+	return strings.HasPrefix(param.Name(), "__xgo_optional_")
 }
 
 func matchOverloadNamedTypeCast(pkg *Package, t *types.TypeName, src ast.Node, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
