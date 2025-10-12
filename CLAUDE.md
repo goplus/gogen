@@ -12,27 +12,6 @@
 - Template-based code generation
 - Compatible with Go 1.19+
 
-## Project Structure
-
-```
-gogen/
-├── package.go         # Main Package type and configuration
-├── codebuild.go       # CodeBuilder - core code generation engine
-├── builtin.go         # Built-in types and operations
-├── func.go            # Function and parameter handling
-├── func_ext.go        # Extended function features
-├── template.go        # Template and generic type support
-├── stmt.go            # Statement generation
-├── import.go          # Import management
-├── type_var_const.go   # Variable and constant declarations
-├── ast.go             # AST node handling
-├── packages/          # Package loading utilities
-├── internal/          # Internal utilities and helpers
-├── token/             # Token definitions
-├── typeutil/          # Type utility functions
-└── tutorial/          # Example code and tutorials
-```
-
 ## Core Concepts
 
 ### 1. Package
