@@ -290,6 +290,27 @@ func TestErrBinaryOp2(t *testing.T) {
 		})
 }
 
+func TestErrShiftOp(t *testing.T) {
+	codeErrorTest(t, `invalid shift count type (must be integer)`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val("12").BinaryOp(token.SHL).EndStmt().
+				End()
+		})
+	codeErrorTest(t, `invalid shift count type (must be integer)`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val(3.14).BinaryOp(token.SHL).EndStmt().
+				End()
+		})
+	codeErrorTest(t, `invalid shift count type (must be integer)`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val("12").BinaryOp(token.SHR).EndStmt().
+				End()
+		})
+}
+
 func TestErrTypeAssert(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: impossible type assertion:\n\tstring does not implement bar (missing Bar method)",
 		func(pkg *gogen.Package) {

@@ -536,11 +536,14 @@ func doBinaryOp(a constant.Value, tok token.Token, b constant.Value) constant.Va
 	case binaryOpCompare:
 		return constant.MakeBool(constant.Compare(a, tok, b))
 	default:
-		a, b = constant.ToInt(a), constant.ToInt(b)
-		if s, exact := constant.Int64Val(b); exact {
-			return constant.Shift(a, tok, uint(s))
+		aInt, bInt := constant.ToInt(a), constant.ToInt(b)
+		if bInt == nil || bInt.Kind() == constant.Unknown {
+			panic(errors.New("invalid shift count type (must be integer)"))
 		}
-		panic("constant value is overflow")
+		if s, exact := constant.Int64Val(bInt); exact {
+			return constant.Shift(aInt, tok, uint(s))
+		}
+		panic(errors.New("shift count too large (overflow)"))
 	}
 }
 
