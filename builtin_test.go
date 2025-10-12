@@ -1007,7 +1007,7 @@ func TestUnaryOp(t *testing.T) {
 		{CVal: a},
 	}
 	nega := unaryOp(pkg, token.SUB, args)
-	ret := doBinaryOp(nega, token.NEQ, constant.MakeInt64(-10))
+	ret := doBinaryOp(nega, token.NEQ, constant.MakeInt64(-10), nil)
 	if constant.BoolVal(ret) {
 		t.Fatal("TestUnaryOp failed:", nega)
 	}
@@ -1061,7 +1061,7 @@ func TestBinaryOp(t *testing.T) {
 func TestBinaryOp2(t *testing.T) {
 	i2 := constant.MakeImag(constant.MakeInt64(2))
 	j2 := makeComplex(constant.MakeInt64(0), constant.MakeInt64(2))
-	ret := doBinaryOp(i2, token.EQL, j2)
+	ret := doBinaryOp(i2, token.EQL, j2, nil)
 	if !constant.BoolVal(ret) {
 		t.Fatal("TestBinaryOp2 failed:", ret)
 	}
@@ -1076,7 +1076,7 @@ func TestBinaryOpIssue805(t *testing.T) {
 		{CVal: b, Type: types.Typ[types.UntypedInt]},
 	}
 	a_div_b := binaryOp(nil, token.QUO, args)
-	ret := doBinaryOp(a_div_b, token.NEQ, c)
+	ret := doBinaryOp(a_div_b, token.NEQ, c, nil)
 	if constant.BoolVal(ret) {
 		t.Fatal("TestBinaryOp failed:", a_div_b, c)
 	}
@@ -1086,7 +1086,7 @@ func TestBinaryOpIssue805(t *testing.T) {
 	}
 	a_div_b2 := binaryOp(nil, token.QUO, args2)
 	a_div_b3 := constant.BinaryOp(a, token.QUO, b)
-	ret2 := doBinaryOp(a_div_b2, token.NEQ, a_div_b3)
+	ret2 := doBinaryOp(a_div_b2, token.NEQ, a_div_b3, nil)
 	if constant.BoolVal(ret2) {
 		t.Fatal("TestBinaryOp failed:", a_div_b, c)
 	}
