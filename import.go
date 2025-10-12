@@ -314,21 +314,17 @@ func checkOverloads(scope *types.Scope, gopoName string) (ret []string, exists b
 	return
 }
 
-func setOverloadFuncs(obj types.Object, fns []types.Object) bool {
+func checkOverload[T TyFuncEx](obj types.Object) (t T, ok bool) {
 	sig, ok := obj.Type().(*types.Signature)
 	if !ok {
-		return false
+		return
 	}
 	ext, ok := CheckFuncEx(sig)
 	if !ok {
-		return false
+		return
 	}
-	typ, ok := ext.(*TyOverloadFunc)
-	if !ok {
-		return false
-	}
-	typ.Funcs = fns
-	return true
+	t, ok = ext.(T)
+	return
 }
 
 func setOverloadMethods(obj types.Object, fns []types.Object) bool {
@@ -353,25 +349,29 @@ func newOverload(pos token.Pos, pkg *types.Package, scope *types.Scope, m omthd,
 		if debugImport {
 			log.Println("==> NewOverloadFunc", m.name)
 		}
-		if obj := scope.Lookup(m.name); obj != nil {
-			if !setOverloadFuncs(obj, fns) {
-				log.Panicf("object not overload func: %v", obj)
+		var obj types.Object
+		if obj = scope.Lookup(m.name); obj != nil {
+			t, ok := checkOverload[*TyOverloadFunc](obj)
+			if !ok {
+				log.Panicf("Object not OverloadFunc: %v", obj)
 			}
-			checkXGotsx(pkg, scope, m.name, obj)
+			t.Funcs = fns
 		} else {
-			o := NewOverloadFunc(pos, pkg, m.name, fns...)
-			scope.Insert(o)
-			checkXGotsx(pkg, scope, m.name, o)
+			obj = NewOverloadFunc(pos, pkg, m.name, fns...)
+			scope.Insert(obj)
 		}
+		checkXGotsx(pkg, scope, m.name, obj)
 	} else {
 		typName := m.typ.Obj().Name()
 		if debugImport {
 			log.Println("==> NewOverloadMethod", typName, m.name)
 		}
 		if obj := findMethod(m.typ, m.name); obj != nil {
-			if !setOverloadMethods(obj, fns) {
-				log.Panicf("object not overload method: %v", obj)
+			t, ok := checkOverload[*TyOverloadMethod](obj)
+			if !ok {
+				log.Panicf("Object not OverloadMethod: %v", obj)
 			}
+			t.Methods = fns
 		} else {
 			NewOverloadMethod(m.typ, pos, pkg, m.name, fns...)
 		}
