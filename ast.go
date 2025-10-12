@@ -538,7 +538,7 @@ func doBinaryOp(a constant.Value, tok token.Token, b constant.Value, ctx []*inte
 	default:
 		a, b = constant.ToInt(a), constant.ToInt(b)
 		if b.Kind() == constant.Unknown {
-			log.Panicf("invalid shift count: cannot convert type %v to type uint", ctx[1].Type)
+			panic(fmt.Errorf("invalid shift count: cannot convert type %v to type uint", ctx[1].Type))
 		}
 		if s, exact := constant.Int64Val(b); exact {
 			return constant.Shift(a, tok, uint(s))

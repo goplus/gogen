@@ -279,6 +279,15 @@ func TestErrBinaryOp(t *testing.T) {
 		})
 }
 
+func TestErrShiftString(t *testing.T) {
+	codeErrorTest(t, `invalid shift count: cannot convert type untyped string to type uint`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val("12").BinaryOp(token.SHL).EndStmt().
+				End()
+		})
+}
+
 func TestErrBinaryOp2(t *testing.T) {
 	codeErrorTest(t, `-: invalid operation: operator <> not defined on a (int)`,
 		func(pkg *gogen.Package) {
