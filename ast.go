@@ -499,7 +499,7 @@ func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.
 			if tok == token.QUO && isNormalInt(cb, args[0]) && isNormalInt(cb, args[1]) {
 				tok = token.QUO_ASSIGN // issue #805
 			}
-			return doBinaryOp(a, tok, b)
+			return doBinaryOp(a, tok, b, args)
 		}
 	}
 	return nil
@@ -529,7 +529,7 @@ retry:
 	return false
 }
 
-func doBinaryOp(a constant.Value, tok token.Token, b constant.Value) constant.Value {
+func doBinaryOp(a constant.Value, tok token.Token, b constant.Value, ctx []*internal.Elem) constant.Value {
 	switch binaryOpKinds[tok] {
 	case binaryOpNormal:
 		return constant.BinaryOp(a, tok, b)
@@ -537,10 +537,13 @@ func doBinaryOp(a constant.Value, tok token.Token, b constant.Value) constant.Va
 		return constant.MakeBool(constant.Compare(a, tok, b))
 	default:
 		a, b = constant.ToInt(a), constant.ToInt(b)
+		if b.Kind() == constant.Unknown {
+			panic(fmt.Errorf("invalid shift count: cannot convert type %v to type uint", ctx[1].Type))
+		}
 		if s, exact := constant.Int64Val(b); exact {
 			return constant.Shift(a, tok, uint(s))
 		}
-		panic("constant value is overflow")
+		panic(errors.New("shift count too large (overflow)"))
 	}
 }
 
