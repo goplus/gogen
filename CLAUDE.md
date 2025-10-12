@@ -24,7 +24,7 @@ gogen/
 ├── template.go        # Template and generic type support
 ├── stmt.go            # Statement generation
 ├── import.go          # Import management
-├── type_*.go          # Type system utilities
+├── type_var_const.go   # Variable and constant declarations
 ├── ast.go             # AST node handling
 ├── packages/          # Package loading utilities
 ├── internal/          # Internal utilities and helpers
@@ -195,7 +195,7 @@ The project uses GitHub Actions:
   - `package_test.go`: Package-level features
   - `typeparams_test.go`: Generic types
   - `error_msg_test.go`: Error message formatting
-  - `xgo_test.go`: Extended Go+ features
+  - `xgo_test.go`: Extended XGo features
 - Always add tests for new features
 - Ensure tests pass on all supported Go versions
 
@@ -210,10 +210,10 @@ The project uses GitHub Actions:
 
 ## Related Projects
 
-This project is part of the Go+ (goplus) ecosystem:
-- Used by the Go+ compiler for code generation
-- Integrates with the Go+ type system
-- Supports Go+ language extensions
+This project is part of the XGo (goplus) ecosystem:
+- Used by the XGo compiler for code generation
+- Integrates with the XGo type system
+- Supports XGo language extensions
 
 ## Useful Commands
 
@@ -246,4 +246,4 @@ go vet ./...
 - Check the tutorial examples in `tutorial/`
 - Review test files for usage patterns
 - Refer to Go's `go/types` package documentation
-- Look at the Go+ project documentation at https://goplus.org
+- Look at the XGo project documentation at https://goplus.org
