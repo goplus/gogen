@@ -28,6 +28,7 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/typesalias"
+	xtoken "github.com/goplus/gogen/token"
 )
 
 var (
@@ -532,6 +533,15 @@ retry:
 func doBinaryOp(a constant.Value, tok token.Token, b constant.Value) constant.Value {
 	switch binaryOpKinds[tok] {
 	case binaryOpNormal:
+		defer func() {
+			if r := recover(); r != nil {
+				// Re-panic with error type for proper handling
+				if msg, ok := r.(string); ok {
+					panic(errors.New(msg))
+				}
+				panic(r)
+			}
+		}()
 		return constant.BinaryOp(a, tok, b)
 	case binaryOpCompare:
 		return constant.MakeBool(constant.Compare(a, tok, b))
@@ -723,7 +733,29 @@ retry:
 		if t.isUnaryOp() {
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
-			cval = binaryOp(&pkg.cb, t.tok(), args)
+			tok := t.tok()
+			// Shift operations have specific error messages, don't intercept them
+			if tok != token.SHL && tok != token.SHR {
+				defer func() {
+					if r := recover(); r != nil {
+						// If constant operation fails due to type mismatch,
+						// re-throw with proper error format
+						if _, ok := r.(error); ok {
+							opstr := xtoken.String(tok)
+							src, pos, end := pkg.cb.loadExpr(fn.Src)
+							if src == "" {
+								src = opstr
+							}
+							arg0 := args[0].Type
+							arg1 := args[1].Type
+							pkg.cb.panicCodeErrorf(
+								pos, end, "invalid operation: %s (mismatched types %v and %v)", src, arg0, arg1)
+						}
+						panic(r)
+					}
+				}()
+			}
+			cval = binaryOp(&pkg.cb, tok, args)
 		} else if t.hasApproxType() {
 			flags |= instrFlagApproxType
 		}

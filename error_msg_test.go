@@ -311,6 +311,33 @@ func TestErrShiftOp(t *testing.T) {
 		})
 }
 
+func TestErrBinaryOpWithString(t *testing.T) {
+	codeErrorTest(t, `-: invalid operation: + (mismatched types untyped int and untyped string)`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val("12").BinaryOp(token.ADD).EndStmt().
+				End()
+		})
+	codeErrorTest(t, `-: invalid operation: - (mismatched types untyped int and untyped string)`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val("12").BinaryOp(token.SUB).EndStmt().
+				End()
+		})
+	codeErrorTest(t, `-: invalid operation: * (mismatched types untyped int and untyped string)`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val("12").BinaryOp(token.MUL).EndStmt().
+				End()
+		})
+	codeErrorTest(t, `-: invalid operation: & (mismatched types untyped int and untyped string)`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val("12").BinaryOp(token.AND).EndStmt().
+				End()
+		})
+}
+
 func TestErrTypeAssert(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: impossible type assertion:\n\tstring does not implement bar (missing Bar method)",
 		func(pkg *gogen.Package) {
