@@ -327,23 +327,6 @@ func checkOverload[T TyFuncEx](obj types.Object) (t T, ok bool) {
 	return
 }
 
-func setOverloadMethods(obj types.Object, fns []types.Object) bool {
-	sig, ok := obj.Type().(*types.Signature)
-	if !ok {
-		return false
-	}
-	ext, ok := CheckFuncEx(sig)
-	if !ok {
-		return false
-	}
-	typ, ok := ext.(*TyOverloadMethod)
-	if !ok {
-		return false
-	}
-	typ.Methods = fns
-	return true
-}
-
 func newOverload(pos token.Pos, pkg *types.Package, scope *types.Scope, m omthd, fns []types.Object) {
 	if m.typ == nil {
 		if debugImport {
