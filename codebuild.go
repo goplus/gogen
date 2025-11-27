@@ -1719,6 +1719,13 @@ retry:
 		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
 		}
+		for j := 0; j < o.NumEmbeddeds(); j++ {
+			if t, ok := o.EmbeddedType(j).(*types.Named); ok {
+				if kind := p.method(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+					return kind
+				}
+			}
+		}
 	case *types.Basic, *types.Slice, *types.Map, *types.Chan:
 		return p.btiMethod(p.getBuiltinTI(o), name, aliasName, flag, srcExpr)
 	}
