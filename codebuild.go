@@ -1719,6 +1719,19 @@ retry:
 		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 			return kind
 		}
+
+		// When an interface embeds an interface that was used to implement
+		// overloads, go/types may use the embedded type's Underlying as the
+		// type set. That can cause suffixed overload implementations (e.g.
+		// methods named like "step__0", "step__1") to not appear in the
+		// original Named's method set, effectively disabling the overload.
+		//
+		// To work around this, walk the embedded types and, if an embedded
+		// item is a *types.Named, check its methods as well via p.method.
+		// For ordinary embedded interfaces the corresponding *types.Named
+		// will typically have NumMethods == 0, so this check is a no-op for
+		// normal embedding and only helps the overload edge-case described
+		// above.
 		for j := 0; j < o.NumEmbeddeds(); j++ {
 			if t, ok := o.EmbeddedType(j).(*types.Named); ok {
 				if kind := p.method(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
