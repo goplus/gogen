@@ -44,3 +44,45 @@ func TestCircularEmbeddedFieldLookup(t *testing.T) {
 		t.Fatal("Member should return MemberInvalid for circular embedding")
 	}
 }
+
+func TestFindMember(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.CB()
+
+	// create interface
+	// type Impl interface {
+	//     step__0()
+	//     step__1()
+	// }
+	fn0 := types.NewFunc(token.NoPos, pkg.Types, "step__0", types.NewSignatureType(nil, nil, nil, nil, nil, false))
+	fn1 := types.NewFunc(token.NoPos, pkg.Types, "step__1", types.NewSignatureType(nil, nil, nil, nil, nil, false))
+	iface := types.NewInterfaceType([]*types.Func{fn0, fn1}, []types.Type{})
+	tnamed := types.NewTypeName(token.NoPos, pkg.Types, "Impl", nil)
+	named := types.NewNamed(tnamed, iface, nil)
+	cb.Scope().Insert(named.Obj())
+
+	// then call init to process overloads etc in the package
+	InitThisGopPkg(pkg.Types)
+
+	// create an interface that has method foo and embeds Impl
+	// type Impl2 interface {
+	//     foo()
+	//     Impl
+	// }
+	var methods []*types.Func
+	var embeddeds []types.Type
+	mthd := types.NewFunc(token.NoPos, pkg.Types, "foo", types.NewSignatureType(nil, nil, nil, nil, nil, false))
+	methods = append(methods, mthd)
+	embeddeds = append(embeddeds, named)
+	iface2 := types.NewInterfaceType(methods, embeddeds)
+	tnamed2 := types.NewTypeName(token.NoPos, pkg.Types, "Impl2", nil)
+	named2 := types.NewNamed(tnamed2, iface2, nil)
+
+	// push an element whose type is the interface
+	cb.stk.Push(&Element{Type: named2})
+
+	kind, _ := cb.Member("step", MemberFlagVal)
+	if kind != MemberMethod {
+		t.Fatalf("expected MemberMethod (1), got %v", kind)
+	}
+}
