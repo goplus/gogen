@@ -535,7 +535,8 @@ func TestErrAssign(t *testing.T) {
 		func(pkg *gogen.Package) {
 			retInt := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
 			retErr := pkg.NewParam(position(1, 15), "", gogen.TyError)
-			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).End()
+			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
+				ZeroLit(types.Typ[types.Int]).ZeroLit(gogen.TyError).Return(2).End()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.Int], "x").
 				VarRef(ctxRef(pkg, "x")).
@@ -648,7 +649,8 @@ func TestErrReturn(t *testing.T) {
 			retErr := pkg.NewParam(position(1, 15), "", gogen.TyError)
 			retInt2 := pkg.NewParam(position(3, 10), "", types.Typ[types.Int])
 			retByte := pkg.NewParam(position(3, 15), "", gogen.TyByte)
-			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt2, retByte), false).BodyStart(pkg).End()
+			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt2, retByte), false).BodyStart(pkg).
+				ZeroLit(types.Typ[types.Int]).ZeroLit(gogen.TyByte).Return(2).End()
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
 				CallWith(0, 0, source("bar()", 2, 9)).
@@ -680,7 +682,8 @@ func TestErrReturn(t *testing.T) {
 			retInt := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
 			retErr := pkg.NewParam(position(1, 15), "", gogen.TyError)
 			ret := pkg.NewParam(position(3, 10), "", gogen.TyByte)
-			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(ret), false).BodyStart(pkg).End()
+			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(ret), false).BodyStart(pkg).
+				ZeroLit(gogen.TyByte).Return(1).End()
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
 				CallWith(0, 0, source("bar()", 2, 9)).
@@ -691,7 +694,8 @@ func TestErrReturn(t *testing.T) {
 		func(pkg *gogen.Package) {
 			retInt := pkg.NewParam(position(3, 10), "", types.Typ[types.Int])
 			retErr := pkg.NewParam(position(3, 15), "", gogen.TyError)
-			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).End()
+			newFunc(pkg, 3, 5, 3, 7, nil, "bar", nil, types.NewTuple(retInt, retErr), false).BodyStart(pkg).
+				ZeroLit(types.Typ[types.Int]).ZeroLit(gogen.TyError).Return(2).End()
 			ret := pkg.NewParam(position(1, 10), "", gogen.TyByte)
 			newFunc(pkg, 1, 5, 1, 7, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
 				Val(ctxRef(pkg, "bar")).
@@ -713,6 +717,97 @@ func TestErrInitFunc(t *testing.T) {
 		v := pkg.NewParam(token.NoPos, "v", gogen.TyByte)
 		newFunc(pkg, 1, 5, 1, 7, nil, "init", types.NewTuple(v), nil, false).BodyStart(pkg).End()
 	})
+}
+
+func TestErrMissingReturn(t *testing.T) {
+	// Function with return value but empty body
+	codeErrorTest(t, "./foo.gop:3:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+		newFunc(pkg, 1, 5, 3, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+			NewVar(types.Typ[types.Int], "x").
+			End(source("}", 3, 1))
+	})
+	// Function with return value, has if but no else
+	codeErrorTest(t, "./foo.gop:6:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+		newFunc(pkg, 1, 5, 6, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+			If().Val(true).Then().
+			/**/ Val(1).Return(1).
+			/**/ End().
+			End(source("}", 6, 1))
+	})
+	// Switch without default case
+	codeErrorTest(t, "./foo.gop:8:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+		newFunc(pkg, 1, 5, 8, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+			Switch().Val(1).Then().
+			/**/ Case().Val(1).Then().Val(1).Return(1).End().
+			/**/ End().
+			End(source("}", 8, 1))
+	})
+	// For loop with condition (not infinite)
+	codeErrorTest(t, "./foo.gop:5:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
+		newFunc(pkg, 1, 5, 5, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+			For().Val(true).Then().
+			/**/ Val(1).Return(1).
+			/**/ End().
+			End(source("}", 5, 1))
+	})
+}
+
+func TestMissingReturnValid(t *testing.T) {
+	// Function with return statement - should not error
+	pkg := newMainPackage()
+	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	newFunc(pkg, 1, 5, 3, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		Val(1).Return(1).
+		End()
+
+	// Function with if-else both returning - should not error
+	pkg = newMainPackage()
+	ret = pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	newFunc(pkg, 1, 5, 6, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		If().Val(true).Then().
+		/**/ Val(1).Return(1).
+		/**/ Else().
+		/**/ Val(2).Return(1).
+		/**/ End().
+		End()
+
+	// Switch with default and all cases returning - should not error
+	pkg = newMainPackage()
+	ret = pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	newFunc(pkg, 1, 5, 10, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		Switch().Val(1).Then().
+		/**/ Case().Val(1).Then().Val(1).Return(1).End().
+		/**/ Case().Then().Val(2).Return(1).End(). // default case
+		/**/ End().
+		End()
+
+	// Infinite for loop (no condition) - should not error
+	pkg = newMainPackage()
+	ret = pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	newFunc(pkg, 1, 5, 5, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		For().None().Then().
+		/**/ Val(1).Return(1).
+		/**/ End().
+		End()
+
+	// Function with no return value - should not error
+	pkg = newMainPackage()
+	newFunc(pkg, 1, 5, 3, 1, nil, "foo", nil, nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.Int], "x").
+		End()
+
+	// Closure with return - should not error
+	pkg = newMainPackage()
+	cb := pkg.CB()
+	retType := types.NewTuple(types.NewVar(token.NoPos, nil, "", types.Typ[types.Int]))
+	sig := types.NewSignatureType(nil, nil, nil, nil, retType, false)
+	cb.NewClosureWith(sig).BodyStart(pkg).
+		Val(42).Return(1).
+		End()
 }
 
 func TestErrRecv(t *testing.T) {

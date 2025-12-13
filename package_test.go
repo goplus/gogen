@@ -2037,10 +2037,12 @@ func TestDelayedLoadUnused(t *testing.T) {
 	n := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
 	err := pkg.NewParam(token.NoPos, "", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", gogen.NewTuple(format, args), gogen.NewTuple(n, err), true).BodyStart(pkg).
+		ZeroLit(types.Typ[types.Int]).ZeroLit(types.Universe.Lookup("error").Type()).Return(2).
 		End()
 	domTest(t, pkg, `package main
 
 func foo(format string, args ...interface{}) (int, error) {
+	return 0, nil
 }
 `)
 }
@@ -3512,6 +3514,7 @@ func TestCallInlineClosure(t *testing.T) {
 		/**/ Val(ctxRef(pkg, "n")).Return(1).
 		/**/ End().
 		EndInit(1).
+		ZeroLit(gogen.TyError).Return(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -3529,6 +3532,7 @@ func foo() error {
 	_autoGo_2:
 	}
 	n := _autoGo_1
+	return nil
 }
 `)
 }
