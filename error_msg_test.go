@@ -725,6 +725,7 @@ func TestErrMissingReturn(t *testing.T) {
 		ret := pkg.NewParam(position(1, 10), "", types.Typ[types.Int])
 		newFunc(pkg, 1, 5, 3, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
 			NewVar(types.Typ[types.Int], "x").
+			VarRef(nil).VarVal("x").Assign(1).EndStmt().
 			End(source("}", 3, 1))
 	})
 	// Function with return value, has if but no else
@@ -798,6 +799,7 @@ func TestMissingReturnValid(t *testing.T) {
 	pkg = newMainPackage()
 	newFunc(pkg, 1, 5, 3, 1, nil, "foo", nil, nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.Int], "x").
+		VarRef(nil).VarVal("x").Assign(1).EndStmt().
 		End()
 
 	// Closure with return - should not error
@@ -807,6 +809,243 @@ func TestMissingReturnValid(t *testing.T) {
 	sig := types.NewSignatureType(nil, nil, nil, nil, retType, false)
 	cb.NewClosureWith(sig).BodyStart(pkg).
 		Val(42).Return(1).
+		End()
+}
+
+func newMainPackageWithUnusedVarCheck() *gogen.Package {
+	conf := &gogen.Config{
+		Fset:            gblFset,
+		Importer:        gblImp,
+		NodeInterpreter: nodeInterp{},
+		DbgPositioner:   nodeInterp{},
+	}
+	return gogen.NewPackage("", "main", conf)
+}
+
+func TestErrUnusedVar(t *testing.T) {
+	// Simple unused variable
+	t.Run("SimpleUnusedVar", func(t *testing.T) {
+		pkg := newMainPackageWithUnusedVarCheck()
+		codeErrorTestEx(t, pkg, "./foo.gop:2:5: x declared and not used", func(pkg *gogen.Package) {
+			newFunc(pkg, 1, 5, 3, 1, nil, "foo", nil, nil, false).BodyStart(pkg).
+				DefineVarStart(position(2, 5), "x").Val(0).EndInit(1).
+				End()
+		})
+	})
+
+	// Unused variable in nested scope (if block)
+	t.Run("UnusedVarInNestedScope", func(t *testing.T) {
+		pkg := newMainPackageWithUnusedVarCheck()
+		codeErrorTestEx(t, pkg, "./foo.gop:3:5: y declared and not used", func(pkg *gogen.Package) {
+			newFunc(pkg, 1, 5, 5, 1, nil, "foo", nil, nil, false).BodyStart(pkg).
+				If().Val(true).Then().
+				/**/ DefineVarStart(position(3, 5), "y").Val(0).EndInit(1).
+				/**/ End().
+				End()
+		})
+	})
+
+	// Multiple unused variables - first one is reported
+	t.Run("MultipleUnusedVars", func(t *testing.T) {
+		pkg := newMainPackageWithUnusedVarCheck()
+		codeErrorTestEx(t, pkg, "./foo.gop:2:5: a declared and not used", func(pkg *gogen.Package) {
+			newFunc(pkg, 1, 5, 4, 1, nil, "foo", nil, nil, false).BodyStart(pkg).
+				DefineVarStart(position(2, 5), "a").Val(0).EndInit(1).
+				DefineVarStart(position(3, 5), "b").Val(0).EndInit(1).
+				End()
+		})
+	})
+
+	// Unused variable in for range loop
+	t.Run("UnusedVarInForRange", func(t *testing.T) {
+		pkg := newMainPackageWithUnusedVarCheck()
+		tySlice := types.NewSlice(types.Typ[types.Int])
+		codeErrorTestEx(t, pkg, "./foo.gop:3:5: k declared and not used", func(pkg *gogen.Package) {
+			newFunc(pkg, 1, 5, 5, 1, nil, "foo", nil, nil, false).BodyStart(pkg).
+				NewVarStart(tySlice, "a").ZeroLit(tySlice).EndInit(1).
+				ForRange("k", "v").VarVal("a").RangeAssignThen(position(3, 5)).
+				/**/ Val(pkg.Builtin().Ref("println")).VarVal("v").Call(1).EndStmt().
+				/**/ End().
+				End()
+		})
+	})
+
+	// Unused variable in type switch
+	t.Run("UnusedVarInTypeSwitch", func(t *testing.T) {
+		pkg := newMainPackageWithUnusedVarCheck()
+		v := pkg.NewParam(token.NoPos, "v", gogen.TyEmptyInterface)
+		codeErrorTestEx(t, pkg, "./foo.gop:3:2: x declared and not used", func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+				TypeSwitch("x").VarVal("v").TypeAssertThen().
+				/**/ TypeCase().Typ(types.Typ[types.Int]).Then(source("case int:", 3, 2)).
+				/****/ Val(pkg.Builtin().Ref("println")).Val("int").Call(1).EndStmt().
+				/**/ End().
+				/**/ End().
+				End()
+		})
+	})
+
+	// Unused variable in select case
+	t.Run("UnusedVarInSelect", func(t *testing.T) {
+		pkg := newMainPackageWithUnusedVarCheck()
+		tyXchg := types.NewChan(types.SendRecv, types.Typ[types.Int])
+		codeErrorTestEx(t, pkg, "./foo.gop:4:7: x declared and not used", func(pkg *gogen.Package) {
+			newFunc(pkg, 1, 5, 7, 1, nil, "foo", nil, nil, false).BodyStart(pkg).
+				NewVarStart(tyXchg, "xchg").ZeroLit(tyXchg).EndInit(1).
+				Select().
+				/**/ CommCase().DefineVarStart(position(4, 7), "x").VarVal("xchg").UnaryOp(token.ARROW).EndInit(1).Then().
+				/****/ Val(pkg.Builtin().Ref("println")).Val("received").Call(1).EndStmt().
+				/**/ End().
+				/**/ End().
+				End()
+		})
+	})
+
+	// Unused variable in for loop init
+	t.Run("UnusedVarInForInit", func(t *testing.T) {
+		pkg := newMainPackageWithUnusedVarCheck()
+		codeErrorTestEx(t, pkg, "./foo.gop:2:5: i declared and not used", func(pkg *gogen.Package) {
+			newFunc(pkg, 1, 5, 5, 1, nil, "foo", nil, nil, false).BodyStart(pkg).
+				For().DefineVarStart(position(2, 5), "i").Val(0).EndInit(1).
+				/**/ None().Then().
+				/**/ Break(nil).
+				/**/ End().
+				End()
+		})
+	})
+}
+
+func TestUnusedVarValid(t *testing.T) {
+	// Create a package with unused variable check enabled
+	conf := &gogen.Config{
+		Fset:            gblFset,
+		Importer:        gblImp,
+		NodeInterpreter: nodeInterp{},
+		DbgPositioner:   nodeInterp{},
+	}
+	pkg := gogen.NewPackage("", "main", conf)
+
+	// Variable is used - should not error
+	pkg.NewFunc(nil, "test1", nil, nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.Int], "x").
+		VarRef(nil).VarVal("x").Assign(1).EndStmt().
+		End()
+
+	// Variable used in expression - should not error
+	pkg.NewFunc(nil, "test2", nil, nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.Int], "y").
+		VarRef(nil).VarVal("y").Val(1).BinaryOp(token.ADD).Assign(1).EndStmt().
+		End()
+
+	// Function parameter - should not be checked
+	ret := pkg.NewParam(token.NoPos, "result", types.Typ[types.Int])
+	pkg.NewFunc(nil, "test3", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		Val(0).Return(1).
+		End()
+
+	// Variable used in single-level closure - should not error
+	pkg.NewFunc(nil, "test4", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "x").Val(1).EndInit(1).
+		NewClosure(nil, nil, false).BodyStart(pkg).
+		Val(pkg.Builtin().Ref("println")).VarVal("x").Call(1).EndStmt().
+		End().Call(0).EndStmt().
+		End()
+
+	// Variable used in double-level nested closure - should not error
+	pkg.NewFunc(nil, "test5", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "y").Val(2).EndInit(1).
+		NewClosure(nil, nil, false).BodyStart(pkg).
+		NewClosure(nil, nil, false).BodyStart(pkg).
+		Val(pkg.Builtin().Ref("println")).VarVal("y").Call(1).EndStmt().
+		End().Call(0).EndStmt().
+		End().Call(0).EndStmt().
+		End()
+
+	// Variable used in triple-level nested closure - should not error
+	pkg.NewFunc(nil, "test6", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "z").Val(3).EndInit(1).
+		NewClosure(nil, nil, false).BodyStart(pkg).
+		NewClosure(nil, nil, false).BodyStart(pkg).
+		NewClosure(nil, nil, false).BodyStart(pkg).
+		Val(pkg.Builtin().Ref("println")).VarVal("z").Call(1).EndStmt().
+		End().Call(0).EndStmt().
+		End().Call(0).EndStmt().
+		End().Call(0).EndStmt().
+		End()
+
+	// For range variables used - should not error
+	pkg.NewFunc(nil, "test7", nil, nil, false).BodyStart(pkg).
+		NewVar(types.NewSlice(types.Typ[types.Int]), "a").
+		VarRef(nil).VarVal("a").Assign(1).EndStmt().
+		ForRange("k", "v").VarVal("a").RangeAssignThen(token.NoPos).
+		/**/ Val(pkg.Builtin().Ref("println")).VarVal("k").VarVal("v").Call(2).EndStmt().
+		/**/ End().
+		End()
+
+	// Type switch variable used - should not error
+	v := pkg.NewParam(token.NoPos, "v", gogen.TyEmptyInterface)
+	pkg.NewFunc(nil, "test8", types.NewTuple(v), nil, false).BodyStart(pkg).
+		TypeSwitch("x").VarVal("v").TypeAssertThen().
+		/**/ TypeCase().Typ(types.Typ[types.Int]).Then().
+		/****/ Val(pkg.Builtin().Ref("println")).VarVal("x").Call(1).EndStmt().
+		/**/ End().
+		/**/ End().
+		End()
+
+	// Select receive variable used - should not error
+	tyXchg := types.NewChan(types.SendRecv, types.Typ[types.Int])
+	pkg.NewFunc(nil, "test9", nil, nil, false).BodyStart(pkg).
+		NewVar(tyXchg, "xchg").
+		VarRef(nil).VarVal("xchg").Assign(1).EndStmt().
+		Select().
+		/**/ CommCase().DefineVarStart(0, "x").VarVal("xchg").UnaryOp(token.ARROW).EndInit(1).Then().
+		/****/ Val(pkg.Builtin().Ref("println")).VarVal("x").Call(1).EndStmt().
+		/**/ End().
+		/**/ End().
+		End()
+
+	// For loop init variable used - should not error
+	pkg.NewFunc(nil, "test10", nil, nil, false).BodyStart(pkg).
+		For().DefineVarStart(0, "i").Val(0).EndInit(1).
+		/**/ VarVal("i").Val(10).BinaryOp(token.LSS).Then().
+		/**/ Val(pkg.Builtin().Ref("println")).VarVal("i").Call(1).EndStmt().
+		/**/ Post().
+		/**/ VarRef(ctxRef(pkg, "i")).VarVal("i").Val(1).BinaryOp(token.ADD).Assign(1).EndStmt().
+		/**/ End().
+		End()
+
+	// Blank identifier in type switch - should not error
+	v2 := pkg.NewParam(token.NoPos, "v", gogen.TyEmptyInterface)
+	pkg.NewFunc(nil, "test11", types.NewTuple(v2), nil, false).BodyStart(pkg).
+		TypeSwitch("_").VarVal("v").TypeAssertThen().
+		/**/ TypeCase().Typ(types.Typ[types.Int]).Then(source("case int:", 3, 2)).
+		/****/ Val(pkg.Builtin().Ref("println")).Val("int").Call(1).EndStmt().
+		/**/ End().
+		/**/ End().
+		End()
+
+	// Blank identifier as receiver - should not error
+	tyT := pkg.NewType("T").InitType(pkg, types.Typ[types.Int])
+	recv := pkg.NewParam(position(1, 7), "_", tyT)
+	pkg.NewFunc(recv, "method", nil, nil, false).BodyStart(pkg).
+		End()
+
+	// Blank identifier as parameter - should not error
+	blankParam := pkg.NewParam(position(1, 10), "_", types.Typ[types.Int])
+	pkg.NewFunc(nil, "test12", types.NewTuple(blankParam), nil, false).BodyStart(pkg).
+		End()
+
+	// Blank identifier in for range - should not error
+	tySlice2 := types.NewSlice(types.Typ[types.Int])
+	pkg.NewFunc(nil, "test13", nil, nil, false).BodyStart(pkg).
+		NewVarStart(tySlice2, "s").ZeroLit(tySlice2).EndInit(1).
+		ForRange("_", "v").VarVal("s").RangeAssignThen(position(3, 5)).
+		/**/ Val(pkg.Builtin().Ref("println")).VarVal("v").Call(1).EndStmt().
+		/**/ End().
+		End()
+
+	// Blank identifier as function name - should not error
+	pkg.NewFunc(nil, "_", nil, nil, false).BodyStart(pkg).
 		End()
 }
 
