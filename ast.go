@@ -913,8 +913,9 @@ finish:
 		valArgs[i] = v.Val
 	}
 	ret = &internal.Elem{
-		Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
-		Type: typ,
+		Val:   &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
+		Type:  typ,
+		Flags: internal.ElemFlagTypeCast,
 	}
 	if len(args) == 1 { // TODO: const value may changed by type-convert
 		ret.CVal = args[0].CVal

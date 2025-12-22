@@ -3377,14 +3377,14 @@ func TestBinaryOpSHL(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.Int32], "a").
 		NewVar(types.Typ[types.Int], "b").
-		VarVal("b").Val(1).VarVal("a").BinaryOp(token.SHL).BinaryOp(token.AND).EndStmt().
+		VarRef(nil).VarVal("b").Val(1).VarVal("a").BinaryOp(token.SHL).BinaryOp(token.AND).Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
 func main() {
 	var a int32
 	var b int
-	b & (1 << a)
+	_ = b & (1 << a)
 }
 `)
 }
@@ -4352,6 +4352,187 @@ func test(x int, __xgo_optional_y int, z ...string) {
 }
 func main() {
 	test(1, 0)
+}
+`)
+}
+
+func TestValidStmtExpr(t *testing.T) {
+	// Function call as statement - should pass
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("hello").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("hello")
+}
+`)
+}
+
+func TestValidStmtExprRecv(t *testing.T) {
+	// Receive operation as statement - should pass
+	pkg := newMainPackage()
+	tyChan := types.NewChan(types.RecvOnly, types.Typ[types.Int])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyChan, "ch").
+		VarVal("ch").UnaryOp(token.ARROW).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var ch <-chan int
+	<-ch
+}
+`)
+}
+
+func TestValidStmtExprClose(t *testing.T) {
+	// close() as statement - should pass (no return value)
+	pkg := newMainPackage()
+	tyChan := types.NewChan(types.SendOnly, types.Typ[types.Int])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyChan, "ch").
+		Val(pkg.Builtin().Ref("close")).VarVal("ch").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var ch chan<- int
+	close(ch)
+}
+`)
+}
+
+func TestValidStmtExprDelete(t *testing.T) {
+	// delete() as statement - should pass (no return value)
+	pkg := newMainPackage()
+	tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyMap, "m").
+		Val(pkg.Builtin().Ref("delete")).VarVal("m").Val("key").Call(2).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var m map[string]int
+	delete(m, "key")
+}
+`)
+}
+
+func TestValidStmtExprCopy(t *testing.T) {
+	// copy() as statement - should pass (return value can be ignored)
+	pkg := newMainPackage()
+	tySlice := types.NewSlice(types.Typ[types.Int])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tySlice, "dst").
+		NewVar(tySlice, "src").
+		Val(pkg.Builtin().Ref("copy")).VarVal("dst").VarVal("src").Call(2).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var dst []int
+	var src []int
+	copy(dst, src)
+}
+`)
+}
+
+func TestValidStmtExprRecover(t *testing.T) {
+	// recover() as statement - should pass (return value can be ignored)
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(pkg.Builtin().Ref("recover")).Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	recover()
+}
+`)
+}
+
+func TestValidStmtExprPanic(t *testing.T) {
+	// panic() as statement - should pass (no return)
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(pkg.Builtin().Ref("panic")).Val("error").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	panic("error")
+}
+`)
+}
+
+func TestValidStmtExprPrint(t *testing.T) {
+	// print() as statement - should pass
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(pkg.Builtin().Ref("print")).Val("hello").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	print("hello")
+}
+`)
+}
+
+func TestValidStmtExprPrintln(t *testing.T) {
+	// println() as statement - should pass
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(pkg.Builtin().Ref("println")).Val("hello").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	println("hello")
+}
+`)
+}
+
+func TestValidStmtExprClear(t *testing.T) {
+	// clear() as statement - should pass (Go 1.21+)
+	pkg := newMainPackage()
+	tyMap := types.NewMap(types.Typ[types.Int], types.Typ[types.Int])
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(tyMap, "m").
+		Val(pkg.Builtin().Ref("clear")).VarVal("m").Call(1).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var m map[int]int
+	clear(m)
+}
+`)
+}
+
+func TestValidStmtExprUserFunc(t *testing.T) {
+	// User-defined function with return value as statement - should pass
+	pkg := newMainPackage()
+	retType := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", types.Typ[types.Int]))
+	pkg.NewFunc(nil, "foo", nil, retType, false).BodyStart(pkg).
+		Val(1).Return(1).
+		End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(pkg.Ref("foo")).Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func foo() int {
+	return 1
+}
+func main() {
+	foo()
 }
 `)
 }
