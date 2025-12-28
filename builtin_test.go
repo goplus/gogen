@@ -770,7 +770,7 @@ func TestCheckSigFuncExObjects(t *testing.T) {
 		count int
 	}{
 		{"TyOverloadFunc", sigFuncEx(nil, nil, &TyOverloadFunc{objs}), 2},
-		{"TyOverloadMethod", sigFuncEx(nil, nil, &TyOverloadMethod{objs}), 2},
+		{"TyOverloadMethod", sigFuncEx(nil, nil, &TyOverloadMethod{Methods: objs}), 2},
 		{"TyTemplateRecvMethod", sigFuncEx(nil, nil, &TyTemplateRecvMethod{types.NewParam(0, nil, "", tyInt)}), 1},
 		{"TyTemplateRecvMethod", sigFuncEx(nil, nil, &TyTemplateRecvMethod{fn}), 2},
 		{"TyOverloadNamed", sigFuncEx(nil, nil, &TyOverloadNamed{Types: []*types.Named{named}}), 1},
