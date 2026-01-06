@@ -9,7 +9,6 @@
 package printer
 
 import (
-	"bytes"
 	"go/ast"
 	"go/token"
 	"math"
@@ -154,7 +153,8 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 			if i > 0 {
 				// use position of expression following the comma as
 				// comma position for correct comment placement
-				p.print(x.Pos(), token.COMMA, blank)
+				p.setPos(x.Pos())
+				p.print(token.COMMA, blank)
 			}
 			p.expr0(x, depth)
 		}
@@ -245,7 +245,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 			// comma position for correct comment placement, but
 			// only if the expression is on the same line.
 			if !needsLinebreak {
-				p.print(x.Pos())
+				p.setPos(x.Pos())
 			}
 			p.print(token.COMMA)
 			needsBlank := true
@@ -382,7 +382,7 @@ func (p *printer) parameters(fields *ast.FieldList, mode paramMode) {
 		if closing := p.lineFor(fields.Closing); 0 < prevLine && prevLine < closing {
 			p.print(token.COMMA)
 			p.linebreak(closing, 0, ignore, true)
-		} else if mode == typeTParam && fields.NumFields() == 1 && combinesWithName(fields.List[0].Type) {
+		} else if mode == typeTParam && fields.NumFields() == 1 && combinesWithName(stripParensAlways(fields.List[0].Type)) {
 			// A type parameter list [P T] where the name P and the type expression T syntactically
 			// combine to another valid (value) expression requires a trailing comma, as in [P *T,]
 			// (or an enclosing interface as in [P interface(*T)]), so that the type parameter list
@@ -402,7 +402,7 @@ func (p *printer) parameters(fields *ast.FieldList, mode paramMode) {
 // combinesWithName reports whether a name followed by the expression x
 // syntactically combines to another valid (value) expression. For instance
 // using *T for x, "name *T" syntactically appears as the expression x*T.
-// On the other hand, using  P|Q or *P|~Q for x, "name P|Q" or name *P|~Q"
+// On the other hand, using  P|Q or *P|~Q for x, "name P|Q" or "name *P|~Q"
 // cannot be combined into a valid (value) expression.
 func combinesWithName(x ast.Expr) bool {
 	switch x := x.(type) {
@@ -412,9 +412,7 @@ func combinesWithName(x ast.Expr) bool {
 	case *ast.BinaryExpr:
 		return combinesWithName(x.X) && !isTypeElem(x.Y)
 	case *ast.ParenExpr:
-		// name(x) combines but we are making sure at
-		// the call site that x is never parenthesized.
-		panic("unexpected parenthesized expression")
+		return !isTypeElem(x.X)
 	}
 	return false
 }
@@ -426,13 +424,36 @@ func isTypeElem(x ast.Expr) bool {
 	case *ast.ArrayType, *ast.StructType, *ast.FuncType, *ast.InterfaceType, *ast.MapType, *ast.ChanType:
 		return true
 	case *ast.UnaryExpr:
-		return x.Op == TILDE
+		return x.Op == token.TILDE
 	case *ast.BinaryExpr:
 		return isTypeElem(x.X) || isTypeElem(x.Y)
 	case *ast.ParenExpr:
 		return isTypeElem(x.X)
 	}
 	return false
+}
+
+func (p *printer) signature(sig *ast.FuncType) {
+	if sig.TypeParams != nil {
+		p.parameters(sig.TypeParams, funcTParam)
+	}
+	if sig.Params != nil {
+		p.parameters(sig.Params, funcParam)
+	} else {
+		p.print(token.LPAREN, token.RPAREN)
+	}
+	res := sig.Results
+	n := res.NumFields()
+	if n > 0 {
+		// res != nil
+		p.print(blank)
+		if n == 1 && res.List[0].Names == nil {
+			// single anonymous res; no ()'s
+			p.expr(stripParensAlways(res.List[0].Type))
+			return
+		}
+		p.parameters(res, funcParam)
+	}
 }
 
 func identListSize(list []*ast.Ident, maxSize int) (size int) {
@@ -481,12 +502,16 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 		// possibly a one-line struct/interface
 		if len(list) == 0 {
 			// no blank between keyword and {} in this case
-			p.print(lbrace, token.LBRACE, rbrace, token.RBRACE)
+			p.setPos(lbrace)
+			p.print(token.LBRACE)
+			p.setPos(rbrace)
+			p.print(token.RBRACE)
 			return
 		} else if p.isOneLineFieldList(list) {
 			// small enough - print on one line
 			// (don't use identList and ignore source line breaks)
-			p.print(lbrace, token.LBRACE, blank)
+			p.setPos(lbrace)
+			p.print(token.LBRACE, blank)
 			f := list[0]
 			if isStruct {
 				for i, x := range f.Names {
@@ -510,16 +535,21 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 					p.expr(f.Type)
 				}
 			}
-			p.print(blank, rbrace, token.RBRACE)
+			p.print(blank)
+			p.setPos(rbrace)
+			p.print(token.RBRACE)
 			return
 		}
 	}
 	// hasComments || !srcIsOneLine
 
 	if !isStruct && len(list) < 1 {
-		p.print(lbrace, token.LBRACE, indent)
+		p.setPos(lbrace)
+		p.print(token.LBRACE, indent)
 	} else {
-		p.print(blank, lbrace, token.LBRACE, indent)
+		p.print(blank)
+		p.setPos(lbrace)
+		p.print(token.LBRACE, indent)
 	}
 
 	if hasComments || len(list) > 0 {
@@ -606,7 +636,9 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 			prefix = ignore
 		}
 	}
-	p.print(unindent, prefix, rbrace, token.RBRACE)
+	p.print(unindent, prefix)
+	p.setPos(rbrace)
+	p.print(token.RBRACE)
 }
 
 // ----------------------------------------------------------------------------
@@ -781,7 +813,7 @@ func isBinary(expr ast.Expr) bool {
 }
 
 func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
-	p.print(expr.Pos())
+	p.setPos(expr.Pos())
 
 	switch x := expr.(type) {
 	case *ast.BadExpr:
@@ -840,7 +872,8 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		p.print(x)
 
 	case *ast.FuncLit:
-		p.print(x.Type.Pos(), token.FUNC)
+		p.setPos(x.Type.Pos())
+		p.print(token.FUNC)
 		// See the comment in funcDecl about how the header size is computed.
 		startCol := p.out.Column - len("func")
 		p.signature(x.Type)
@@ -877,7 +910,7 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		p.expr0(x.Index, depth+1)
 		p.print(x.Rbrack, token.RBRACK)
 
-	case *IndexListExpr:
+	case *ast.IndexListExpr:
 		// TODO(gri): should treat[] like parentheses and undo one level of depth
 		p.expr1(x.X, token.HighestPrec, 1)
 		p.print(x.Lbrack, token.LBRACK)
@@ -1098,13 +1131,16 @@ func (p *printer) selectorExpr(x *ast.SelectorExpr, depth int, isMethod bool) bo
 	p.expr1(x.X, token.HighestPrec, depth)
 	p.print(token.PERIOD)
 	if line := p.lineFor(x.Sel.Pos()); p.pos.IsValid() && p.pos.Line < line {
-		p.print(indent, newline, x.Sel.Pos(), x.Sel)
+		p.print(indent, newline)
+		p.setPos(x.Sel.Pos())
+		p.print(x.Sel)
 		if !isMethod {
 			p.print(unindent)
 		}
 		return true
 	}
-	p.print(x.Sel.Pos(), x.Sel)
+	p.setPos(x.Sel.Pos())
+	p.print(x.Sel)
 	return false
 }
 
@@ -1280,7 +1316,7 @@ func (p *printer) indentList(list []ast.Expr) bool {
 }
 
 func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
-	p.print(stmt.Pos())
+	p.setPos(stmt.Pos())
 
 	if p.commentedStmts != nil { // by XGo
 		if comments, ok := p.commentedStmts[stmt]; ok {
@@ -1455,10 +1491,13 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 			if s.Value != nil {
 				// use position of value following the comma as
 				// comma position for correct comment placement
-				p.print(s.Value.Pos(), token.COMMA, blank)
+				p.setPos(s.Value.Pos())
+				p.print(token.COMMA, blank)
 				p.expr(s.Value)
 			}
-			p.print(blank, s.TokPos, s.Tok, blank)
+			p.print(blank)
+			p.setPos(s.TokPos)
+			p.print(s.Tok, blank)
 		}
 		p.print(token.RANGE, blank)
 		p.expr(stripParens(s.X))
@@ -1638,8 +1677,8 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 	case *ast.TypeSpec:
 		p.setComment(s.Doc)
 		p.expr(s.Name)
-		if tparams := specTypeParams(s); tparams != nil {
-			p.parameters(tparams, typeTParam)
+		if s.TypeParams != nil {
+			p.parameters(s.TypeParams, typeTParam)
 		}
 		if n == 1 {
 			p.print(blank)
@@ -1682,7 +1721,8 @@ func (p *printer) genDecl(d *ast.GenDecl) {
 	}
 
 	p.setComment(d.Doc)
-	p.print(d.Pos(), d.Tok, blank)
+	p.setPos(d.Pos())
+	p.print(d.Tok, blank)
 
 	if d.Lparen.IsValid() || n > 1 {
 		// group of parenthesized declarations
@@ -1720,6 +1760,26 @@ func (p *printer) genDecl(d *ast.GenDecl) {
 	}
 }
 
+// sizeCounter is an io.Writer that counts the number of bytes written,
+// and tracks whether a newline character was seen.
+type sizeCounter struct {
+	hasNewline bool
+	size       int
+}
+
+func (c *sizeCounter) Write(p []byte) (int, error) {
+	if !c.hasNewline {
+		for _, b := range p {
+			if b == '\n' || b == '\f' {
+				c.hasNewline = true
+				break
+			}
+		}
+	}
+	c.size += len(p)
+	return len(p), nil
+}
+
 // nodeSize determines the size of n in chars after formatting.
 // The result is <= maxSize if the node fits on one line with at
 // most maxSize chars and the formatted output doesn't contain
@@ -1740,17 +1800,12 @@ func (p *printer) nodeSize(n ast.Node, maxSize int) (size int) {
 	// style so that we always get the same decision; print
 	// in RawFormat
 	cfg := Config{Mode: RawFormat}
-	var buf bytes.Buffer
-	if err := cfg.fprint(&buf, p.fset, n, p.nodeSizes); err != nil {
+	var counter sizeCounter
+	if err := cfg.fprint(&counter, p.fset, n, p.nodeSizes); err != nil {
 		return
 	}
-	if buf.Len() <= maxSize {
-		for _, ch := range buf.Bytes() {
-			if ch < ' ' {
-				return
-			}
-		}
-		size = buf.Len() // n fits
+	if counter.size <= maxSize && !counter.hasNewline {
+		size = counter.size // n fits
 		p.nodeSizes[n] = size
 	}
 	return
@@ -1843,7 +1898,8 @@ func (p *printer) distanceFrom(startPos token.Pos, startOutCol int) int {
 
 func (p *printer) funcDecl(d *ast.FuncDecl) {
 	p.setComment(d.Doc)
-	p.print(d.Pos(), token.FUNC, blank)
+	p.setPos(d.Pos())
+	p.print(token.FUNC, blank)
 	// We have to save startCol only after emitting FUNC; otherwise it can be on a
 	// different line (all whitespace preceding the FUNC is emitted only when the
 	// FUNC is emitted).
@@ -1860,7 +1916,8 @@ func (p *printer) funcDecl(d *ast.FuncDecl) {
 func (p *printer) decl(decl ast.Decl) {
 	switch d := decl.(type) {
 	case *ast.BadDecl:
-		p.print(d.Pos(), "BadDecl")
+		p.setPos(d.Pos())
+		p.print("BadDecl")
 	case *ast.GenDecl:
 		p.genDecl(d)
 	case *ast.FuncDecl:
@@ -1916,7 +1973,8 @@ func (p *printer) declList(list []ast.Decl) {
 
 func (p *printer) file(src *ast.File) {
 	p.setComment(src.Doc)
-	p.print(src.Pos(), token.PACKAGE, blank)
+	p.setPos(src.Pos())
+	p.print(token.PACKAGE, blank)
 	p.expr(src.Name)
 	p.declList(src.Decls)
 	p.print(newline)
