@@ -1092,13 +1092,264 @@ func TestBinaryOpIssue805(t *testing.T) {
 	}
 }
 
-func TestBuiltinCall(t *testing.T) {
-	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("TestBuiltinCall: no error?")
+func TestMinConst(t *testing.T) {
+	t.Run("TwoInts", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeInt64(3),
+			constant.MakeInt64(1),
 		}
-	}()
-	builtinCall(&internal.Elem{Val: ident("undefined")}, nil)
+		result := minConst(args)
+		if !constant.Compare(result, token.EQL, constant.MakeInt64(1)) {
+			t.Fatal("minConst failed:", result)
+		}
+	})
+
+	t.Run("MultipleInts", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeInt64(5),
+			constant.MakeInt64(2),
+			constant.MakeInt64(8),
+			constant.MakeInt64(1),
+			constant.MakeInt64(9),
+		}
+		result := minConst(args)
+		if !constant.Compare(result, token.EQL, constant.MakeInt64(1)) {
+			t.Fatal("minConst failed:", result)
+		}
+	})
+
+	t.Run("Floats", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeFloat64(3.5),
+			constant.MakeFloat64(1.2),
+			constant.MakeFloat64(2.8),
+		}
+		result := minConst(args)
+		if !constant.Compare(result, token.EQL, constant.MakeFloat64(1.2)) {
+			t.Fatal("minConst failed:", result)
+		}
+	})
+
+	t.Run("Strings", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeString("banana"),
+			constant.MakeString("apple"),
+			constant.MakeString("cherry"),
+		}
+		result := minConst(args)
+		if constant.StringVal(result) != "apple" {
+			t.Fatal("minConst failed:", result)
+		}
+	})
+
+	t.Run("SingleValue", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeInt64(42),
+		}
+		result := minConst(args)
+		if !constant.Compare(result, token.EQL, constant.MakeInt64(42)) {
+			t.Fatal("minConst failed:", result)
+		}
+	})
+
+	t.Run("ComplexNotOrderable", func(t *testing.T) {
+		c1 := constant.BinaryOp(constant.MakeFloat64(1), token.ADD, constant.MakeImag(constant.MakeFloat64(2)))
+		c2 := constant.BinaryOp(constant.MakeFloat64(2), token.ADD, constant.MakeImag(constant.MakeFloat64(3)))
+		args := []constant.Value{c1, c2}
+		result := minConst(args)
+		if result != nil {
+			t.Fatal("minConst should return nil for complex args:", result)
+		}
+	})
+
+	t.Run("BoolNotOrderable", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeBool(true),
+			constant.MakeBool(false),
+		}
+		result := minConst(args)
+		if result != nil {
+			t.Fatal("minConst should return nil for bool args:", result)
+		}
+	})
+}
+
+func TestMaxConst(t *testing.T) {
+	t.Run("TwoInts", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeInt64(3),
+			constant.MakeInt64(1),
+		}
+		result := maxConst(args)
+		if !constant.Compare(result, token.EQL, constant.MakeInt64(3)) {
+			t.Fatal("maxConst failed:", result)
+		}
+	})
+
+	t.Run("MultipleInts", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeInt64(5),
+			constant.MakeInt64(2),
+			constant.MakeInt64(8),
+			constant.MakeInt64(1),
+			constant.MakeInt64(9),
+		}
+		result := maxConst(args)
+		if !constant.Compare(result, token.EQL, constant.MakeInt64(9)) {
+			t.Fatal("maxConst failed:", result)
+		}
+	})
+
+	t.Run("Floats", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeFloat64(3.5),
+			constant.MakeFloat64(1.2),
+			constant.MakeFloat64(2.8),
+		}
+		result := maxConst(args)
+		if !constant.Compare(result, token.EQL, constant.MakeFloat64(3.5)) {
+			t.Fatal("maxConst failed:", result)
+		}
+	})
+
+	t.Run("Strings", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeString("banana"),
+			constant.MakeString("apple"),
+			constant.MakeString("cherry"),
+		}
+		result := maxConst(args)
+		if constant.StringVal(result) != "cherry" {
+			t.Fatal("maxConst failed:", result)
+		}
+	})
+
+	t.Run("SingleValue", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeInt64(42),
+		}
+		result := maxConst(args)
+		if !constant.Compare(result, token.EQL, constant.MakeInt64(42)) {
+			t.Fatal("maxConst failed:", result)
+		}
+	})
+
+	t.Run("ComplexNotOrderable", func(t *testing.T) {
+		c1 := constant.BinaryOp(constant.MakeFloat64(1), token.ADD, constant.MakeImag(constant.MakeFloat64(2)))
+		c2 := constant.BinaryOp(constant.MakeFloat64(2), token.ADD, constant.MakeImag(constant.MakeFloat64(3)))
+		args := []constant.Value{c1, c2}
+		result := maxConst(args)
+		if result != nil {
+			t.Fatal("maxConst should return nil for complex args:", result)
+		}
+	})
+
+	t.Run("BoolNotOrderable", func(t *testing.T) {
+		args := []constant.Value{
+			constant.MakeBool(true),
+			constant.MakeBool(false),
+		}
+		result := maxConst(args)
+		if result != nil {
+			t.Fatal("maxConst should return nil for bool args:", result)
+		}
+	})
+}
+
+func TestTryBuiltinCall(t *testing.T) {
+	t.Run("Min", func(t *testing.T) {
+		fn := &internal.Elem{Val: ident("min")}
+		args := []*internal.Elem{
+			{CVal: constant.MakeInt64(5)},
+			{CVal: constant.MakeInt64(3)},
+		}
+		result := tryBuiltinCall(fn, args, true)
+		if result == nil || !constant.Compare(result, token.EQL, constant.MakeInt64(3)) {
+			t.Fatal("tryBuiltinCall min failed:", result)
+		}
+	})
+
+	t.Run("Max", func(t *testing.T) {
+		fn := &internal.Elem{Val: ident("max")}
+		args := []*internal.Elem{
+			{CVal: constant.MakeInt64(5)},
+			{CVal: constant.MakeInt64(3)},
+		}
+		result := tryBuiltinCall(fn, args, true)
+		if result == nil || !constant.Compare(result, token.EQL, constant.MakeInt64(5)) {
+			t.Fatal("tryBuiltinCall max failed:", result)
+		}
+	})
+
+	t.Run("UnknownFuncCanfail", func(t *testing.T) {
+		fn := &internal.Elem{Val: ident("unknown")}
+		args := []*internal.Elem{
+			{CVal: constant.MakeInt64(5)},
+		}
+		result := tryBuiltinCall(fn, args, true)
+		if result != nil {
+			t.Fatal("tryBuiltinCall unknown with canfail=true should return nil:", result)
+		}
+	})
+
+	t.Run("UnknownFuncPanic", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatal("tryBuiltinCall unknown with canfail=false should panic")
+			}
+		}()
+		fn := &internal.Elem{Val: ident("unknown")}
+		args := []*internal.Elem{
+			{CVal: constant.MakeInt64(5)},
+		}
+		tryBuiltinCall(fn, args, false)
+	})
+
+	t.Run("NonIdent", func(t *testing.T) {
+		fn := &internal.Elem{Val: &ast.SelectorExpr{}}
+		args := []*internal.Elem{
+			{CVal: constant.MakeInt64(5)},
+		}
+		result := tryBuiltinCall(fn, args, true)
+		if result != nil {
+			t.Fatal("tryBuiltinCall non-ident should return nil:", result)
+		}
+	})
+
+	t.Run("NilCVal", func(t *testing.T) {
+		fn := &internal.Elem{Val: ident("min")}
+		args := []*internal.Elem{
+			{CVal: constant.MakeInt64(5)},
+			{CVal: nil},
+		}
+		result := tryBuiltinCall(fn, args, true)
+		if result != nil {
+			t.Fatal("tryBuiltinCall with nil CVal should return nil:", result)
+		}
+	})
+
+	t.Run("ZeroArgs", func(t *testing.T) {
+		fn := &internal.Elem{Val: ident("min")}
+		args := []*internal.Elem{}
+		result := tryBuiltinCall(fn, args, true)
+		if result != nil {
+			t.Fatal("tryBuiltinCall with zero args should return nil:", result)
+		}
+	})
+
+	t.Run("ComplexArgs", func(t *testing.T) {
+		c1 := constant.BinaryOp(constant.MakeFloat64(1), token.ADD, constant.MakeImag(constant.MakeFloat64(2)))
+		c2 := constant.BinaryOp(constant.MakeFloat64(2), token.ADD, constant.MakeImag(constant.MakeFloat64(3)))
+		fn := &internal.Elem{Val: ident("min")}
+		args := []*internal.Elem{
+			{CVal: c1},
+			{CVal: c2},
+		}
+		result := tryBuiltinCall(fn, args, true)
+		if result != nil {
+			t.Fatal("tryBuiltinCall with complex args should return nil:", result)
+		}
+	})
 }
 
 func TestUnsafe(t *testing.T) {

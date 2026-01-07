@@ -649,7 +649,7 @@ retry:
 				for _, o := range ft.Funcs {
 					if ret, err = matchFuncCall(pkg, chgObject(pkg, o, fn), args, flags); err == nil {
 						if ret.CVal == nil && isUntyped(pkg, ret.Type) {
-							ret.CVal = builtinCall(fn, args)
+							ret.CVal = tryBuiltinCall(fn, args, false)
 						}
 						if pkg.cb.rec != nil {
 							pkg.cb.rec.Call(fn.Src, o)
@@ -724,7 +724,10 @@ retry:
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
 			cval = binaryOp(&pkg.cb, t.tok(), args)
-		} else if t.hasApproxType() {
+		} else {
+			cval = tryBuiltinCall(fn, args, true)
+		}
+		if t.hasApproxType() {
 			flags |= instrFlagApproxType
 		}
 	case *TyInstruction:
@@ -799,6 +802,23 @@ retry:
 			valArgs[i-recv] = args[i].Val
 		}
 	}
+
+	// For constant-folded template functions with all untyped args, preserve untyped type
+	// to match Go compiler behavior. This is needed because template type inference converts
+	// untyped to concrete types.
+	if cval != nil && len(args) > 0 {
+		allUntyped := true
+		for _, arg := range args {
+			if !isUntyped(pkg, arg.Type) {
+				allUntyped = false
+				break
+			}
+		}
+		if allUntyped {
+			tyRet = args[0].Type
+		}
+	}
+
 	return &internal.Elem{
 		Type: tyRet, CVal: cval,
 		Val: &ast.CallExpr{

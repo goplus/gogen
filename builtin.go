@@ -464,28 +464,92 @@ var (
 		"complex": {makeComplex, 2},
 		"real":    {constant.Real, 1},
 		"imag":    {constant.Imag, 1},
+		"min":     {minConst, -1},
+		"max":     {maxConst, -1},
 	}
 )
 
-func builtinCall(fn *Element, args []*Element) constant.Value {
-	if fn, ok := fn.Val.(*ast.Ident); ok {
-		if bfn, ok := builtinFns[fn.Name]; ok {
-			a := args[0].CVal
-			switch bfn.narg {
-			case 1:
-				return bfn.fn.(func(a constant.Value) constant.Value)(a)
-			case 2:
-				b := args[1].CVal
-				return bfn.fn.(func(a, b constant.Value) constant.Value)(a, b)
-			}
-		}
-		panic("builtinCall: expect constant")
+// tryBuiltinCall attempts constant folding for builtin functions.
+// If canfail is false and fn is an identifier but not a known builtin, it panics.
+// If canfail is true, it returns nil for unknown or non-identifier functions.
+func tryBuiltinCall(fn *Element, args []*Element, canfail bool) constant.Value {
+	ident, ok := fn.Val.(*ast.Ident)
+	if !ok {
+		return nil
+	}
+	if bfn, ok := builtinFns[ident.Name]; ok {
+		return doBuiltinCall(bfn, args)
+	}
+	if !canfail {
+		panic("builtinCall: unknown function")
 	}
 	return nil
 }
 
+func doBuiltinCall(bfn builtinFn, args []*Element) constant.Value {
+	switch bfn.narg {
+	case 1:
+		a := args[0].CVal
+		return bfn.fn.(func(a constant.Value) constant.Value)(a)
+	case 2:
+		a := args[0].CVal
+		b := args[1].CVal
+		return bfn.fn.(func(a, b constant.Value) constant.Value)(a, b)
+	case -1: // variadic (min/max)
+		if len(args) == 0 {
+			return nil // let matchFuncType report proper error
+		}
+		cvals := make([]constant.Value, len(args))
+		for i, arg := range args {
+			if arg.CVal == nil {
+				return nil
+			}
+			cvals[i] = arg.CVal
+		}
+		return bfn.fn.(func([]constant.Value) constant.Value)(cvals)
+	}
+	panic("builtinCall: unexpected narg")
+}
+
 func makeComplex(re, im constant.Value) constant.Value {
 	return constant.BinaryOp(re, token.ADD, constant.MakeImag(im))
+}
+
+// isOrderable reports whether a constant value is orderable (can be compared with < >).
+// Complex and boolean values are not orderable.
+func isOrderable(v constant.Value) bool {
+	switch v.Kind() {
+	case constant.Int, constant.Float, constant.String:
+		return true
+	default:
+		return false
+	}
+}
+
+// minMaxConst performs constant folding for min/max builtins. It returns nil if
+// any argument is not orderable, letting the type checker report the proper error.
+func minMaxConst(args []constant.Value, op token.Token) constant.Value {
+	result := args[0]
+	if !isOrderable(result) {
+		return nil // let type checker report proper error
+	}
+	for _, v := range args[1:] {
+		if !isOrderable(v) {
+			return nil
+		}
+		if constant.Compare(v, op, result) {
+			result = v
+		}
+	}
+	return result
+}
+
+func minConst(args []constant.Value) constant.Value {
+	return minMaxConst(args, token.LSS)
+}
+
+func maxConst(args []constant.Value) constant.Value {
+	return minMaxConst(args, token.GTR)
 }
 
 type appendStringInstr struct {
