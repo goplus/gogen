@@ -120,8 +120,9 @@ type Label struct {
 
 type funcBodyCtx struct {
 	codeBlockCtx
-	fn     *Func
-	labels map[string]*Label
+	fn         *Func
+	labels     map[string]*Label
+	panicCalls map[*ast.CallExpr]none // calls to builtin panic
 }
 
 func (p *funcBodyCtx) checkLabels(cb *CodeBuilder) {
@@ -270,6 +271,7 @@ func (p *CodeBuilder) Pkg() *Package {
 func (p *CodeBuilder) startFuncBody(fn *Func, src []ast.Node, old *funcBodyCtx) *CodeBuilder {
 	p.current.fn, old.fn = fn, p.current.fn
 	p.current.labels, old.labels = nil, p.current.labels
+	p.current.panicCalls, old.panicCalls = nil, p.current.panicCalls
 	p.startBlockStmt(fn, src, "func "+fn.Name(), &old.codeBlockCtx)
 	scope := p.current.scope
 	sig := fn.Type().(*types.Signature)
@@ -294,6 +296,7 @@ func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
 	p.current.checkLabels(p)
 	p.current.fn = old.fn
 	p.current.labels = old.labels
+	p.current.panicCalls = old.panicCalls
 	stmts, _ := p.endBlockStmt(&old.codeBlockCtx)
 	return stmts
 }
@@ -520,6 +523,19 @@ func (p *CodeBuilder) CallWithEx(n int, flags InstrFlags, src ...ast.Node) error
 		return err
 	}
 	ret.Src = s
+	// Track calls to builtin panic for accurate termination analysis
+	if call, ok := ret.Val.(*ast.CallExpr); ok {
+		if id, ok := call.Fun.(*ast.Ident); ok && id.Name == "panic" {
+			if _, obj := p.Scope().LookupParent("panic", token.NoPos); obj != nil {
+				if _, ok := obj.(*types.Builtin); ok {
+					if p.current.panicCalls == nil {
+						p.current.panicCalls = make(map[*ast.CallExpr]none)
+					}
+					p.current.panicCalls[call] = none{}
+				}
+			}
+		}
+	}
 	p.stk.Ret(n+1, ret)
 	return nil
 }
