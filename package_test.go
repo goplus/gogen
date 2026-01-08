@@ -1722,6 +1722,96 @@ const c = imag(a)
 `)
 }
 
+func TestMinMax(t *testing.T) {
+	t.Run("IntConsts", func(t *testing.T) {
+		pkg := newMainPackage()
+		builtin := pkg.Builtin()
+		pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "a").
+			Val(builtin.Ref("min")).Val(3).Val(1).Val(2).Call(3).
+			EndInit(1)
+		pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "b").
+			Val(builtin.Ref("max")).Val(3).Val(1).Val(2).Call(3).
+			EndInit(1)
+		domTest(t, pkg, `package main
+
+const a = min(3, 1, 2)
+const b = max(3, 1, 2)
+`)
+	})
+
+	t.Run("FloatConsts", func(t *testing.T) {
+		pkg := newMainPackage()
+		builtin := pkg.Builtin()
+		pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "a").
+			Val(builtin.Ref("min")).Val(3.5).Val(1.2).Call(2).
+			EndInit(1)
+		pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "b").
+			Val(builtin.Ref("max")).Val(3.5).Val(1.2).Call(2).
+			EndInit(1)
+		domTest(t, pkg, `package main
+
+const a = min(3.5, 1.2)
+const b = max(3.5, 1.2)
+`)
+	})
+
+	t.Run("StringConsts", func(t *testing.T) {
+		pkg := newMainPackage()
+		builtin := pkg.Builtin()
+		pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "a").
+			Val(builtin.Ref("min")).Val("banana").Val("apple").Call(2).
+			EndInit(1)
+		pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "b").
+			Val(builtin.Ref("max")).Val("banana").Val("apple").Call(2).
+			EndInit(1)
+		domTest(t, pkg, `package main
+
+const a = min("banana", "apple")
+const b = max("banana", "apple")
+`)
+	})
+
+	t.Run("TypedConsts", func(t *testing.T) {
+		pkg := newMainPackage()
+		builtin := pkg.Builtin()
+		pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, types.Typ[types.Int], "a").
+			Val(builtin.Ref("min")).Val(5).Val(3).Call(2).
+			EndInit(1)
+		pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, types.Typ[types.Int], "b").
+			Val(builtin.Ref("max")).Val(5).Val(3).Call(2).
+			EndInit(1)
+		domTest(t, pkg, `package main
+
+const a int = min(5, 3)
+const b int = max(5, 3)
+`)
+	})
+
+	t.Run("WithVariables", func(t *testing.T) {
+		pkg := newMainPackage()
+		builtin := pkg.Builtin()
+		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+			NewVar(types.Typ[types.Int], "x").
+			NewVar(types.Typ[types.Int], "y").
+			DefineVarStart(token.NoPos, "a").
+			Val(builtin.Ref("min")).VarVal("x").VarVal("y").Call(2).EndInit(1).
+			DefineVarStart(token.NoPos, "b").
+			Val(builtin.Ref("max")).VarVal("x").VarVal("y").Call(2).EndInit(1).
+			Val(ctxRef(pkg, "println")).VarVal("a").VarVal("b").Call(2).EndStmt().
+			End()
+		domTest(t, pkg, `package main
+
+func main() {
+	var x int
+	var y int
+	a := min(x, y)
+	b := max(x, y)
+	println(a, b)
+}
+`)
+	})
+}
+
 func TestClose(t *testing.T) {
 	pkg := newMainPackage()
 	tyChan := types.NewChan(types.SendOnly, types.Typ[types.Int])
