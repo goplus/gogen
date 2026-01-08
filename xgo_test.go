@@ -71,7 +71,7 @@ func TestConvertToClosure(t *testing.T) {
 		t.Fatal("closure has no src node")
 	}
 
-	p.EndInit(1).End()
+	p.EndInit(1).VarRef(nil).VarVal("x").Assign(1).EndStmt().End()
 
 	domTest(t, pkg, `package main
 
@@ -79,6 +79,7 @@ func main() {
 	x := func() int {
 		return 1
 	}
+	_ = x
 }
 `)
 }
@@ -99,6 +100,7 @@ func TestFmtPrintln(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "p").Val(ctxRef(pkg, "println")).EndInit(1).
 		VarRef(ctxRef(pkg, "p")).Val(ctxRef(pkg, "println")).Assign(1).EndStmt().
+		VarRef(nil).VarVal("p").Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -107,6 +109,7 @@ import "fmt"
 func main() {
 	p := fmt.Println
 	p = fmt.Println
+	_ = p
 }
 `)
 }
@@ -295,6 +298,8 @@ func TestCastIntTwoValue(t *testing.T) {
 		Val(ng.Ref("Gop_bigrat")).Val(1).Call(1).
 		CallWith(1, gogen.InstrFlagTwoValue).
 		EndInit(1).
+		VarRef(nil).VarVal("v").Assign(1).EndStmt().
+		VarRef(nil).VarVal("inRange").Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -305,6 +310,8 @@ import (
 
 func main() {
 	v, inRange := builtin.Gop_bigrat_Cast__0(big.NewInt(1)).Gop_Rcast__0()
+	_ = v
+	_ = inRange
 }
 `)
 }
@@ -318,6 +325,8 @@ func TestCastBigIntTwoValue(t *testing.T) {
 		Val(ng.Ref("Gop_bigrat")).Val(1).Call(1).
 		CallWith(1, gogen.InstrFlagTwoValue).
 		EndInit(1).
+		VarRef(nil).VarVal("v").Assign(1).EndStmt().
+		VarRef(nil).VarVal("inRange").Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -328,6 +337,8 @@ import (
 
 func main() {
 	v, inRange := builtin.Gop_bigint_Cast__7(builtin.Gop_bigrat_Cast__0(big.NewInt(1)))
+	_ = v
+	_ = inRange
 }
 `)
 }
@@ -752,6 +763,7 @@ func TestUntypedBigRat2(t *testing.T) {
 	v := new(big.Rat).SetFrac(one, denom)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a").UntypedBigRat(v).EndInit(1).
+		VarRef(nil).VarVal("a").Assign(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -765,6 +777,7 @@ func main() {
 		v, _ := new(big.Int).SetString("340282366920938463463374607431768211456", 10)
 		return v
 	}()))
+	_ = a
 }
 `)
 }

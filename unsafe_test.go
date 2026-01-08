@@ -36,6 +36,7 @@ func TestUnsafeSlice(t *testing.T) {
 		NewVarStart(types.NewPointer(types.Typ[types.Int]), "p").
 		Val(pkg.Unsafe().Ref("SliceData")).VarVal("s").CallWith(1, 0).
 		EndInit(1).
+		VarRef(nil).VarVal("p").Assign(1).EndStmt().
 		End()
 
 	domTest(t, pkg, `package main
@@ -46,6 +47,7 @@ func main() {
 	var v = [3]int{1, 2, 3}
 	var s []int = unsafe.Slice(&v[0], 3)
 	var p *int = unsafe.SliceData(s)
+	_ = p
 }
 `)
 }
@@ -62,6 +64,7 @@ func TestUnsafeString(t *testing.T) {
 		NewVarStart(types.NewPointer(types.Typ[types.Byte]), "p").
 		Val(pkg.Unsafe().Ref("StringData")).VarVal("s").CallWith(1, 0).
 		EndInit(1).
+		VarRef(nil).VarVal("p").Assign(1).EndStmt().
 		End()
 
 	domTest(t, pkg, `package main
@@ -72,6 +75,7 @@ func main() {
 	var v = [3]uint8{'a', 'b', 'c'}
 	var s string = unsafe.String(&v[0], 3)
 	var p *uint8 = unsafe.StringData(s)
+	_ = p
 }
 `)
 }

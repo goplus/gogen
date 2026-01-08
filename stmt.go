@@ -379,11 +379,11 @@ func (p *typeCaseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 		}
 		cb.stk.PopN(n)
 	}
-	if pss.name != "" {
+	if pss.name != "" && pss.name != "_" {
 		if n != 1 { // default, or case with multi expr
 			typ = pss.xType
 		}
-		name := types.NewParam(token.NoPos, cb.pkg.Types, pss.name, typ)
+		name := types.NewParam(getSrcPos(getSrc(src)), cb.pkg.Types, pss.name, typ)
 		cb.current.scope.Insert(name)
 	}
 }
@@ -529,7 +529,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 			if name == "_" {
 				continue
 			}
-			if scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, typs[i])) != nil {
+			if scope.Insert(types.NewVar(pos, pkg.Types, name, typs[i])) != nil {
 				log.Panicln("TODO: variable already defined -", name)
 			}
 		}

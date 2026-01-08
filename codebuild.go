@@ -120,15 +120,94 @@ type Label struct {
 
 type funcBodyCtx struct {
 	codeBlockCtx
-	fn     *Func
-	labels map[string]*Label
+	fn       *Func
+	labels   map[string]*Label
+	usedVars map[*types.Var]bool
 }
 
 func (p *funcBodyCtx) checkLabels(cb *CodeBuilder) {
 	for name, l := range p.labels {
 		if !l.used {
-			cb.handleCodeErrorf(l.Pos(), l.Pos(), "label %s defined and not used", name)
+			pos := l.Pos()
+			cb.handleCodeErrorf(pos, pos+token.Pos(len(name)), "label %s defined and not used", name)
 		}
+	}
+}
+
+// markVarUsed marks a variable as used.
+func (p *funcBodyCtx) markVarUsed(v *types.Var) {
+	if p.usedVars != nil {
+		p.usedVars[v] = true
+	}
+}
+
+// markVarUsedByElem marks a variable as used by looking up the variable from
+// the element's Val (which should be an *ast.Ident) in the current scope.
+func (p *CodeBuilder) markVarUsedByElem(arg *internal.Elem) {
+	if ident, ok := arg.Val.(*ast.Ident); ok && ident.Name != "_" {
+		if _, obj := p.Scope().LookupParent(ident.Name, ident.Pos()); obj != nil {
+			if v, ok := obj.(*types.Var); ok {
+				p.current.markVarUsed(v)
+			}
+		}
+	}
+}
+
+func (p *funcBodyCtx) checkUnusedVars(cb *CodeBuilder) {
+	if p.fn == nil {
+		return
+	}
+	sig := p.fn.Type().(*types.Signature)
+	skipVars := buildSkipVars(sig)
+	p.checkUnusedVarsInScope(cb, p.scope, skipVars)
+}
+
+func buildSkipVars(sig *types.Signature) map[*types.Var]bool {
+	skipVars := make(map[*types.Var]bool)
+	if recv := sig.Recv(); recv != nil {
+		skipVars[recv] = true
+	}
+	params := sig.Params()
+	for i := 0; i < params.Len(); i++ {
+		skipVars[params.At(i)] = true
+	}
+	results := sig.Results()
+	for i := 0; i < results.Len(); i++ {
+		skipVars[results.At(i)] = true
+	}
+	return skipVars
+}
+
+func (p *funcBodyCtx) checkUnusedVarsInScope(cb *CodeBuilder, scope *types.Scope, skipVars map[*types.Var]bool) {
+	const funcLitScopePrefix = "func "
+
+	for _, name := range scope.Names() {
+		obj := scope.Lookup(name)
+		if !obj.Pos().IsValid() {
+			continue
+		}
+		v, ok := obj.(*types.Var)
+		if !ok {
+			continue
+		}
+		// Skip receiver, parameters, and results.
+		if skipVars[v] {
+			continue
+		}
+		if !p.usedVars[v] {
+			pos := v.Pos()
+			cb.handleCodeErrorf(pos, pos+token.Pos(len(name)), "%s declared and not used", name)
+		}
+	}
+	// Recursively check child scopes, but skip function literal scopes
+	// (they are handled when the closure is compiled).
+	for i := 0; i < scope.NumChildren(); i++ {
+		child := scope.Child(i)
+		// Skip function literal scopes.
+		if strings.HasPrefix(child.String(), funcLitScopePrefix) {
+			continue
+		}
+		p.checkUnusedVarsInScope(cb, child, skipVars)
 	}
 }
 
@@ -270,12 +349,13 @@ func (p *CodeBuilder) Pkg() *Package {
 func (p *CodeBuilder) startFuncBody(fn *Func, src []ast.Node, old *funcBodyCtx) *CodeBuilder {
 	p.current.fn, old.fn = fn, p.current.fn
 	p.current.labels, old.labels = nil, p.current.labels
+	p.current.usedVars, old.usedVars = make(map[*types.Var]bool), p.current.usedVars
 	p.startBlockStmt(fn, src, "func "+fn.Name(), &old.codeBlockCtx)
 	scope := p.current.scope
 	sig := fn.Type().(*types.Signature)
 	insertParams(scope, sig.Params())
 	insertParams(scope, sig.Results())
-	if recv := sig.Recv(); recv != nil {
+	if recv := sig.Recv(); recv != nil && recv.Name() != "_" {
 		scope.Insert(recv)
 	}
 	return p
@@ -292,8 +372,18 @@ func insertParams(scope *types.Scope, params *types.Tuple) {
 
 func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
 	p.current.checkLabels(p)
+	p.current.checkUnusedVars(p)
+	// Merge current usedVars into parent for multi-level closure propagation.
+	// This ensures variables used in deeply nested closures are marked as used
+	// in all ancestor functions.
+	if old.usedVars != nil {
+		for v := range p.current.usedVars {
+			old.usedVars[v] = true
+		}
+	}
 	p.current.fn = old.fn
 	p.current.labels = old.labels
+	p.current.usedVars = old.usedVars
 	stmts, _ := p.endBlockStmt(&old.codeBlockCtx)
 	return stmts
 }
@@ -707,10 +797,12 @@ func (p *CodeBuilder) NewAutoVar(pos, end token.Pos, name string, pv **types.Var
 	p.emitStmt(stmt)
 	typ := &unboundType{ptypes: []*ast.Expr{&spec.Type}}
 	*pv = types.NewVar(pos, p.pkg.Types, name, typ)
-	if old := p.current.scope.Insert(*pv); old != nil {
-		oldPos := p.fset.Position(old.Pos())
-		p.panicCodeErrorf(
-			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
+	if name != "_" {
+		if old := p.current.scope.Insert(*pv); old != nil {
+			oldPos := p.fset.Position(old.Pos())
+			p.panicCodeErrorf(
+				pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
+		}
 	}
 	return p
 }
@@ -1426,6 +1518,10 @@ func (p *CodeBuilder) Val(v interface{}, src ...ast.Node) *CodeBuilder {
 			}
 		}
 	}
+	// Mark variable as used for unused variable detection.
+	if va, ok := v.(*types.Var); ok {
+		p.current.markVarUsed(va)
+	}
 	return p.pushVal(v, getSrc(src))
 }
 
@@ -2027,6 +2123,8 @@ func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
 	}
 	pkg := p.pkg
 	arg := p.stk.Pop()
+	// IncDec reads the variable value, so mark it as used.
+	p.markVarUsedByElem(arg)
 	if t, ok := arg.Type.(*refType).typ.(*types.Named); ok {
 		op := lookupMethod(t, name)
 		if op != nil {
@@ -2060,6 +2158,8 @@ var (
 // AssignOp func
 func (p *CodeBuilder) AssignOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	args := p.stk.GetArgs(2)
+	// Compound assignment (+=, -=, etc.) reads the variable, so mark it as used.
+	p.markVarUsedByElem(args[0])
 	stmt := callAssignOp(p.pkg, op, args, src)
 	p.emitStmt(stmt)
 	p.stk.PopN(2)
@@ -2276,7 +2376,12 @@ func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilde
 	if debugInstr {
 		log.Println("UnaryOp", op, "flags:", flags)
 	}
-	ret, err := doUnaryOp(p, op, p.stk.GetArgs(1), flags)
+	args := p.stk.GetArgs(1)
+	// Taking address of a variable counts as using it.
+	if op == token.AND {
+		p.markVarUsedByElem(args[0])
+	}
+	ret, err := doUnaryOp(p, op, args, flags)
 	if err != nil {
 		panic(err)
 	}

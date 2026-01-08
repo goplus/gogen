@@ -459,6 +459,8 @@ type (
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(types.NewPointer(tyDataInt), "data").Typ(tyData).Typ(tyInt).Index(1, false).Star().Val(nil).Call(1).EndInit(1).
 		NewVarStart(types.NewPointer(tySliceInt), "slice").Typ(tySlice).Typ(tyIntSlice).Typ(tyInt).Index(2, false).Star().Val(nil).Call(1).EndInit(1).
+		VarRef(nil).VarVal("data").Assign(1).EndStmt().
+		VarRef(nil).VarVal("slice").Assign(1).EndStmt().
 		End()
 	if isLeastGo122() {
 		domTest(t, pkg, `package main
@@ -468,6 +470,8 @@ import "foo"
 func main() {
 	var data *foo.DataInt = (*foo.Data[int])(nil)
 	var slice *foo.SliceInt = (*foo.Slice[[]int, int])(nil)
+	_ = data
+	_ = slice
 }
 `)
 	} else {
@@ -478,6 +482,8 @@ import "foo"
 func main() {
 	var data *foo.Data[int] = (*foo.Data[int])(nil)
 	var slice *foo.Slice[[]int, int] = (*foo.Slice[[]int, int])(nil)
+	_ = data
+	_ = slice
 }
 `)
 	}
@@ -553,6 +559,11 @@ var MyInts = Int{1,2,3,4}
 		NewVarStart(tyInt, "n7").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gogen.InstrFlagEllipsis).EndInit(1).
 		NewVarStart(tyIntPointer, "p1").Val(fnLoader).Typ(tyIntPointer).Index(1, false).Val(nil).Val(1).Call(2).EndInit(1).
 		NewVarStart(tyIntPointer, "p2").Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Val(nil).Val(1).Call(2).EndInit(1).
+		VarRef(nil).VarVal("s1").Assign(1).EndStmt().VarRef(nil).VarVal("s2").Assign(1).EndStmt().
+		VarRef(nil).VarVal("v1").Assign(1).EndStmt().VarRef(nil).VarVal("v2").Assign(1).EndStmt().VarRef(nil).VarVal("v3").Assign(1).EndStmt().
+		VarRef(nil).VarVal("n1").Assign(1).EndStmt().VarRef(nil).VarVal("n2").Assign(1).EndStmt().VarRef(nil).VarVal("n3").Assign(1).EndStmt().VarRef(nil).VarVal("n4").Assign(1).EndStmt().
+		VarRef(nil).VarVal("n5").Assign(1).EndStmt().VarRef(nil).VarVal("n6").Assign(1).EndStmt().VarRef(nil).VarVal("n7").Assign(1).EndStmt().
+		VarRef(nil).VarVal("p1").Assign(1).EndStmt().VarRef(nil).VarVal("p2").Assign(1).EndStmt().
 		NewAutoVar(0, 0, "fn1", &fn1).VarRef(fn1).Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Assign(1, 1).EndStmt().
 		Val(fn1).Val(nil).Val(1).Call(2).EndStmt().
 		End()
@@ -579,6 +590,20 @@ func main() {
 	var n7 int = foo.Add[string, int]("hello", []int{1, 2, 3}...)
 	var p1 *int = foo.Loader[*int](nil, 1)
 	var p2 *int = foo.Loader[*int, int](nil, 1)
+	_ = s1
+	_ = s2
+	_ = v1
+	_ = v2
+	_ = v3
+	_ = n1
+	_ = n2
+	_ = n3
+	_ = n4
+	_ = n5
+	_ = n6
+	_ = n7
+	_ = p1
+	_ = p2
 	var fn1 func(p1 *int, p2 int) *int
 	fn1 = foo.Loader[*int, int]
 	fn1(nil, 1)
