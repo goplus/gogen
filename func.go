@@ -19,7 +19,6 @@ import (
 	"go/token"
 	"go/types"
 	"log"
-	_ "unsafe"
 
 	"github.com/goplus/gogen/internal"
 )
@@ -126,14 +125,13 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 		return
 	}
 	pkg := cb.pkg
+	checker := termChecker{cb.current.panicCalls}
 	body := &ast.BlockStmt{List: cb.endFuncBody(p.old)}
 	t, _ := toNormalizeSignature(nil, p.Type().(*types.Signature))
 
 	// Check for missing return at the closing brace position.
 	// For FuncDecl/FuncLit/BlockStmt, End() returns Rbrace+1, so End()-1 is the Rbrace position.
-	conf := &types.Config{Error: pkg.conf.HandleErr}
-	checker := types.NewChecker(conf, pkg.Fset, pkg.Types, nil)
-	if t.Results().Len() > 0 && !goTypesCheckerIsTerminating(checker, body, "") {
+	if t.Results().Len() > 0 && !checker.isTerminating(body, "") {
 		pos, end := token.NoPos, token.NoPos
 		if src != nil {
 			end = src.End()
@@ -317,10 +315,5 @@ const (
 type Instruction interface {
 	Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error)
 }
-
-// ----------------------------------------------------------------------------
-
-//go:linkname goTypesCheckerIsTerminating go/types.(*Checker).isTerminating
-func goTypesCheckerIsTerminating(check *types.Checker, s ast.Stmt, label string) bool
 
 // ----------------------------------------------------------------------------

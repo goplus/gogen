@@ -808,6 +808,446 @@ func TestMissingReturnValid(t *testing.T) {
 	cb.NewClosureWith(sig).BodyStart(pkg).
 		Val(42).Return(1).
 		End()
+
+	// Function with panic - should not error (panic is a terminating statement)
+	pkg = newMainPackage()
+	ret = pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	pkg.NewFunc(nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		Val(pkg.Builtin().Ref("panic")).Val("err").Call(1).EndStmt().
+		End()
+
+	// Function with if-else both panic - should not error
+	pkg = newMainPackage()
+	ret = pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	pkg.NewFunc(nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		If().Val(true).Then().
+		/**/ Val(pkg.Builtin().Ref("panic")).Val("1").Call(1).EndStmt().
+		/**/ Else().
+		/**/ Val(pkg.Builtin().Ref("panic")).Val("2").Call(1).EndStmt().
+		/**/ End().
+		End()
+
+	// Function with switch all cases panic - should not error
+	pkg = newMainPackage()
+	ret = pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	pkg.NewFunc(nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		Switch().Val(1).Then().
+		/**/ Case().Val(1).Then().
+		/****/ Val(pkg.Builtin().Ref("panic")).Val("1").Call(1).EndStmt().
+		/**/ End().
+		/**/ Case().Then(). // default
+		/****/ Val(pkg.Builtin().Ref("panic")).Val("2").Call(1).EndStmt().
+		/**/ End().
+		End().
+		End()
+
+	// Function with select all cases panic - should not error
+	pkg = newMainPackage()
+	ret = pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	chType := types.NewChan(types.SendRecv, types.Typ[types.Int])
+	pkg.NewFunc(nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		NewVar(chType, "ch").
+		Select().
+		/**/ CommCase().VarVal("ch").UnaryOp(token.ARROW).EndStmt().Then().
+		/****/ Val(pkg.Builtin().Ref("panic")).Val("1").Call(1).EndStmt().
+		/**/ End().
+		/**/ CommDefaultThen().
+		/****/ Val(pkg.Builtin().Ref("panic")).Val("2").Call(1).EndStmt().
+		/**/ End().
+		End().
+		End()
+
+	// Function with type switch all cases panic - should not error
+	pkg = newMainPackage()
+	ret = pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	pkg.NewFunc(nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		NewVar(types.NewInterfaceType(nil, nil), "x").
+		TypeSwitch("t").VarVal("x").TypeAssertThen().
+		/**/ TypeCase().Typ(types.Typ[types.Int]).Then().
+		/****/ Val(pkg.Builtin().Ref("panic")).Val("1").Call(1).EndStmt().
+		/**/ End().
+		/**/ TypeCase().Then(). // default
+		/****/ Val(pkg.Builtin().Ref("panic")).Val("2").Call(1).EndStmt().
+		/**/ End().
+		End().
+		End()
+
+	// Function with for loop containing break - should error (break exits the loop)
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:6:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		//     for {
+		//         break
+		//     }
+		// }
+		newFunc(pkg, 1, 1, 6, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+			For().None().Then().
+			/**/ Break(nil).
+			/**/ End().
+			End(source("}", 6, 1))
+	})
+
+	// Function with infinite for loop without break - should not error
+	pkg = newMainPackage()
+	ret = pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	pkg.NewFunc(nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+		For().None().Then().
+		/**/ Val(pkg.Builtin().Ref("panic")).Val("err").Call(1).EndStmt().
+		/**/ End().
+		End()
+
+	// Function with labeled for loop and break to label - should error
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:7:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		// L:
+		//     for {
+		//         break L
+		//     }
+		// }
+		cb := newFunc(pkg, 1, 1, 7, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg)
+		l := cb.NewLabel(token.NoPos, token.NoPos, "L")
+		cb.Label(l).
+			For().None().Then().
+			/**/ Break(l).
+			/**/ End().
+			End(source("}", 7, 1))
+	})
+
+	// Function with switch containing break inside if - tests hasBreak for IfStmt
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:10:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		//     switch 1 {
+		//     default:
+		//         if true {
+		//             break
+		//         }
+		//     }
+		// }
+		newFunc(pkg, 1, 1, 10, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+			Switch().Val(1).Then().
+			/**/ Case().Then(). // default
+			/****/ If().Val(true).Then().
+			/******/ Break(nil).
+			/****/ End().
+			/**/ End().
+			End().
+			End(source("}", 10, 1))
+	})
+
+	// Function with labeled switch and break to label - tests hasBreak for SwitchStmt with label
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:9:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		// L:
+		//     switch 1 {
+		//     default:
+		//         for {
+		//             break L
+		//         }
+		//     }
+		// }
+		cb := newFunc(pkg, 1, 1, 9, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg)
+		l := cb.NewLabel(token.NoPos, token.NoPos, "L")
+		cb.Label(l).
+			Switch().Val(1).Then().
+			/**/ Case().Then(). // default
+			/****/ For().None().Then().
+			/******/ Break(l).
+			/****/ End().
+			/**/ End().
+			End().
+			End(source("}", 9, 1))
+	})
+
+	// Function with labeled type switch and break to label - tests hasBreak for TypeSwitchStmt
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:10:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		// L:
+		//     switch x.(type) {
+		//     default:
+		//         for {
+		//             break L
+		//         }
+		//     }
+		// }
+		cb := newFunc(pkg, 1, 1, 10, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg)
+		cb.NewVar(types.NewInterfaceType(nil, nil), "x")
+		l := cb.NewLabel(token.NoPos, token.NoPos, "L")
+		cb.Label(l).
+			TypeSwitch("t").VarVal("x").TypeAssertThen().
+			/**/ TypeCase().Then(). // default
+			/****/ For().None().Then().
+			/******/ Break(l).
+			/****/ End().
+			/**/ End().
+			End().
+			End(source("}", 10, 1))
+	})
+
+	// Function with labeled select and break to label - tests hasBreak for SelectStmt
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:11:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		chType := types.NewChan(types.SendRecv, types.Typ[types.Int])
+		// func foo() int {
+		//     var ch chan int
+		// L:
+		//     select {
+		//     default:
+		//         for {
+		//             break L
+		//         }
+		//     }
+		// }
+		cb := newFunc(pkg, 1, 1, 11, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg)
+		cb.NewVar(chType, "ch")
+		l := cb.NewLabel(token.NoPos, token.NoPos, "L")
+		cb.Label(l).
+			Select().
+			/**/ CommDefaultThen().
+			/****/ For().None().Then().
+			/******/ Break(l).
+			/****/ End().
+			/**/ End().
+			End().
+			End(source("}", 11, 1))
+	})
+
+	// Function with labeled for and break to label from nested for - tests hasBreak for ForStmt
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:9:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		// L:
+		//     for {
+		//         for {
+		//             break L
+		//         }
+		//     }
+		// }
+		cb := newFunc(pkg, 1, 1, 9, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg)
+		l := cb.NewLabel(token.NoPos, token.NoPos, "L")
+		cb.Label(l).
+			For().None().Then().
+			/**/ For().None().Then().
+			/****/ Break(l).
+			/**/ End().
+			End().
+			End(source("}", 9, 1))
+	})
+
+	// Function with labeled for range and break to label - tests hasBreak for RangeStmt
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:10:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		//     var s []int
+		// L:
+		//     for range s {
+		//         for {
+		//             break L
+		//         }
+		//     }
+		// }
+		cb := newFunc(pkg, 1, 1, 10, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg)
+		cb.NewVar(types.NewSlice(types.Typ[types.Int]), "s")
+		l := cb.NewLabel(token.NoPos, token.NoPos, "L")
+		cb.Label(l).
+			ForRange().VarVal("s").RangeAssignThen(token.NoPos).
+			/**/ For().None().Then().
+			/****/ Break(l).
+			/**/ End().
+			End().
+			End(source("}", 10, 1))
+	})
+
+	// Test hasBreak for IfStmt with else branch
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:10:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		//     for {
+		//         if true {
+		//             panic("a")
+		//         } else {
+		//             break
+		//         }
+		//     }
+		// }
+		newFunc(pkg, 1, 1, 10, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+			For().None().Then().
+			/**/ If().Val(true).Then().
+			/****/ Val(pkg.Builtin().Ref("panic")).Val("a").Call(1).EndStmt().
+			/****/ Else().
+			/****/ Break(nil).
+			/**/ End().
+			End().
+			End(source("}", 10, 1))
+	})
+
+	// Test select with break inside case - tests hasBreak for CommClause via hasBreakList
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:9:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		chType := types.NewChan(types.SendRecv, types.Typ[types.Int])
+		// func foo() int {
+		//     var ch chan int
+		//     select {
+		//     case <-ch:
+		//         break
+		//     default:
+		//         panic("x")
+		//     }
+		// }
+		newFunc(pkg, 1, 1, 9, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+			NewVar(chType, "ch").
+			Select().
+			/**/ CommCase().VarVal("ch").UnaryOp(token.ARROW).EndStmt().Then().
+			/****/ Break(nil).
+			/**/ End().
+			/**/ CommDefaultThen().
+			/****/ Val(pkg.Builtin().Ref("panic")).Val("x").Call(1).EndStmt().
+			/**/ End().
+			End().
+			End(source("}", 9, 1))
+	})
+
+	// Test hasBreak for nested switch inside labeled for - tests hasBreak for SwitchStmt
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:10:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		// L:
+		//     for {
+		//         switch 1 {
+		//         default:
+		//             break L
+		//         }
+		//     }
+		// }
+		cb := newFunc(pkg, 1, 1, 10, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg)
+		l := cb.NewLabel(token.NoPos, token.NoPos, "L")
+		cb.Label(l).
+			For().None().Then().
+			/**/ Switch().Val(1).Then().
+			/****/ Case().Then(). // default
+			/******/ Break(l).
+			/****/ End().
+			/**/ End().
+			End().
+			End(source("}", 10, 1))
+	})
+
+	// Test hasBreak for nested type switch inside labeled for - tests hasBreak for TypeSwitchStmt
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:11:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		//     var x interface{}
+		// L:
+		//     for {
+		//         switch x.(type) {
+		//         default:
+		//             break L
+		//         }
+		//     }
+		// }
+		cb := newFunc(pkg, 1, 1, 11, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg)
+		cb.NewVar(types.NewInterfaceType(nil, nil), "x")
+		l := cb.NewLabel(token.NoPos, token.NoPos, "L")
+		cb.Label(l).
+			For().None().Then().
+			/**/ TypeSwitch("t").VarVal("x").TypeAssertThen().
+			/****/ TypeCase().Then(). // default
+			/******/ Break(l).
+			/****/ End().
+			/**/ End().
+			End().
+			End(source("}", 11, 1))
+	})
+
+	// Test hasBreak for nested select inside labeled for - tests hasBreak for SelectStmt
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:12:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		chType := types.NewChan(types.SendRecv, types.Typ[types.Int])
+		// func foo() int {
+		//     var ch chan int
+		// L:
+		//     for {
+		//         select {
+		//         default:
+		//             break L
+		//         }
+		//     }
+		// }
+		cb := newFunc(pkg, 1, 1, 12, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg)
+		cb.NewVar(chType, "ch")
+		l := cb.NewLabel(token.NoPos, token.NoPos, "L")
+		cb.Label(l).
+			For().None().Then().
+			/**/ Select().
+			/****/ CommDefaultThen().
+			/******/ Break(l).
+			/****/ End().
+			/**/ End().
+			End().
+			End(source("}", 12, 1))
+	})
+
+	// Test hasBreak for nested for range inside labeled for - tests hasBreak for RangeStmt
+	pkg = newMainPackage()
+	codeErrorTestEx(t, pkg, "./foo.gop:12:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		//     var s []int
+		// L:
+		//     for {
+		//         for range s {
+		//             break L
+		//         }
+		//     }
+		// }
+		cb := newFunc(pkg, 1, 1, 12, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg)
+		cb.NewVar(types.NewSlice(types.Typ[types.Int]), "s")
+		l := cb.NewLabel(token.NoPos, token.NoPos, "L")
+		cb.Label(l).
+			For().None().Then().
+			/**/ ForRange().VarVal("s").RangeAssignThen(token.NoPos).
+			/****/ Break(l).
+			/**/ End().
+			End().
+			End(source("}", 12, 1))
+	})
+}
+
+func TestMissingReturnShadowedPanic(t *testing.T) {
+	// When panic is shadowed, it should NOT be recognized as a terminating statement
+	codeErrorTest(t, "./foo.gop:4:1: missing return", func(pkg *gogen.Package) {
+		ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+		// func foo() int {
+		//     panic := func(s string) {}
+		//     panic("err")
+		// }
+		newFunc(pkg, 1, 1, 4, 1, nil, "foo", nil, types.NewTuple(ret), false).BodyStart(pkg).
+			DefineVarStart(token.NoPos, "panic").
+			NewClosure(
+				types.NewTuple(pkg.NewParam(token.NoPos, "s", types.Typ[types.String])),
+				nil,
+				false,
+			).BodyStart(pkg).End().
+			EndInit(1).
+			VarVal("panic").Val("err").Call(1).EndStmt().
+			End(source("}", 4, 1))
+	})
 }
 
 func TestErrRecv(t *testing.T) {
