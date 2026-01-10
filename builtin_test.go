@@ -321,6 +321,110 @@ func TestIsTypeEx(t *testing.T) {
 	}
 }
 
+func TestNewOverloadFunc1(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	pkg.Scope().Insert(types.NewConst(0, pkg, "GopPackage", types.Typ[types.Bool], constant.MakeBool(true)))
+	f1 := types.NewFunc(0, pkg, "bar__0", types.NewSignature(nil, nil, nil, false))
+	f2 := types.NewFunc(0, pkg, "bar__1", types.NewSignature(nil, types.NewTuple(types.NewVar(0, pkg, "n", types.Typ[types.Int])), nil, false))
+	pkg.Scope().Insert(f1)
+	pkg.Scope().Insert(f2)
+	InitThisGopPkg(pkg)
+	of := pkg.Scope().Lookup("bar")
+	_, objs := CheckSigFuncExObjects(of.Type().(*types.Signature))
+	if len(objs) != 2 {
+		t.Fatal("error")
+	}
+}
+
+func TestNewOverloadFunc2(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	pkg.Scope().Insert(types.NewConst(0, pkg, "GopPackage", types.Typ[types.Bool], constant.MakeBool(true)))
+	of := NewOverloadFunc(0, pkg, "bar")
+	f1 := types.NewFunc(0, pkg, "bar__0", types.NewSignature(nil, nil, nil, false))
+	f2 := types.NewFunc(0, pkg, "bar__1", types.NewSignature(nil, types.NewTuple(types.NewVar(0, pkg, "n", types.Typ[types.Int])), nil, false))
+	pkg.Scope().Insert(of)
+	pkg.Scope().Insert(f1)
+	pkg.Scope().Insert(f2)
+	InitThisGopPkg(pkg)
+	_, objs := CheckSigFuncExObjects(of.Type().(*types.Signature))
+	if len(objs) != 2 {
+		t.Fatal("error")
+	}
+}
+
+func TestNewOverloadFuncError(t *testing.T) {
+	defer func() {
+		err := recover()
+		if err == nil {
+			t.Fatal("no error?")
+		}
+	}()
+	pkg := types.NewPackage("", "foo")
+	pkg.Scope().Insert(types.NewConst(0, pkg, "GopPackage", types.Typ[types.Bool], constant.MakeBool(true)))
+	of := types.NewVar(0, pkg, "bar", types.Typ[types.Int])
+	f1 := types.NewFunc(0, pkg, "bar__0", types.NewSignature(nil, nil, nil, false))
+	f2 := types.NewFunc(0, pkg, "bar__1", types.NewSignature(nil, types.NewTuple(types.NewVar(0, pkg, "n", types.Typ[types.Int])), nil, false))
+	pkg.Scope().Insert(of)
+	pkg.Scope().Insert(f1)
+	pkg.Scope().Insert(f2)
+	InitThisGopPkg(pkg)
+}
+
+func TestNewOverloadMethod1(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	pkg.Scope().Insert(types.NewConst(0, pkg, "GopPackage", types.Typ[types.Bool], constant.MakeBool(true)))
+	typ := types.NewNamed(types.NewTypeName(0, pkg, "T", nil), types.Typ[types.Int], nil)
+	pkg.Scope().Insert(typ.Obj())
+	f1 := types.NewFunc(0, pkg, "bar__0", types.NewSignature(types.NewVar(0, pkg, "", typ), nil, nil, false))
+	f2 := types.NewFunc(0, pkg, "bar__1", types.NewSignature(types.NewVar(0, pkg, "", typ), types.NewTuple(types.NewVar(0, pkg, "n", types.Typ[types.Int])), nil, false))
+	typ.AddMethod(f1)
+	typ.AddMethod(f2)
+	InitThisGopPkg(pkg)
+	of := findMethod(typ, "bar")
+	_, objs := CheckSigFuncExObjects(of.Type().(*types.Signature))
+	if typ.NumMethods() != 3 || len(objs) != 2 {
+		t.Fatal("error")
+	}
+}
+
+func TestNewOverloadMethod2(t *testing.T) {
+	pkg := types.NewPackage("", "foo")
+	pkg.Scope().Insert(types.NewConst(0, pkg, "GopPackage", types.Typ[types.Bool], constant.MakeBool(true)))
+	typ := types.NewNamed(types.NewTypeName(0, pkg, "T", nil), types.Typ[types.Int], nil)
+	pkg.Scope().Insert(typ.Obj())
+	of := NewOverloadMethod(typ, 0, pkg, "bar")
+	types.NewFunc(0, pkg, "bar__0", types.NewSignature(types.NewVar(0, pkg, "", typ), nil, nil, false))
+	f1 := types.NewFunc(0, pkg, "bar__0", types.NewSignature(types.NewVar(0, pkg, "", typ), nil, nil, false))
+	f2 := types.NewFunc(0, pkg, "bar__1", types.NewSignature(types.NewVar(0, pkg, "", typ), types.NewTuple(types.NewVar(0, pkg, "n", types.Typ[types.Int])), nil, false))
+	typ.AddMethod(f1)
+	typ.AddMethod(f2)
+	InitThisGopPkg(pkg)
+	_, objs := CheckSigFuncExObjects(of.Type().(*types.Signature))
+	if typ.NumMethods() != 3 || len(objs) != 2 {
+		t.Fatal("error")
+	}
+}
+
+func TestNewOverloadMethodError(t *testing.T) {
+	defer func() {
+		err := recover()
+		if err == nil {
+			t.Fatal("no error?")
+		}
+	}()
+	pkg := types.NewPackage("", "foo")
+	pkg.Scope().Insert(types.NewConst(0, pkg, "GopPackage", types.Typ[types.Bool], constant.MakeBool(true)))
+	typ := types.NewNamed(types.NewTypeName(0, pkg, "T", nil), types.Typ[types.Int], nil)
+	pkg.Scope().Insert(typ.Obj())
+	of := types.NewFunc(0, pkg, "bar", types.NewSignature(types.NewVar(0, pkg, "", typ), nil, nil, false))
+	f1 := types.NewFunc(0, pkg, "bar__0", types.NewSignature(types.NewVar(0, pkg, "", typ), nil, nil, false))
+	f2 := types.NewFunc(0, pkg, "bar__1", types.NewSignature(types.NewVar(0, pkg, "", typ), types.NewTuple(types.NewVar(0, pkg, "n", types.Typ[types.Int])), nil, false))
+	typ.AddMethod(of)
+	typ.AddMethod(f1)
+	typ.AddMethod(f2)
+	InitThisGopPkg(pkg)
+}
+
 func TestGetBuiltinTI(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	cb := &pkg.cb
