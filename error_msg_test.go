@@ -1229,6 +1229,44 @@ func TestMissingReturnValid(t *testing.T) {
 	})
 }
 
+func TestReturnErrorNoMissingReturn(t *testing.T) {
+	// Return with invalid argument, recover and call End - should not produce
+	// "missing return" (return statement is added to AST before validation).
+	//
+	// func foo() int {
+	//     return "hello"
+	// }
+	pkg := newMainPackage()
+	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	fn := newFunc(pkg, 1, 5, 3, 1, nil, "foo", nil, types.NewTuple(ret), false)
+	fn.BodyStart(pkg)
+	pkg.CB().Val("hello")
+	func() {
+		defer func() { recover() }()
+		pkg.CB().Return(1)
+	}()
+	pkg.CB().ResetStmt()
+	fn.End(pkg.CB(), nil)
+}
+
+func TestReturnInsufficientArgsNoMissingReturn(t *testing.T) {
+	// Return with fewer arguments on stack than expected, should not produce
+	// "missing return" (return statement is added to AST before checking args).
+	//
+	// This simulates the case where return argument compilation failed and
+	// nothing was pushed onto the stack.
+	//
+	// func foo() int {
+	//     return <invalid>
+	// }
+	pkg := newMainPackage()
+	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	fn := newFunc(pkg, 1, 5, 3, 1, nil, "foo", nil, types.NewTuple(ret), false)
+	fn.BodyStart(pkg)
+	pkg.CB().Return(1)
+	fn.End(pkg.CB(), nil)
+}
+
 func TestMissingReturnShadowedPanic(t *testing.T) {
 	// When panic is shadowed, it should NOT be recognized as a terminating statement
 	codeErrorTest(t, "./foo.gop:4:1: missing return", func(pkg *gogen.Package) {
