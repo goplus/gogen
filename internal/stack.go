@@ -23,11 +23,32 @@ import (
 
 const defaultStkSize = 64
 
+// ElemFlags represents flags for stack elements.
+// These flags describe the operand mode for error messages,
+// similar to Go compiler's operandMode.
+type ElemFlags uint32
+
+const (
+	// ElemFlagDefault is the default flag (no special meaning).
+	ElemFlagDefault ElemFlags = iota
+
+	// ElemFlagTypeCast indicates a type conversion expression.
+	ElemFlagTypeCast
+
+	// ElemFlagMapIndex indicates a map index expression.
+	// Map index expressions have special error message format.
+	ElemFlagMapIndex
+
+	// ElemFlagCommaOk indicates a comma-ok expression (type assertion, channel receive).
+	ElemFlagCommaOk
+)
+
 type Elem struct {
-	Val  ast.Expr
-	Type types.Type
-	CVal constant.Value
-	Src  ast.Node
+	Val   ast.Expr
+	Type  types.Type
+	CVal  constant.Value
+	Src   ast.Node
+	Flags ElemFlags
 }
 
 // A Stack represents a FILO container.

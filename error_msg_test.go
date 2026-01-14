@@ -2058,3 +2058,274 @@ func TestErrorLit(t *testing.T) {
 				End()
 		})
 }
+
+func TestErrUnusedExpr(t *testing.T) {
+	// Variable as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: a (variable of type int) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				VarVal("a", source("a", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Binary operation as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: a + 1 (value of type int) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				VarVal("a").Val(1).BinaryOp(token.ADD, source("a + 1", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Unary operation (not receive) as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: -a (value of type int) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "a").
+				VarVal("a").UnaryOp(token.SUB, false, source("-a", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Index expression as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: arr[0] (variable of type int) is not used`,
+		func(pkg *gogen.Package) {
+			tySlice := types.NewSlice(types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tySlice, "arr").
+				VarVal("arr").Val(0).Index(1, false, source("arr[0]", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Type conversion as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: int(x) (value of type int) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Float64], "x").
+				Typ(types.Typ[types.Int]).VarVal("x").CallWith(1, 0, source("int(x)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// len() as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: len(s) (value of type int) is not used`,
+		func(pkg *gogen.Package) {
+			tySlice := types.NewSlice(types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tySlice, "s").
+				Val(pkg.Builtin().Ref("len")).VarVal("s").CallWith(1, 0, source("len(s)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// cap() as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: cap(s) (value of type int) is not used`,
+		func(pkg *gogen.Package) {
+			tySlice := types.NewSlice(types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tySlice, "s").
+				Val(pkg.Builtin().Ref("cap")).VarVal("s").CallWith(1, 0, source("cap(s)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// new() as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: new(int) (value of type *int) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(pkg.Builtin().Ref("new")).Typ(types.Typ[types.Int]).CallWith(1, 0, source("new(int)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// make() as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: make([]int, 0) (value of type []int) is not used`,
+		func(pkg *gogen.Package) {
+			tySlice := types.NewSlice(types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(pkg.Builtin().Ref("make")).Typ(tySlice).Val(0).CallWith(2, 0, source("make([]int, 0)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// append() as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: append(...) (value of type []int) is not used`,
+		func(pkg *gogen.Package) {
+			tySlice := types.NewSlice(types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tySlice, "s").
+				Val(pkg.Builtin().Ref("append")).VarVal("s").Val(1).CallWith(2, 0, source("append(...)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// complex() as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: complex(...) (untyped complex constant (1 + 2i)) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(pkg.Builtin().Ref("complex")).Val(1.0).Val(2.0).CallWith(2, 0, source("complex(...)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// real() as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: real(c) (value of type float64) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Complex128], "c").
+				Val(pkg.Builtin().Ref("real")).VarVal("c").CallWith(1, 0, source("real(c)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// imag() as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: imag(c) (value of type float64) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Complex128], "c").
+				Val(pkg.Builtin().Ref("imag")).VarVal("c").CallWith(1, 0, source("imag(c)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Map index expression as statement - should error with "map index expression"
+	codeErrorTest(t, `./foo.gop:2:2: m[0] (map index expression of type int) is not used`,
+		func(pkg *gogen.Package) {
+			tyMap := types.NewMap(types.Typ[types.Int], types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyMap, "m").
+				VarVal("m").Val(0).Index(1, false, source("m[0]", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Type assertion as statement - should error with "comma, ok expression"
+	codeErrorTest(t, `./foo.gop:2:2: x.(int) (comma, ok expression of type int) is not used`,
+		func(pkg *gogen.Package) {
+			tyInterface := types.NewInterfaceType(nil, nil).Complete()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyInterface, "x").
+				VarVal("x").TypeAssert(types.Typ[types.Int], false, source("x.(int)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// min() as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: min(...) (value of type int) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(pkg.Builtin().Ref("min")).Val(1).Val(2).CallWith(2, 0, source("min(...)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// max() as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: max(...) (value of type int) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(pkg.Builtin().Ref("max")).Val(1).Val(2).CallWith(2, 0, source("max(...)", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Constant literal as statement - should error (no value shown for literals)
+	codeErrorTest(t, `./foo.gop:2:2: 42 (untyped int constant) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(42, source("42", 2, 2)).EndStmt().
+				End()
+		})
+
+	// String literal as statement - should error (no value shown for literals)
+	codeErrorTest(t, `./foo.gop:2:2: "hello" (untyped string constant) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val("hello", source(`"hello"`, 2, 2)).EndStmt().
+				End()
+		})
+
+	// Field access as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: t.F (variable of type int) is not used`,
+		func(pkg *gogen.Package) {
+			fields := []*types.Var{types.NewField(token.NoPos, pkg.Types, "F", types.Typ[types.Int], false)}
+			tyStruct := types.NewStruct(fields, nil)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyStruct, "t").
+				VarVal("t").MemberVal("F", source("t.F", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Nested field access (a.b.c) as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: a.B.C (variable of type int) is not used`,
+		func(pkg *gogen.Package) {
+			// type B struct { C int }
+			fieldsB := []*types.Var{types.NewField(token.NoPos, pkg.Types, "C", types.Typ[types.Int], false)}
+			tyB := types.NewStruct(fieldsB, nil)
+			// type A struct { B B }
+			fieldsA := []*types.Var{types.NewField(token.NoPos, pkg.Types, "B", tyB, false)}
+			tyA := types.NewStruct(fieldsA, nil)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyA, "a").
+				VarVal("a").MemberVal("B").MemberVal("C", source("a.B.C", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Function result nested field access (getA().B.C) as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: getA().B.C (value of type int) is not used`,
+		func(pkg *gogen.Package) {
+			// type B struct { C int }
+			fieldsB := []*types.Var{types.NewField(token.NoPos, pkg.Types, "C", types.Typ[types.Int], false)}
+			tyB := types.NewStruct(fieldsB, nil)
+			// type A struct { B B }
+			fieldsA := []*types.Var{types.NewField(token.NoPos, pkg.Types, "B", tyB, false)}
+			tyA := types.NewStruct(fieldsA, nil)
+			// func getA() A { return A{} }
+			pkg.NewFunc(nil, "getA", nil, gogen.NewTuple(types.NewVar(token.NoPos, pkg.Types, "", tyA)), false).BodyStart(pkg).
+				StructLit(tyA, 0, false).Return(1).
+				End()
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(pkg.Types.Scope().Lookup("getA")).Call(0).MemberVal("B").MemberVal("C", source("getA().B.C", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Pointer dereference as statement - should error
+	// Note: ElemRef returns a refType internally, so we use Star() instead
+	codeErrorTest(t, `./foo.gop:2:2: *p (variable of type int) is not used`,
+		func(pkg *gogen.Package) {
+			tyPtr := types.NewPointer(types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyPtr, "p").
+				VarVal("p").Star(source("*p", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Address-of as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: &x (value of type *int) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "x").
+				VarVal("x").UnaryOp(token.AND, false, source("&x", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Slice expression as statement - should error
+	codeErrorTest(t, `./foo.gop:2:2: arr[...] (value of type []int) is not used`,
+		func(pkg *gogen.Package) {
+			tySlice := types.NewSlice(types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tySlice, "arr").
+				VarVal("arr").Val(1).Val(2).Slice(false, source("arr[...]", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Boolean literal as statement - should error (no value shown for literals)
+	codeErrorTest(t, `./foo.gop:2:2: true (untyped bool constant) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(true, source("true", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Float literal as statement - should error (no value shown for literals)
+	codeErrorTest(t, `./foo.gop:2:2: 3.14 (untyped float constant) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(3.14, source("3.14", 2, 2)).EndStmt().
+				End()
+		})
+
+	// Binary expression as computed value - should show result
+	codeErrorTest(t, `./foo.gop:2:2: 1 + 2 (untyped int constant 3) is not used`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1).Val(2).BinaryOp(token.ADD, source("1 + 2", 2, 2)).EndStmt().
+				End()
+		})
+}
