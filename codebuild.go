@@ -460,9 +460,22 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 		log.Println("Return", n)
 	}
 	fn := p.current.fn
+
+	// For non-inline functions, if stack has fewer elements than expected, it
+	// means compilation of return arguments failed. We still mark return to
+	// match Go compiler behavior: a return statement with invalid arguments is
+	// still a return statement syntactically.
+	if !fn.isInline() && p.stk.Len()-p.current.base < n {
+		p.current.flows |= flowFlagReturn
+		p.emitStmt(&ast.ReturnStmt{Return: getPos(src)})
+		return p
+	}
+
+	args := p.stk.GetArgs(n)
 	results := fn.Type().(*types.Signature).Results()
-	checkFuncResults(p.pkg, p.stk.GetArgs(n), results, getSrc(src))
+	srcNode := getSrc(src)
 	if fn.isInline() {
+		checkFuncResults(p.pkg, args, results, srcNode)
 		for i := n - 1; i >= 0; i-- {
 			key := closureParamInst{fn, results.At(i)}
 			elem := p.stk.Pop()
@@ -474,6 +487,7 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 	} else {
 		p.current.flows |= flowFlagReturn
 		p.returnResults(n)
+		checkFuncResults(p.pkg, args, results, srcNode)
 	}
 	return p
 }
