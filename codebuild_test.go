@@ -62,7 +62,7 @@ func TestFindMember(t *testing.T) {
 	cb.Scope().Insert(named.Obj())
 
 	// then call init to process overloads etc in the package
-	InitThisGopPkg(pkg.Types)
+	InitXGoPackage(pkg.Types)
 
 	// create an interface that has method foo and embeds Impl
 	// type Impl2 interface {

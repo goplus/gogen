@@ -24,13 +24,13 @@ import (
 	"github.com/goplus/gogen"
 )
 
-func initGopBuiltin(big gogen.PkgRef, conf *gogen.Config) {
-	conf.UntypedBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
-	conf.UntypedBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
-	conf.UntypedBigFloat = big.Ref("Gop_untyped_bigfloat").Type().(*types.Named)
+func initXGoBuiltin(big gogen.PkgRef, conf *gogen.Config) {
+	conf.UntypedBigInt = big.Ref("XGo_untyped_bigint").Type().(*types.Named)
+	conf.UntypedBigRat = big.Ref("XGo_untyped_bigrat").Type().(*types.Named)
+	conf.UntypedBigFloat = big.Ref("XGo_untyped_bigfloat").Type().(*types.Named)
 }
 
-func newGopBuiltinDefault(pkg *gogen.Package, conf *gogen.Config) *types.Package {
+func newXGoBuiltinDefault(pkg *gogen.Package, conf *gogen.Config) *types.Package {
 	fmt := pkg.Import("fmt")
 	b := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	builtin := types.NewPackage("", "")
@@ -38,7 +38,7 @@ func newGopBuiltinDefault(pkg *gogen.Package, conf *gogen.Config) *types.Package
 		panic("println exists")
 	}
 	gogen.InitBuiltin(pkg, builtin, conf)
-	initGopBuiltin(b, conf)
+	initXGoBuiltin(b, conf)
 	tiStr := pkg.BuiltinTI(types.Typ[types.String])
 	tiStr.AddMethods(
 		&gogen.BuiltinMethod{Name: "Capitalize", Fn: b.Ref("Capitalize")},
@@ -46,11 +46,11 @@ func newGopBuiltinDefault(pkg *gogen.Package, conf *gogen.Config) *types.Package
 	return builtin
 }
 
-func newGopMainPackage() *gogen.Package {
+func newXGoMainPackage() *gogen.Package {
 	conf := &gogen.Config{
 		Fset:       gblFset,
 		Importer:   gblImp,
-		NewBuiltin: newGopBuiltinDefault,
+		NewBuiltin: newXGoBuiltinDefault,
 	}
 	return gogen.NewPackage("", "main", conf)
 }
@@ -83,19 +83,19 @@ func main() {
 `)
 }
 
-func TestGopoConst(t *testing.T) {
+func TestXGooConst(t *testing.T) {
 	pkg := newPackage("foo", false)
-	pkg.CB().NewConstStart(nil, "Gopo_x").
+	pkg.CB().NewConstStart(nil, "XGoo_x").
 		Val("Hello").EndInit(1)
 	domTest(t, pkg, `package foo
 
-const GopPackage = true
-const Gopo_x = "Hello"
+const XGoPackage = true
+const XGoo_x = "Hello"
 `)
 }
 
 func TestFmtPrintln(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "p").Val(ctxRef(pkg, "println")).EndInit(1).
 		VarRef(ctxRef(pkg, "p")).Val(ctxRef(pkg, "println")).Assign(1).EndStmt().
@@ -130,21 +130,21 @@ func TestBigRatConstant(t *testing.T) {
 }
 
 func TestBigIntVar(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.CB().NewVar(big.Ref("Gop_bigint").Type(), "a")
+	pkg.CB().NewVar(big.Ref("XGo_bigint").Type(), "a")
 	domTest(t, pkg, `package main
 
 import "github.com/goplus/gogen/internal/builtin"
 
-var a builtin.Gop_bigint
+var a builtin.XGo_bigint
 `)
 }
 
 func TestBigIntVarInit(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	mbig := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.CB().NewVarStart(mbig.Ref("Gop_bigint").Type(), "a").
+	pkg.CB().NewVarStart(mbig.Ref("XGo_bigint").Type(), "a").
 		UntypedBigInt(big.NewInt(6)).EndInit(1)
 	domTest(t, pkg, `package main
 
@@ -153,29 +153,29 @@ import (
 	"math/big"
 )
 
-var a builtin.Gop_bigint = builtin.Gop_bigint_Init__1(big.NewInt(6))
+var a builtin.XGo_bigint = builtin.XGo_bigint_Init__1(big.NewInt(6))
 `)
 }
 
 func TestBigInt(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.CB().NewVar(big.Ref("Gop_bigint").Type(), "a", "b")
-	pkg.CB().NewVarStart(big.Ref("Gop_bigint").Type(), "c").
+	pkg.CB().NewVar(big.Ref("XGo_bigint").Type(), "a", "b")
+	pkg.CB().NewVarStart(big.Ref("XGo_bigint").Type(), "c").
 		VarVal("a").VarVal("b").BinaryOp(token.ADD).EndInit(1)
 	domTest(t, pkg, `package main
 
 import "github.com/goplus/gogen/internal/builtin"
 
-var a, b builtin.Gop_bigint
-var c builtin.Gop_bigint = (builtin.Gop_bigint).Gop_Add(a, b)
+var a, b builtin.XGo_bigint
+var c builtin.XGo_bigint = (builtin.XGo_bigint).XGo_Add(a, b)
 `)
 }
 
 func TestBigInt2(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	typ := types.NewPointer(big.Ref("Gop_bigint").Type())
+	typ := types.NewPointer(big.Ref("XGo_bigint").Type())
 	pkg.CB().NewVar(typ, "a", "b")
 	pkg.CB().NewVarStart(typ, "c").
 		VarVal("a").VarVal("b").BinaryOp(token.AND_NOT).EndInit(1)
@@ -183,44 +183,44 @@ func TestBigInt2(t *testing.T) {
 
 import "github.com/goplus/gogen/internal/builtin"
 
-var a, b *builtin.Gop_bigint
-var c *builtin.Gop_bigint = (*builtin.Gop_bigint).Gop_AndNot__0(a, b)
+var a, b *builtin.XGo_bigint
+var c *builtin.XGo_bigint = (*builtin.XGo_bigint).XGo_AndNot__0(a, b)
 `)
 }
 
 func TestBigRat(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
-	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "c").
+	pkg.NewVar(token.NoPos, big.Ref("XGo_bigrat").Type(), "a", "b")
+	pkg.CB().NewVarStart(big.Ref("XGo_bigrat").Type(), "c").
 		VarVal("a").VarVal("b").BinaryOp(token.QUO).EndInit(1)
-	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "d").
+	pkg.CB().NewVarStart(big.Ref("XGo_bigrat").Type(), "d").
 		VarVal("a").UnaryOp(token.SUB).EndInit(1)
-	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "e").
-		Val(big.Ref("Gop_bigrat_Cast")).Call(0).EndInit(1)
-	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "f").
-		Val(big.Ref("Gop_bigrat_Cast")).Val(1).Val(2).Call(2).EndInit(1)
-	pkg.CB().NewVarStart(big.Ref("Gop_bigint").Type(), "g")
-	pkg.CB().NewVarStart(big.Ref("Gop_bigrat").Type(), "h").
-		Val(big.Ref("Gop_bigrat_Cast")).Val(ctxRef(pkg, "g")).Call(1).EndInit(1)
+	pkg.CB().NewVarStart(big.Ref("XGo_bigrat").Type(), "e").
+		Val(big.Ref("XGo_bigrat_Cast")).Call(0).EndInit(1)
+	pkg.CB().NewVarStart(big.Ref("XGo_bigrat").Type(), "f").
+		Val(big.Ref("XGo_bigrat_Cast")).Val(1).Val(2).Call(2).EndInit(1)
+	pkg.CB().NewVarStart(big.Ref("XGo_bigint").Type(), "g")
+	pkg.CB().NewVarStart(big.Ref("XGo_bigrat").Type(), "h").
+		Val(big.Ref("XGo_bigrat_Cast")).Val(ctxRef(pkg, "g")).Call(1).EndInit(1)
 	domTest(t, pkg, `package main
 
 import "github.com/goplus/gogen/internal/builtin"
 
-var a, b builtin.Gop_bigrat
-var c builtin.Gop_bigrat = (builtin.Gop_bigrat).Gop_Quo(a, b)
-var d builtin.Gop_bigrat = a.Gop_Neg()
-var e builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__5()
-var f builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__3(1, 2)
-var g builtin.Gop_bigint
-var h builtin.Gop_bigrat = builtin.Gop_bigrat_Cast__1(g)
+var a, b builtin.XGo_bigrat
+var c builtin.XGo_bigrat = (builtin.XGo_bigrat).XGo_Quo(a, b)
+var d builtin.XGo_bigrat = a.XGo_Neg()
+var e builtin.XGo_bigrat = builtin.XGo_bigrat_Cast__5()
+var f builtin.XGo_bigrat = builtin.XGo_bigrat_Cast__3(1, 2)
+var g builtin.XGo_bigint
+var h builtin.XGo_bigrat = builtin.XGo_bigrat_Cast__1(g)
 `)
 }
 
 func TestBigRatInit(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	ng := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.CB().NewVarStart(ng.Ref("Gop_bigrat").Type(), "a").
+	pkg.CB().NewVarStart(ng.Ref("XGo_bigrat").Type(), "a").
 		Val(1).Val(65).BinaryOp(token.SHL).
 		EndInit(1)
 	domTest(t, pkg, `package main
@@ -230,7 +230,7 @@ import (
 	"math/big"
 )
 
-var a builtin.Gop_bigrat = builtin.Gop_bigrat_Init__1(func() *big.Int {
+var a builtin.XGo_bigrat = builtin.XGo_bigrat_Init__1(func() *big.Int {
 	v, _ := new(big.Int).SetString("36893488147419103232", 10)
 	return v
 }())
@@ -238,9 +238,9 @@ var a builtin.Gop_bigrat = builtin.Gop_bigrat_Init__1(func() *big.Int {
 }
 
 func TestBigRatInit2(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	ng := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.CB().NewVarStart(ng.Ref("Gop_bigrat").Type(), "a").
+	pkg.CB().NewVarStart(ng.Ref("XGo_bigrat").Type(), "a").
 		Val(-1).Val(65).BinaryOp(token.SHL).
 		EndInit(1)
 	domTest(t, pkg, `package main
@@ -250,7 +250,7 @@ import (
 	"math/big"
 )
 
-var a builtin.Gop_bigrat = builtin.Gop_bigrat_Init__1(func() *big.Int {
+var a builtin.XGo_bigrat = builtin.XGo_bigrat_Init__1(func() *big.Int {
 	v, _ := new(big.Int).SetString("-36893488147419103232", 10)
 	return v
 }())
@@ -258,14 +258,14 @@ var a builtin.Gop_bigrat = builtin.Gop_bigrat_Init__1(func() *big.Int {
 }
 
 func TestBigRatCast(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	fmt := pkg.Import("fmt")
 	ng := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).
-		Val(ng.Ref("Gop_bigrat")).Val(1).Val(65).BinaryOp(token.SHL).Call(1).           // bigrat(1 << 65)
-		Typ(types.Typ[types.Float64]).Val(ng.Ref("Gop_bigrat")).Call(0).Call(1).        // float64(bigrat())
-		Typ(types.Typ[types.Float64]).Val(ng.Ref("Gop_bigint")).Val(1).Call(1).Call(1). // float64(bigint(1))
+		Val(ng.Ref("XGo_bigrat")).Val(1).Val(65).BinaryOp(token.SHL).Call(1).           // bigrat(1 << 65)
+		Typ(types.Typ[types.Float64]).Val(ng.Ref("XGo_bigrat")).Call(0).Call(1).        // float64(bigrat())
+		Typ(types.Typ[types.Float64]).Val(ng.Ref("XGo_bigint")).Val(1).Call(1).Call(1). // float64(bigint(1))
 		Typ(types.Typ[types.Int]).Call(0).                                              // int()
 		Call(4).EndStmt().
 		End()
@@ -278,21 +278,21 @@ import (
 )
 
 func main() {
-	fmt.Println(builtin.Gop_bigrat_Cast__0(func() *big.Int {
+	fmt.Println(builtin.XGo_bigrat_Cast__0(func() *big.Int {
 		v, _ := new(big.Int).SetString("36893488147419103232", 10)
 		return v
-	}()), builtin.Gop_bigrat_Cast__5().Gop_Rcast__2(), builtin.Gop_bigint_Cast__0(1).Gop_Rcast(), 0)
+	}()), builtin.XGo_bigrat_Cast__5().XGo_Rcast__2(), builtin.XGo_bigint_Cast__0(1).XGo_Rcast(), 0)
 }
 `)
 }
 
 func TestCastIntTwoValue(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	ng := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "v", "inRange").
 		Typ(types.Typ[types.Int]).
-		Val(ng.Ref("Gop_bigrat")).Val(1).Call(1).
+		Val(ng.Ref("XGo_bigrat")).Val(1).Call(1).
 		CallWith(1, gogen.InstrFlagTwoValue).
 		EndInit(1).
 		End()
@@ -304,18 +304,18 @@ import (
 )
 
 func main() {
-	v, inRange := builtin.Gop_bigrat_Cast__0(big.NewInt(1)).Gop_Rcast__0()
+	v, inRange := builtin.XGo_bigrat_Cast__0(big.NewInt(1)).XGo_Rcast__0()
 }
 `)
 }
 
 func TestCastBigIntTwoValue(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	ng := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "v", "inRange").
-		Val(ng.Ref("Gop_bigint")).
-		Val(ng.Ref("Gop_bigrat")).Val(1).Call(1).
+		Val(ng.Ref("XGo_bigint")).
+		Val(ng.Ref("XGo_bigrat")).Val(1).Call(1).
 		CallWith(1, gogen.InstrFlagTwoValue).
 		EndInit(1).
 		End()
@@ -327,7 +327,7 @@ import (
 )
 
 func main() {
-	v, inRange := builtin.Gop_bigint_Cast__7(builtin.Gop_bigrat_Cast__0(big.NewInt(1)))
+	v, inRange := builtin.XGo_bigint_Cast__7(builtin.XGo_bigrat_Cast__0(big.NewInt(1)))
 }
 `)
 }
@@ -338,19 +338,19 @@ func TestErrCast(t *testing.T) {
 			t.Fatal("TestErrCast: no error?")
 		}
 	}()
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	ng := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "v", "inRange").
 		Typ(types.Typ[types.Int64]).
-		Val(ng.Ref("Gop_bigrat")).Val(1).Call(1).
+		Val(ng.Ref("XGo_bigrat")).Val(1).Call(1).
 		CallWith(1, gogen.InstrFlagTwoValue).
 		EndInit(1).
 		End()
 }
 
 func TestUntypedBigIntAdd(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		UntypedBigInt(big.NewInt(6)).
 		UntypedBigInt(big.NewInt(63)).
@@ -363,14 +363,14 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigint_Init__1(big.NewInt(69))
+var a = builtin.XGo_bigint_Init__1(big.NewInt(69))
 `)
 }
 
 func TestBigRatIncDec(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewVar(token.NoPos, big.Ref("XGo_bigrat").Type(), "a")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		VarRef("a").IncDec(token.INC).
 		End()
@@ -378,10 +378,10 @@ func TestBigRatIncDec(t *testing.T) {
 
 import "github.com/goplus/gogen/internal/builtin"
 
-var a builtin.Gop_bigrat
+var a builtin.XGo_bigrat
 
 func main() {
-	a.Gop_Inc()
+	a.XGo_Inc()
 }
 `)
 }
@@ -393,7 +393,7 @@ func TestErrValRef(t *testing.T) {
 			t.Fatal("TestErrValRef:", e)
 		}
 	}()
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		VarRef("a").
 		End()
@@ -402,13 +402,13 @@ func TestErrValRef(t *testing.T) {
 func TestErrBigRatIncDec(t *testing.T) {
 	defer func() {
 		if e := recover(); e == nil ||
-			e.(error).Error() != "-: operator Gop_Dec should return no results\n" {
+			e.(error).Error() != "-: operator XGo_Dec should return no results\n" {
 			t.Fatal("TestErrBigRatIncDec:", e)
 		}
 	}()
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewVar(token.NoPos, big.Ref("XGo_bigrat").Type(), "a")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		VarRef("a").IncDec(token.DEC).
 		End()
@@ -420,9 +420,9 @@ func TestErrBigRatAssignOp(t *testing.T) {
 			t.Fatal("TestErrBigRatAssignOp: no error?")
 		}
 	}()
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
+	pkg.NewVar(token.NoPos, big.Ref("XGo_bigrat").Type(), "a", "b")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		VarRef(ctxRef(pkg, "a")).
 		VarVal("b").
@@ -431,9 +431,9 @@ func TestErrBigRatAssignOp(t *testing.T) {
 }
 
 func TestBigRatAssignOp(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a", "b")
+	pkg.NewVar(token.NoPos, big.Ref("XGo_bigrat").Type(), "a", "b")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		VarRef(ctxRef(pkg, "a")).
 		VarVal("b").
@@ -443,18 +443,18 @@ func TestBigRatAssignOp(t *testing.T) {
 
 import "github.com/goplus/gogen/internal/builtin"
 
-var a, b builtin.Gop_bigrat
+var a, b builtin.XGo_bigrat
 
 func main() {
-	a.Gop_AddAssign(b)
+	a.XGo_AddAssign(b)
 }
 `)
 }
 
 func TestBigRatAssignOp2(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.NewVar(token.NoPos, big.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewVar(token.NoPos, big.Ref("XGo_bigrat").Type(), "a")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		VarRef(ctxRef(pkg, "a")).
 		Val(1).
@@ -464,16 +464,16 @@ func TestBigRatAssignOp2(t *testing.T) {
 
 import "github.com/goplus/gogen/internal/builtin"
 
-var a builtin.Gop_bigrat
+var a builtin.XGo_bigrat
 
 func main() {
-	a.Gop_AddAssign(builtin.Gop_bigrat_Init__0(1))
+	a.XGo_AddAssign(builtin.XGo_bigrat_Init__0(1))
 }
 `)
 }
 
 func TestUntypedBigIntQuo(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		UntypedBigInt(big.NewInt(6)).
 		UntypedBigInt(big.NewInt(63)).
@@ -486,12 +486,12 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__2(big.NewRat(2, 21))
+var a = builtin.XGo_bigrat_Init__2(big.NewRat(2, 21))
 `)
 }
 
 func TestUntypedBigIntQuo2(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		Val(6).
 		UntypedBigInt(big.NewInt(63)).
@@ -504,12 +504,12 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__2(big.NewRat(2, 21))
+var a = builtin.XGo_bigrat_Init__2(big.NewRat(2, 21))
 `)
 }
 
 func TestUntypedBigIntQuo3(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		UntypedBigInt(big.NewInt(63)).
 		Val(6).
@@ -522,12 +522,12 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__2(big.NewRat(21, 2))
+var a = builtin.XGo_bigrat_Init__2(big.NewRat(21, 2))
 `)
 }
 
 func TestUntypedBigIntRem(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		UntypedBigInt(big.NewInt(100)).
 		UntypedBigInt(big.NewInt(7)).
@@ -540,12 +540,12 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigint_Init__1(big.NewInt(2))
+var a = builtin.XGo_bigint_Init__1(big.NewInt(2))
 `)
 }
 
 func TestUntypedBigIntShift(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		UntypedBigInt(big.NewInt(1)).
 		Val(128).
@@ -558,7 +558,7 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigint_Init__1(func() *big.Int {
+var a = builtin.XGo_bigint_Init__1(func() *big.Int {
 	v, _ := new(big.Int).SetString("340282366920938463463374607431768211456", 10)
 	return v
 }())
@@ -566,7 +566,7 @@ var a = builtin.Gop_bigint_Init__1(func() *big.Int {
 }
 
 func TestUntypedBigRatAdd(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		UntypedBigRat(big.NewRat(1, 6)).
 		UntypedBigRat(big.NewRat(1, 3)).
@@ -579,12 +579,12 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__2(big.NewRat(1, 2))
+var a = builtin.XGo_bigrat_Init__2(big.NewRat(1, 2))
 `)
 }
 
 func TestUntypedBigRatAdd2(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		UntypedBigRat(big.NewRat(1, 6)).
 		UntypedBigInt(big.NewInt(3)).
@@ -597,12 +597,12 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__2(big.NewRat(19, 6))
+var a = builtin.XGo_bigrat_Init__2(big.NewRat(19, 6))
 `)
 }
 
 func TestUntypedBigRatAdd3(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		UntypedBigInt(big.NewInt(3)).
 		UntypedBigRat(big.NewRat(1, 6)).
@@ -615,14 +615,14 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__2(big.NewRat(19, 6))
+var a = builtin.XGo_bigrat_Init__2(big.NewRat(19, 6))
 `)
 }
 
 func TestUntypedBigRatAdd4(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	mbig := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.NewVar(token.NoPos, mbig.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewVar(token.NoPos, mbig.Ref("XGo_bigrat").Type(), "a")
 	pkg.CB().NewVarStart(nil, "b").
 		VarVal("a").
 		UntypedBigRat(big.NewRat(1, 6)).
@@ -635,15 +635,15 @@ import (
 	"math/big"
 )
 
-var a builtin.Gop_bigrat
-var b = (builtin.Gop_bigrat).Gop_Add(a, builtin.Gop_bigrat_Init__2(big.NewRat(1, 6)))
+var a builtin.XGo_bigrat
+var b = (builtin.XGo_bigrat).XGo_Add(a, builtin.XGo_bigrat_Init__2(big.NewRat(1, 6)))
 `)
 }
 
 func TestUntypedBigRatAdd5(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	mbig := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.NewVar(token.NoPos, mbig.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewVar(token.NoPos, mbig.Ref("XGo_bigrat").Type(), "a")
 	pkg.CB().NewVarStart(nil, "b").
 		VarVal("a").
 		Val(100).
@@ -653,15 +653,15 @@ func TestUntypedBigRatAdd5(t *testing.T) {
 
 import "github.com/goplus/gogen/internal/builtin"
 
-var a builtin.Gop_bigrat
-var b = (builtin.Gop_bigrat).Gop_Add(a, builtin.Gop_bigrat_Init__0(100))
+var a builtin.XGo_bigrat
+var b = (builtin.XGo_bigrat).XGo_Add(a, builtin.XGo_bigrat_Init__0(100))
 `)
 }
 
 func TestUntypedBigRatAdd6(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	mbig := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.NewVar(token.NoPos, mbig.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewVar(token.NoPos, mbig.Ref("XGo_bigrat").Type(), "a")
 	pkg.CB().NewVarStart(nil, "b").
 		Val(100).
 		VarVal("a").
@@ -671,13 +671,13 @@ func TestUntypedBigRatAdd6(t *testing.T) {
 
 import "github.com/goplus/gogen/internal/builtin"
 
-var a builtin.Gop_bigrat
-var b = (builtin.Gop_bigrat).Gop_Add(builtin.Gop_bigrat_Init__0(100), a)
+var a builtin.XGo_bigrat
+var b = (builtin.XGo_bigrat).XGo_Add(builtin.XGo_bigrat_Init__0(100), a)
 `)
 }
 
 func TestUntypedBigRatSub(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		UntypedBigRat(big.NewRat(1, 6)).
 		UntypedBigRat(big.NewRat(1, 3)).
@@ -690,14 +690,14 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__2(big.NewRat(-1, 6))
+var a = builtin.XGo_bigrat_Init__2(big.NewRat(-1, 6))
 `)
 }
 
 func TestUntypedBigRatSub2(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	mbig := pkg.Import("github.com/goplus/gogen/internal/builtin")
-	pkg.NewVar(token.NoPos, mbig.Ref("Gop_bigrat").Type(), "a")
+	pkg.NewVar(token.NoPos, mbig.Ref("XGo_bigrat").Type(), "a")
 	pkg.CB().NewVarStart(nil, "b").
 		VarVal("a").
 		UntypedBigRat(big.NewRat(1, 6)).
@@ -710,13 +710,13 @@ import (
 	"math/big"
 )
 
-var a builtin.Gop_bigrat
-var b = (builtin.Gop_bigrat).Gop_Sub__0(a, builtin.Gop_bigrat_Init__2(big.NewRat(1, 6)))
+var a builtin.XGo_bigrat
+var b = (builtin.XGo_bigrat).XGo_Sub__0(a, builtin.XGo_bigrat_Init__2(big.NewRat(1, 6)))
 `)
 }
 
 func TestUntypedBigRatLT(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.CB().NewVarStart(nil, "a").
 		UntypedBigRat(big.NewRat(1, 6)).
 		UntypedBigRat(big.NewRat(1, 3)).
@@ -729,10 +729,10 @@ var a = true
 }
 
 func TestUntypedBigRat(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	mbig := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.CB().NewVarStart(nil, "a").UntypedBigRat(big.NewRat(6, 63)).EndInit(1)
-	pkg.CB().NewVarStart(mbig.Ref("Gop_bigrat").Type(), "b").VarVal("a").EndInit(1)
+	pkg.CB().NewVarStart(mbig.Ref("XGo_bigrat").Type(), "b").VarVal("a").EndInit(1)
 	domTest(t, pkg, `package main
 
 import (
@@ -740,13 +740,13 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigrat_Init__2(big.NewRat(2, 21))
-var b builtin.Gop_bigrat = a
+var a = builtin.XGo_bigrat_Init__2(big.NewRat(2, 21))
+var b builtin.XGo_bigrat = a
 `)
 }
 
 func TestUntypedBigRat2(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	one := big.NewInt(1)
 	denom := new(big.Int).Lsh(one, 128)
 	v := new(big.Rat).SetFrac(one, denom)
@@ -761,7 +761,7 @@ import (
 )
 
 func main() {
-	a := builtin.Gop_bigrat_Init__2(new(big.Rat).SetFrac(big.NewInt(1), func() *big.Int {
+	a := builtin.XGo_bigrat_Init__2(new(big.Rat).SetFrac(big.NewInt(1), func() *big.Int {
 		v, _ := new(big.Int).SetString("340282366920938463463374607431768211456", 10)
 		return v
 	}()))
@@ -788,7 +788,7 @@ import (
 )
 
 func bar(v foo.NodeSet) {
-	for _xgo_it := v.Gop_Enum(); ; {
+	for _xgo_it := v.XGo_Enum(); ; {
 		var _xgo_ok bool
 		_, val, _xgo_ok := _xgo_it.Next()
 		if !_xgo_ok {
@@ -817,7 +817,7 @@ import (
 )
 
 func bar(v *foo.Bar) {
-	for _xgo_it := v.Gop_Enum(); ; {
+	for _xgo_it := v.XGo_Enum(); ; {
 		var _xgo_ok bool
 		val, _xgo_ok := _xgo_it.Next()
 		if !_xgo_ok {
@@ -848,7 +848,7 @@ import (
 
 func bar(v *foo.Bar) {
 	var val string
-	for _xgo_it := v.Gop_Enum(); ; {
+	for _xgo_it := v.XGo_Enum(); ; {
 		var _xgo_ok bool
 		val, _xgo_ok = _xgo_it.Next()
 		if !_xgo_ok {
@@ -878,7 +878,7 @@ import (
 )
 
 func bar(v *foo.Bar) {
-	for _xgo_it := v.Gop_Enum(); ; {
+	for _xgo_it := v.XGo_Enum(); ; {
 		var _xgo_ok bool
 		_, _xgo_ok = _xgo_it.Next()
 		if !_xgo_ok {
@@ -909,7 +909,7 @@ import (
 )
 
 func bar(v *foo.Bar) {
-	for _xgo_it := v.Gop_Enum(); ; {
+	for _xgo_it := v.XGo_Enum(); ; {
 		var _xgo_ok bool
 		_, _xgo_ok = _xgo_it.Next()
 		if !_xgo_ok {
@@ -939,7 +939,7 @@ import (
 )
 
 func bar(v foo.NodeSet) {
-	for _xgo_it := v.Gop_Enum(); ; {
+	for _xgo_it := v.XGo_Enum(); ; {
 		var _xgo_ok bool
 		_, _, _xgo_ok = _xgo_it.Next()
 		if !_xgo_ok {
@@ -971,7 +971,7 @@ import (
 )
 
 func bar(v *foo.Foo) {
-	v.Gop_Enum(func(elem string) {
+	v.XGo_Enum(func(elem string) {
 		__sched__
 		fmt.Println(elem)
 	})
@@ -997,7 +997,7 @@ import (
 )
 
 func bar(v *foo.Foo2) {
-	v.Gop_Enum(func(key int, elem string) {
+	v.XGo_Enum(func(key int, elem string) {
 		fmt.Println(key, elem)
 	})
 }
@@ -1017,7 +1017,7 @@ func TestStaticMethod(t *testing.T) {
 import "github.com/goplus/gogen/internal/bar"
 
 func main() {
-	bar.Gops_Game_New()
+	bar.XGos_Game_New()
 }
 `)
 }
@@ -1035,7 +1035,7 @@ import "github.com/goplus/gogen/internal/bar"
 
 func main() {
 	var g bar.Game
-	bar.Gopt_Game_Run(&g, "Hi")
+	bar.XGot_Game_Run(&g, "Hi")
 }
 `)
 }
@@ -1054,7 +1054,7 @@ import "github.com/goplus/gogen/internal/bar"
 
 func main() {
 	var g bar.Game
-	bar.Gopt_Game_Run(&g, "Hi")
+	bar.XGot_Game_Run(&g, "Hi")
 }
 `)
 }
@@ -1074,10 +1074,10 @@ func TestErrTemplateRecvMethod(t *testing.T) {
 }
 
 func TestBigIntCastUntypedFloat(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	mbig := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.CB().NewVarStart(nil, "a").
-		Val(mbig.Ref("Gop_bigint")).
+		Val(mbig.Ref("XGo_bigint")).
 		Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e20"}).Call(1).EndInit(1)
 	domTest(t, pkg, `package main
 
@@ -1086,7 +1086,7 @@ import (
 	"math/big"
 )
 
-var a = builtin.Gop_bigint_Cast__1(func() *big.Int {
+var a = builtin.XGo_bigint_Cast__1(func() *big.Int {
 	v, _ := new(big.Int).SetString("100000000000000000000", 10)
 	return v
 }())
@@ -1099,16 +1099,16 @@ func TestBigIntCastUntypedFloatError(t *testing.T) {
 			t.Fatal("TestBigIntCastUntypedFloatError: no error?")
 		}
 	}()
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	mbig := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	pkg.CB().NewVarStart(nil, "a").
-		Val(mbig.Ref("Gop_bigint")).
+		Val(mbig.Ref("XGo_bigint")).
 		Val(&ast.BasicLit{Kind: token.FLOAT, Value: "10000000000000000000.1"}).
 		Call(1).EndInit(1)
 }
 
 func TestUntypedBigDefault(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "println")).
 		UntypedBigInt(big.NewInt(1)).Call(1).EndStmt().
@@ -1123,14 +1123,14 @@ import (
 )
 
 func main() {
-	fmt.Println(builtin.Gop_bigint_Init__1(big.NewInt(1)))
-	fmt.Println(builtin.Gop_bigrat_Init__2(big.NewRat(1, 2)))
+	fmt.Println(builtin.XGo_bigint_Init__1(big.NewInt(1)))
+	fmt.Println(builtin.XGo_bigrat_Init__2(big.NewRat(1, 2)))
 }
 `)
 }
 
 func TestUntypedBigDefaultCall(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		UntypedBigInt(big.NewInt(1)).MemberVal("Int64").Call(0).EndStmt().
 		UntypedBigRat(big.NewRat(1, 2)).MemberVal("Float64").Call(0).EndStmt().End()
@@ -1142,14 +1142,14 @@ import (
 )
 
 func main() {
-	builtin.Gop_bigint_Init__1(big.NewInt(1)).Int64()
-	builtin.Gop_bigrat_Init__2(big.NewRat(1, 2)).Float64()
+	builtin.XGo_bigint_Init__1(big.NewInt(1)).Int64()
+	builtin.XGo_bigrat_Init__2(big.NewRat(1, 2)).Float64()
 }
 `)
 }
 
 func TestUntypedBigIntToInterface(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	methods := []*types.Func{
 		types.NewFunc(token.NoPos, pkg.Types, "Int64", types.NewSignatureType(nil, nil, nil, nil,
 			types.NewTuple(types.NewVar(token.NoPos, nil, "v", types.Typ[types.Int64])), false)),
@@ -1173,14 +1173,14 @@ type A interface {
 }
 
 func main() {
-	var a A = builtin.Gop_bigint_Init__1(big.NewInt(1))
+	var a A = builtin.XGo_bigint_Init__1(big.NewInt(1))
 	fmt.Println(a.Int64())
 }
 `)
 }
 
 func TestInt128(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	builtin := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	n1 := big.NewInt(1)
 	n1.Lsh(n1, 127).Sub(n1, big.NewInt(1))
@@ -1218,7 +1218,7 @@ var e builtin.Int128 = builtin.Int128(builtin.Uint128_Cast__0(1))
 }
 
 func TestUint128(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	builtin := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	n1 := big.NewInt(1)
 	n1.Lsh(n1, 128).Sub(n1, big.NewInt(1))
@@ -1257,7 +1257,7 @@ func TestErrInt128(t *testing.T) {
 				t.Log(e)
 			}
 		}()
-		pkg := newGopMainPackage()
+		pkg := newXGoMainPackage()
 		builtin := pkg.Import("github.com/goplus/gogen/internal/builtin")
 		n := big.NewInt(1)
 		n.Lsh(n, 127)
@@ -1272,7 +1272,7 @@ func TestErrInt128(t *testing.T) {
 				t.Log(e)
 			}
 		}()
-		pkg := newGopMainPackage()
+		pkg := newXGoMainPackage()
 		builtin := pkg.Import("github.com/goplus/gogen/internal/builtin")
 		int128 := builtin.Ref("Int128").Type()
 		pkg.CB().NewVarStart(int128, "a").Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e60"}).EndInit(1)
@@ -1285,7 +1285,7 @@ func TestErrInt128(t *testing.T) {
 				t.Log(e)
 			}
 		}()
-		pkg := newGopMainPackage()
+		pkg := newXGoMainPackage()
 		builtin := pkg.Import("github.com/goplus/gogen/internal/builtin")
 		n := big.NewInt(-1)
 		n.Lsh(n, 127).Sub(n, big.NewInt(1))
@@ -1300,7 +1300,7 @@ func TestErrInt128(t *testing.T) {
 				t.Log(e)
 			}
 		}()
-		pkg := newGopMainPackage()
+		pkg := newXGoMainPackage()
 		builtin := pkg.Import("github.com/goplus/gogen/internal/builtin")
 		n := big.NewInt(1)
 		n.Lsh(n, 127)
@@ -1319,7 +1319,7 @@ func TestErrUint128(t *testing.T) {
 				t.Log(e)
 			}
 		}()
-		pkg := newGopMainPackage()
+		pkg := newXGoMainPackage()
 		builtin := pkg.Import("github.com/goplus/gogen/internal/builtin")
 		n := big.NewInt(1)
 		n.Lsh(n, 128)
@@ -1334,7 +1334,7 @@ func TestErrUint128(t *testing.T) {
 				t.Log(e)
 			}
 		}()
-		pkg := newGopMainPackage()
+		pkg := newXGoMainPackage()
 		builtin := pkg.Import("github.com/goplus/gogen/internal/builtin")
 		uint128 := builtin.Ref("Uint128").Type()
 		pkg.CB().NewVarStart(uint128, "a").Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e60"}).EndInit(1)
@@ -1347,7 +1347,7 @@ func TestErrUint128(t *testing.T) {
 				t.Log(e)
 			}
 		}()
-		pkg := newGopMainPackage()
+		pkg := newXGoMainPackage()
 		builtin := pkg.Import("github.com/goplus/gogen/internal/builtin")
 		uint128 := builtin.Ref("Uint128").Type()
 		pkg.CB().NewVarStart(uint128, "a").Typ(uint128).Val(-1).Call(1).EndInit(1)
@@ -1360,7 +1360,7 @@ func TestErrUint128(t *testing.T) {
 				t.Log(e)
 			}
 		}()
-		pkg := newGopMainPackage()
+		pkg := newXGoMainPackage()
 		builtin := pkg.Import("github.com/goplus/gogen/internal/builtin")
 		int128 := builtin.Ref("Int128").Type()
 		uint128 := builtin.Ref("Uint128").Type()

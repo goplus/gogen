@@ -435,7 +435,7 @@ func TestErrDefineVar(t *testing.T) {
 }
 
 func TestErrForRange(t *testing.T) {
-	codeErrorTest(t, `./foo.gop:1:17: can't use return/continue/break/goto in for range of udt.Gop_Enum(callback)`,
+	codeErrorTest(t, `./foo.gop:1:17: can't use return/continue/break/goto in for range of udt.XGo_Enum(callback)`,
 		func(pkg *gogen.Package) {
 			foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 			bar := foo.Ref("Foo2").Type()

@@ -14,7 +14,7 @@
 package overload
 
 const (
-	GopPackage = true // to indicate this is a XGo package
+	XGoPackage = true // to indicate this is a XGo package
 )
 
 // -----------------------------------------------------------------------------
@@ -23,8 +23,8 @@ func Put2__0(a int)      {}
 func PutInt(a int)       {}
 func PutString(a string) {}
 
-const Gopo_Put = "PutInt,PutString"
-const Gopo__Put2 = ",PutString"
+const XGoo_Put = "PutInt,PutString"
+const XGoo__Put2 = ",PutString"
 
 // -----------------------------------------------------------------------------
 
@@ -36,8 +36,8 @@ func (p *Game) RunString(a string) {}
 
 func RunGame(*Game, string) {}
 
-const Gopo__Game__Run = ".RunInt,.RunString"
-const Gopo_Game_Run2 = ",.RunString"
-const Gopo_Game_Run3 = ".RunInt,RunGame"
+const XGoo__Game__Run = ".RunInt,.RunString"
+const XGoo_Game_Run2 = ",.RunString"
+const XGoo_Game_Run3 = ".RunInt,RunGame"
 
 // -----------------------------------------------------------------------------

@@ -14,7 +14,7 @@
 package bar
 
 const (
-	GopPackage = true // to indicate this is a XGo package
+	XGoPackage = true // to indicate this is a XGo package
 )
 
 // -----------------------------------------------------------------------------
@@ -29,11 +29,11 @@ type Game struct {
 func (p *Game) RunLoop() {
 }
 
-func Gopt_Game_Run(game Gamer, resource string) {
+func XGot_Game_Run(game Gamer, resource string) {
 	game.RunLoop()
 }
 
-func Gops_Game_New() *Game {
+func XGos_Game_New() *Game {
 	return nil
 }
 

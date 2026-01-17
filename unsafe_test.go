@@ -25,7 +25,7 @@ import (
 )
 
 func TestUnsafeSlice(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(nil, "v").
 		Val(1).Val(2).Val(3).ArrayLit(types.NewArray(types.Typ[types.Int], 3), 3).
@@ -51,7 +51,7 @@ func main() {
 }
 
 func TestUnsafeString(t *testing.T) {
-	pkg := newGopMainPackage()
+	pkg := newXGoMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(nil, "v").
 		Val('a').Val('b').Val('c').ArrayLit(types.NewArray(types.Typ[types.Byte], 3), 3).

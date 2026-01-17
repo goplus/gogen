@@ -443,8 +443,8 @@ func (p *Package) newValueDecl(
 		stmt := &ast.AssignStmt{Tok: token.DEFINE, Lhs: nameIdents}
 		at := p.cb.startStmtAt(stmt)
 		return &ValueDecl{names: names, tok: tok, pos: pos, scope: scope, vals: &stmt.Rhs, at: at}
-	} else if tok == token.CONST && len(names) == 1 && isGopoConst(names[0]) { // Gopo_XXX
-		p.isGopPkg = true
+	} else if tok == token.CONST && len(names) == 1 && isXGooConst(names[0]) { // XGoo_XXX
+		p.isXGoPkg = true
 	}
 	// var a, b = expr
 	// const a, b = expr

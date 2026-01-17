@@ -304,13 +304,13 @@ func main() {
 `)
 }
 
-func TestImportGopPkg(t *testing.T) {
+func TestImportXGoPkg(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	foo.EnsureImported()
 	nodeSet := foo.Ref("NodeSet")
 	if nodeSet == nil {
-		t.Fatal("TestImportGopPkg: NodeSet not found")
+		t.Fatal("TestImportXGoPkg: NodeSet not found")
 	}
 	typ := nodeSet.(*types.TypeName).Type().(*types.Named)
 	for i, n := 0, typ.NumMethods(); i < n; i++ {
@@ -323,7 +323,7 @@ func TestImportGopPkg(t *testing.T) {
 			return
 		}
 	}
-	t.Fatal("TestImportGopPkg: NodeSet.Attr not found")
+	t.Fatal("TestImportXGoPkg: NodeSet.Attr not found")
 }
 
 func TestGoTypesPkg(t *testing.T) {
@@ -1665,11 +1665,11 @@ func bar__0() {
 
 func TestDefTemplateMethod(t *testing.T) {
 	pkg := newMainPackage()
-	pkg.NewFunc(nil, "Gopt_bar", nil, nil, false).BodyStart(pkg).
+	pkg.NewFunc(nil, "XGot_bar", nil, nil, false).BodyStart(pkg).
 		End()
 	domTest(t, pkg, `package main
 
-func Gopt_bar() {
+func XGot_bar() {
 }
 `)
 }
@@ -4088,7 +4088,7 @@ var _ tbar = tfoo{y: "abc"}
 func TestEmbedFields(t *testing.T) {
 	const src = `package foo
 
-const GopPackage = true
+const XGoPackage = true
 
 type Sprite struct {
 }

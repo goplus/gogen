@@ -78,12 +78,12 @@ func (p PkgRef) MarkForceUsed(pkg *Package) {
 func (p PkgRef) EnsureImported() {
 }
 
-func isGopoConst(name string) bool {
+func isXGooConst(name string) bool {
 	return strings.HasPrefix(name, xgooPrefix)
 }
 
-func isGopFunc(name string) bool {
-	return isOverload(name) || isGopCommon(name)
+func isXGoFunc(name string) bool {
+	return isOverload(name) || isXGoCommon(name)
 }
 
 func isOverload(name string) bool {
@@ -91,26 +91,26 @@ func isOverload(name string) bool {
 	return n > 3 && name[n-3:n-1] == "__"
 }
 
-// Gop?_xxx
-func isGopCommon(name string) bool {
+// XGo?_xxx
+func isXGoCommon(name string) bool {
 	const n = len(commonPrefix)
 	return len(name) > n+2 && name[n+1] == '_' && name[:n] == commonPrefix
 }
 
-// InitThisGopPkg initializes a XGo package.
-func InitThisGopPkg(pkg *types.Package) {
-	InitThisGopPkgEx(pkg, nil)
+// InitXGoPackage initializes a XGo package.
+func InitXGoPackage(pkg *types.Package) {
+	InitXGoPackageEx(pkg, nil)
 }
 
-// InitThisGopPkg initializes a XGo package. pos map overload name to position.
-func InitThisGopPkgEx(pkg *types.Package, pos map[string]token.Pos) {
+// InitXGoPackageEx initializes a XGo package. pos map overload name to position.
+func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 	scope := pkg.Scope()
 	gopos := make([]string, 0, 4)
 	overloads := make(map[omthd][]types.Object)
 	onameds := make(map[string][]*types.Named)
 	names := scope.Names()
 	for _, name := range names {
-		if isGopoConst(name) {
+		if isXGooConst(name) {
 			gopos = append(gopos, name)
 			continue
 		}
@@ -143,7 +143,7 @@ func InitThisGopPkgEx(pkg *types.Package, pos map[string]token.Pos) {
 			key := omthd{nil, name[:len(name)-3]}
 			overloads[key] = append(overloads[key], o)
 		} else {
-			checkGoptsx(pkg, scope, name, o)
+			checkXGotsx(pkg, scope, name, o)
 		}
 	}
 	for _, gopoName := range gopos {
@@ -245,17 +245,17 @@ func checkTypeMethod(scope *types.Scope, name string) (omthd, string) {
 	return omthd{nil, name}, ""
 }
 
-// Gopx_Func
-// Gopt_TypeName_Method
-// Gopt__TypeName__Method
-// Gops_TypeName_Method
-// Gops__TypeName__Method
-func checkGoptsx(pkg *types.Package, scope *types.Scope, name string, o types.Object) {
+// XGox_Func
+// XGot_TypeName_Method
+// XGot__TypeName__Method
+// XGos_TypeName_Method
+// XGos__TypeName__Method
+func checkXGotsx(pkg *types.Package, scope *types.Scope, name string, o types.Object) {
 	const n = len(commonPrefix)
 	const n2 = n + 2
-	if isGopCommon(name) {
+	if isXGoCommon(name) {
 		switch ch := name[n]; ch {
-		case xgosCh, xgotCh: // Gops_xxx, Gopt_xxx
+		case xgosCh, xgotCh: // XGos_xxx, XGot_xxx
 			name = name[n2:]
 			if m, tname := checkTypeMethod(pkg.Scope(), name); m.typ != nil {
 				if ch == xgotCh {
@@ -270,7 +270,7 @@ func checkGoptsx(pkg *types.Package, scope *types.Scope, name string, o types.Ob
 					NewStaticMethod(m.typ, token.NoPos, pkg, m.name, o)
 				}
 			}
-		case xgoxCh: // Gopx_xxx
+		case xgoxCh: // XGox_xxx
 			aname := name[n2:]
 			o := newFuncEx(token.NoPos, pkg, nil, aname, &TyTypeAsParams{o})
 			scope.Insert(o)
@@ -282,18 +282,18 @@ func checkGoptsx(pkg *types.Package, scope *types.Scope, name string, o types.Ob
 }
 
 const (
-	commonPrefix = "Gop"
+	commonPrefix = "XGo"
 
 	xgotCh = 't' // template method
 	xgosCh = 's' // static method
 	xgoxCh = 'x' // type as parameters function/method
 
-	xgotPrefix = "Gopt_" // template method
-	xgosPrefix = "Gops_" // static method
-	xgoxPrefix = "Gopx_" // type as parameters function/method
-	xgooPrefix = "Gopo_" // overload function/method
+	xgotPrefix = "XGot_" // template method
+	xgosPrefix = "XGos_" // static method
+	xgoxPrefix = "XGox_" // type as parameters function/method
+	xgooPrefix = "XGoo_" // overload function/method
 
-	xgoPackage = "GopPackage"
+	xgoPackage = "XGoPackage"
 	xgoPkgInit = "__xgo_inited"
 
 	xgoOptionalPrefix = "__xgo_optional_"
@@ -301,9 +301,9 @@ const (
 
 /*
 const (
-	Gopo_FuncName = "Func0,Func1,,,Func4"
-	Gopo_TypeName_Method = "Func0,,,,Func4"
-	Gopo__TypeName__Method = "Func0,,,,Func4"
+	XGoo_FuncName = "Func0,Func1,,,Func4"
+	XGoo_TypeName_Method = "Func0,,,,Func4"
+	XGoo__TypeName__Method = "Func0,,,,Func4"
 )
 */
 
@@ -326,7 +326,7 @@ func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Ob
 		}
 		o := NewOverloadFunc(pos[m.name], pkg, m.name, fns...)
 		scope.Insert(o)
-		checkGoptsx(pkg, scope, m.name, o)
+		checkXGotsx(pkg, scope, m.name, o)
 	} else {
 		if debugImport {
 			log.Println("==> NewOverloadMethod", m.typ.Obj().Name(), m.name)
@@ -390,7 +390,7 @@ type expDeps struct {
 	exists map[types.Type]none
 }
 
-func checkGopPkg(pkg *Package) (val ast.Expr, ok bool) {
+func checkXGoPkg(pkg *Package) (val ast.Expr, ok bool) {
 	if pkg.Types.Name() == "main" || pkg.Types.Scope().Lookup(xgoPackage) != nil {
 		return
 	}
@@ -407,7 +407,7 @@ func checkGopPkg(pkg *Package) (val ast.Expr, ok bool) {
 	if len(deps) > 0 {
 		return stringLit(strings.Join(deps, ",")), true
 	}
-	if ok = pkg.isGopPkg; ok {
+	if ok = pkg.isXGoPkg; ok {
 		return identTrue, true
 	}
 	return
@@ -501,11 +501,11 @@ func (p expDeps) struc(t *types.Struct) {
 	}
 }
 
-// initGopPkg initializes a XGo packages.
-func (p *Package) initGopPkg(importer types.Importer, pkgImp *types.Package) {
+// initXGoPkg initializes a XGo packages.
+func (p *Package) initXGoPkg(importer types.Importer, pkgImp *types.Package) {
 	scope := pkgImp.Scope()
-	objGopPkg := scope.Lookup(xgoPackage)
-	if objGopPkg == nil { // not is a XGo package
+	objXGoPkg := scope.Lookup(xgoPackage)
+	if objXGoPkg == nil { // not is a XGo package
 		return
 	}
 
@@ -516,7 +516,7 @@ func (p *Package) initGopPkg(importer types.Importer, pkgImp *types.Package) {
 		token.NoPos, pkgImp, xgoPkgInit, types.Typ[types.UntypedBool], constant.MakeBool(true),
 	))
 
-	pkgDeps, ok := objGopPkg.(*types.Const)
+	pkgDeps, ok := objXGoPkg.(*types.Const)
 	if !ok {
 		return
 	}
@@ -529,10 +529,10 @@ func (p *Package) initGopPkg(importer types.Importer, pkgImp *types.Package) {
 	if debugImport {
 		log.Println("==> Import", pkgImp.Path())
 	}
-	InitThisGopPkg(pkgImp)
+	InitXGoPackage(pkgImp)
 	for _, depPath := range gopDeps {
 		imp, _ := importer.Import(depPath)
-		p.initGopPkg(importer, imp)
+		p.initXGoPkg(importer, imp)
 	}
 }
 
@@ -552,7 +552,7 @@ func importPkg(this *Package, pkgPath string, src ast.Node) (PkgRef, error) {
 		}
 		return PkgRef{}, e
 	} else {
-		this.initGopPkg(this.imp, pkgImp)
+		this.initXGoPkg(this.imp, pkgImp)
 	}
 	return PkgRef{Types: pkgImp}, nil
 }

@@ -50,54 +50,54 @@ type comparable interface { // == !=
     // slice/map/func is very special, can only be compared to nil
 }
 
-func [T addable] (a T) + (b T) T    // func Gop_Add[T addable](a, b T) T
-func [T number] (a T) - (b T) T     // func Gop_Sub[T number](a, b T) T
-func [T number] (a T) * (b T) T     // func Gop_Mul[T number](a, b T) T
-func [T number] (a T) / (b T) T     // func Gop_Quo[T number](a, b T) T
-func [T integer] (a T) % (b T) T    // func Gop_Rem[T integer](a, b T) T
+func [T addable] (a T) + (b T) T    // func XGo_Add[T addable](a, b T) T
+func [T number] (a T) - (b T) T     // func XGo_Sub[T number](a, b T) T
+func [T number] (a T) * (b T) T     // func XGo_Mul[T number](a, b T) T
+func [T number] (a T) / (b T) T     // func XGo_Quo[T number](a, b T) T
+func [T integer] (a T) % (b T) T    // func XGo_Rem[T integer](a, b T) T
 
-func [T integer] (a T) | (b T) T    // func Gop_Or[T integer](a, b T) T
-func [T integer] (a T) ^ (b T) T    // func Gop_Xor[T integer](a, b T) T
-func [T integer] (a T) & (b T) T    // func Gop_And[T integer](a, b T) T
-func [T integer] (a T) &^ (b T) T   // func Gop_AndNot[T integer](a, b T) T
+func [T integer] (a T) | (b T) T    // func XGo_Or[T integer](a, b T) T
+func [T integer] (a T) ^ (b T) T    // func XGo_Xor[T integer](a, b T) T
+func [T integer] (a T) & (b T) T    // func XGo_And[T integer](a, b T) T
+func [T integer] (a T) &^ (b T) T   // func XGo_AndNot[T integer](a, b T) T
 
-func [T integer, N ninteger] (a T) << (n N) T // func Gop_Lsh[T integer, N ninteger](a T, n N) T
-func [T integer, N ninteger] (a T) >> (n N) T // func Gop_Rsh[T integer, N ninteger](a T, n N) T
+func [T integer, N ninteger] (a T) << (n N) T // func XGo_Lsh[T integer, N ninteger](a T, n N) T
+func [T integer, N ninteger] (a T) >> (n N) T // func XGo_Rsh[T integer, N ninteger](a T, n N) T
 
-func [T orderable] (a T) < (b T) untyped_bool   // func Gop_LT[T orderable](a, b T) untyped_bool
-func [T orderable] (a T) <= (b T) untyped_bool  // func Gop_LE[T orderable](a, b T) untyped_bool
-func [T orderable] (a T) > (b T) untyped_bool   // func Gop_GT[T orderable](a, b T) untyped_bool
-func [T orderable] (a T) >= (b T) untyped_bool  // func Gop_GE[T orderable](a, b T) untyped_bool
+func [T orderable] (a T) < (b T) untyped_bool   // func XGo_LT[T orderable](a, b T) untyped_bool
+func [T orderable] (a T) <= (b T) untyped_bool  // func XGo_LE[T orderable](a, b T) untyped_bool
+func [T orderable] (a T) > (b T) untyped_bool   // func XGo_GT[T orderable](a, b T) untyped_bool
+func [T orderable] (a T) >= (b T) untyped_bool  // func XGo_GE[T orderable](a, b T) untyped_bool
 
-func [T comparable] (a T) == (b T) untyped_bool // func Gop_EQ[T comparable](a, b T) untyped_bool
-func [T comparable] (a T) != (b T) untyped_bool // func Gop_NE[T comparable](a, b T) untyped_bool
+func [T comparable] (a T) == (b T) untyped_bool // func XGo_EQ[T comparable](a, b T) untyped_bool
+func [T comparable] (a T) != (b T) untyped_bool // func XGo_NE[T comparable](a, b T) untyped_bool
 
-func [T bool] (a T) || (b T) T // func Gop_LOr[T bool](a, b T) T
-func [T bool] (a T) && (b T) T // func Gop_LAnd[T bool](a, b T) T
+func [T bool] (a T) || (b T) T // func XGo_LOr[T bool](a, b T) T
+func [T bool] (a T) && (b T) T // func XGo_LAnd[T bool](a, b T) T
 
-func [T number] -(a T) T  // func Gop_Neg[T number](a T) T
-func [T number] +(a T) T  // func Gop_Dup[T number](a T) T
-func [T integer] ^(a T) T // func Gop_Not[T integer](a T) T
-func [T bool] !(a T) T    // func Gop_LNot[T bool](a T) T
+func [T number] -(a T) T  // func XGo_Neg[T number](a T) T
+func [T number] +(a T) T  // func XGo_Dup[T number](a T) T
+func [T integer] ^(a T) T // func XGo_Not[T integer](a T) T
+func [T bool] !(a T) T    // func XGo_LNot[T bool](a T) T
 
-func [T addable] (a *T) += (b T) // func Gop_AddAssign[T addable](a *T, b T)
-func [T number] (a *T) -= (b T)  // func Gop_SubAssign[T number](a *T, b T)
-func [T number] (a *T) *= (b T)  // func Gop_MulAssign[T number](a *T, b T)
-func [T number] (a *T) /= (b T)  // func Gop_QuoAssign[T number](a *T, b T)
-func [T integer] (a *T) %= (b T)  // func Gop_RemAssign[T integer](a *T, b T)
+func [T addable] (a *T) += (b T) // func XGo_AddAssign[T addable](a *T, b T)
+func [T number] (a *T) -= (b T)  // func XGo_SubAssign[T number](a *T, b T)
+func [T number] (a *T) *= (b T)  // func XGo_MulAssign[T number](a *T, b T)
+func [T number] (a *T) /= (b T)  // func XGo_QuoAssign[T number](a *T, b T)
+func [T integer] (a *T) %= (b T)  // func XGo_RemAssign[T integer](a *T, b T)
 
-func [T integer] (a *T) |= (b T)    // func Gop_OrAssign[T integer](a *T, b T)
-func [T integer] (a *T) ^= (b T)    // func Gop_XorAssign[T integer](a *T, b T)
-func [T integer] (a *T) &= (b T)    // func Gop_AndAssign[T integer](a *T, b T)
-func [T integer] (a *T) &^= (b T)   // func Gop_AndNotAssign[T integer](a *T, b T)
+func [T integer] (a *T) |= (b T)    // func XGo_OrAssign[T integer](a *T, b T)
+func [T integer] (a *T) ^= (b T)    // func XGo_XorAssign[T integer](a *T, b T)
+func [T integer] (a *T) &= (b T)    // func XGo_AndAssign[T integer](a *T, b T)
+func [T integer] (a *T) &^= (b T)   // func XGo_AndNotAssign[T integer](a *T, b T)
 
-func [T integer, N ninteger] (a *T) <<= (n N) // func Gop_LshAssign[T integer, N ninteger](a *T, n N)
-func [T integer, N ninteger] (a *T) >>= (n N) // func Gop_RshAssign[T integer, N ninteger](a *T, n N)
+func [T integer, N ninteger] (a *T) <<= (n N) // func XGo_LshAssign[T integer, N ninteger](a *T, n N)
+func [T integer, N ninteger] (a *T) >>= (n N) // func XGo_RshAssign[T integer, N ninteger](a *T, n N)
 
 // -----------------------------------------------------------------------------
 
-func [T integer] ++(a *T)   // func Gop_Inc[T integer](a *T)
-func [T integer] --(a *T)   // func Gop_Dec[T integer](a *T)
+func [T integer] ++(a *T)   // func XGo_Inc[T integer](a *T)
+func [T integer] --(a *T)   // func XGo_Dec[T integer](a *T)
 
 // -----------------------------------------------------------------------------
 

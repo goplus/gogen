@@ -106,28 +106,28 @@ func checkMethodToFunc(t *testing.T, pkg *gogen.Package, typ types.Type, name, c
 func TestTypeAsParamsFunc(t *testing.T) {
 	const src = `package foo
 
-const GopPackage = true
+const XGoPackage = true
 
 type basetype interface {
 	int | string
 }
 
-func Gopx_Bar[T basetype](name string) {
+func XGox_Bar[T basetype](name string) {
 }
 
-func Gopx_Row__0[T basetype](name string) {
+func XGox_Row__0[T basetype](name string) {
 }
 
-func Gopx_Row__1[Array any](v int) {
+func XGox_Row__1[Array any](v int) {
 }
 
 type Table struct {
 }
 
-func Gopt_Table_Gopx_Col__0[T basetype](p *Table, name string) {
+func XGot_Table_XGox_Col__0[T basetype](p *Table, name string) {
 }
 
-func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
+func XGot_Table_XGox_Col__1[Array any](p *Table, v int) {
 }
 `
 	gt := newGoxTest()
@@ -158,31 +158,31 @@ import "foo"
 
 func Example() {
 	var tbl *foo.Table
-	foo.Gopt_Table_Gopx_Col__0[int](tbl, "bar")
-	foo.Gopx_Bar[int]("1")
-	foo.Gopx_Row__1[int](1)
+	foo.XGot_Table_XGox_Col__0[int](tbl, "bar")
+	foo.XGox_Bar[int]("1")
+	foo.XGox_Row__1[int](1)
 }
 `)
 }
 
-func TestCheckGopPkg(t *testing.T) {
+func TestCheckXGoPkg(t *testing.T) {
 	const src = `package foo
 
 import "io"
 
-const GopPackage = "io"
+const XGoPackage = "io"
 
 type basetype interface {
 	int | string
 }
 
-func Gopx_Bar[T basetype](name string) {
+func XGox_Bar[T basetype](name string) {
 }
 
-func Gopx_Row__0[T basetype](name string) {
+func XGox_Row__0[T basetype](name string) {
 }
 
-func Gopx_Row__1[Array any](v int) {
+func XGox_Row__1[Array any](v int) {
 }
 
 type EmbIntf interface {
@@ -196,10 +196,10 @@ type Table struct {
 	b string
 }
 
-func Gopt_Table_Gopx_Col__0[T basetype](p *Table, name string) {
+func XGot_Table_XGox_Col__0[T basetype](p *Table, name string) {
 }
 
-func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
+func XGot_Table_XGox_Col__1[Array any](p *Table, v int) {
 }
 `
 	gt := newGoxTest()
@@ -236,12 +236,12 @@ func Gopt_Table_Gopx_Col__1[Array any](p *Table, v int) {
 
 import "foo"
 
-const GopPackage = "foo"
+const XGoPackage = "foo"
 
 func Example(tbls map[string][]*foo.Table) {
-	foo.Gopt_Table_Gopx_Col__0[int](tbls["Hi"][0], "bar")
-	foo.Gopx_Bar[int]("1")
-	foo.Gopx_Row__1[int](1)
+	foo.XGot_Table_XGox_Col__0[int](tbls["Hi"][0], "bar")
+	foo.XGox_Bar[int]("1")
+	foo.XGox_Row__1[int](1)
 }
 func Create([2]chan []*foo.Table) {
 }
@@ -251,7 +251,7 @@ func Create([2]chan []*foo.Table) {
 func TestOverloadNamed(t *testing.T) {
 	const src = `package foo
 
-const GopPackage = true
+const XGoPackage = true
 
 type M = map[string]any
 
@@ -267,11 +267,11 @@ type Var__1[T map[string]any] struct {
 	val T
 }
 
-func Gopx_Var_Cast__0[T basetype]() *Var__0[T] {
+func XGox_Var_Cast__0[T basetype]() *Var__0[T] {
 	return new(Var__0[T])
 }
 
-func Gopx_Var_Cast__1[T map[string]any]() *Var__1[T] {
+func XGox_Var_Cast__1[T map[string]any]() *Var__1[T] {
 	return new(Var__1[T])
 }
 `
@@ -317,8 +317,8 @@ type t1 foo.Var__0[int]
 type t2 foo.Var__1[foo.M]
 
 func main() {
-	foo.Gopx_Var_Cast__0[int]()
-	foo.Gopx_Var_Cast__1[foo.M]()
+	foo.XGox_Var_Cast__0[int]()
+	foo.XGox_Var_Cast__1[foo.M]()
 }
 `)
 	} else {
@@ -330,8 +330,8 @@ type t1 foo.Var__0[int]
 type t2 foo.Var__1[map[string]any]
 
 func main() {
-	foo.Gopx_Var_Cast__0[int]()
-	foo.Gopx_Var_Cast__1[map[string]any]()
+	foo.XGox_Var_Cast__0[int]()
+	foo.XGox_Var_Cast__1[map[string]any]()
 }
 `)
 	}

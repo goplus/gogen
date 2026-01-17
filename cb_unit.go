@@ -31,7 +31,7 @@ type objectID struct {
 
 type typeUnits = map[string]constant.Value
 
-// const Gopu_XXX = "mm=1,cm=10,dm=100,m=1000"
+// const XGou_XXX = "mm=1,cm=10,dm=100,m=1000"
 func (p *Package) buildTypeUnits(id objectID, tok token.Token) (ret typeUnits, ok bool) {
 	v, ok := p.lookupTypeUnitsVal(id)
 	if ok {
@@ -62,7 +62,7 @@ func (p *Package) lookupTypeUnitsVal(id objectID) (string, bool) {
 		return tv, true
 	}
 	imp := p.Import(id.pkg)
-	if ounits := imp.TryRef("Gopu_" + id.name); ounits != nil {
+	if ounits := imp.TryRef("XGou_" + id.name); ounits != nil {
 		if v := ounits.(*types.Const).Val(); v.Kind() == constant.String {
 			return constant.StringVal(v), true
 		}

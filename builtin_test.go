@@ -112,27 +112,27 @@ func TestCommCase(t *testing.T) {
 	c.Then(cb)
 }
 
-func TestCheckGopDeps(t *testing.T) {
+func TestCheckXGoDeps(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	file := pkg.CurFile()
 	id := file.newImport("env", "github.com/goplus/xgo/env")
 	file.forceImport("github.com/qiniu/x/errors")
 	file.getDecls(pkg)
-	if v := file.CheckGopDeps(pkg); v != FlagDepModX {
-		t.Fatal("CheckGopDeps:", v)
+	if v := file.CheckXGoDeps(pkg); v != FlagDepModX {
+		t.Fatal("CheckXGoDeps:", v)
 	}
 	id.Obj.Data = importUsed(true)
-	if v := file.CheckGopDeps(pkg); v != FlagDepModGop|FlagDepModX {
-		t.Fatal("CheckGopDeps:", v)
+	if v := file.CheckXGoDeps(pkg); v != FlagDepModXGo|FlagDepModX {
+		t.Fatal("CheckXGoDeps:", v)
 	}
 }
 
-func TestInitGopPkg(t *testing.T) {
+func TestInitXGoPkg(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	pkg.Types.Scope().Insert(types.NewVar(
-		token.NoPos, pkg.Types, "GopPackage", types.Typ[types.Bool],
+		token.NoPos, pkg.Types, "XGoPackage", types.Typ[types.Bool],
 	))
-	pkg.initGopPkg(nil, pkg.Types)
+	pkg.initXGoPkg(nil, pkg.Types)
 }
 
 func TestCheckOverloads(t *testing.T) {
@@ -147,13 +147,13 @@ func TestCheckOverloads(t *testing.T) {
 	checkOverloads(scope, "foo")
 }
 
-func TestCheckGopPkgNoop(t *testing.T) {
+func TestCheckXGoPkgNoop(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	pkg.Types.Scope().Insert(types.NewConst(
-		token.NoPos, pkg.Types, "GopPackage", types.Typ[types.UntypedBool], constant.MakeBool(true),
+		token.NoPos, pkg.Types, "XGoPackage", types.Typ[types.UntypedBool], constant.MakeBool(true),
 	))
-	if _, ok := checkGopPkg(pkg); ok {
-		t.Fatal("checkGopPkg: ok?")
+	if _, ok := checkXGoPkg(pkg); ok {
+		t.Fatal("checkXGoPkg: ok?")
 	}
 	defer func() {
 		if recover() == nil {
@@ -343,12 +343,12 @@ func TestGetBuiltinTI(t *testing.T) {
 func TestFindMethodType(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	tyFile := pkg.Import("os").Ref("File").Type().(*types.Named)
-	sig := findMethodType(&pkg.cb, tyFile, "Gop_Enum")
+	sig := findMethodType(&pkg.cb, tyFile, "XGo_Enum")
 	if sig == nil || sig.Params().Len() != 0 {
-		t.Fatal("os.File.GopEnum (Params):", sig)
+		t.Fatal("os.File.XGoEnum (Params):", sig)
 	}
 	if sig == nil || sig.Results().Len() != 1 {
-		t.Fatal("os.File.GopEnum (Results):", sig)
+		t.Fatal("os.File.XGoEnum (Results):", sig)
 	}
 }
 
@@ -1381,8 +1381,8 @@ func TestUntypeBig(t *testing.T) {
 	pkg := NewPackage("foo", "foo", gblConf)
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
 	big.EnsureImported()
-	pkg.utBigInt = big.Ref("Gop_untyped_bigint").Type().(*types.Named)
-	pkg.utBigRat = big.Ref("Gop_untyped_bigrat").Type().(*types.Named)
+	pkg.utBigInt = big.Ref("XGo_untyped_bigint").Type().(*types.Named)
+	pkg.utBigRat = big.Ref("XGo_untyped_bigrat").Type().(*types.Named)
 	if ret, ok := untypeBig(pkg, constant.MakeInt64(1), pkg.utBigRat); !ok || ret.Type != pkg.utBigRat {
 		t.Fatal("TestUntypeBig failed:", *ret)
 	}

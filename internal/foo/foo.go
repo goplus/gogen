@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	GopPackage = true // to indicate this is a XGo package
+	XGoPackage = true // to indicate this is a XGo package
 )
 
 func CallBar() *bar.Game {
@@ -39,7 +39,7 @@ func (p *nodeSetIt) Next() (key int, val string, ok bool) {
 type NodeSet struct {
 }
 
-func (p NodeSet) Gop_Enum() *nodeSetIt {
+func (p NodeSet) XGo_Enum() *nodeSetIt {
 	return &nodeSetIt{}
 }
 
@@ -67,7 +67,7 @@ func (p barIt) Next() (val string, ok bool) {
 type Bar struct {
 }
 
-func (p *Bar) Gop_Enum() barIt {
+func (p *Bar) XGo_Enum() barIt {
 	return barIt{}
 }
 
@@ -76,10 +76,10 @@ func (p *Bar) Gop_Enum() barIt {
 type Foo struct {
 }
 
-func (p *Foo) Gop_Enum(c func(v string)) {
+func (p *Foo) XGo_Enum(c func(v string)) {
 }
 
-func (a Foo) Gop_Add(b Foo) Foo {
+func (a Foo) XGo_Add(b Foo) Foo {
 	return Foo{}
 }
 
@@ -88,7 +88,7 @@ func (a Foo) Gop_Add(b Foo) Foo {
 type Foo2 struct {
 }
 
-func (p Foo2) Gop_Enum(c func(k int, v string)) {
+func (p Foo2) XGo_Enum(c func(k int, v string)) {
 }
 
 // -----------------------------------------------------------------------------
@@ -96,7 +96,7 @@ func (p Foo2) Gop_Enum(c func(k int, v string)) {
 type Foo3 struct {
 }
 
-func (p Foo3) Gop_Enum(c func(k int, v string)) int {
+func (p Foo3) XGo_Enum(c func(k int, v string)) int {
 	return 0
 }
 
@@ -105,7 +105,7 @@ func (p Foo3) Gop_Enum(c func(k int, v string)) int {
 type Foo4 struct {
 }
 
-func (p Foo4) Gop_Enum(c func()) {
+func (p Foo4) XGo_Enum(c func()) {
 }
 
 // -----------------------------------------------------------------------------

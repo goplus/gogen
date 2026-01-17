@@ -242,13 +242,13 @@ func isPkgInMod(pkgPath, modPath string) bool {
 }
 
 const (
-	FlagDepModGop = 1 << iota // depends module github.com/goplus/xgo
+	FlagDepModXGo = 1 << iota // depends module github.com/goplus/xgo
 	FlagDepModX               // depends module github.com/qiniu/x
 )
 
-// CheckGopDeps checks dependencies of XGo modules.
-// The return flags can be FlagDepModGop and FlagDepModX.
-func (p *File) CheckGopDeps(this *Package) (flags int) {
+// CheckXGoDeps checks dependencies of XGo modules.
+// The return flags can be FlagDepModXGo and FlagDepModX.
+func (p *File) CheckXGoDeps(this *Package) (flags int) {
 	p.markUsed(this)
 	for pkgPath, id := range p.imps {
 		if id == nil || id.Obj.Data.(importUsed) {
@@ -256,7 +256,7 @@ func (p *File) CheckGopDeps(this *Package) (flags int) {
 				flags |= FlagDepModX
 			} else if isPkgInMod(pkgPath, "github.com/goplus/xgo") ||
 				isPkgInMod(pkgPath, "github.com/goplus/gop") {
-				flags |= FlagDepModGop
+				flags |= FlagDepModXGo
 			}
 		}
 	}
@@ -287,23 +287,23 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 		return specs[i].(*ast.ImportSpec).Path.Value < specs[j].(*ast.ImportSpec).Path.Value
 	})
 
-	var valGopPkg ast.Expr
-	var addGopPkg bool
+	var valXGoPkg ast.Expr
+	var addXGoPkg bool
 	if p.fname == this.conf.DefaultGoFile {
-		valGopPkg, addGopPkg = checkGopPkg(this)
+		valXGoPkg, addXGoPkg = checkXGoPkg(this)
 	}
-	if len(specs) == 0 && !addGopPkg {
+	if len(specs) == 0 && !addXGoPkg {
 		return p.decls
 	}
 
 	decls = make([]ast.Decl, 0, len(p.decls)+2)
 	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
-	if addGopPkg {
+	if addXGoPkg {
 		decls = append(decls, &ast.GenDecl{Tok: token.CONST, Specs: []ast.Spec{
 			&ast.ValueSpec{
 				Names: []*ast.Ident{{Name: xgoPackage}},
 				Values: []ast.Expr{
-					valGopPkg,
+					valXGoPkg,
 				},
 			},
 		}})
@@ -340,12 +340,12 @@ type Package struct {
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
 
 	expObjTypes []types.Type // types of export objects
-	isGopPkg    bool
+	isXGoPkg    bool
 	allowRedecl bool // for c2go
 }
 
 const (
-	goxPrefix = "Gop_"
+	goxPrefix = "XGo_"
 )
 
 // NewPackage creates a new package.
