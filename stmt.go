@@ -799,7 +799,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 		}
 		stmt := &ast.ExprStmt{
 			X: &ast.CallExpr{
-				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: identXGoEnum1},
+				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: ident(p.enumName)},
 				Args: []ast.Expr{
 					&ast.FuncLit{
 						Type: &ast.FuncType{Params: &ast.FieldList{List: args}},
@@ -816,9 +816,8 @@ var (
 	nameXGoEnum1 = "XGo_Enum"
 	nameXGoEnum2 = "Gop_Enum"
 
-	identXGoEnum1 = ident(nameXGoEnum1)
-	identXgoOk    = ident("_xgo_ok")
-	identXgoIt    = ident("_xgo_it")
+	identXgoOk = ident("_xgo_ok")
+	identXgoIt = ident("_xgo_it")
 )
 
 var (
