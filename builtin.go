@@ -213,7 +213,7 @@ var _assignOps = [...]struct {
 	// func XGo_XorAssign[T integer](a *T, b T)
 
 	{"AndAssign", integer, false},
-	// func XGo_Assign[T integer](a *T, b T)
+	// func XGo_AndAssign[T integer](a *T, b T)
 
 	{"AndNotAssign", integer, false},
 	// func XGo_AndNotAssign[T integer](a *T, b T)
