@@ -344,10 +344,6 @@ type Package struct {
 	allowRedecl bool // for c2go
 }
 
-const (
-	goxPrefix = "XGo_"
-)
-
 // NewPackage creates a new package.
 func NewPackage(pkgPath, name string, conf *Config) *Package {
 	if conf == nil {

@@ -286,6 +286,8 @@ const (
 	commonPrefix1 = "XGo"
 	commonPrefix2 = "Gop"
 
+	goxPrefix = "XGo_"
+
 	xgotCh = 't' // template method
 	xgosCh = 's' // static method
 	xgoxCh = 'x' // type as parameters function/method
