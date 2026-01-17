@@ -61,74 +61,74 @@ var _builtinOps = [...]struct {
 	result  int
 }{
 	{"Add", []typeTParam{{"T", addable}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_Add[T addable](a, b T) T
+	// func XGo_Add[T addable](a, b T) T
 
 	{"Sub", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_Sub[T number](a, b T) T
+	// func XGo_Sub[T number](a, b T) T
 
 	{"Mul", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_Mul[T number](a, b T) T
+	// func XGo_Mul[T number](a, b T) T
 
 	{"Quo", []typeTParam{{"T", number}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_Quo(a, b untyped_bigint) untyped_bigrat
-	// func Gop_Quo[T number](a, b T) T
+	// func XGo_Quo(a, b untyped_bigint) untyped_bigrat
+	// func XGo_Quo[T number](a, b T) T
 
 	{"Rem", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_Rem[T integer](a, b T) T
+	// func XGo_Rem[T integer](a, b T) T
 
 	{"Or", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_Or[T integer](a, b T) T
+	// func XGo_Or[T integer](a, b T) T
 
 	{"Xor", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_Xor[T integer](a, b T) T
+	// func XGo_Xor[T integer](a, b T) T
 
 	{"And", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_And[T integer](a, b T) T
+	// func XGo_And[T integer](a, b T) T
 
 	{"AndNot", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_AndNot[T integer](a, b T) T
+	// func XGo_AndNot[T integer](a, b T) T
 
 	{"Lsh", []typeTParam{{"T", integer}, {"N", ninteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
-	// func Gop_Lsh[T integer, N ninteger](a T, n N) T
+	// func XGo_Lsh[T integer, N ninteger](a T, n N) T
 
 	{"Rsh", []typeTParam{{"T", integer}, {"N", ninteger}}, []typeParam{{"a", 0}, {"n", 1}}, 0},
-	// func Gop_Rsh[T integer, N ninteger](a T, n N) T
+	// func XGo_Rsh[T integer, N ninteger](a T, n N) T
 
 	{"LT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-	// func Gop_LT[T orderable](a, b T) untyped_bool
+	// func XGo_LT[T orderable](a, b T) untyped_bool
 
 	{"LE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-	// func Gop_LE[T orderable](a, b T) untyped_bool
+	// func XGo_LE[T orderable](a, b T) untyped_bool
 
 	{"GT", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-	// func Gop_GT[T orderable](a, b T) untyped_bool
+	// func XGo_GT[T orderable](a, b T) untyped_bool
 
 	{"GE", []typeTParam{{"T", orderable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-	// func Gop_GE[T orderable](a, b T) untyped_bool
+	// func XGo_GE[T orderable](a, b T) untyped_bool
 
 	{"EQ", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-	// func Gop_EQ[T comparable](a, b T) untyped_bool
+	// func XGo_EQ[T comparable](a, b T) untyped_bool
 
 	{"NE", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
-	// func Gop_NE[T comparable](a, b T) untyped_bool
+	// func XGo_NE[T comparable](a, b T) untyped_bool
 
 	{"LAnd", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_LAnd[T bool](a, b T) T
+	// func XGo_LAnd[T bool](a, b T) T
 
 	{"LOr", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
-	// func Gop_LOr[T bool](a, b T) T
+	// func XGo_LOr[T bool](a, b T) T
 
 	{"Neg", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
-	// func Gop_Neg[T number](a T) T
+	// func XGo_Neg[T number](a T) T
 
 	{"Dup", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
-	// func Gop_Dup[T number](a T) T
+	// func XGo_Dup[T number](a T) T
 
 	{"Not", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}}, 0},
-	// func Gop_Not[T integer](a T) T
+	// func XGo_Not[T integer](a T) T
 
 	{"LNot", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}}, 0},
-	// func Gop_LNot[T bool](a T) T
+	// func XGo_LNot[T bool](a T) T
 }
 
 // initBuiltinOps initializes operators of the builtin package.
@@ -159,7 +159,7 @@ func initBuiltinOps(builtin *types.Package, conf *Config) {
 		name := goxPrefix + op.name
 		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, name, tsig)
-		if op.name == "Quo" { // func Gop_Quo(a, b untyped_bigint) untyped_bigrat
+		if op.name == "Quo" { // func XGo_Quo(a, b untyped_bigint) untyped_bigrat
 			a := types.NewParam(token.NoPos, builtin, "a", conf.UntypedBigInt)
 			b := types.NewParam(token.NoPos, builtin, "b", conf.UntypedBigInt)
 			ret := types.NewParam(token.NoPos, builtin, "", conf.UntypedBigRat)
@@ -192,37 +192,37 @@ var _assignOps = [...]struct {
 	ninteger bool
 }{
 	{"AddAssign", addable, false},
-	// func Gop_AddAssign[T addable](a *T, b T)
+	// func XGo_AddAssign[T addable](a *T, b T)
 
 	{"SubAssign", number, false},
-	// func Gop_SubAssign[T number](a *T, b T)
+	// func XGo_SubAssign[T number](a *T, b T)
 
 	{"MulAssign", number, false},
-	// func Gop_MulAssign[T number](a *T, b T)
+	// func XGo_MulAssign[T number](a *T, b T)
 
 	{"QuoAssign", number, false},
-	// func Gop_QuoAssign[T number](a *T, b T)
+	// func XGo_QuoAssign[T number](a *T, b T)
 
 	{"RemAssign", integer, false},
-	// func Gop_RemAssign[T integer](a *T, b T)
+	// func XGo_RemAssign[T integer](a *T, b T)
 
 	{"OrAssign", integer, false},
-	// func Gop_OrAssign[T integer](a *T, b T)
+	// func XGo_OrAssign[T integer](a *T, b T)
 
 	{"XorAssign", integer, false},
-	// func Gop_XorAssign[T integer](a *T, b T)
+	// func XGo_XorAssign[T integer](a *T, b T)
 
 	{"AndAssign", integer, false},
-	// func Gop_Assign[T integer](a *T, b T)
+	// func XGo_AndAssign[T integer](a *T, b T)
 
 	{"AndNotAssign", integer, false},
-	// func Gop_AndNotAssign[T integer](a *T, b T)
+	// func XGo_AndNotAssign[T integer](a *T, b T)
 
 	{"LshAssign", integer, true},
-	// func Gop_LshAssign[T integer, N ninteger](a *T, n N)
+	// func XGo_LshAssign[T integer, N ninteger](a *T, n N)
 
 	{"RshAssign", integer, true},
-	// func Gop_RshAssign[T integer, N ninteger](a *T, n N)
+	// func XGo_RshAssign[T integer, N ninteger](a *T, n N)
 }
 
 // initBuiltinAssignOps initializes assign operators of the builtin package.
@@ -1313,7 +1313,7 @@ retry:
 			// TODO: refactor
 			cb := pkg.cb
 			cb.stk.Push(elemNone)
-			kind := cb.findMember(typ, "Gop_Add", "", MemberFlagVal, &Element{}, nil, nil)
+			kind := cb.findMember(typ, "XGo_Add", "", MemberFlagVal, &Element{}, nil, nil)
 			if kind != 0 {
 				cb.stk.PopN(1)
 				if kind == MemberMethod {
@@ -1525,7 +1525,7 @@ func initBuiltinTIs(pkg *Package) {
 					ioxTI = &BuiltinTI{
 						typ: os.Ref("File").Type(),
 						methods: []*BuiltinMethod{
-							{"Gop_Enum", iox.Ref("EnumLines"), nil},
+							{"XGo_Enum", iox.Ref("EnumLines"), nil},
 						},
 					}
 				}

@@ -498,7 +498,10 @@ type forRangeStmt struct {
 	x     *internal.Elem
 	old   codeBlockCtx
 	kvt   []types.Type
-	udt   int // 0: non-udt, 2: (elem,ok), 3: (key,elem,ok)
+
+	enumName string // XGo_Enum or Gop_Enum
+
+	udt int // 0: non-udt, 2: (elem,ok), 3: (key,elem,ok)
 	loopBodyHandler
 }
 
@@ -616,15 +619,16 @@ retry:
 }
 
 func (p *forRangeStmt) checkUdt(cb *CodeBuilder, o *types.Named) ([]types.Type, bool) {
-	if sig := findMethodType(cb, o, nameXGoEnum); sig != nil {
+	if enumName, sig := findEnumMethodType(cb, o); sig != nil {
+		p.enumName = enumName
 		enumRet := sig.Results()
 		params := sig.Params()
 		switch params.Len() {
 		case 0:
-			// iter := obj.Gop_Enum()
+			// iter := obj.XGo_Enum()
 			// key, val, ok := iter.Next()
 		case 1:
-			// obj.Gop_Enum(func(key K, val V) { ... })
+			// obj.XGo_Enum(func(key K, val V) { ... })
 			if enumRet.Len() != 0 {
 				return nil, false
 			}
@@ -688,8 +692,21 @@ func findMethodType(cb *CodeBuilder, o *types.Named, name string) mthdSignature 
 	return nil
 }
 
+func findEnumMethodType(cb *CodeBuilder, o *types.Named) (string, mthdSignature) {
+	for i, n := 0, o.NumMethods(); i < n; i++ {
+		method := o.Method(i)
+		if v := method.Name(); v == nameXGoEnum1 || v == nameXGoEnum2 {
+			return v, method.Type().(*types.Signature)
+		}
+	}
+	if bti := cb.getBuiltinTI(o); bti != nil {
+		return nameXGoEnum1, bti.lookupByName(nameXGoEnum1)
+	}
+	return "", nil
+}
+
 const (
-	cantUseFlows = "can't use return/continue/break/goto in for range of udt.Gop_Enum(callback)"
+	cantUseFlows = "can't use return/continue/break/goto in for range of udt.XGo_Enum(callback)"
 )
 
 func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
@@ -706,10 +723,10 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 		cb.emitStmt(p.stmt)
 	} else if n > 0 {
 		cb.stk.Push(p.x)
-		cb.MemberVal(nameXGoEnum).Call(0)
+		cb.MemberVal(p.enumName).Call(0)
 		callEnum := cb.stk.Pop().Val
 		/*
-			for _xgo_it := X.Gop_Enum();; {
+			for _xgo_it := X.XGo_Enum();; {
 				var _xgo_ok bool
 				k, v, _xgo_ok = _xgo_it.Next()
 				if !_xgo_ok {
@@ -741,9 +758,9 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 			}
 		}
 		body := make([]ast.Stmt, len(stmts)+3)
-		body[0] = stmtGopOkDecl
+		body[0] = stmtXGoOkDecl
 		body[1] = &ast.AssignStmt{Lhs: lhs, Tok: p.stmt.Tok, Rhs: exprIterNext}
-		body[2] = stmtBreakIfNotGopOk
+		body[2] = stmtBreakIfNotXGoOk
 		copy(body[3:], stmts)
 		stmt := &ast.ForStmt{
 			Init: &ast.AssignStmt{
@@ -756,7 +773,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 		cb.emitStmt(stmt)
 	} else {
 		/*
-			X.Gop_Enum(func(k K, v V) {
+			X.XGo_Enum(func(k K, v V) {
 				...
 			})
 		*/
@@ -782,7 +799,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 		}
 		stmt := &ast.ExprStmt{
 			X: &ast.CallExpr{
-				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: identXGoEnum},
+				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: identXGoEnum1},
 				Args: []ast.Expr{
 					&ast.FuncLit{
 						Type: &ast.FuncType{Params: &ast.FieldList{List: args}},
@@ -796,14 +813,16 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 }
 
 var (
-	nameXGoEnum  = "Gop_Enum"
-	identXgoOk   = ident("_xgo_ok")
-	identXgoIt   = ident("_xgo_it")
-	identXGoEnum = ident(nameXGoEnum)
+	nameXGoEnum1 = "XGo_Enum"
+	nameXGoEnum2 = "Gop_Enum"
+
+	identXGoEnum1 = ident(nameXGoEnum1)
+	identXgoOk    = ident("_xgo_ok")
+	identXgoIt    = ident("_xgo_it")
 )
 
 var (
-	stmtGopOkDecl = &ast.DeclStmt{
+	stmtXGoOkDecl = &ast.DeclStmt{
 		Decl: &ast.GenDecl{
 			Tok: token.VAR,
 			Specs: []ast.Spec{
@@ -811,7 +830,7 @@ var (
 			},
 		},
 	}
-	stmtBreakIfNotGopOk = &ast.IfStmt{
+	stmtBreakIfNotXGoOk = &ast.IfStmt{
 		Cond: &ast.UnaryExpr{Op: token.NOT, X: identXgoOk},
 		Body: &ast.BlockStmt{List: []ast.Stmt{&ast.BranchStmt{Tok: token.BREAK}}},
 	}

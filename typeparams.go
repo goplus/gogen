@@ -409,7 +409,7 @@ func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Elem
 	params := sig.TypeParams()
 	if n := params.Len(); n > 0 {
 		from := 0
-		if (flags & instrFlagGoptFunc) != 0 {
+		if (flags & instrFlagXGotFunc) != 0 {
 			from = 1
 		}
 		targs := make([]types.Type, n)

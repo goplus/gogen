@@ -624,7 +624,7 @@ retry:
 	switch t := fnType.(type) {
 	case *types.Signature:
 		if t.TypeParams() != nil {
-			if (flags & instrFlagGopxFunc) == 0 {
+			if (flags & instrFlagXGoxFunc) == 0 {
 				rt, err := InferFunc(pkg, fn, t, nil, args, flags)
 				if err != nil {
 					return nil, pkg.cb.newCodeError(getSrcPos(fn.Src), getSrcEnd(fn.Src), err.Error())
@@ -638,7 +638,7 @@ retry:
 				if err != nil {
 					return
 				}
-				flags &= ^instrFlagGopxFunc
+				flags &= ^instrFlagXGoxFunc
 			}
 			break
 		}
@@ -696,7 +696,7 @@ retry:
 							for j, arg := range args {
 								targs[j+1] = arg
 							}
-							if ret, err = matchFuncCall(pkg, tfn, targs, flags|instrFlagGoptFunc); err == nil {
+							if ret, err = matchFuncCall(pkg, tfn, targs, flags|instrFlagXGotFunc); err == nil {
 								if pkg.cb.rec != nil {
 									if _, ok := CheckFuncEx(ft.Func.Type().(*types.Signature)); !ok {
 										pkg.cb.rec.Call(fn.Src, ft.Func)
@@ -713,7 +713,7 @@ retry:
 				}
 				return
 			case *TyTypeAsParams:
-				return matchFuncCall(pkg, chgObject(pkg, ft.obj, fn), args, flags|instrFlagGopxFunc)
+				return matchFuncCall(pkg, chgObject(pkg, ft.obj, fn), args, flags|instrFlagXGoxFunc)
 			}
 		} else {
 			sig = t
@@ -844,7 +844,7 @@ func matchOverloadNamedTypeCast(pkg *Package, t *types.TypeName, src ast.Node, a
 		return nil, err
 	}
 	fn := toObject(pkg, o, src)
-	return matchFuncCall(pkg, fn, args, flags|instrFlagGopxFunc)
+	return matchFuncCall(pkg, fn, args, flags|instrFlagXGoxFunc)
 }
 
 func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
@@ -907,7 +907,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 		arg := args[0]
 		switch t := arg.Type.(type) {
 		case *types.Named:
-			if m := lookupMethod(t, "Gop_Rcast"); m != nil {
+			if m := lookupMethod(t, "XGo_Rcast"); m != nil {
 				switch mt := m.Type().(type) {
 				case *types.Signature:
 					if funcs, ok := CheckOverloadMethod(mt); ok {
@@ -959,7 +959,7 @@ func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type,
 		return pkg.cb.Val(fn).MemberVal(m.Name()).CallWith(0, flags).stk.Pop(), nil
 	}
 	return nil, &MatchError{
-		Src: fn.Src, Arg: fn.Type, Param: typ, At: "Gop_Rcast",
+		Src: fn.Src, Arg: fn.Type, Param: typ, At: "XGo_Rcast",
 		Fset: pkg.cb.fset, intr: pkg.cb.interp,
 	}
 }

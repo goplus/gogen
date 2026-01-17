@@ -14,6 +14,7 @@
 package bar
 
 const (
+	// GopPackage for backward compatibility
 	GopPackage = true // to indicate this is a XGo package
 )
 
@@ -29,11 +30,12 @@ type Game struct {
 func (p *Game) RunLoop() {
 }
 
+// Gopt_XXX for backward compatibility
 func Gopt_Game_Run(game Gamer, resource string) {
 	game.RunLoop()
 }
 
-func Gops_Game_New() *Game {
+func XGos_Game_New() *Game {
 	return nil
 }
 

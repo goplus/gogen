@@ -18,299 +18,299 @@ import (
 )
 
 const (
-	GopPackage = true // to indicate this is a XGo package
+	XGoPackage = true // to indicate this is a XGo package
 )
 
 //
-// Gop_: XGo object prefix
-// Gop_xxx_Cast: type Gop_xxx typecast
+// XGo_: XGo object prefix
+// XGo_xxx_Cast: type XGo_xxx typecast
 // xxxx__N: the Nth overload function
 //
 
-type Gop_ninteger = uint
+type XGo_ninteger = uint
 
-func Gop_istmp(a interface{}) bool {
+func XGo_istmp(a interface{}) bool {
 	return false
 }
 
 // -----------------------------------------------------------------------------
 
-type Gop_untyped_bigint *big.Int
-type Gop_untyped_bigrat *big.Rat
-type Gop_untyped_bigfloat *big.Float
+type XGo_untyped_bigint *big.Int
+type XGo_untyped_bigrat *big.Rat
+type XGo_untyped_bigfloat *big.Float
 
-type Gop_untyped_bigint_Default = Gop_bigint
-type Gop_untyped_bigrat_Default = Gop_bigrat
-type Gop_untyped_bigfloat_Default = Gop_bigfloat
+type XGo_untyped_bigint_Default = XGo_bigint
+type XGo_untyped_bigrat_Default = XGo_bigrat
+type XGo_untyped_bigfloat_Default = XGo_bigfloat
 
-func Gop_untyped_bigint_Init__0(x int) Gop_untyped_bigint {
+func XGo_untyped_bigint_Init__0(x int) XGo_untyped_bigint {
 	panic("make compiler happy")
 }
 
-func Gop_untyped_bigrat_Init__0(x int) Gop_untyped_bigrat {
+func XGo_untyped_bigrat_Init__0(x int) XGo_untyped_bigrat {
 	panic("make compiler happy")
 }
 
-func Gop_untyped_bigrat_Init__1(x Gop_untyped_bigint) Gop_untyped_bigrat {
+func XGo_untyped_bigrat_Init__1(x XGo_untyped_bigint) XGo_untyped_bigrat {
 	panic("make compiler happy")
 }
 
 // -----------------------------------------------------------------------------
 // type bigint
 
-// A Gop_bigint represents a signed multi-precision integer.
-// The zero value for a Gop_bigint represents nil.
-type Gop_bigint struct {
+// A XGo_bigint represents a signed multi-precision integer.
+// The zero value for a XGo_bigint represents nil.
+type XGo_bigint struct {
 	*big.Int
 }
 
-func tmpint(a, b Gop_bigint) Gop_bigint {
-	if Gop_istmp(a) {
+func tmpint(a, b XGo_bigint) XGo_bigint {
+	if XGo_istmp(a) {
 		return a
-	} else if Gop_istmp(b) {
+	} else if XGo_istmp(b) {
 		return b
 	}
-	return Gop_bigint{new(big.Int)}
+	return XGo_bigint{new(big.Int)}
 }
 
-func tmpint1(a Gop_bigint) Gop_bigint {
-	if Gop_istmp(a) {
+func tmpint1(a XGo_bigint) XGo_bigint {
+	if XGo_istmp(a) {
 		return a
 	}
-	return Gop_bigint{new(big.Int)}
+	return XGo_bigint{new(big.Int)}
 }
 
 // IsNil returns a bigint object is nil or not
-func (a Gop_bigint) IsNil() bool {
+func (a XGo_bigint) IsNil() bool {
 	return a.Int == nil
 }
 
-// Gop_Assign: func (a bigint) = (b bigint)
-func (a Gop_bigint) Gop_Assign(b Gop_bigint) {
-	if Gop_istmp(b) {
+// XGo_Assign: func (a bigint) = (b bigint)
+func (a XGo_bigint) XGo_Assign(b XGo_bigint) {
+	if XGo_istmp(b) {
 		*a.Int = *b.Int
 	} else {
 		a.Int.Set(b.Int)
 	}
 }
 
-// Gop_Add: func (a bigint) + (b bigint) bigint
-func (a Gop_bigint) Gop_Add(b Gop_bigint) Gop_bigint {
-	return Gop_bigint{tmpint(a, b).Add(a.Int, b.Int)}
+// XGo_Add: func (a bigint) + (b bigint) bigint
+func (a XGo_bigint) XGo_Add(b XGo_bigint) XGo_bigint {
+	return XGo_bigint{tmpint(a, b).Add(a.Int, b.Int)}
 }
 
-// Gop_Sub: func (a bigint) - (b bigint) bigint
-func (a Gop_bigint) Gop_Sub(b Gop_bigint) Gop_bigint {
-	return Gop_bigint{tmpint(a, b).Sub(a.Int, b.Int)}
+// XGo_Sub: func (a bigint) - (b bigint) bigint
+func (a XGo_bigint) XGo_Sub(b XGo_bigint) XGo_bigint {
+	return XGo_bigint{tmpint(a, b).Sub(a.Int, b.Int)}
 }
 
-// Gop_Mul: func (a bigint) * (b bigint) bigint
-func (a Gop_bigint) Gop_Mul(b Gop_bigint) Gop_bigint {
-	return Gop_bigint{tmpint(a, b).Mul(a.Int, b.Int)}
+// XGo_Mul: func (a bigint) * (b bigint) bigint
+func (a XGo_bigint) XGo_Mul(b XGo_bigint) XGo_bigint {
+	return XGo_bigint{tmpint(a, b).Mul(a.Int, b.Int)}
 }
 
-// Gop_Quo: func (a bigint) / (b bigint) bigint {
-func (a Gop_bigint) Gop_Quo(b Gop_bigint) Gop_bigint {
-	return Gop_bigint{tmpint(a, b).Quo(a.Int, b.Int)}
+// XGo_Quo: func (a bigint) / (b bigint) bigint {
+func (a XGo_bigint) XGo_Quo(b XGo_bigint) XGo_bigint {
+	return XGo_bigint{tmpint(a, b).Quo(a.Int, b.Int)}
 }
 
-// Gop_Rem: func (a bigint) % (b bigint) bigint
-func (a Gop_bigint) Gop_Rem(b Gop_bigint) Gop_bigint {
-	return Gop_bigint{tmpint(a, b).Rem(a.Int, b.Int)}
+// XGo_Rem: func (a bigint) % (b bigint) bigint
+func (a XGo_bigint) XGo_Rem(b XGo_bigint) XGo_bigint {
+	return XGo_bigint{tmpint(a, b).Rem(a.Int, b.Int)}
 }
 
-// Gop_Or: func (a bigint) | (b bigint) bigint
-func (a Gop_bigint) Gop_Or(b Gop_bigint) Gop_bigint {
-	return Gop_bigint{tmpint(a, b).Or(a.Int, b.Int)}
+// XGo_Or: func (a bigint) | (b bigint) bigint
+func (a XGo_bigint) XGo_Or(b XGo_bigint) XGo_bigint {
+	return XGo_bigint{tmpint(a, b).Or(a.Int, b.Int)}
 }
 
-// Gop_Xor: func (a bigint) ^ (b bigint) bigint
-func (a Gop_bigint) Gop_Xor(b Gop_bigint) Gop_bigint {
-	return Gop_bigint{tmpint(a, b).Xor(a.Int, b.Int)}
+// XGo_Xor: func (a bigint) ^ (b bigint) bigint
+func (a XGo_bigint) XGo_Xor(b XGo_bigint) XGo_bigint {
+	return XGo_bigint{tmpint(a, b).Xor(a.Int, b.Int)}
 }
 
-// Gop_And: func (a bigint) & (b bigint) bigint
-func (a Gop_bigint) Gop_And(b Gop_bigint) Gop_bigint {
-	return Gop_bigint{tmpint(a, b).And(a.Int, b.Int)}
+// XGo_And: func (a bigint) & (b bigint) bigint
+func (a XGo_bigint) XGo_And(b XGo_bigint) XGo_bigint {
+	return XGo_bigint{tmpint(a, b).And(a.Int, b.Int)}
 }
 
-// Gop_AndNot: func (a bigint) &^ (b bigint) bigint
-func (a *Gop_bigint) Gop_AndNot__0(b *Gop_bigint) *Gop_bigint {
+// XGo_AndNot: func (a bigint) &^ (b bigint) bigint
+func (a *XGo_bigint) XGo_AndNot__0(b *XGo_bigint) *XGo_bigint {
 	return a
 }
 
-// Gop_Lsh: func (a bigint) << (n untyped_uint) bigint
-func (a Gop_bigint) Gop_Lsh(n Gop_ninteger) Gop_bigint {
-	return Gop_bigint{tmpint1(a).Lsh(a.Int, uint(n))}
+// XGo_Lsh: func (a bigint) << (n untyped_uint) bigint
+func (a XGo_bigint) XGo_Lsh(n XGo_ninteger) XGo_bigint {
+	return XGo_bigint{tmpint1(a).Lsh(a.Int, uint(n))}
 }
 
-// Gop_Rsh: func (a bigint) >> (n untyped_uint) bigint
-func (a Gop_bigint) Gop_Rsh(n Gop_ninteger) Gop_bigint {
-	return Gop_bigint{tmpint1(a).Rsh(a.Int, uint(n))}
+// XGo_Rsh: func (a bigint) >> (n untyped_uint) bigint
+func (a XGo_bigint) XGo_Rsh(n XGo_ninteger) XGo_bigint {
+	return XGo_bigint{tmpint1(a).Rsh(a.Int, uint(n))}
 }
 
-// Gop_LT: func (a bigint) < (b bigint) bool
-func (a Gop_bigint) Gop_LT(b Gop_bigint) bool {
+// XGo_LT: func (a bigint) < (b bigint) bool
+func (a XGo_bigint) XGo_LT(b XGo_bigint) bool {
 	return a.Cmp(b.Int) < 0
 }
 
-// Gop_LE: func (a bigint) <= (b bigint) bool
-func (a Gop_bigint) Gop_LE(b Gop_bigint) bool {
+// XGo_LE: func (a bigint) <= (b bigint) bool
+func (a XGo_bigint) XGo_LE(b XGo_bigint) bool {
 	return a.Cmp(b.Int) <= 0
 }
 
-// Gop_GT: func (a bigint) > (b bigint) bool
-func (a Gop_bigint) Gop_GT(b Gop_bigint) bool {
+// XGo_GT: func (a bigint) > (b bigint) bool
+func (a XGo_bigint) XGo_GT(b XGo_bigint) bool {
 	return a.Cmp(b.Int) > 0
 }
 
-// Gop_GE: func (a bigint) >= (b bigint) bool
-func (a Gop_bigint) Gop_GE(b Gop_bigint) bool {
+// XGo_GE: func (a bigint) >= (b bigint) bool
+func (a XGo_bigint) XGo_GE(b XGo_bigint) bool {
 	return a.Cmp(b.Int) >= 0
 }
 
-// Gop_EQ: func (a bigint) == (b bigint) bool
-func (a Gop_bigint) Gop_EQ(b Gop_bigint) bool {
+// XGo_EQ: func (a bigint) == (b bigint) bool
+func (a XGo_bigint) XGo_EQ(b XGo_bigint) bool {
 	return a.Cmp(b.Int) == 0
 }
 
-// Gop_NE: func (a bigint) != (b bigint) bool
-func (a Gop_bigint) Gop_NE(b Gop_bigint) bool {
+// XGo_NE: func (a bigint) != (b bigint) bool
+func (a XGo_bigint) XGo_NE(b XGo_bigint) bool {
 	return a.Cmp(b.Int) != 0
 }
 
-// Gop_Neg: func -(a bigint) bigint
-func (a Gop_bigint) Gop_Neg() Gop_bigint {
-	return Gop_bigint{tmpint1(a).Neg(a.Int)}
+// XGo_Neg: func -(a bigint) bigint
+func (a XGo_bigint) XGo_Neg() XGo_bigint {
+	return XGo_bigint{tmpint1(a).Neg(a.Int)}
 }
 
-// Gop_Dup: func +(a bigint) bigint
-func (a Gop_bigint) Gop_Dup() Gop_bigint {
+// XGo_Dup: func +(a bigint) bigint
+func (a XGo_bigint) XGo_Dup() XGo_bigint {
 	return a
 }
 
-// Gop_Not: func ^(a bigint) bigint
-func (a Gop_bigint) Gop_Not() Gop_bigint {
-	return Gop_bigint{tmpint1(a).Not(a.Int)}
+// XGo_Not: func ^(a bigint) bigint
+func (a XGo_bigint) XGo_Not() XGo_bigint {
+	return XGo_bigint{tmpint1(a).Not(a.Int)}
 }
 
-// Gop_Add: func (a bigint) += (b bigint)
-func (a Gop_bigint) Gop_AddAssign(b Gop_bigint) {
+// XGo_Add: func (a bigint) += (b bigint)
+func (a XGo_bigint) XGo_AddAssign(b XGo_bigint) {
 	a.Int.Add(a.Int, b.Int)
 }
 
-// Gop_Sub: func (a bigint) -= (b bigint)
-func (a Gop_bigint) Gop_SubAssign(b Gop_bigint) {
+// XGo_Sub: func (a bigint) -= (b bigint)
+func (a XGo_bigint) XGo_SubAssign(b XGo_bigint) {
 	a.Int.Sub(a.Int, b.Int)
 }
 
-// Gop_Mul: func (a bigint) *= (b bigint)
-func (a Gop_bigint) Gop_MulAssign(b Gop_bigint) {
+// XGo_Mul: func (a bigint) *= (b bigint)
+func (a XGo_bigint) XGo_MulAssign(b XGo_bigint) {
 	a.Int.Mul(a.Int, b.Int)
 }
 
-// Gop_Quo: func (a bigint) /= (b bigint) {
-func (a Gop_bigint) Gop_QuoAssign(b Gop_bigint) {
+// XGo_Quo: func (a bigint) /= (b bigint) {
+func (a XGo_bigint) XGo_QuoAssign(b XGo_bigint) {
 	a.Int.Quo(a.Int, b.Int)
 }
 
-// Gop_Rem: func (a bigint) %= (b bigint)
-func (a Gop_bigint) Gop_RemAssign(b Gop_bigint) {
+// XGo_Rem: func (a bigint) %= (b bigint)
+func (a XGo_bigint) XGo_RemAssign(b XGo_bigint) {
 	a.Int.Rem(a.Int, b.Int)
 }
 
-// Gop_Or: func (a bigint) |= (b bigint)
-func (a Gop_bigint) Gop_OrAssign(b Gop_bigint) {
+// XGo_Or: func (a bigint) |= (b bigint)
+func (a XGo_bigint) XGo_OrAssign(b XGo_bigint) {
 	a.Int.Or(a.Int, b.Int)
 }
 
-// Gop_Xor: func (a bigint) ^= (b bigint)
-func (a Gop_bigint) Gop_XorAssign(b Gop_bigint) {
+// XGo_Xor: func (a bigint) ^= (b bigint)
+func (a XGo_bigint) XGo_XorAssign(b XGo_bigint) {
 	a.Int.Xor(a.Int, b.Int)
 }
 
-// Gop_And: func (a bigint) &= (b bigint)
-func (a Gop_bigint) Gop_AndAssign(b Gop_bigint) {
+// XGo_And: func (a bigint) &= (b bigint)
+func (a XGo_bigint) XGo_AndAssign(b XGo_bigint) {
 	a.Int.And(a.Int, b.Int)
 }
 
-// Gop_AndNot: func (a bigint) &^= (b bigint)
-func (a Gop_bigint) Gop_AndNotAssign(b Gop_bigint) {
+// XGo_AndNot: func (a bigint) &^= (b bigint)
+func (a XGo_bigint) XGo_AndNotAssign(b XGo_bigint) {
 	a.Int.AndNot(a.Int, b.Int)
 }
 
-// Gop_Lsh: func (a bigint) <<= (n untyped_uint)
-func (a Gop_bigint) Gop_LshAssign(n Gop_ninteger) {
+// XGo_Lsh: func (a bigint) <<= (n untyped_uint)
+func (a XGo_bigint) XGo_LshAssign(n XGo_ninteger) {
 	a.Int.Lsh(a.Int, uint(n))
 }
 
-// Gop_Rsh: func (a bigint) >>= (n untyped_uint)
-func (a Gop_bigint) Gop_RshAssign(n Gop_ninteger) {
+// XGo_Rsh: func (a bigint) >>= (n untyped_uint)
+func (a XGo_bigint) XGo_RshAssign(n XGo_ninteger) {
 	a.Int.Rsh(a.Int, uint(n))
 }
 
-func (a Gop_bigint) Gop_Rcast() float64 {
+func (a XGo_bigint) XGo_Rcast() float64 {
 	return 0
 }
 
-// Gop_bigint_Cast: func bigint(x int) bigint
-func Gop_bigint_Cast__0(x int) Gop_bigint {
-	return Gop_bigint{big.NewInt(int64(x))}
+// XGo_bigint_Cast: func bigint(x int) bigint
+func XGo_bigint_Cast__0(x int) XGo_bigint {
+	return XGo_bigint{big.NewInt(int64(x))}
 }
 
-// Gop_bigint_Cast: func bigint(x untyped_bigint) bigint
-func Gop_bigint_Cast__1(x Gop_untyped_bigint) Gop_bigint {
-	return Gop_bigint{x}
+// XGo_bigint_Cast: func bigint(x untyped_bigint) bigint
+func XGo_bigint_Cast__1(x XGo_untyped_bigint) XGo_bigint {
+	return XGo_bigint{x}
 }
 
-// Gop_bigint_Cast: func bigint(x int64) bigint
-func Gop_bigint_Cast__2(x int64) Gop_bigint {
-	return Gop_bigint{big.NewInt(x)}
+// XGo_bigint_Cast: func bigint(x int64) bigint
+func XGo_bigint_Cast__2(x int64) XGo_bigint {
+	return XGo_bigint{big.NewInt(x)}
 }
 
-// Gop_bigint_Cast: func bigint(x uint64) bigint
-func Gop_bigint_Cast__3(x uint64) Gop_bigint {
-	return Gop_bigint{new(big.Int).SetUint64(x)}
+// XGo_bigint_Cast: func bigint(x uint64) bigint
+func XGo_bigint_Cast__3(x uint64) XGo_bigint {
+	return XGo_bigint{new(big.Int).SetUint64(x)}
 }
 
-// Gop_bigint_Cast: func bigint(x uint) bigint
-func Gop_bigint_Cast__4(x uint) Gop_bigint {
-	return Gop_bigint{new(big.Int).SetUint64(uint64(x))}
+// XGo_bigint_Cast: func bigint(x uint) bigint
+func XGo_bigint_Cast__4(x uint) XGo_bigint {
+	return XGo_bigint{new(big.Int).SetUint64(uint64(x))}
 }
 
-// Gop_bigint_Cast: func bigint(x *big.Int) bigint
-func Gop_bigint_Cast__5(x *big.Int) Gop_bigint {
-	return Gop_bigint{x}
+// XGo_bigint_Cast: func bigint(x *big.Int) bigint
+func XGo_bigint_Cast__5(x *big.Int) XGo_bigint {
+	return XGo_bigint{x}
 }
 
-// Gop_bigint_Cast: func bigint(x bigrat) bigint
-func Gop_bigint_Cast__6(x Gop_bigrat) Gop_bigint {
+// XGo_bigint_Cast: func bigint(x bigrat) bigint
+func XGo_bigint_Cast__6(x XGo_bigrat) XGo_bigint {
 	if x.IsInt() {
-		return Gop_bigint{x.Num()}
+		return XGo_bigint{x.Num()}
 	}
 	ret, _ := new(big.Float).SetRat(x.Rat).Int(nil)
-	return Gop_bigint{ret}
+	return XGo_bigint{ret}
 }
 
-// Gop_bigint_Cast: func bigint(x bigrat) (ret bigint, exact bool)
-func Gop_bigint_Cast__7(x Gop_bigrat) (Gop_bigint, bool) {
-	return Gop_bigint_Cast__6(x), x.IsInt()
+// XGo_bigint_Cast: func bigint(x bigrat) (ret bigint, exact bool)
+func XGo_bigint_Cast__7(x XGo_bigrat) (XGo_bigint, bool) {
+	return XGo_bigint_Cast__6(x), x.IsInt()
 }
 
-// Gop_bigint_Init: func bigint.init(x int) bigint
-func Gop_bigint_Init__0(x int) Gop_bigint {
-	return Gop_bigint{big.NewInt(int64(x))}
+// XGo_bigint_Init: func bigint.init(x int) bigint
+func XGo_bigint_Init__0(x int) XGo_bigint {
+	return XGo_bigint{big.NewInt(int64(x))}
 }
 
-// Gop_bigint_Init: func bigint.init(x *big.Int) bigint
-func Gop_bigint_Init__1(x *big.Int) Gop_bigint {
-	return Gop_bigint{x}
+// XGo_bigint_Init: func bigint.init(x *big.Int) bigint
+func XGo_bigint_Init__1(x *big.Int) XGo_bigint {
+	return XGo_bigint{x}
 }
 
-// Gop_bigint_Init: func bigint.init(x *big.Rat) bigint
-func Gop_bigint_Init__2(x *big.Rat) Gop_bigint {
+// XGo_bigint_Init: func bigint.init(x *big.Rat) bigint
+func XGo_bigint_Init__2(x *big.Rat) XGo_bigint {
 	if x.IsInt() {
-		return Gop_bigint{x.Num()}
+		return XGo_bigint{x.Num()}
 	}
 	panic("TODO: can't init bigint from bigrat")
 }
@@ -318,198 +318,198 @@ func Gop_bigint_Init__2(x *big.Rat) Gop_bigint {
 // -----------------------------------------------------------------------------
 // type bigrat
 
-// A Gop_bigrat represents a quotient a/b of arbitrary precision.
-// The zero value for a Gop_bigrat represents nil.
-type Gop_bigrat struct {
+// A XGo_bigrat represents a quotient a/b of arbitrary precision.
+// The zero value for a XGo_bigrat represents nil.
+type XGo_bigrat struct {
 	*big.Rat
 }
 
-func tmprat(a, b Gop_bigrat) Gop_bigrat {
-	if Gop_istmp(a) {
+func tmprat(a, b XGo_bigrat) XGo_bigrat {
+	if XGo_istmp(a) {
 		return a
-	} else if Gop_istmp(b) {
+	} else if XGo_istmp(b) {
 		return b
 	}
-	return Gop_bigrat{new(big.Rat)}
+	return XGo_bigrat{new(big.Rat)}
 }
 
-func tmprat1(a Gop_bigrat) Gop_bigrat {
-	if Gop_istmp(a) {
+func tmprat1(a XGo_bigrat) XGo_bigrat {
+	if XGo_istmp(a) {
 		return a
 	}
-	return Gop_bigrat{new(big.Rat)}
+	return XGo_bigrat{new(big.Rat)}
 }
 
 // IsNil returns a bigrat object is nil or not
-func (a Gop_bigrat) IsNil() bool {
+func (a XGo_bigrat) IsNil() bool {
 	return a.Rat == nil
 }
 
-// Gop_Assign: func (a bigrat) = (b bigrat)
-func (a Gop_bigrat) Gop_Assign(b Gop_bigrat) {
-	if Gop_istmp(b) {
+// XGo_Assign: func (a bigrat) = (b bigrat)
+func (a XGo_bigrat) XGo_Assign(b XGo_bigrat) {
+	if XGo_istmp(b) {
 		*a.Rat = *b.Rat
 	} else {
 		a.Rat.Set(b.Rat)
 	}
 }
 
-// Gop_Add: func (a bigrat) + (b bigrat) bigrat
-func (a Gop_bigrat) Gop_Add(b Gop_bigrat) Gop_bigrat {
-	return Gop_bigrat{tmprat(a, b).Add(a.Rat, b.Rat)}
+// XGo_Add: func (a bigrat) + (b bigrat) bigrat
+func (a XGo_bigrat) XGo_Add(b XGo_bigrat) XGo_bigrat {
+	return XGo_bigrat{tmprat(a, b).Add(a.Rat, b.Rat)}
 }
 
-// Gop_Sub: func (a bigrat) - (b bigrat) bigrat
-func (a Gop_bigrat) Gop_Sub__0(b Gop_bigrat) Gop_bigrat {
-	return Gop_bigrat{tmprat(a, b).Sub(a.Rat, b.Rat)}
+// XGo_Sub: func (a bigrat) - (b bigrat) bigrat
+func (a XGo_bigrat) XGo_Sub__0(b XGo_bigrat) XGo_bigrat {
+	return XGo_bigrat{tmprat(a, b).Sub(a.Rat, b.Rat)}
 }
 
-// Gop_Mul: func (a bigrat) * (b bigrat) bigrat
-func (a Gop_bigrat) Gop_Mul(b Gop_bigrat) Gop_bigrat {
-	return Gop_bigrat{tmprat(a, b).Mul(a.Rat, b.Rat)}
+// XGo_Mul: func (a bigrat) * (b bigrat) bigrat
+func (a XGo_bigrat) XGo_Mul(b XGo_bigrat) XGo_bigrat {
+	return XGo_bigrat{tmprat(a, b).Mul(a.Rat, b.Rat)}
 }
 
-// Gop_Quo: func (a bigrat) / (b bigrat) bigrat
-func (a Gop_bigrat) Gop_Quo(b Gop_bigrat) Gop_bigrat {
-	return Gop_bigrat{tmprat(a, b).Quo(a.Rat, b.Rat)}
+// XGo_Quo: func (a bigrat) / (b bigrat) bigrat
+func (a XGo_bigrat) XGo_Quo(b XGo_bigrat) XGo_bigrat {
+	return XGo_bigrat{tmprat(a, b).Quo(a.Rat, b.Rat)}
 }
 
-// Gop_LT: func (a bigrat) < (b bigrat) bool
-func (a Gop_bigrat) Gop_LT(b Gop_bigrat) bool {
+// XGo_LT: func (a bigrat) < (b bigrat) bool
+func (a XGo_bigrat) XGo_LT(b XGo_bigrat) bool {
 	return a.Cmp(b.Rat) < 0
 }
 
-// Gop_LE: func (a bigrat) <= (b bigrat) bool
-func (a Gop_bigrat) Gop_LE(b Gop_bigrat) bool {
+// XGo_LE: func (a bigrat) <= (b bigrat) bool
+func (a XGo_bigrat) XGo_LE(b XGo_bigrat) bool {
 	return a.Cmp(b.Rat) <= 0
 }
 
-// Gop_GT: func (a bigrat) > (b bigrat) bool
-func (a Gop_bigrat) Gop_GT(b Gop_bigrat) bool {
+// XGo_GT: func (a bigrat) > (b bigrat) bool
+func (a XGo_bigrat) XGo_GT(b XGo_bigrat) bool {
 	return a.Cmp(b.Rat) > 0
 }
 
-// Gop_GE: func (a bigrat) >= (b bigrat) bool
-func (a Gop_bigrat) Gop_GE(b Gop_bigrat) bool {
+// XGo_GE: func (a bigrat) >= (b bigrat) bool
+func (a XGo_bigrat) XGo_GE(b XGo_bigrat) bool {
 	return a.Cmp(b.Rat) >= 0
 }
 
-// Gop_EQ: func (a bigrat) == (b bigrat) bool
-func (a Gop_bigrat) Gop_EQ(b Gop_bigrat) bool {
+// XGo_EQ: func (a bigrat) == (b bigrat) bool
+func (a XGo_bigrat) XGo_EQ(b XGo_bigrat) bool {
 	return a.Cmp(b.Rat) == 0
 }
 
-// Gop_NE: func (a bigrat) != (b bigrat) bool
-func (a Gop_bigrat) Gop_NE(b Gop_bigrat) bool {
+// XGo_NE: func (a bigrat) != (b bigrat) bool
+func (a XGo_bigrat) XGo_NE(b XGo_bigrat) bool {
 	return a.Cmp(b.Rat) != 0
 }
 
-// Gop_Neg: func -(a bigrat) bigrat
-func (a Gop_bigrat) Gop_Neg() Gop_bigrat {
-	return Gop_bigrat{tmprat1(a).Neg(a.Rat)}
+// XGo_Neg: func -(a bigrat) bigrat
+func (a XGo_bigrat) XGo_Neg() XGo_bigrat {
+	return XGo_bigrat{tmprat1(a).Neg(a.Rat)}
 }
 
-// Gop_Dup: func +(a bigrat) bigrat
-func (a Gop_bigrat) Gop_Dup() Gop_bigrat {
+// XGo_Dup: func +(a bigrat) bigrat
+func (a XGo_bigrat) XGo_Dup() XGo_bigrat {
 	return a
 }
 
-// Gop_Inc: func ++(a *bigrat)
-func (a *Gop_bigrat) Gop_Inc() {
+// XGo_Inc: func ++(a *bigrat)
+func (a *XGo_bigrat) XGo_Inc() {
 }
 
-// Gop_Dec: func --(a *bigrat) int
-func (a *Gop_bigrat) Gop_Dec() int { // error!
+// XGo_Dec: func --(a *bigrat) int
+func (a *XGo_bigrat) XGo_Dec() int { // error!
 	return 0
 }
 
-// Gop_Add: func (a bigrat) += (b bigrat)
-func (a Gop_bigrat) Gop_AddAssign(b Gop_bigrat) {
+// XGo_Add: func (a bigrat) += (b bigrat)
+func (a XGo_bigrat) XGo_AddAssign(b XGo_bigrat) {
 	a.Rat.Add(a.Rat, b.Rat)
 }
 
-// Gop_Sub: func (a bigrat) -= (b bigrat) int
-func (a Gop_bigrat) Gop_SubAssign(b Gop_bigrat) int { // error!
+// XGo_Sub: func (a bigrat) -= (b bigrat) int
+func (a XGo_bigrat) XGo_SubAssign(b XGo_bigrat) int { // error!
 	return 0
 }
 
-// Gop_Mul: func (a bigrat) *= (b bigrat)
-func (a Gop_bigrat) Gop_MulAssign(b Gop_bigrat) {
+// XGo_Mul: func (a bigrat) *= (b bigrat)
+func (a XGo_bigrat) XGo_MulAssign(b XGo_bigrat) {
 	a.Rat.Mul(a.Rat, b.Rat)
 }
 
-// Gop_Quo: func (a bigrat) /= (b bigrat)
-func (a Gop_bigrat) Gop_QuoAssign(b Gop_bigrat) {
+// XGo_Quo: func (a bigrat) /= (b bigrat)
+func (a XGo_bigrat) XGo_QuoAssign(b XGo_bigrat) {
 	a.Rat.Quo(a.Rat, b.Rat)
 }
 
-func (a Gop_bigrat) Gop_Rcast__0() (int, bool) {
+func (a XGo_bigrat) XGo_Rcast__0() (int, bool) {
 	return 0, false
 }
 
-func (a *Gop_bigrat) Gop_Rcast__1() int {
+func (a *XGo_bigrat) XGo_Rcast__1() int {
 	return 0
 }
 
-func (a *Gop_bigrat) Gop_Rcast__2() float64 {
+func (a *XGo_bigrat) XGo_Rcast__2() float64 {
 	return 0
 }
 
-func (a *Gop_bigrat) Gop_Rcast__3(int) int64 {
+func (a *XGo_bigrat) XGo_Rcast__3(int) int64 {
 	return 0
 }
 
-// Gop_bigrat_Cast: func bigrat(a untyped_bigint) bigrat
-func Gop_bigrat_Cast__0(a Gop_untyped_bigint) Gop_bigrat {
-	return Gop_bigrat{new(big.Rat).SetInt(a)}
+// XGo_bigrat_Cast: func bigrat(a untyped_bigint) bigrat
+func XGo_bigrat_Cast__0(a XGo_untyped_bigint) XGo_bigrat {
+	return XGo_bigrat{new(big.Rat).SetInt(a)}
 }
 
-// Gop_bigrat_Cast: func bigrat(a bigint) bigrat
-func Gop_bigrat_Cast__1(a Gop_bigint) Gop_bigrat {
-	return Gop_bigrat{new(big.Rat).SetInt(a.Int)}
+// XGo_bigrat_Cast: func bigrat(a bigint) bigrat
+func XGo_bigrat_Cast__1(a XGo_bigint) XGo_bigrat {
+	return XGo_bigrat{new(big.Rat).SetInt(a.Int)}
 }
 
-// Gop_bigrat_Cast: func bigrat(a *big.Int) bigrat
-func Gop_bigrat_Cast__2(a *big.Int) Gop_bigrat {
-	return Gop_bigrat{new(big.Rat).SetInt(a)}
+// XGo_bigrat_Cast: func bigrat(a *big.Int) bigrat
+func XGo_bigrat_Cast__2(a *big.Int) XGo_bigrat {
+	return XGo_bigrat{new(big.Rat).SetInt(a)}
 }
 
-// Gop_bigrat_Cast: func bigrat(a, b int64) bigrat
-func Gop_bigrat_Cast__3(a, b int64) Gop_bigrat {
-	return Gop_bigrat{big.NewRat(a, b)}
+// XGo_bigrat_Cast: func bigrat(a, b int64) bigrat
+func XGo_bigrat_Cast__3(a, b int64) XGo_bigrat {
+	return XGo_bigrat{big.NewRat(a, b)}
 }
 
-// Gop_bigrat_Cast: func bigrat(a *big.Rat) bigrat
-func Gop_bigrat_Cast__4(a *big.Rat) Gop_bigrat {
-	return Gop_bigrat{a}
+// XGo_bigrat_Cast: func bigrat(a *big.Rat) bigrat
+func XGo_bigrat_Cast__4(a *big.Rat) XGo_bigrat {
+	return XGo_bigrat{a}
 }
 
-// Gop_bigrat_Cast: func bigrat() bigrat
-func Gop_bigrat_Cast__5() Gop_bigrat {
-	return Gop_bigrat{new(big.Rat)}
+// XGo_bigrat_Cast: func bigrat() bigrat
+func XGo_bigrat_Cast__5() XGo_bigrat {
+	return XGo_bigrat{new(big.Rat)}
 }
 
-// Gop_bigrat_Init: func bigrat.init(x untyped_int) bigrat
-func Gop_bigrat_Init__0(x int) Gop_bigrat {
-	return Gop_bigrat{big.NewRat(int64(x), 1)}
+// XGo_bigrat_Init: func bigrat.init(x untyped_int) bigrat
+func XGo_bigrat_Init__0(x int) XGo_bigrat {
+	return XGo_bigrat{big.NewRat(int64(x), 1)}
 }
 
-// Gop_bigrat_Init: func bigrat.init(x untyped_bigint) bigrat
-func Gop_bigrat_Init__1(x Gop_untyped_bigint) Gop_bigrat {
-	return Gop_bigrat{new(big.Rat).SetInt(x)}
+// XGo_bigrat_Init: func bigrat.init(x untyped_bigint) bigrat
+func XGo_bigrat_Init__1(x XGo_untyped_bigint) XGo_bigrat {
+	return XGo_bigrat{new(big.Rat).SetInt(x)}
 }
 
-// Gop_bigrat_Init: func bigrat.init(x *big.Rat) bigrat
-func Gop_bigrat_Init__2(x *big.Rat) Gop_bigrat {
-	return Gop_bigrat{x}
+// XGo_bigrat_Init: func bigrat.init(x *big.Rat) bigrat
+func XGo_bigrat_Init__2(x *big.Rat) XGo_bigrat {
+	return XGo_bigrat{x}
 }
 
 // -----------------------------------------------------------------------------
 // type bigfloat
 
-// A Gop_bigfloat represents a multi-precision floating point number.
-// The zero value for a Gop_bigfloat represents nil.
-type Gop_bigfloat struct {
+// A XGo_bigfloat represents a multi-precision floating point number.
+// The zero value for a XGo_bigfloat represents nil.
+type XGo_bigfloat struct {
 	*big.Float
 }
 

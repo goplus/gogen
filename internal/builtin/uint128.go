@@ -17,7 +17,7 @@ func Uint128_Init__0(v int) (out Uint128) {
 }
 
 // Uint128_Init: func bigint.init(v untyped_bigint) bigint
-func Uint128_Init__1(v Gop_untyped_bigint) (out Uint128) {
+func Uint128_Init__1(v XGo_untyped_bigint) (out Uint128) {
 	return
 }
 
@@ -27,6 +27,6 @@ func Uint128_Cast__0(v int) (out Uint128) {
 }
 
 // Uint128_Cast: func uint128(v untyped_bigint) uint128
-func Uint128_Cast__1(v Gop_untyped_bigint) (out Uint128) {
+func Uint128_Cast__1(v XGo_untyped_bigint) (out Uint128) {
 	return
 }

@@ -266,8 +266,8 @@ func (p *Package) NewFuncWith(
 		p.useName(name)
 	}
 
-	if isGopFunc(name) {
-		p.isGopPkg = true
+	if isXGoFunc(name) {
+		p.isXGoPkg = true
 	}
 	if token.IsExported(name) {
 		p.expObjTypes = append(p.expObjTypes, sig)
@@ -306,8 +306,8 @@ const (
 	InstrFlagTwoValue
 
 	instrFlagApproxType // restricts to all types whose underlying type is T
-	instrFlagGopxFunc   // call Gopx_xxx function
-	instrFlagGoptFunc   // call Gopt_xxx function
+	instrFlagXGoxFunc   // call XGox_xxx function
+	instrFlagXGotFunc   // call XGot_xxx function
 	instrFlagOpFunc     // from callOpFunc
 	instrFlagBinaryOp   // from cb.BinaryOp
 )

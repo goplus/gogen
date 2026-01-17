@@ -19,6 +19,6 @@ type NoUnit int
 
 type Distance int
 
-const Gopu_Distance = "mm=1,cm=10,dm=100,m=1000"
+const XGou_Distance = "mm=1,cm=10,dm=100,m=1000"
 
 // -----------------------------------------------------------------------------
