@@ -1004,6 +1004,37 @@ func bar(v *foo.Foo2) {
 `)
 }
 
+func TestForRangeUDT6(t *testing.T) {
+	pkg := newMainPackage()
+	os := pkg.Import("os")
+	file := os.Ref("File").Type()
+	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(file))
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		ForRange("line").Val(v).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "line")).
+		Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	"fmt"
+	"github.com/goplus/gogen/internal/iox"
+	"os"
+)
+
+func bar(v *os.File) {
+	for _xgo_it := iox.EnumLines(v); ; {
+		var _xgo_ok bool
+		line, _xgo_ok := _xgo_it.Next()
+		if !_xgo_ok {
+			break
+		}
+		fmt.Println(line)
+	}
+}
+`)
+}
+
 // ----------------------------------------------------------------------------
 
 func TestStaticMethod(t *testing.T) {
