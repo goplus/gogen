@@ -14,7 +14,8 @@
 package bar
 
 const (
-	XGoPackage = true // to indicate this is a XGo package
+	// GopPackage for backward compatibility
+	GopPackage = true // to indicate this is a XGo package
 )
 
 // -----------------------------------------------------------------------------

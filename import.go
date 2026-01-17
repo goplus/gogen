@@ -293,7 +293,9 @@ const (
 	xgoxPrefix = "XGox_" // type as parameters function/method
 	xgooPrefix = "XGoo_" // overload function/method
 
-	xgoPackage = "XGoPackage"
+	xgoPackage1 = "XGoPackage"
+	xgoPackage2 = "GopPackage"
+
 	xgoPkgInit = "__xgo_inited"
 
 	xgoOptionalPrefix = "__xgo_optional_"
@@ -390,17 +392,23 @@ type expDeps struct {
 	exists map[types.Type]none
 }
 
+func isXGoPkg(pkg *types.Package) bool {
+	scope := pkg.Scope()
+	return scope.Lookup(xgoPackage1) != nil || scope.Lookup(xgoPackage2) != nil
+}
+
 func checkXGoPkg(pkg *Package) (val ast.Expr, ok bool) {
-	if pkg.Types.Name() == "main" || pkg.Types.Scope().Lookup(xgoPackage) != nil {
+	pkgTypes := pkg.Types
+	if pkgTypes.Name() == "main" || isXGoPkg(pkgTypes) {
 		return
 	}
-	ed := expDeps{pkg.Types, make(map[*types.Package]none), make(map[types.Type]none)}
+	ed := expDeps{pkgTypes, make(map[*types.Package]none), make(map[types.Type]none)}
 	for _, t := range pkg.expObjTypes {
 		ed.typ(t)
 	}
 	var deps []string
 	for depPkg := range ed.ret {
-		if depPkg.Scope().Lookup(xgoPackage) != nil {
+		if isXGoPkg(depPkg) {
 			deps = append(deps, depPkg.Path())
 		}
 	}
@@ -504,9 +512,11 @@ func (p expDeps) struc(t *types.Struct) {
 // initXGoPkg initializes a XGo packages.
 func (p *Package) initXGoPkg(importer types.Importer, pkgImp *types.Package) {
 	scope := pkgImp.Scope()
-	objXGoPkg := scope.Lookup(xgoPackage)
-	if objXGoPkg == nil { // not is a XGo package
-		return
+	objXGoPkg := scope.Lookup(xgoPackage1)
+	if objXGoPkg == nil {
+		if objXGoPkg = scope.Lookup(xgoPackage2); objXGoPkg == nil {
+			return // not is a XGo package
+		}
 	}
 
 	if scope.Lookup(xgoPkgInit) != nil { // initialized

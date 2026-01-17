@@ -301,7 +301,7 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 	if addXGoPkg {
 		decls = append(decls, &ast.GenDecl{Tok: token.CONST, Specs: []ast.Spec{
 			&ast.ValueSpec{
-				Names: []*ast.Ident{{Name: xgoPackage}},
+				Names: []*ast.Ident{{Name: xgoPackage1}},
 				Values: []ast.Expr{
 					valXGoPkg,
 				},
