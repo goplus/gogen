@@ -788,7 +788,7 @@ import (
 )
 
 func bar(v foo.NodeSet) {
-	for _xgo_it := v.XGo_Enum(); ; {
+	for _xgo_it := v.Gop_Enum(); ; {
 		var _xgo_ok bool
 		_, val, _xgo_ok := _xgo_it.Next()
 		if !_xgo_ok {
@@ -939,7 +939,7 @@ import (
 )
 
 func bar(v foo.NodeSet) {
-	for _xgo_it := v.XGo_Enum(); ; {
+	for _xgo_it := v.Gop_Enum(); ; {
 		var _xgo_ok bool
 		_, _, _xgo_ok = _xgo_it.Next()
 		if !_xgo_ok {

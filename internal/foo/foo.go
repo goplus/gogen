@@ -39,7 +39,8 @@ func (p *nodeSetIt) Next() (key int, val string, ok bool) {
 type NodeSet struct {
 }
 
-func (p NodeSet) XGo_Enum() *nodeSetIt {
+// Gop_Enum for backward compatibility
+func (p NodeSet) Gop_Enum() *nodeSetIt {
 	return &nodeSetIt{}
 }
 
