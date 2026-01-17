@@ -1035,7 +1035,7 @@ import "github.com/goplus/gogen/internal/bar"
 
 func main() {
 	var g bar.Game
-	bar.XGot_Game_Run(&g, "Hi")
+	bar.Gopt_Game_Run(&g, "Hi")
 }
 `)
 }
@@ -1054,7 +1054,7 @@ import "github.com/goplus/gogen/internal/bar"
 
 func main() {
 	var g bar.Game
-	bar.XGot_Game_Run(&g, "Hi")
+	bar.Gopt_Game_Run(&g, "Hi")
 }
 `)
 }

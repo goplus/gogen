@@ -91,10 +91,11 @@ func isOverload(name string) bool {
 	return n > 3 && name[n-3:n-1] == "__"
 }
 
-// XGo?_xxx
+// XGo?_xxx or Gop?_xxx
 func isXGoCommon(name string) bool {
-	const n = len(commonPrefix)
-	return len(name) > n+2 && name[n+1] == '_' && name[:n] == commonPrefix
+	const n = len(commonPrefix1)
+	return len(name) > n+2 && name[n+1] == '_' &&
+		(name[:n] == commonPrefix1 || name[:n] == commonPrefix2)
 }
 
 // InitXGoPackage initializes a XGo package.
@@ -251,7 +252,7 @@ func checkTypeMethod(scope *types.Scope, name string) (omthd, string) {
 // XGos_TypeName_Method
 // XGos__TypeName__Method
 func checkXGotsx(pkg *types.Package, scope *types.Scope, name string, o types.Object) {
-	const n = len(commonPrefix)
+	const n = len(commonPrefix1)
 	const n2 = n + 2
 	if isXGoCommon(name) {
 		switch ch := name[n]; ch {
@@ -282,14 +283,13 @@ func checkXGotsx(pkg *types.Package, scope *types.Scope, name string, o types.Ob
 }
 
 const (
-	commonPrefix = "XGo"
+	commonPrefix1 = "XGo"
+	commonPrefix2 = "Gop"
 
 	xgotCh = 't' // template method
 	xgosCh = 's' // static method
 	xgoxCh = 'x' // type as parameters function/method
 
-	xgotPrefix = "XGot_" // template method
-	xgosPrefix = "XGos_" // static method
 	xgoxPrefix = "XGox_" // type as parameters function/method
 	xgooPrefix = "XGoo_" // overload function/method
 

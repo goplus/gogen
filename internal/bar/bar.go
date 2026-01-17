@@ -30,7 +30,8 @@ type Game struct {
 func (p *Game) RunLoop() {
 }
 
-func XGot_Game_Run(game Gamer, resource string) {
+// Gopt_XXX for backward compatibility
+func Gopt_Game_Run(game Gamer, resource string) {
 	game.RunLoop()
 }
 
