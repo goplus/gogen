@@ -622,7 +622,7 @@ func (p *ClassDefs) NewAndInit(fn F, tag string, pos token.Pos, typ types.Type, 
 			o := scope.Lookup(name)
 			fld := types.NewField(pos, pkgTypes, name, o.Type(), false)
 			p.Fields = append(p.Fields, fld)
-			p.Tags = append(p.Tags, "")
+			p.Tags = append(p.Tags, tag)
 			stmt.Lhs[i] = &ast.SelectorExpr{
 				X:   recvName,
 				Sel: stmt.Lhs[i].(*ast.Ident),
