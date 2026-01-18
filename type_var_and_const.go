@@ -31,6 +31,7 @@ func (p *Package) ConstStart() *CodeBuilder {
 	return &p.cb
 }
 
+// EndConst ends a constant expression.
 func (p *CodeBuilder) EndConst() *Element {
 	return p.stk.Pop()
 }
@@ -570,6 +571,111 @@ func (p *Package) NewVarDefs(scope *types.Scope) *VarDefs {
 
 // ----------------------------------------------------------------------------
 
+type ClassDefs struct {
+	Fields []*types.Var
+	Tags   []string
+	recv   *types.Var
+	pkg    *Package
+	cb     *CodeBuilder // not nil if XGo_Init exists
+}
+
+func callInitExpr(cb *CodeBuilder, fn F) {
+	var n int
+	defer func() {
+		if n == 0 {
+			cb.ResetInit()
+		}
+	}()
+	n = fn(cb)
+	cb.EndInit(n)
+}
+
+// NewAndInit creates variables with specified `typ` (can be nil) and `names`, and
+// initializes them by `fn` (can be nil).
+func (p *ClassDefs) NewAndInit(fn F, tag string, pos token.Pos, typ types.Type, names ...string) {
+	pkg := p.pkg
+	pkgTypes := pkg.Types
+	if fn == nil { // no initialization
+		for _, name := range names {
+			fld := types.NewField(pos, pkgTypes, name, typ, false)
+			p.Fields = append(p.Fields, fld)
+			p.Tags = append(p.Tags, tag)
+		}
+		return
+	}
+	recv := p.recv
+	cb := p.cb
+	if cb == nil {
+		result := types.NewTuple(types.NewParam(token.NoPos, pkgTypes, "", recv.Type()))
+		cb = pkg.NewFunc(recv, "XGo_Init", nil, result, false).BodyStart(pkg)
+		p.cb = cb
+	}
+	scope := cb.current.scope
+	if typ == nil {
+		cb.DefineVarStart(pos, names...)
+		decl := cb.valDecl
+		stmt := cb.current.stmts[decl.at].(*ast.AssignStmt)
+		callInitExpr(cb, fn)
+
+		recvName := ident(recv.Name())
+		for i, name := range names {
+			o := scope.Lookup(name)
+			fld := types.NewField(pos, pkgTypes, name, o.Type(), false)
+			p.Fields = append(p.Fields, fld)
+			p.Tags = append(p.Tags, "")
+			stmt.Lhs[i] = &ast.SelectorExpr{
+				X:   recvName,
+				Sel: stmt.Lhs[i].(*ast.Ident),
+			}
+		}
+		stmt.Tok = token.ASSIGN
+	} else {
+		cb.NewVarStart(typ, names...)
+		decl := cb.valDecl
+		pstmt := &cb.current.stmts[decl.at]
+		spec := (*pstmt).(*ast.DeclStmt).Decl.(*ast.GenDecl).Specs[0].(*ast.ValueSpec)
+		callInitExpr(cb, fn)
+
+		lhs := make([]ast.Expr, len(names))
+		recvName := ident(recv.Name())
+		for i, name := range names {
+			o := scope.Lookup(name)
+			fld := types.NewField(pos, pkgTypes, name, o.Type(), false)
+			p.Fields = append(p.Fields, fld)
+			p.Tags = append(p.Tags, tag)
+			lhs[i] = &ast.SelectorExpr{
+				X:   recvName,
+				Sel: spec.Names[i],
+			}
+		}
+		*pstmt = &ast.AssignStmt{
+			Lhs: lhs,
+			Tok: token.ASSIGN,
+			Rhs: spec.Values,
+		}
+	}
+}
+
+// End ends a classfile fields declaration block.
+func (p *ClassDefs) End(src ...ast.Node) {
+	if cb := p.cb; cb != nil {
+		p.cb = nil
+		cb.Val(p.recv).Return(1).
+			End(src...)
+	}
+}
+
+// ClassDefsStart starts a classfile fields declaration block.
+// Should call (*ClassDefs).End() to end it.
+func (p *Package) ClassDefsStart(recv *types.Var, flds []*types.Var, tags []string) *ClassDefs {
+	if debugInstr {
+		log.Println("ClassDefsStart")
+	}
+	return &ClassDefs{Fields: flds, Tags: tags, recv: recv, pkg: p}
+}
+
+// ----------------------------------------------------------------------------
+
 type ValueAt struct {
 	*ast.ValueSpec
 	at int
@@ -613,8 +719,9 @@ func (p *VarDefs) NewAt(at ValueAt, pos token.Pos, typ types.Type, names ...stri
 	return p.pkg.newValueDecl(at, p.scope, pos, token.VAR, typ, names...)
 }
 
-// NewAndInit creates variables with specified `typ` (can be nil) and `names`, and initializes them by `fn`.
-func (p *VarDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...string) *VarDefs {
+// NewAndInit creates variables with specified `typ` (can be nil) and `names`, and
+// initializes them by `fn` (can be nil).
+func (p *VarDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...string) {
 	if debugInstr {
 		log.Println("NewAndInit", names)
 	}
@@ -624,7 +731,6 @@ func (p *VarDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...strin
 		n := fn(cb)
 		cb.EndInit(n)
 	}
-	return p
 }
 
 // Delete deletes an uninitialized variable who was created by `New`.
