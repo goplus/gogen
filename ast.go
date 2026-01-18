@@ -139,6 +139,22 @@ func toVariadic(fld *ast.Field) {
 
 // -----------------------------------------------------------------------------
 
+// embedName returns the name of the embedded type.
+func embedName(typ types.Type) string {
+	if t, ok := typ.(*types.Pointer); ok {
+		typ = t.Elem()
+	}
+	switch t := typ.(type) {
+	case *types.Basic:
+		return t.Name()
+	case *types.Named:
+		return t.Obj().Name()
+	case *typesalias.Alias:
+		return t.Obj().Name()
+	}
+	return ""
+}
+
 func toType(pkg *Package, typ types.Type) ast.Expr {
 retry:
 	switch t := typ.(type) {

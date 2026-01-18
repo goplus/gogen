@@ -575,15 +575,10 @@ func (p *Package) NewVarDefs(scope *types.Scope) *VarDefs {
 // definitions and optionally generates an XGo_Init method for field initialization.
 // Use Package.ClassDefsStart to create a ClassDefs instance and call End() when done.
 type ClassDefs struct {
-	// Fields contains the struct fields being defined.
-	Fields []*types.Var
-
-	// Tags contains the struct tags corresponding to each field.
-	Tags []string
-
-	recv *types.Var
-	pkg  *Package
-	cb   *CodeBuilder // not nil if XGo_Init exists
+	addFld func(idx int, name string, typ types.Type, embed bool)
+	recv   *types.Var
+	pkg    *Package
+	cb     *CodeBuilder // not nil if XGo_Init exists
 }
 
 func callInitExpr(cb *CodeBuilder, fn F) {
@@ -598,15 +593,18 @@ func callInitExpr(cb *CodeBuilder, fn F) {
 }
 
 // NewAndInit creates variables with specified `typ` (can be nil) and `names`, and
-// initializes them by `fn` (can be nil).
-func (p *ClassDefs) NewAndInit(fn F, tag string, pos token.Pos, typ types.Type, names ...string) {
+// initializes them by `fn` (can be nil). `typ` and `fn` can not be both nil.
+func (p *ClassDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...string) {
 	pkg := p.pkg
 	pkgTypes := pkg.Types
+	embed := len(names) == 0
 	if fn == nil { // no initialization
-		for _, name := range names {
-			fld := types.NewField(pos, pkgTypes, name, typ, false)
-			p.Fields = append(p.Fields, fld)
-			p.Tags = append(p.Tags, tag)
+		if embed {
+			p.addFld(0, embedName(typ), typ, true)
+		} else {
+			for i, name := range names {
+				p.addFld(i, name, typ, false)
+			}
 		}
 		return
 	}
@@ -619,6 +617,9 @@ func (p *ClassDefs) NewAndInit(fn F, tag string, pos token.Pos, typ types.Type, 
 	}
 	scope := cb.current.scope
 	recvName := ident(recv.Name())
+	if embed {
+		names = []string{embedName(typ)}
+	}
 	if typ == nil {
 		cb.DefineVarStart(pos, names...)
 		decl := cb.valDecl
@@ -627,9 +628,7 @@ func (p *ClassDefs) NewAndInit(fn F, tag string, pos token.Pos, typ types.Type, 
 
 		for i, name := range names {
 			o := scope.Lookup(name)
-			fld := types.NewField(pos, pkgTypes, name, o.Type(), false)
-			p.Fields = append(p.Fields, fld)
-			p.Tags = append(p.Tags, tag)
+			p.addFld(i, name, o.Type(), embed)
 			stmt.Lhs[i] = &ast.SelectorExpr{
 				X:   recvName,
 				Sel: stmt.Lhs[i].(*ast.Ident),
@@ -645,10 +644,7 @@ func (p *ClassDefs) NewAndInit(fn F, tag string, pos token.Pos, typ types.Type, 
 
 		lhs := make([]ast.Expr, len(names))
 		for i, name := range names {
-			o := scope.Lookup(name)
-			fld := types.NewField(pos, pkgTypes, name, o.Type(), false)
-			p.Fields = append(p.Fields, fld)
-			p.Tags = append(p.Tags, tag)
+			p.addFld(i, name, typ, embed)
 			lhs[i] = &ast.SelectorExpr{
 				X:   recvName,
 				Sel: spec.Names[i],
@@ -673,11 +669,14 @@ func (p *ClassDefs) End(src ...ast.Node) {
 
 // ClassDefsStart starts a classfile fields declaration block.
 // Should call (*ClassDefs).End() to end it.
-func (p *Package) ClassDefsStart(recv *types.Var, flds []*types.Var, tags []string) *ClassDefs {
+func (p *Package) ClassDefsStart(
+	recv *types.Var,
+	addFld func(idx int, name string, typ types.Type, embed bool),
+) *ClassDefs {
 	if debugInstr {
 		log.Println("ClassDefsStart")
 	}
-	return &ClassDefs{Fields: flds, Tags: tags, recv: recv, pkg: p}
+	return &ClassDefs{addFld: addFld, recv: recv, pkg: p}
 }
 
 // ----------------------------------------------------------------------------
