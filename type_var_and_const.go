@@ -734,8 +734,7 @@ func (p *VarDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...strin
 	decl := p.pkg.newValueDecl(p.NewPos(), p.scope, pos, token.VAR, typ, names...)
 	if fn != nil {
 		cb := decl.InitStart(p.pkg)
-		n := fn(cb)
-		cb.EndInit(n)
+		callInitExpr(cb, fn)
 	}
 }
 
