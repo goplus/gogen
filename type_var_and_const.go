@@ -571,12 +571,19 @@ func (p *Package) NewVarDefs(scope *types.Scope) *VarDefs {
 
 // ----------------------------------------------------------------------------
 
+// ClassDefs represents a classfile fields declaration block. It manages field
+// definitions and optionally generates an XGo_Init method for field initialization.
+// Use Package.ClassDefsStart to create a ClassDefs instance and call End() when done.
 type ClassDefs struct {
+	// Fields contains the struct fields being defined.
 	Fields []*types.Var
-	Tags   []string
-	recv   *types.Var
-	pkg    *Package
-	cb     *CodeBuilder // not nil if XGo_Init exists
+
+	// Tags contains the struct tags corresponding to each field.
+	Tags []string
+
+	recv *types.Var
+	pkg  *Package
+	cb   *CodeBuilder // not nil if XGo_Init exists
 }
 
 func callInitExpr(cb *CodeBuilder, fn F) {
@@ -611,13 +618,13 @@ func (p *ClassDefs) NewAndInit(fn F, tag string, pos token.Pos, typ types.Type, 
 		p.cb = cb
 	}
 	scope := cb.current.scope
+	recvName := ident(recv.Name())
 	if typ == nil {
 		cb.DefineVarStart(pos, names...)
 		decl := cb.valDecl
 		stmt := cb.current.stmts[decl.at].(*ast.AssignStmt)
 		callInitExpr(cb, fn)
 
-		recvName := ident(recv.Name())
 		for i, name := range names {
 			o := scope.Lookup(name)
 			fld := types.NewField(pos, pkgTypes, name, o.Type(), false)
@@ -637,7 +644,6 @@ func (p *ClassDefs) NewAndInit(fn F, tag string, pos token.Pos, typ types.Type, 
 		callInitExpr(cb, fn)
 
 		lhs := make([]ast.Expr, len(names))
-		recvName := ident(recv.Name())
 		for i, name := range names {
 			o := scope.Lookup(name)
 			fld := types.NewField(pos, pkgTypes, name, o.Type(), false)
