@@ -1438,6 +1438,91 @@ const (
 `)
 }
 
+func TestClassDefsInitWithoutType(t *testing.T) {
+	pkg := newMainPackage()
+	typ := pkg.NewTypeDefs().NewType("Rect")
+	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
+	defs := pkg.ClassDefsStart(recv, nil, nil)
+	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
+		cb.Val(1).Val(2).BinaryOp(token.ADD).
+			Val("1").Val("2").BinaryOp(token.ADD)
+		return 2
+	}, "", token.NoPos, nil, "n", "s")
+	defs.End()
+	typ.InitType(pkg, types.NewStruct(defs.Fields, defs.Tags))
+	domTest(t, pkg, `package main
+
+type Rect struct {
+	n int
+	s string
+}
+
+func (this *Rect) XGo_Init() *Rect {
+	this.n, this.s = 1+2, "1"+"2"
+	return this
+}
+`)
+}
+
+func TestClassDefsInitWithType(t *testing.T) {
+	pkg := newMainPackage()
+	typ := pkg.NewTypeDefs().NewType("Rect")
+	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
+	defs := pkg.ClassDefsStart(recv, nil, nil)
+	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
+		cb.Val(1).Val(2).BinaryOp(token.ADD).
+			Val(5)
+		return 2
+	}, "", token.NoPos, types.Typ[types.Int], "a", "b")
+	defs.End()
+	typ.InitType(pkg, types.NewStruct(defs.Fields, defs.Tags))
+	domTest(t, pkg, `package main
+
+type Rect struct {
+	a int
+	b int
+}
+
+func (this *Rect) XGo_Init() *Rect {
+	this.a, this.b = 1+2, 5
+	return this
+}
+`)
+}
+
+func TestClassDefsInitPanic(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("no panic?")
+		}
+	}()
+	pkg := newMainPackage()
+	typ := pkg.NewTypeDefs().NewType("Rect")
+	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
+	defs := pkg.ClassDefsStart(recv, nil, nil)
+	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
+		panic("fail")
+	}, "", token.NoPos, types.Typ[types.Int], "a", "b")
+	defs.End()
+	typ.InitType(pkg, types.NewStruct(defs.Fields, defs.Tags))
+}
+
+func TestClassDefsNoInit(t *testing.T) {
+	pkg := newMainPackage()
+	typ := pkg.NewTypeDefs().NewType("Rect")
+	defs := pkg.ClassDefsStart(nil, nil, nil)
+	defs.NewAndInit(nil, "", token.NoPos, types.Typ[types.Int], "a", "b")
+	defs.End()
+	typ.InitType(pkg, types.NewStruct(defs.Fields, defs.Tags))
+	domTest(t, pkg, `package main
+
+type Rect struct {
+	a int
+	b int
+}
+`)
+}
+
 func TestDeleteVarDecl(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.SetRedeclarable(true)
@@ -1474,7 +1559,8 @@ var (
 func TestVarDecl(t *testing.T) {
 	pkg := newMainPackage()
 	scope := pkg.CB().Scope()
-	decl := pkg.NewVarDefs(scope).NewAndInit(func(cb *gogen.CodeBuilder) int {
+	decl := pkg.NewVarDefs(scope)
+	decl.NewAndInit(func(cb *gogen.CodeBuilder) int {
 		cb.Val(1).Val(2).BinaryOp(token.ADD).
 			Val("1").Val("2").BinaryOp(token.ADD)
 		return 2
