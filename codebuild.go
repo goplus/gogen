@@ -2875,7 +2875,7 @@ func (p *CodeBuilder) End(src ...ast.Node) *CodeBuilder {
 		if typ.Kind() == reflect.Ptr {
 			typ = typ.Elem()
 		}
-		name := strings.TrimSuffix(strings.Title(typ.Name()), "Stmt")
+		name := strings.TrimSuffix(typ.Name(), "Stmt")
 		log.Println("End //", name)
 		if p.stk.Len() > p.current.base {
 			panic("forget to call EndStmt()?")
