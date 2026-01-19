@@ -78,6 +78,16 @@ func Test_embedName(t *testing.T) {
 			typ:  typesalias.NewAlias(types.NewTypeName(0, nil, "MyInt", nil), types.Typ[types.Int]),
 			want: "MyInt",
 		},
+		{
+			name: "pointer to alias type",
+			typ:  types.NewPointer(typesalias.NewAlias(types.NewTypeName(0, nil, "MyInt", nil), types.Typ[types.Int])),
+			want: "MyInt",
+		},
+		{
+			name: "struct type (anonymous)",
+			typ:  types.NewStruct(nil, nil),
+			want: "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
