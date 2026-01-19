@@ -593,7 +593,8 @@ func callInitExpr(cb *CodeBuilder, fn F) {
 }
 
 // NewAndInit creates variables with specified `typ` (can be nil) and `names`, and
-// initializes them by `fn` (can be nil). `typ` and `fn` can not be both nil.
+// initializes them by `fn` (can be nil). When `fn` is nil (no initialization),
+// `typ` must not be nil. When names is empty, creates an embedded field.
 func (p *ClassDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...string) {
 	pkg := p.pkg
 	pkgTypes := pkg.Types
@@ -668,6 +669,15 @@ func (p *ClassDefs) End(src ...ast.Node) {
 }
 
 // ClassDefsStart starts a classfile fields declaration block.
+//
+// The addFld callback is invoked for each field added via NewAndInit:
+//   - idx: field index within the current NewAndInit call
+//   - name: field name (or type name for embedded fields)
+//   - typ: field type
+//   - embed: true if this is an embedded field
+//
+// recv is the receiver variable for the generated XGo_Init method.
+//
 // Should call (*ClassDefs).End() to end it.
 func (p *Package) ClassDefsStart(
 	recv *types.Var,
