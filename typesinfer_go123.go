@@ -41,7 +41,7 @@ type error_ struct {
 }
 
 //go:linkname checker_infer123 go/types.(*Checker).infer
-func checker_infer123(check *types.Checker, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *Tuple, args []*operand, reverse bool, err *error_) (inferred []types.Type)
+func checker_infer123(check *types.Checker, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand, reverse bool, err *error_) (inferred []types.Type)
 
 func checker_infer(check *types.Checker, conf *types.Config, fset *token.FileSet, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type) {
 	const CannotInferTypeArgs = 138

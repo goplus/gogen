@@ -646,7 +646,7 @@ func (p *CodeBuilder) emitVar(pkg *Package, closure *Func, param *types.Var, wit
 }
 
 // NewClosure func
-func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
+func (p *CodeBuilder) NewClosure(params, results *types.Tuple, variadic bool) *Func {
 	sig := types.NewSignatureType(nil, nil, nil, params, results, variadic)
 	return p.NewClosureWith(sig)
 }
@@ -2875,7 +2875,7 @@ func (p *CodeBuilder) End(src ...ast.Node) *CodeBuilder {
 		if typ.Kind() == reflect.Ptr {
 			typ = typ.Elem()
 		}
-		name := strings.TrimSuffix(strings.Title(typ.Name()), "Stmt")
+		name := strings.TrimSuffix(typ.Name(), "Stmt")
 		log.Println("End //", name)
 		if p.stk.Len() > p.current.base {
 			panic("forget to call EndStmt()?")

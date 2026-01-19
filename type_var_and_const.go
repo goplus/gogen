@@ -663,6 +663,9 @@ func (p *ClassDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...str
 func (p *ClassDefs) End(src ...ast.Node) {
 	if cb := p.cb; cb != nil {
 		p.cb = nil
+		if debugInstr {
+			log.Println("ClassDefsEnd")
+		}
 		cb.Val(p.recv).Return(1).
 			End(src...)
 	}

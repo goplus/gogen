@@ -54,18 +54,6 @@ func (p *Package) NewParamEx(pos token.Pos, name string, typ types.Type, optiona
 
 // ----------------------------------------------------------------------------
 
-// A Tuple represents an ordered list of variables; a nil *Tuple is a valid (empty) tuple.
-// Tuples are used as components of signatures and to represent the type of multiple
-// assignments; they are not first class types of Go.
-type Tuple = types.Tuple
-
-// NewTuple returns a new tuple for the given parameters.
-func NewTuple(x ...*Param) *Tuple {
-	return types.NewTuple(x...)
-}
-
-// ----------------------------------------------------------------------------
-
 // Func type
 type Func struct {
 	*types.Func
@@ -165,7 +153,7 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 // validateParamOrder validates that optional parameters come after positional parameters
 // and before any variadic parameter.
 // Valid order: positional → optional → variadic
-func (p *Package) validateParamOrder(cb *CodeBuilder, pos token.Pos, params *Tuple, variadic bool) error {
+func (p *Package) validateParamOrder(cb *CodeBuilder, pos token.Pos, params *types.Tuple, variadic bool) error {
 	n := params.Len()
 	foundOptional := false
 
@@ -192,7 +180,7 @@ func (p *Package) validateParamOrder(cb *CodeBuilder, pos token.Pos, params *Tup
 }
 
 // NewFunc creates a new function (should have a function body).
-func (p *Package) NewFunc(recv *Param, name string, params, results *Tuple, variadic bool) *Func {
+func (p *Package) NewFunc(recv *types.Var, name string, params, results *types.Tuple, variadic bool) *Func {
 	sig := types.NewSignatureType(recv, nil, nil, params, results, variadic)
 	f, err := p.NewFuncWith(token.NoPos, name, sig, nil)
 	if err != nil {
