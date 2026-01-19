@@ -20,7 +20,7 @@ func main() {
 		Val(fmt.Ref("Println")).
 		/**/ VarVal("a").VarVal("b").VarVal("c"). // fmt.Println(a, b, c)
 		/**/ Call(3).EndStmt().
-		NewClosure(gogen.NewTuple(v), nil, false).BodyStart(pkg).
+		NewClosure(types.NewTuple(v), nil, false).BodyStart(pkg).
 		/**/ Val(fmt.Ref("Println")).Val(v).Call(1).EndStmt(). // fmt.Println(v)
 		/**/ End().
 		Val("Hello").Call(1).EndStmt(). // func(v string) { ... } ("Hello")
