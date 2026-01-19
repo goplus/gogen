@@ -1438,18 +1438,29 @@ const (
 `)
 }
 
+type fldAdder struct {
+	Fields   []*types.Var
+	pkgTypes *types.Package
+}
+
+func (p *fldAdder) addFld(idx int, name string, typ types.Type, embed bool) {
+	fld := types.NewField(token.NoPos, p.pkgTypes, name, typ, embed)
+	p.Fields = append(p.Fields, fld)
+}
+
 func TestClassDefsInitWithoutType(t *testing.T) {
 	pkg := newMainPackage()
+	fa := fldAdder{pkgTypes: pkg.Types}
 	typ := pkg.NewTypeDefs().NewType("Rect")
 	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
-	defs := pkg.ClassDefsStart(recv, nil, nil)
+	defs := pkg.ClassDefsStart(recv, fa.addFld)
 	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
 		cb.Val(1).Val(2).BinaryOp(token.ADD).
 			Val("1").Val("2").BinaryOp(token.ADD)
 		return 2
-	}, "", token.NoPos, nil, "n", "s")
+	}, token.NoPos, nil, "n", "s")
 	defs.End()
-	typ.InitType(pkg, types.NewStruct(defs.Fields, defs.Tags))
+	typ.InitType(pkg, types.NewStruct(fa.Fields, nil))
 	domTest(t, pkg, `package main
 
 type Rect struct {
@@ -1466,16 +1477,17 @@ func (this *Rect) XGo_Init() *Rect {
 
 func TestClassDefsInitWithType(t *testing.T) {
 	pkg := newMainPackage()
+	fa := fldAdder{pkgTypes: pkg.Types}
 	typ := pkg.NewTypeDefs().NewType("Rect")
 	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
-	defs := pkg.ClassDefsStart(recv, nil, nil)
+	defs := pkg.ClassDefsStart(recv, fa.addFld)
 	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
 		cb.Val(1).Val(2).BinaryOp(token.ADD).
 			Val(5)
 		return 2
-	}, "", token.NoPos, types.Typ[types.Int], "a", "b")
+	}, token.NoPos, types.Typ[types.Int], "a", "b")
 	defs.End()
-	typ.InitType(pkg, types.NewStruct(defs.Fields, defs.Tags))
+	typ.InitType(pkg, types.NewStruct(fa.Fields, nil))
 	domTest(t, pkg, `package main
 
 type Rect struct {
@@ -1497,28 +1509,71 @@ func TestClassDefsInitPanic(t *testing.T) {
 		}
 	}()
 	pkg := newMainPackage()
+	fa := fldAdder{pkgTypes: pkg.Types}
 	typ := pkg.NewTypeDefs().NewType("Rect")
 	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
-	defs := pkg.ClassDefsStart(recv, nil, nil)
+	defs := pkg.ClassDefsStart(recv, fa.addFld)
 	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
 		panic("fail")
-	}, "", token.NoPos, types.Typ[types.Int], "a", "b")
+	}, token.NoPos, types.Typ[types.Int], "a", "b")
 	defs.End()
-	typ.InitType(pkg, types.NewStruct(defs.Fields, defs.Tags))
+	typ.InitType(pkg, types.NewStruct(fa.Fields, nil))
 }
 
 func TestClassDefsNoInit(t *testing.T) {
 	pkg := newMainPackage()
+	fa := fldAdder{pkgTypes: pkg.Types}
 	typ := pkg.NewTypeDefs().NewType("Rect")
-	defs := pkg.ClassDefsStart(nil, nil, nil)
-	defs.NewAndInit(nil, "", token.NoPos, types.Typ[types.Int], "a", "b")
+	defs := pkg.ClassDefsStart(nil, fa.addFld)
+	defs.NewAndInit(nil, token.NoPos, types.Typ[types.Int], "a", "b")
 	defs.End()
-	typ.InitType(pkg, types.NewStruct(defs.Fields, defs.Tags))
+	typ.InitType(pkg, types.NewStruct(fa.Fields, nil))
 	domTest(t, pkg, `package main
 
 type Rect struct {
 	a int
 	b int
+}
+`)
+}
+
+func TestClassDefsEmbedNoInit(t *testing.T) {
+	pkg := newMainPackage()
+	fa := fldAdder{pkgTypes: pkg.Types}
+	typ := pkg.NewTypeDefs().NewType("Rect")
+	defs := pkg.ClassDefsStart(nil, fa.addFld)
+	defs.NewAndInit(nil, token.NoPos, types.Typ[types.Int])
+	defs.End()
+	typ.InitType(pkg, types.NewStruct(fa.Fields, nil))
+	domTest(t, pkg, `package main
+
+type Rect struct {
+	int
+}
+`)
+}
+
+func TestClassDefsEmbedInit(t *testing.T) {
+	pkg := newMainPackage()
+	fa := fldAdder{pkgTypes: pkg.Types}
+	typ := pkg.NewTypeDefs().NewType("Rect")
+	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
+	defs := pkg.ClassDefsStart(recv, fa.addFld)
+	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
+		cb.Val(5)
+		return 1
+	}, token.NoPos, types.Typ[types.Int])
+	defs.End()
+	typ.InitType(pkg, types.NewStruct(fa.Fields, nil))
+	domTest(t, pkg, `package main
+
+type Rect struct {
+	int
+}
+
+func (this *Rect) XGo_Init() *Rect {
+	this.int = 5
+	return this
 }
 `)
 }
