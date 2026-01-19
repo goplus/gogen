@@ -646,7 +646,7 @@ func (p *CodeBuilder) emitVar(pkg *Package, closure *Func, param *types.Var, wit
 }
 
 // NewClosure func
-func (p *CodeBuilder) NewClosure(params, results *Tuple, variadic bool) *Func {
+func (p *CodeBuilder) NewClosure(params, results *types.Tuple, variadic bool) *Func {
 	sig := types.NewSignatureType(nil, nil, nil, params, results, variadic)
 	return p.NewClosureWith(sig)
 }
