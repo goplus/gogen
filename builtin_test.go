@@ -21,8 +21,6 @@ import (
 	"go/types"
 	"log"
 	"math/big"
-	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -30,7 +28,6 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/go/format"
-	"github.com/goplus/gogen/internal/typesalias"
 	"github.com/goplus/gogen/packages"
 )
 
@@ -677,61 +674,6 @@ func TestToFields(t *testing.T) {
 		t.Fatal("TestToFields failed:", out)
 	}
 }
-
-func TestToVariadic(t *testing.T) {
-	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("TestToVariadic: no error?")
-		}
-	}()
-	toVariadic(&ast.Field{Type: &ast.Ident{Name: "int"}})
-}
-
-func TestToType(t *testing.T) {
-	pkg := NewPackage("", "foo", gblConf)
-	toType(pkg, &unboundType{tBound: tyInt})
-	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("TestToType: no error?")
-		}
-	}()
-	toType(pkg, &unboundType{})
-}
-
-func isLeastGo122() bool {
-	ver, err := strconv.ParseInt(runtime.Version()[4:6], 10, 0)
-	return err == nil && ver >= 22
-}
-
-func TestToTypeAlias(t *testing.T) {
-	pkg := NewPackage("", "foo", gblConf)
-	alias := typesalias.NewAlias(types.NewTypeName(token.NoPos, nil, "Int", nil), types.Typ[types.Int])
-	if isLeastGo122() {
-		expr := toType(pkg, alias)
-		if ident, ok := expr.(*ast.Ident); !ok || ident.Name != "Int" {
-			t.Fatalf("bad alias %#v", expr)
-		}
-	} else {
-		defer func() {
-			if e := recover(); e == nil {
-				t.Fatal("TestToTypeAlias: no error?")
-			}
-		}()
-		toType(pkg, alias)
-	}
-}
-
-/*
-func typString(pkg *Package, t types.Type) string {
-	v := toType(pkg, t)
-	var b bytes.Buffer
-	err := format.Node(&b, pkg.Fset, v)
-	if err != nil {
-		panic(err)
-	}
-	return b.String()
-}
-*/
 
 func TestMethodAutoProperty(t *testing.T) {
 	pkg := types.NewPackage("", "")

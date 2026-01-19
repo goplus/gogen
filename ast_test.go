@@ -14,11 +14,42 @@
 package gogen
 
 import (
+	"go/ast"
+	"go/token"
 	"go/types"
 	"testing"
 
 	"github.com/goplus/gogen/internal/typesalias"
 )
+
+func TestToVariadic(t *testing.T) {
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestToVariadic: no error?")
+		}
+	}()
+	toVariadic(&ast.Field{Type: &ast.Ident{Name: "int"}})
+}
+
+func TestToType(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	toType(pkg, &unboundType{tBound: tyInt})
+	defer func() {
+		if e := recover(); e == nil {
+			t.Fatal("TestToType: no error?")
+		}
+	}()
+	toType(pkg, &unboundType{})
+}
+
+func TestToTypeAlias(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	alias := typesalias.NewAlias(types.NewTypeName(token.NoPos, nil, "Int", nil), types.Typ[types.Int])
+	expr := toType(pkg, alias)
+	if ident, ok := expr.(*ast.Ident); !ok || ident.Name != "Int" {
+		t.Fatalf("bad alias %#v", expr)
+	}
+}
 
 func Test_embedName(t *testing.T) {
 	tests := []struct {
