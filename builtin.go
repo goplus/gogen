@@ -720,6 +720,7 @@ retry:
 					pkg.NewParam(token.NoPos, "", typ),
 					pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
 			}
+			// Channel receive operations can appear in statement context
 			ret = &Element{Val: &ast.UnaryExpr{Op: token.ARROW, X: args[0].Val}, Type: typ}
 			return
 		}

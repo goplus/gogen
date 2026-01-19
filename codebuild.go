@@ -1300,6 +1300,10 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 	elem := &internal.Elem{
 		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val}, Type: tyRet, Src: srcExpr,
 	}
+	// Map index expressions have special error message format
+	if allowTwoValue {
+		elem.Flags = internal.ElemFlagMapIndex
+	}
 	// TODO: check index type
 	p.stk.Ret(2, elem)
 	return p
@@ -2589,13 +2593,14 @@ func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool, src ...ast.Node)
 	}
 	pkg := p.pkg
 	ret := &ast.TypeAssertExpr{X: arg.Val, Type: toType(pkg, typ)}
+	// Type assertions have comma-ok mode for error messages
 	if twoValue {
 		tyRet := types.NewTuple(
 			pkg.NewParam(token.NoPos, "", typ),
 			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
-		p.stk.Ret(1, &internal.Elem{Type: tyRet, Val: ret, Src: getSrc(src)})
+		p.stk.Ret(1, &internal.Elem{Type: tyRet, Val: ret, Src: getSrc(src), Flags: internal.ElemFlagCommaOk})
 	} else {
-		p.stk.Ret(1, &internal.Elem{Type: typ, Val: ret, Src: getSrc(src)})
+		p.stk.Ret(1, &internal.Elem{Type: typ, Val: ret, Src: getSrc(src), Flags: internal.ElemFlagCommaOk})
 	}
 	return p
 }
@@ -2854,6 +2859,186 @@ func (p *CodeBuilder) ResetStmt() {
 	p.stk.SetLen(p.current.base)
 }
 
+// expressionKindBuiltins contains builtin functions whose return values must be used.
+// These functions cannot appear in statement context.
+var expressionKindBuiltins = map[string]bool{
+	"append":  true,
+	"cap":     true,
+	"complex": true,
+	"imag":    true,
+	"len":     true,
+	"make":    true,
+	"max":     true,
+	"min":     true,
+	"new":     true,
+	"real":    true,
+}
+
+// isValidStmtExpr checks if an expression can be used as a statement.
+// According to Go spec, only function calls and receive operations can
+// appear in statement context. Type conversions and certain builtin
+// function calls (whose results must be used) are not valid.
+func isValidStmtExpr(e *internal.Elem) bool {
+	// Check element flags first
+	switch e.Flags {
+	case internal.ElemFlagTypeCast, internal.ElemFlagMapIndex, internal.ElemFlagCommaOk:
+		return false
+	}
+	val := e.Val
+	// Unwrap parentheses: (foo()) and (<-ch) are valid
+	for {
+		if paren, ok := val.(*ast.ParenExpr); ok {
+			val = paren.X
+		} else {
+			break
+		}
+	}
+	switch v := val.(type) {
+	case *ast.CallExpr:
+		// Check if it's a builtin function whose result must be used
+		if ident, ok := v.Fun.(*ast.Ident); ok {
+			if expressionKindBuiltins[ident.Name] {
+				return false
+			}
+		}
+		return true
+	case *ast.UnaryExpr:
+		// Receive operation: <-ch
+		return v.Op == token.ARROW
+	}
+	return false
+}
+
+// exprCode returns a string representation of an AST expression for error messages.
+func exprCode(val ast.Expr) string {
+	switch v := val.(type) {
+	case *ast.Ident:
+		return v.Name
+	case *ast.BasicLit:
+		return v.Value
+	case *ast.CallExpr:
+		return exprCode(v.Fun) + "(...)"
+	case *ast.SelectorExpr:
+		return exprCode(v.X) + "." + v.Sel.Name
+	case *ast.IndexExpr:
+		xCode := exprCode(v.X)
+		idxCode := exprCode(v.Index)
+		return xCode + "[" + idxCode + "]"
+	case *ast.SliceExpr:
+		return exprCode(v.X) + "[...]"
+	case *ast.BinaryExpr:
+		return exprCode(v.X) + " " + v.Op.String() + " " + exprCode(v.Y)
+	case *ast.UnaryExpr:
+		return v.Op.String() + exprCode(v.X)
+	case *ast.TypeAssertExpr:
+		xCode := exprCode(v.X)
+		if v.Type == nil {
+			return xCode + ".(type)"
+		}
+		return xCode + ".(" + types.ExprString(v.Type) + ")"
+	case *ast.ParenExpr:
+		return "(" + exprCode(v.X) + ")"
+	case *ast.StarExpr:
+		return "*" + exprCode(v.X)
+	case *ast.CompositeLit:
+		return types.ExprString(v.Type) + "{...}"
+	}
+	return "expression"
+}
+
+// isAddressable checks if an AST expression represents an addressable value.
+// Addressable expressions include: identifiers (variables), index expressions
+// on arrays/slices, selector expressions (field access), and pointer indirections.
+func isAddressable(val ast.Expr) bool {
+	switch v := val.(type) {
+	case *ast.Ident:
+		return true
+	case *ast.IndexExpr:
+		// Array/slice/map indexing is addressable (for slice/array)
+		// Note: map indexing is not truly addressable but Go reports it as "variable"
+		return true
+	case *ast.SelectorExpr:
+		// Field access is addressable only if the receiver is addressable
+		return isAddressable(v.X)
+	case *ast.StarExpr:
+		// Pointer indirection is always addressable
+		return true
+	case *ast.ParenExpr:
+		return isAddressable(v.X)
+	}
+	return false
+}
+
+// exprDescription returns a description of an expression for error messages.
+// The format matches Go compiler's error messages.
+//
+// The description format follows Go compiler's operandModeString:
+// - "map index expression of type X" for map index
+// - "comma, ok expression of type X" for type assertions
+// - "constant" or "constant V of type X" for constants
+// - "variable of type X" for addressable expressions
+// - "value of type X" for other values
+func exprDescription(e *internal.Elem, code string) string {
+	typ := e.Type
+	if typ == nil {
+		return "expression"
+	}
+	// Check operand mode flags for special expressions
+	if e.Flags == internal.ElemFlagMapIndex {
+		return fmt.Sprintf("map index expression of type %v", typ)
+	}
+	if e.Flags == internal.ElemFlagCommaOk {
+		return fmt.Sprintf("comma, ok expression of type %v", typ)
+	}
+	if e.CVal != nil {
+		// Constant: format depends on whether it's untyped or typed
+		if basic, ok := typ.(*types.Basic); ok && (basic.Info()&types.IsUntyped) != 0 {
+			// Untyped constant: Go compiler shows value only if code differs from value
+			// e.g., "42" -> "untyped int constant" (no value)
+			//       "1 + 2" -> "untyped int constant 3" (shows computed value)
+			//       "y" (named const) -> "untyped int constant 20" (shows value)
+			if isLiteralCode(code, e.CVal, basic) {
+				return fmt.Sprintf("%v constant", typ)
+			}
+			return fmt.Sprintf("%v constant %v", typ, e.CVal)
+		}
+		// Typed constant: "constant V of type X"
+		return fmt.Sprintf("constant %v of type %v", e.CVal, typ)
+	}
+	// Check if it's addressable (variable-like), but not map index
+	if isAddressable(e.Val) && e.Flags != internal.ElemFlagMapIndex {
+		return fmt.Sprintf("variable of type %v", typ)
+	}
+	return fmt.Sprintf("value of type %v", typ)
+}
+
+// isLiteralCode checks if the code string is a direct literal representation
+// of the constant value. If so, Go compiler doesn't show the value in error messages.
+func isLiteralCode(code string, cval constant.Value, typ *types.Basic) bool {
+	if code == "" {
+		return false
+	}
+	// For BasicLit, the code is the literal itself
+	// Check if code looks like a literal (not an expression or identifier)
+	switch typ.Kind() {
+	case types.UntypedInt:
+		// Check if code is a number literal (not an expression like "1 + 2")
+		return code == cval.String()
+	case types.UntypedFloat:
+		return code == cval.String()
+	case types.UntypedString:
+		return code == cval.String()
+	case types.UntypedBool:
+		return code == "true" || code == "false"
+	case types.UntypedRune:
+		// Rune literals like 'a' - Go always shows the numeric value
+		return false
+	case types.UntypedComplex:
+		return false
+	}
+	return false
+}
+
 // EndStmt func
 func (p *CodeBuilder) EndStmt() *CodeBuilder {
 	n := p.stk.Len() - p.current.base
@@ -2861,7 +3046,22 @@ func (p *CodeBuilder) EndStmt() *CodeBuilder {
 		if n != 1 {
 			panic("syntax error: unexpected newline, expecting := or = or comma")
 		}
-		if e := p.stk.Pop(); p.noSkipConst || e.CVal == nil { // skip constant
+		e := p.stk.Pop()
+		// Check if the expression is valid as a statement (even for constants)
+		if !isValidStmtExpr(e) {
+			code, pos, end := p.loadExpr(e.Src)
+			if code == "" {
+				code = exprCode(e.Val)
+			}
+			// If position is not available from Src, try to get it from Val
+			if pos == token.NoPos && e.Val != nil {
+				pos = e.Val.Pos()
+				end = e.Val.End()
+			}
+			p.handleCodeErrorf(pos, end, "%s (%s) is not used", code, exprDescription(e, code))
+		}
+		// Skip emitting pure constant expressions unless noSkipConst is set
+		if p.noSkipConst || e.CVal == nil {
 			p.emitStmt(&ast.ExprStmt{X: e.Val})
 		}
 	}
