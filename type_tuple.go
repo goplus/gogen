@@ -105,7 +105,7 @@ func (p *tupleFields) FieldRef(cb *CodeBuilder, t *types.Struct, name string, x 
 
 // LookupField looks up a field by name in the given struct type t.
 // It returns the field index if found, or -1 if not found.
-// It checks both the original fields and the virtual fields (eg. tuple
+// It checks both the original fields and the virtual fields (e.g. tuple
 // fields).
 func (p *CodeBuilder) LookupField(t *types.Struct, name string) int {
 	for i, n := 0, t.NumFields(); i < n; i++ {
@@ -125,8 +125,10 @@ func (p *CodeBuilder) LookupField(t *types.Struct, name string) int {
 
 // NewTuple creates a tuple type with the given fields.
 // The fields are named as _0, _1, ...
-// If withName is true, the original fields can also be accessed through
-// virtual fields mechanism.
+// If withName is true, the original fields can also be accessed by their
+// original names in addition to the ordinal names (_0, _1, ...).
+// For example, a field named "x" can be accessed as both tuple._0 and
+// tuple.x.
 func (p *Package) NewTuple(withName bool, fields ...*types.Var) *types.Struct {
 	ordinals := make([]*types.Var, len(fields))
 	for i, fld := range fields {
