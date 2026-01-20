@@ -44,10 +44,10 @@ func TestTupleMember(t *testing.T) {
 	domTest(t, pkg, `package main
 
 func foo(a struct {
-	_0 int
-	_1 int
+	X_0 int
+	X_1 int
 }) {
-	a._0 = a._1
+	a.X_0 = a.X_1
 }
 `)
 }

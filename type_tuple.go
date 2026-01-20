@@ -143,7 +143,7 @@ func (p *Package) NewTuple(withName bool, fields ...*types.Var) *types.Struct {
 }
 
 func tupleFieldName(i int) string {
-	return "_" + strconv.Itoa(i)
+	return "X_" + strconv.Itoa(i)
 }
 
 // ----------------------------------------------------------------------------
