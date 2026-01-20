@@ -159,6 +159,7 @@ type CodeBuilder struct {
 	loadNamed LoadNamedFunc
 	handleErr func(err error)
 	closureParamInsts
+	vFieldsMgr
 	iotav       int
 	commentOnce bool
 	noSkipConst bool
@@ -1572,6 +1573,10 @@ func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast
 			embed = append(embed, fld)
 		}
 	}
+	if p.refVField(o, name, x, src) {
+		return true
+	}
+
 	if visited == nil {
 		visited = make(map[*types.Struct]none)
 	} else if _, ok := visited[o]; ok {
@@ -1933,6 +1938,9 @@ func (p *CodeBuilder) normalField(
 			}
 			return MemberField
 		}
+	}
+	if p.findVField(o, name, arg, src) {
+		return MemberField
 	}
 	return MemberInvalid
 }
