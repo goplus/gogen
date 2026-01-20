@@ -124,10 +124,10 @@ func (p *CodeBuilder) LookupField(t *types.Struct, name string) int {
 }
 
 // NewTuple creates a tuple type with the given fields.
-// The fields are named as _0, _1, ...
+// The fields are named as X_0, X_1, ...
 // If withName is true, the original fields can also be accessed by their
-// original names in addition to the ordinal names (_0, _1, ...).
-// For example, a field named "x" can be accessed as both tuple._0 and
+// original names in addition to the ordinal names (X_0, X_1, ...).
+// For example, a field named "x" can be accessed as both tuple.X_0 and
 // tuple.x.
 func (p *Package) NewTuple(withName bool, fields ...*types.Var) *types.Struct {
 	ordinals := make([]*types.Var, len(fields))
@@ -143,7 +143,7 @@ func (p *Package) NewTuple(withName bool, fields ...*types.Var) *types.Struct {
 }
 
 func tupleFieldName(i int) string {
-	return "_" + strconv.Itoa(i)
+	return "X_" + strconv.Itoa(i)
 }
 
 // ----------------------------------------------------------------------------
