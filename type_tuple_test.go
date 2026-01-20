@@ -51,3 +51,34 @@ func foo(a struct {
 }
 `)
 }
+
+func newFields(names ...string) []*types.Var {
+	ret := make([]*types.Var, len(names))
+	for i, name := range names {
+		ret[i] = types.NewField(token.NoPos, nil, name, types.Typ[types.Int], false)
+	}
+	return ret
+}
+
+func TestCodeBuilder_LookupField(t *testing.T) {
+	p := newMainPackage()
+	cb := p.CB()
+	tests := []struct {
+		name string // description of this test case
+		t    *types.Struct
+		fld  string
+		want int
+	}{
+		{"test1", types.NewStruct(newFields("a"), nil), "b", -1},
+		{"test2", types.NewStruct(newFields("a"), nil), "a", 0},
+		{"test3", p.NewTuple(true, newFields("a")...), "a", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := cb.LookupField(tt.t, tt.fld)
+			if got != tt.want {
+				t.Errorf("LookupField() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
