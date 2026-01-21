@@ -173,6 +173,22 @@ func (p *CodeBuilder) LookupField(t *types.Struct, name string) int {
 	return -1
 }
 
+// TupleLit creates a tuple literal.
+func (p *CodeBuilder) TupleLit(typ types.Type, arity int, src ...ast.Node) *CodeBuilder {
+	if typ == nil {
+		pkg := p.pkg
+		pkgTypes := pkg.Types
+		args := p.stk.GetArgs(arity)
+		flds := make([]*types.Var, arity)
+		for i := 0; i < arity; i++ {
+			fldt := types.Default(args[i].Type)
+			flds[i] = types.NewField(token.NoPos, pkgTypes, "", fldt, false)
+		}
+		typ = pkg.NewTuple(false, flds...)
+	}
+	return p.StructLit(typ, arity, false, src...)
+}
+
 // NewTuple creates a tuple type with the given fields.
 // The fields are named as X_0, X_1, ...
 // If withName is true, the original fields can also be accessed by their

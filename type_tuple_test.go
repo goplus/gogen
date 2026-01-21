@@ -21,6 +21,25 @@ import (
 	"github.com/goplus/gogen"
 )
 
+func TestTupleLit(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "foo", nil, nil, false).BodyStart(pkg).
+		Val(1).
+		Val(2).
+		TupleLit(nil, 2).
+		EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func foo() {
+	struct {
+		X_0 int
+		X_1 int
+	}{1, 2}
+}
+`)
+}
+
 func TestTupleMember(t *testing.T) {
 	pkg := newMainPackage()
 	x := types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false)
