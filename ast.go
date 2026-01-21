@@ -1099,7 +1099,7 @@ func matchFuncType(
 	}
 	var t *types.Tuple
 	n := len(args)
-	if len(args) == 1 && checkTuple(&t, args[0].Type) {
+	if len(args) == 1 && checkTuple(&t, args[0].Type) { // TODO(xsw): tuple type
 		n = t.Len()
 		args = make([]*internal.Elem, n)
 		for i := 0; i < n; i++ {

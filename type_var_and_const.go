@@ -329,9 +329,10 @@ func checkTuple(t **types.Tuple, typ types.Type) (ok bool) {
 }
 
 func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
-	var t *types.Tuple
-	var values []ast.Expr
 	n := len(p.names)
+	if arity == 1 && n > 1 {
+		arity = cb.tryUnpackTuple()
+	}
 	rets := cb.stk.GetArgs(arity)
 	defer func() {
 		cb.stk.PopN(arity)
@@ -340,6 +341,8 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			cb.commitStmt(p.at) // to support inline call, we must emitStmt at EndInit stage
 		}
 	}()
+	var t *types.Tuple
+	var values []ast.Expr
 	if arity == 1 && checkTuple(&t, rets[0].Type) {
 		if n != t.Len() {
 			caller := getCaller(rets[0])
