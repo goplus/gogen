@@ -2213,6 +2213,9 @@ func (p *CodeBuilder) AssignWith(lhs, rhs int, src ...ast.Node) *CodeBuilder {
 }
 
 func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
+	if rhs == 1 && lhs > 1 {
+		rhs = p.tryUnpackTuple()
+	}
 	mkBlockStmt := false
 	args := p.stk.GetArgs(lhs + rhs)
 	stmt := &ast.AssignStmt{
