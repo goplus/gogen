@@ -26,14 +26,24 @@ func TestTupleMember(t *testing.T) {
 	x := types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false)
 	y := types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.Int], false)
 	typ := pkg.NewTuple(true, x, y)
+	pt := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "Point", typ), typ, nil)
 	a := types.NewParam(token.NoPos, pkg.Types, "a", typ)
-	pkg.NewFunc(nil, "foo", types.NewTuple(a), nil, false).BodyStart(pkg).
+	b := types.NewParam(token.NoPos, pkg.Types, "b", pt)
+	typf := types.NewSignatureType(nil, nil, nil, nil, types.NewTuple(b), false)
+	f := types.NewParam(token.NoPos, pkg.Types, "f", typf)
+	pkg.NewFunc(nil, "foo", types.NewTuple(a, f), nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "a")).
 		MemberRef("x").
 		Val(ctxRef(pkg, "a")).
 		MemberVal("y").
 		Assign(1).
 		EndStmt().
+		DefineVarStart(token.NoPos, "x", "y").
+		Val(ctxRef(pkg, "a")).
+		EndInit(1).
+		DefineVarStart(token.NoPos, "x2", "y2").
+		Val(ctxRef(pkg, "f")).Call(0).
+		EndInit(1).
 		Debug(func(cb *gogen.CodeBuilder) {
 			cb.Val(ctxRef(pkg, "a"))
 			cb.Member("unknown", gogen.MemberFlagRef)
@@ -46,8 +56,12 @@ func TestTupleMember(t *testing.T) {
 func foo(a struct {
 	X_0 int
 	X_1 int
-}) {
+}, f func() (b Point)) {
 	a.X_0 = a.X_1
+	x, y := a.X_0, a.X_1
+	x2, y2 := func(v Point) (int, int) {
+		return v.X_0, v.X_1
+	}(f())
 }
 `)
 }

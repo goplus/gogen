@@ -15,6 +15,7 @@ package gogen
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
 	"strconv"
 )
@@ -101,6 +102,55 @@ func (p *tupleFields) FieldRef(cb *CodeBuilder, t *types.Struct, name string, x 
 		}
 	}
 	return false
+}
+
+func (p *CodeBuilder) checkTupleType(typ types.Type) (*tupleFields, bool) {
+	switch typ := typ.(type) {
+	case *types.Struct:
+		if vft, ok := p.vfts[typ]; ok {
+			return vft, true
+		}
+	case *types.Named:
+		if u, ok := typ.Underlying().(*types.Struct); ok {
+			if vft, ok := p.vfts[u]; ok {
+				return vft, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func (p *CodeBuilder) tryUnpackTuple() int {
+	e := p.stk.Get(-1)
+	tuple := e.Type
+	if t, ok := p.checkTupleType(tuple); ok {
+		n := len(t.fields)
+		p.stk.PopN(1)
+		val := e.Val
+		if _, ok := val.(*ast.Ident); ok {
+			for i := 0; i < n; i++ {
+				p.stk.Push(e)
+				p.MemberVal(tupleFieldName(i))
+			}
+			return n
+		} else {
+			pkg := p.pkg
+			pkgType := pkg.Types
+			arg := types.NewParam(token.NoPos, pkgType, "v", tuple)
+			result := make([]*types.Var, n)
+			for i, fld := range t.fields {
+				result[i] = types.NewParam(token.NoPos, pkgType, "", fld.Type())
+			}
+			p.NewClosure(types.NewTuple(arg), types.NewTuple(result...), false).BodyStart(pkg)
+			for i := 0; i < n; i++ {
+				p.Val(arg).MemberVal(tupleFieldName(i))
+			}
+			p.Return(n).End()
+			p.stk.Push(e)
+			p.Call(1)
+		}
+	}
+	return 1
 }
 
 // LookupField looks up a field by name in the given struct type t.
