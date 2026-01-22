@@ -21,6 +21,16 @@ import (
 	"github.com/goplus/gogen"
 )
 
+func TestIsTupleType(t *testing.T) {
+	var cb gogen.CodeBuilder
+	x := types.NewField(token.NoPos, nil, "x", types.Typ[types.Int], false)
+	y := types.NewField(token.NoPos, nil, "y", types.Typ[types.Int], false)
+	flds := []*types.Var{x, y}
+	if cb.IsTupleType(types.NewStruct(flds, nil)) {
+		t.Fatal("IsTupleType returned true for a struct with non-tuple field names")
+	}
+}
+
 func TestTupleLit(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "foo", nil, nil, false).BodyStart(pkg).

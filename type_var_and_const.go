@@ -42,9 +42,10 @@ func (p *CodeBuilder) EndConst() *Element {
 //
 //	(T).method
 //	(*T).method
-func (pkg *Package) MethodToFunc(typ types.Type, name string, src ...ast.Node) (ret *Element, err error) {
-	_, err = pkg.cb.Typ(typ, src...).Member(name, MemberFlagVal, src...)
-	ret = pkg.cb.stk.Pop()
+func (p *Package) MethodToFunc(typ types.Type, name string, src ...ast.Node) (ret *Element, err error) {
+	cb := p.cb
+	_, err = cb.Typ(typ, src...).Member(name, MemberFlagVal, src...)
+	ret = cb.stk.Pop()
 	return
 }
 
