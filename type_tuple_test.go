@@ -27,7 +27,7 @@ func TestIsTupleType(t *testing.T) {
 	y := types.NewField(token.NoPos, nil, "y", types.Typ[types.Int], false)
 	flds := []*types.Var{x, y}
 	if cb.IsTupleType(types.NewStruct(flds, nil)) {
-		t.Fatal("TestIsTupleType: failed")
+		t.Fatal("IsTupleType returned true for a struct with non-tuple field names")
 	}
 }
 

@@ -110,14 +110,9 @@ func (p *CodeBuilder) IsTupleType(typ types.Type) bool {
 }
 
 func checkTupleType(typ types.Type) (result *types.Struct) {
-	if t, ok := typ.(*types.Named); ok {
-		result, _ = t.Underlying().(*types.Struct)
-	} else {
-		result, _ = typ.(*types.Struct)
-	}
+	result, _ = typ.Underlying().(*types.Struct)
 	if result != nil {
-		n := result.NumFields()
-		if n > 0 && result.Field(0).Name() != tupleFieldName(0) {
+		if result.NumFields() > 0 && result.Field(0).Name() != tupleFieldName(0) {
 			result = nil
 		}
 	}
