@@ -747,7 +747,7 @@ retry:
 			flags |= instrFlagApproxType
 		}
 	case *TyInstruction:
-		return t.instr.Call(pkg, args, flags, fn.Src)
+		return t.instr.Call(pkg, args, lhs, flags, fn.Src)
 	case *TypeType: // type convert
 		if on, ok := CheckOverloadNamed(t.typ); ok {
 			return matchOverloadNamedTypeCast(pkg, on.Obj, fn.Src, args, lhs, flags)
@@ -908,7 +908,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 					}
 				}
 				castFn := &internal.Elem{Val: toObjectExpr(pkg, cast), Type: cast.Type()}
-				if ret, err = matchFuncCall(pkg, castFn, args, 0, flags); err == nil {
+				if ret, err = matchFuncCall(pkg, castFn, args, lhs, flags); err == nil {
 					if ret.CVal == nil && len(args) == 1 && checkUntypedType(scope, tname) {
 						ret.CVal = args[0].CVal
 					}

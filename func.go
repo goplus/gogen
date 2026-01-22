@@ -299,7 +299,7 @@ const (
 )
 
 type Instruction interface {
-	Call(pkg *Package, args []*Element, flags InstrFlags, src ast.Node) (ret *Element, err error)
+	Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error)
 }
 
 // ----------------------------------------------------------------------------

@@ -534,7 +534,7 @@ func (p *CodeBuilder) CallWithEx(n, lhs int, flags InstrFlags, src ...ast.Node) 
 	}
 	s := getSrc(src)
 	fn.Src = s
-	ret, err := matchFuncCall(p.pkg, fn, args, 0, flags)
+	ret, err := matchFuncCall(p.pkg, fn, args, lhs, flags)
 	if err != nil {
 		p.stk.PopN(n)
 		return err
@@ -2084,7 +2084,7 @@ func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
 	}
 	fn := pkg.builtin.Ref(name)
 	t := fn.Type().(*TyInstruction)
-	if _, err := t.instr.Call(pkg, []*Element{arg}, 0, nil); err != nil {
+	if _, err := t.instr.Call(pkg, []*Element{arg}, 0, 0, nil); err != nil {
 		panic(err)
 	}
 	return p
@@ -2310,7 +2310,7 @@ func (p *CodeBuilder) UnaryOpEx(op token.Token, lhs int, src ...ast.Node) *CodeB
 	if debugInstr {
 		log.Println("UnaryOp", op, lhs)
 	}
-	ret, err := doUnaryOp(p, op, p.stk.GetArgs(1), 0)
+	ret, err := doUnaryOp(p, op, p.stk.GetArgs(1), lhs)
 	if err != nil {
 		panic(err)
 	}
