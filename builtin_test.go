@@ -219,7 +219,7 @@ func TestMatchOverloadNamedTypeCast(t *testing.T) {
 	foo := types.NewPackage("github.com/bar/foo", "foo")
 	tn := types.NewTypeName(0, foo, "t", nil)
 	types.NewNamed(tn, types.Typ[types.Int], nil)
-	_, err := matchOverloadNamedTypeCast(pkg, tn, nil, nil, 0)
+	_, err := matchOverloadNamedTypeCast(pkg, tn, nil, nil, 0, 0)
 	if err == nil || err.Error() != "-: typecast github.com/bar/foo.t not found" {
 		t.Fatal("TestMatchOverloadNamedTypeCast:", err)
 	}

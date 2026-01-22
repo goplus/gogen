@@ -499,21 +499,23 @@ func (p *CodeBuilder) Call(n int, ellipsis ...bool) *CodeBuilder {
 	if ellipsis != nil && ellipsis[0] {
 		flags = InstrFlagEllipsis
 	}
-	return p.CallWith(n, flags)
+	return p.CallWith(n, 0, flags)
 }
 
 // CallWith always panics on error, while CallWithEx returns err if match function call failed.
-func (p *CodeBuilder) CallWith(n int, flags InstrFlags, src ...ast.Node) *CodeBuilder {
-	if err := p.CallWithEx(n, flags, src...); err != nil {
+// lhs indicates how many values are expected to be left after the call.
+func (p *CodeBuilder) CallWith(n, lhs int, flags InstrFlags, src ...ast.Node) *CodeBuilder {
+	if err := p.CallWithEx(n, lhs, flags, src...); err != nil {
 		panic(err)
 	}
 	return p
 }
 
 // CallWith always panics on error, while CallWithEx returns err if match function call failed.
+// lhs indicates how many values are expected to be left after the call.
 // If an error ocurs, CallWithEx pops all function arguments from the CodeBuilder stack.
 // In most case, you should call CallWith instead of CallWithEx.
-func (p *CodeBuilder) CallWithEx(n int, flags InstrFlags, src ...ast.Node) error {
+func (p *CodeBuilder) CallWithEx(n, lhs int, flags InstrFlags, src ...ast.Node) error {
 	fn := p.stk.Get(-(n + 1))
 	if t, ok := fn.Type.(*btiMethodType); ok {
 		n++
@@ -532,7 +534,7 @@ func (p *CodeBuilder) CallWithEx(n int, flags InstrFlags, src ...ast.Node) error
 	}
 	s := getSrc(src)
 	fn.Src = s
-	ret, err := matchFuncCall(p.pkg, fn, args, flags)
+	ret, err := matchFuncCall(p.pkg, fn, args, 0, flags)
 	if err != nil {
 		p.stk.PopN(n)
 		return err
@@ -622,7 +624,7 @@ func (p *CodeBuilder) CallInlineClosureStart(sig *types.Signature, arity int, el
 	if ellipsis {
 		flags = InstrFlagEllipsis
 	}
-	if err := matchFuncType(pkg, args, flags, sig, nil); err != nil {
+	if err := matchFuncType(pkg, args, 0, flags, sig, nil); err != nil {
 		panic(err)
 	}
 	n1 := getParamLen(sig) - 1
@@ -1269,9 +1271,9 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 //   - a[i]
 //   - fn[T1, T2, ..., Tn]
 //   - G[T1, T2, ..., Tn]
-func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) Index(nidx int, lhs int, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
-		log.Println("Index", nidx, twoValue)
+		log.Println("Index", nidx, lhs)
 	}
 	args := p.stk.GetArgs(nidx + 1)
 	if nidx > 0 {
@@ -1285,7 +1287,7 @@ func (p *CodeBuilder) Index(nidx int, twoValue bool, src ...ast.Node) *CodeBuild
 	srcExpr := getSrc(src)
 	typs, allowTwoValue := p.getIdxValTypes(args[0].Type, false, srcExpr)
 	var tyRet types.Type
-	if twoValue { // elem, ok = a[key]
+	if lhs == 2 { // elem, ok = a[key]
 		if !allowTwoValue {
 			pos := getSrcPos(srcExpr)
 			end := getSrcEnd(srcExpr)
@@ -1864,7 +1866,7 @@ func (p *CodeBuilder) method(
 			p.rec.Member(src, found)
 		}
 		if autoprop {
-			p.CallWith(0, 0, src)
+			p.CallWith(0, 0, 0, src)
 			return MemberAutoProperty
 		}
 		return MemberMethod
@@ -1909,7 +1911,7 @@ func (p *CodeBuilder) btiMethod(
 					p.rec.Member(src, method.Fn)
 				}
 				if autoprop {
-					p.CallWith(0, 0, src)
+					p.CallWith(0, 0, 0, src)
 					return MemberAutoProperty
 				}
 				return MemberMethod
@@ -2275,7 +2277,7 @@ func lookupMethod(t *types.Named, name string) types.Object {
 	return nil
 }
 
-func doUnaryOp(cb *CodeBuilder, op token.Token, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+func doUnaryOp(cb *CodeBuilder, op token.Token, args []*internal.Elem, lhs int) (ret *internal.Elem, err error) {
 	name := goxPrefix + unaryOps[op]
 	pkg := cb.pkg
 	typ := args[0].Type
@@ -2288,40 +2290,31 @@ retry:
 				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
 				Type: realType(lm.Type()),
 			}
-			return matchFuncCall(pkg, fn, args, flags|instrFlagOpFunc)
+			return matchFuncCall(pkg, fn, args, lhs, 0)
 		}
 	case *types.Pointer:
 		typ = t.Elem()
 		goto retry
 	}
 	lm := pkg.builtin.Ref(name)
-	return matchFuncCall(pkg, toObject(pkg, lm, nil), args, flags)
+	return matchFuncCall(pkg, toObject(pkg, lm, nil), args, lhs, 0)
 }
 
-// UnaryOp:
-//   - cb.UnaryOp(op token.Token)
-//   - cb.UnaryOp(op token.Token, twoValue bool)
-//   - cb.UnaryOp(op token.Token, twoValue bool, src ast.Node)
-func (p *CodeBuilder) UnaryOp(op token.Token, params ...interface{}) *CodeBuilder {
-	var src ast.Node
-	var flags InstrFlags
-	switch len(params) {
-	case 2:
-		src, _ = params[1].(ast.Node)
-		fallthrough
-	case 1:
-		if params[0].(bool) {
-			flags = InstrFlagTwoValue
-		}
-	}
+// UnaryOp func
+func (p *CodeBuilder) UnaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
+	return p.UnaryOpEx(op, 1, src...)
+}
+
+// UnaryOpEx func
+func (p *CodeBuilder) UnaryOpEx(op token.Token, lhs int, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
-		log.Println("UnaryOp", op, "flags:", flags)
+		log.Println("UnaryOp", op, lhs)
 	}
-	ret, err := doUnaryOp(p, op, p.stk.GetArgs(1), flags)
+	ret, err := doUnaryOp(p, op, p.stk.GetArgs(1), 0)
 	if err != nil {
 		panic(err)
 	}
-	ret.Src = src
+	ret.Src = getSrc(src)
 	p.stk.Ret(1, ret)
 	return p
 }
@@ -2345,7 +2338,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 	named0, ok0 := checkNamed(arg0)
 	if ok0 {
 		if fn, e := pkg.MethodToFunc(arg0, name, src...); e == nil {
-			ret, err = matchFuncCall(pkg, fn, args, instrFlagBinaryOp)
+			ret, err = matchFuncCall(pkg, fn, args, 0, instrFlagBinaryOp)
 			isUserDef = true
 		}
 	}
@@ -2353,7 +2346,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 		arg1 := args[1].Type
 		if named1, ok1 := checkNamed(arg1); ok1 && named0 != named1 {
 			if fn, e := pkg.MethodToFunc(arg1, name, src...); e == nil {
-				ret, err = matchFuncCall(pkg, fn, args, instrFlagBinaryOp)
+				ret, err = matchFuncCall(pkg, fn, args, 0, instrFlagBinaryOp)
 				isUserDef = true
 			}
 		}
@@ -2376,7 +2369,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 				}, nil
 			}
 		} else if lm := pkg.builtin.TryRef(name); lm != nil {
-			ret, err = matchFuncCall(pkg, toObject(pkg, lm, nil), args, 0)
+			ret, err = matchFuncCall(pkg, toObject(pkg, lm, nil), args, 0, 0)
 		} else {
 			err = errNotFound
 		}
@@ -2580,9 +2573,9 @@ func (p *CodeBuilder) TypeSwitch(name string, src ...ast.Node) *CodeBuilder {
 }
 
 // TypeAssert func
-func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool, src ...ast.Node) *CodeBuilder {
+func (p *CodeBuilder) TypeAssert(typ types.Type, lhs int, src ...ast.Node) *CodeBuilder {
 	if debugInstr {
-		log.Println("TypeAssert", typ, twoValue)
+		log.Println("TypeAssert", typ, lhs)
 	}
 	arg := p.stk.Get(-1)
 	xType, ok := p.checkInterface(arg.Type)
@@ -2600,7 +2593,7 @@ func (p *CodeBuilder) TypeAssert(typ types.Type, twoValue bool, src ...ast.Node)
 	}
 	pkg := p.pkg
 	ret := &ast.TypeAssertExpr{X: arg.Val, Type: toType(pkg, typ)}
-	if twoValue {
+	if lhs == 2 {
 		tyRet := types.NewTuple(
 			pkg.NewParam(token.NoPos, "", typ),
 			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))

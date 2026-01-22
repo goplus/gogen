@@ -291,12 +291,10 @@ type InstrFlags token.Pos
 
 const (
 	InstrFlagEllipsis InstrFlags = 1 << iota
-	InstrFlagTwoValue
 
 	instrFlagApproxType // restricts to all types whose underlying type is T
 	instrFlagXGoxFunc   // call XGox_xxx function
 	instrFlagXGotFunc   // call XGot_xxx function
-	instrFlagOpFunc     // from callOpFunc
 	instrFlagBinaryOp   // from cb.BinaryOp
 )
 

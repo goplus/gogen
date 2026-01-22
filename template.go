@@ -399,7 +399,7 @@ func assignable(pkg *Package, v types.Type, t *types.Named, pv *internal.Elem) b
 			if pv != nil {
 				arg.Val, arg.CVal, arg.Src = pv.Val, pv.CVal, pv.Src
 			}
-			ret, err := matchFuncCall(pkg, fn, []*internal.Elem{arg}, 0)
+			ret, err := matchFuncCall(pkg, fn, []*internal.Elem{arg}, 0, 0)
 			if err == nil {
 				if pv != nil {
 					pv.Val = ret.Val

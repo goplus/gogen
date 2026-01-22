@@ -31,10 +31,10 @@ func TestUnsafeSlice(t *testing.T) {
 		Val(1).Val(2).Val(3).ArrayLit(types.NewArray(types.Typ[types.Int], 3), 3).
 		EndInit(1).
 		NewVarStart(types.NewSlice(types.Typ[types.Int]), "s").
-		Val(pkg.Unsafe().Ref("Slice")).VarVal("v").Val(0).Index(1, false).UnaryOp(token.AND).Val(3).CallWith(2, 0).
+		Val(pkg.Unsafe().Ref("Slice")).VarVal("v").Val(0).Index(1, 0).UnaryOp(token.AND).Val(3).CallWith(2, 0, 0).
 		EndInit(1).
 		NewVarStart(types.NewPointer(types.Typ[types.Int]), "p").
-		Val(pkg.Unsafe().Ref("SliceData")).VarVal("s").CallWith(1, 0).
+		Val(pkg.Unsafe().Ref("SliceData")).VarVal("s").CallWith(1, 0, 0).
 		EndInit(1).
 		End()
 
@@ -57,10 +57,10 @@ func TestUnsafeString(t *testing.T) {
 		Val('a').Val('b').Val('c').ArrayLit(types.NewArray(types.Typ[types.Byte], 3), 3).
 		EndInit(1).
 		NewVarStart(types.Typ[types.String], "s").
-		Val(pkg.Unsafe().Ref("String")).VarVal("v").Val(0).Index(1, false).UnaryOp(token.AND).Val(3).CallWith(2, 0).
+		Val(pkg.Unsafe().Ref("String")).VarVal("v").Val(0).Index(1, 0).UnaryOp(token.AND).Val(3).CallWith(2, 0, 0).
 		EndInit(1).
 		NewVarStart(types.NewPointer(types.Typ[types.Byte]), "p").
-		Val(pkg.Unsafe().Ref("StringData")).VarVal("s").CallWith(1, 0).
+		Val(pkg.Unsafe().Ref("StringData")).VarVal("s").CallWith(1, 0, 0).
 		EndInit(1).
 		End()
 
@@ -84,7 +84,7 @@ func TestErrUnsafeData(t *testing.T) {
 			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyInt, "a").
-				Val(builtin.Ref("SliceData")).VarVal("a").CallWith(1, 0, source(`unsafe.SliceData(a)`, 7, 2)).EndStmt().
+				Val(builtin.Ref("SliceData")).VarVal("a").CallWith(1, 0, 0, source(`unsafe.SliceData(a)`, 7, 2)).EndStmt().
 				End()
 		})
 	codeErrorTest(t,
@@ -94,7 +94,7 @@ func TestErrUnsafeData(t *testing.T) {
 			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyInt, "a").
-				Val(builtin.Ref("StringData")).VarVal("a").CallWith(1, 0, source(`unsafe.StringData(a)`, 7, 2)).EndStmt().
+				Val(builtin.Ref("StringData")).VarVal("a").CallWith(1, 0, 0, source(`unsafe.StringData(a)`, 7, 2)).EndStmt().
 				End()
 		})
 	codeErrorTest(t,
@@ -104,7 +104,7 @@ func TestErrUnsafeData(t *testing.T) {
 			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyInt, "a").
-				Val(builtin.Ref("String")).VarVal("a").Val(10).CallWith(2, 0, source(`unsafe.String(a, 10)`, 7, 2)).EndStmt().
+				Val(builtin.Ref("String")).VarVal("a").Val(10).CallWith(2, 0, 0, source(`unsafe.String(a, 10)`, 7, 2)).EndStmt().
 				End()
 		})
 	codeErrorTest(t,
@@ -115,7 +115,7 @@ func TestErrUnsafeData(t *testing.T) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVarStart(nil, "ar").
 				Val('a').Val('b').Val('c').ArrayLit(types.NewArray(tyByte, 3), 3).EndInit(1).
-				Val(builtin.Ref("String")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val("hello").CallWith(2, 0, source(`unsafe.String(&ar[0],"hello")`, 7, 2)).EndStmt().
+				Val(builtin.Ref("String")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, 0).UnaryOp(token.AND).Val("hello").CallWith(2, 0, 0, source(`unsafe.String(&ar[0],"hello")`, 7, 2)).EndStmt().
 				End()
 		})
 }
