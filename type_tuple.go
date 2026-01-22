@@ -112,7 +112,7 @@ func (p *CodeBuilder) IsTupleType(typ types.Type) bool {
 func checkTupleType(typ types.Type) (result *types.Struct) {
 	result, _ = typ.Underlying().(*types.Struct)
 	if result != nil {
-		if result.NumFields() > 0 && result.Field(0).Name() != tupleFieldName(0) {
+		if result.NumFields() > 0 && result.Field(0).Name() != tupleField0 {
 			result = nil
 		}
 	}
@@ -206,6 +206,8 @@ func (p *Package) NewTuple(withName bool, fields ...*types.Var) *types.Struct {
 	}
 	return ret
 }
+
+const tupleField0 = "X_0"
 
 func tupleFieldName(i int) string {
 	return "X_" + strconv.Itoa(i)
