@@ -104,27 +104,31 @@ func (p *tupleFields) FieldRef(cb *CodeBuilder, t *types.Struct, name string, x 
 	return false
 }
 
-func (p *CodeBuilder) checkTupleType(typ types.Type) (*tupleFields, bool) {
-	switch typ := typ.(type) {
-	case *types.Struct:
-		if vft, ok := p.vfts[typ]; ok {
-			return vft, true
-		}
-	case *types.Named:
-		if u, ok := typ.Underlying().(*types.Struct); ok {
-			if vft, ok := p.vfts[u]; ok {
-				return vft, true
-			}
+// IsTupleType reports whether typ is a tuple type.
+func (p *CodeBuilder) IsTupleType(typ types.Type) bool {
+	return checkTupleType(typ) != nil
+}
+
+func checkTupleType(typ types.Type) (result *types.Struct) {
+	if t, ok := typ.(*types.Named); ok {
+		result, _ = t.Underlying().(*types.Struct)
+	} else {
+		result, _ = typ.(*types.Struct)
+	}
+	if result != nil {
+		n := result.NumFields()
+		if n > 0 && result.Field(0).Name() != tupleFieldName(0) {
+			result = nil
 		}
 	}
-	return nil, false
+	return
 }
 
 func (p *CodeBuilder) tryUnpackTuple() int {
 	e := p.stk.Get(-1)
 	tuple := e.Type
-	if t, ok := p.checkTupleType(tuple); ok {
-		n := len(t.fields)
+	if t := checkTupleType(tuple); t != nil {
+		n := t.NumFields()
 		p.stk.PopN(1)
 		val := e.Val
 		if _, ok := val.(*ast.Ident); ok {
@@ -138,8 +142,8 @@ func (p *CodeBuilder) tryUnpackTuple() int {
 			pkgType := pkg.Types
 			arg := types.NewParam(token.NoPos, pkgType, "v", tuple)
 			result := make([]*types.Var, n)
-			for i, fld := range t.fields {
-				result[i] = types.NewParam(token.NoPos, pkgType, "", fld.Type())
+			for i := 0; i < n; i++ {
+				result[i] = types.NewParam(token.NoPos, pkgType, "", t.Field(i).Type())
 			}
 			p.NewClosure(types.NewTuple(arg), types.NewTuple(result...), false).BodyStart(pkg)
 			for i := 0; i < n; i++ {
