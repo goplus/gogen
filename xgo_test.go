@@ -293,7 +293,7 @@ func TestCastIntTwoValue(t *testing.T) {
 		DefineVarStart(0, "v", "inRange").
 		Typ(types.Typ[types.Int]).
 		Val(ng.Ref("XGo_bigrat")).Val(1).Call(1).
-		CallWith(1, gogen.InstrFlagTwoValue).
+		CallWith(1, 2, 0).
 		EndInit(1).
 		End()
 	domTest(t, pkg, `package main
@@ -316,7 +316,7 @@ func TestCastBigIntTwoValue(t *testing.T) {
 		DefineVarStart(0, "v", "inRange").
 		Val(ng.Ref("XGo_bigint")).
 		Val(ng.Ref("XGo_bigrat")).Val(1).Call(1).
-		CallWith(1, gogen.InstrFlagTwoValue).
+		CallWith(1, 2, 0).
 		EndInit(1).
 		End()
 	domTest(t, pkg, `package main
@@ -344,7 +344,7 @@ func TestErrCast(t *testing.T) {
 		DefineVarStart(0, "v", "inRange").
 		Typ(types.Typ[types.Int64]).
 		Val(ng.Ref("XGo_bigrat")).Val(1).Call(1).
-		CallWith(1, gogen.InstrFlagTwoValue).
+		CallWith(1, 2, 0).
 		EndInit(1).
 		End()
 }

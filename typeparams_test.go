@@ -218,7 +218,7 @@ func XGot_Table_XGox_Col__1[Array any](p *Table, v int) {
 
 	args := types.NewTuple(types.NewParam(0, pkg.Types, "tbls", typMap))
 	cb := pkg.NewFunc(nil, "Example", args, nil, false).BodyStart(pkg)
-	_, err = cb.VarVal("tbls").Val("Hi").Index(1, false).Val(0).Index(1, false).Member("col", gogen.MemberFlagMethodAlias)
+	_, err = cb.VarVal("tbls").Val("Hi").Index(1, 0).Val(0).Index(1, 0).Member("col", gogen.MemberFlagMethodAlias)
 	if err != nil {
 		t.Fatal("tbl.Member(col):", err)
 	}
@@ -457,8 +457,8 @@ type (
 	tyIntSlice := types.NewSlice(tyInt)
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		NewVarStart(types.NewPointer(tyDataInt), "data").Typ(tyData).Typ(tyInt).Index(1, false).Star().Val(nil).Call(1).EndInit(1).
-		NewVarStart(types.NewPointer(tySliceInt), "slice").Typ(tySlice).Typ(tyIntSlice).Typ(tyInt).Index(2, false).Star().Val(nil).Call(1).EndInit(1).
+		NewVarStart(types.NewPointer(tyDataInt), "data").Typ(tyData).Typ(tyInt).Index(1, 0).Star().Val(nil).Call(1).EndInit(1).
+		NewVarStart(types.NewPointer(tySliceInt), "slice").Typ(tySlice).Typ(tyIntSlice).Typ(tyInt).Index(2, 0).Star().Val(nil).Call(1).EndInit(1).
 		End()
 	if isLeastGo122() {
 		domTest(t, pkg, `package main
@@ -535,25 +535,25 @@ var MyInts = Int{1,2,3,4}
 	tyIntPointer := types.NewPointer(tyInt)
 	var fn1 *types.Var
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		VarRef(nil).Val(fnAt).Typ(tyIntSlice).Index(1, false).Assign(1, 1).
-		VarRef(nil).Val(fnSum).Typ(tyInt).Index(1, false).Assign(1, 1).
-		VarRef(nil).Val(fnLoader).Typ(tyInt).Typ(tyInt).Index(2, false).Assign(1, 1).
-		VarRef(nil).Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Assign(1, 1).
+		VarRef(nil).Val(fnAt).Typ(tyIntSlice).Index(1, 0).Assign(1, 1).
+		VarRef(nil).Val(fnSum).Typ(tyInt).Index(1, 0).Assign(1, 1).
+		VarRef(nil).Val(fnLoader).Typ(tyInt).Typ(tyInt).Index(2, 0).Assign(1, 1).
+		VarRef(nil).Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, 0).Assign(1, 1).
 		NewVarStart(tyInt, "s1").Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
-		NewVarStart(tyInt, "s2").Val(fnSum).Typ(tyInt).Index(1, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
+		NewVarStart(tyInt, "s2").Val(fnSum).Typ(tyInt).Index(1, 0).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Call(1).EndInit(1).
 		NewVarStart(tyInt, "v1").Val(fnAt).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
-		NewVarStart(tyInt, "v2").Val(fnAt).Typ(tyIntSlice).Index(1, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
-		NewVarStart(tyInt, "v3").Val(fnAt).Typ(tyIntSlice).Typ(tyInt).Index(2, false).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
+		NewVarStart(tyInt, "v2").Val(fnAt).Typ(tyIntSlice).Index(1, 0).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
+		NewVarStart(tyInt, "v3").Val(fnAt).Typ(tyIntSlice).Typ(tyInt).Index(2, 0).Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).Val(1).Call(2).EndInit(1).
 		NewVarStart(tyInt, "n1").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
-		NewVarStart(tyInt, "n2").Val(fnAdd).Typ(tyString).Index(1, false).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
-		NewVarStart(tyInt, "n3").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
-		NewVarStart(tyInt, "n4").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gogen.InstrFlagEllipsis).EndInit(1).
-		NewVarStart(tyInt, "n5").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gogen.InstrFlagEllipsis).EndInit(1).
-		NewVarStart(tyInt, "n6").Val(fnAdd).Typ(tyString).Index(1, false).Val("hello").Val(myInts).CallWith(2, gogen.InstrFlagEllipsis).EndInit(1).
-		NewVarStart(tyInt, "n7").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, false).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, gogen.InstrFlagEllipsis).EndInit(1).
-		NewVarStart(tyIntPointer, "p1").Val(fnLoader).Typ(tyIntPointer).Index(1, false).Val(nil).Val(1).Call(2).EndInit(1).
-		NewVarStart(tyIntPointer, "p2").Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Val(nil).Val(1).Call(2).EndInit(1).
-		NewAutoVar(0, 0, "fn1", &fn1).VarRef(fn1).Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, false).Assign(1, 1).EndStmt().
+		NewVarStart(tyInt, "n2").Val(fnAdd).Typ(tyString).Index(1, 0).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
+		NewVarStart(tyInt, "n3").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, 0).Val("hello").Val(1).Val(2).Val(3).Call(4).EndInit(1).
+		NewVarStart(tyInt, "n4").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, 0, gogen.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n5").Val(fnAdd).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, 0, gogen.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n6").Val(fnAdd).Typ(tyString).Index(1, 0).Val("hello").Val(myInts).CallWith(2, 0, gogen.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyInt, "n7").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, 0).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, 0, gogen.InstrFlagEllipsis).EndInit(1).
+		NewVarStart(tyIntPointer, "p1").Val(fnLoader).Typ(tyIntPointer).Index(1, 0).Val(nil).Val(1).Call(2).EndInit(1).
+		NewVarStart(tyIntPointer, "p2").Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, 0).Val(nil).Val(1).Call(2).EndInit(1).
+		NewAutoVar(0, 0, "fn1", &fn1).VarRef(fn1).Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, 0).Assign(1, 1).EndStmt().
 		Val(fn1).Val(nil).Val(1).Call(2).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -625,7 +625,7 @@ var	SumInt = Sum[int]
 	}
 	codeErrorTestEx(t, pkg, msg, func(pkg *gogen.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-			DefineVarStart(0, "sum").Val(fnSum).Typ(tyUint).Index(1, false, source(`foo.Sum[uint]`, 5, 40)).EndInit(1).
+			DefineVarStart(0, "sum").Val(fnSum).Typ(tyUint).Index(1, 0, source(`foo.Sum[uint]`, 5, 40)).EndInit(1).
 			End()
 	})
 }
@@ -663,7 +663,7 @@ var	AtInt = At[[]int]
 	}
 	codeErrorTestEx(t, pkg, msg, func(pkg *gogen.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-			NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyInt).Index(1, false, source(`foo.At[int]`, 5, 40)).EndInit(1).
+			NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyInt).Index(1, 0, source(`foo.At[int]`, 5, 40)).EndInit(1).
 			End()
 	})
 }
@@ -693,7 +693,7 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	codeErrorTestEx(t, pkg, msg,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
+				DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, 0, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
 				End()
 		})
 }
@@ -718,7 +718,7 @@ type Data[T1 any, T2 any] struct {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: got 1 type arguments but foo.Data[T1, T2 any] has 2 type parameters`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, 0, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
 				End()
 		})
 }
@@ -743,7 +743,7 @@ type Data[T1 any, T2 any] struct {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: got 3 type arguments but foo.Data[T1, T2 any] has 2 type parameters`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, false, source(`foo.Data[int,int,int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, 0, source(`foo.Data[int,int,int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
 				End()
 		})
 }
@@ -767,7 +767,7 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: got 3 type arguments but func[T1, T2 any](t1 T1, t2 T2) has 2 type parameters`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val(fnTest).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, false, source(`foo.Test[int,int,int]`, 5, 40)).Val(1).Val(1).Call(2).EndStmt().
+				Val(fnTest).Typ(tyInt).Typ(tyInt).Typ(tyInt).Index(3, 0, source(`foo.Test[int,int,int]`, 5, 40)).Val(1).Val(1).Call(2).EndStmt().
 				End()
 		})
 }
@@ -792,7 +792,7 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	want (T1, T2)`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val(fnTest).Val(1).CallWith(1, 0, source("foo.Test(1)", 5, 40)).EndStmt().
+				Val(fnTest).Val(1).CallWith(1, 0, 0, source("foo.Test(1)", 5, 40)).EndStmt().
 				End()
 		})
 }
@@ -818,7 +818,7 @@ func Test[T1 any, T2 any](t1 T1, t2 T2) {
 	want (T1, T2)`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val(fnTest).Val(1).Val(2).Val(3).CallWith(3, 0, source("foo.Test(1,2,3)", 5, 40)).EndStmt().
+				Val(fnTest).Val(1).Val(2).Val(3).CallWith(3, 0, 0, source("foo.Test(1,2,3)", 5, 40)).EndStmt().
 				End()
 		})
 }
@@ -845,7 +845,7 @@ func Test[T1 any, T2 any]() {
 	want ()`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val(fnTest).Val(1).Val(2).CallWith(2, 0, source("foo.Test(1,2)", 5, 40)).EndStmt().
+				Val(fnTest).Val(1).Val(2).CallWith(2, 0, 0, source("foo.Test(1,2)", 5, 40)).EndStmt().
 				End()
 		})
 }
@@ -875,7 +875,7 @@ func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
 	want (T1, ...T2)`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val(fnAdd).CallWith(0, 0, source("foo.Add()", 5, 40)).EndStmt().
+				Val(fnAdd).CallWith(0, 0, 0, source("foo.Add()", 5, 40)).EndStmt().
 				End()
 		})
 }
@@ -904,7 +904,7 @@ func Add[T1 any, T2 ~int](v1 T1, v2 ...T2) (sum T2) {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: cannot infer T2 (-)`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val(fnAdd).Val(1).CallWith(1, 0, source("foo.Add(1)", 5, 40)).EndStmt().
+				Val(fnAdd).Val(1).CallWith(1, 0, 0, source("foo.Add(1)", 5, 40)).EndStmt().
 				End()
 		})
 }
@@ -946,7 +946,7 @@ func Sum[T Number](vec []T) T {
 	}
 	codeErrorTestEx(t, pkg, msg, func(pkg *gogen.Package) {
 		pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-			Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyUintSlice, 3).CallWith(1, 0, source(`foo.Sum([]uint{1,2,3})`, 5, 40)).EndInit(1).
+			Val(fnSum).Val(1).Val(2).Val(3).SliceLit(tyUintSlice, 3).CallWith(1, 0, 0, source(`foo.Sum([]uint{1,2,3})`, 5, 40)).EndInit(1).
 			End()
 	})
 }
@@ -976,7 +976,7 @@ func Loader[T1 any, T2 any](p1 T1, p2 T2) T1 {
 	codeErrorTestEx(t, pkg, msg,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				Val(fnLoader).Typ(tyInt).Index(1, false, source(`foo.Loader[int]`, 5, 40)).Val(10).Val(nil).CallWith(2, 0, source(`foo.Loader[int]`, 5, 40)).EndStmt().
+				Val(fnLoader).Typ(tyInt).Index(1, 0, source(`foo.Loader[int]`, 5, 40)).Val(10).Val(nil).CallWith(2, 0, 0, source(`foo.Loader[int]`, 5, 40)).EndStmt().
 				End()
 		})
 }
@@ -999,7 +999,7 @@ type Data struct {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: foo.Data is not a generic type`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, false, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+				DefineVarStart(0, "v1").Typ(tyData).Typ(tyInt).Index(1, 0, source(`foo.Data[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
 				End()
 		})
 }
@@ -1013,7 +1013,7 @@ func TestTypeParamErrGenericType2(t *testing.T) {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: string is not a generic type`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				DefineVarStart(0, "v1").Typ(tyString).Typ(tyInt).Index(1, false, source(`string[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
+				DefineVarStart(0, "v1").Typ(tyString).Typ(tyInt).Index(1, 0, source(`string[int]`, 5, 40)).Star().Val(nil).Call(1).EndInit(1).
 				End()
 		})
 }
@@ -1038,7 +1038,7 @@ func Loader(n int) string {
 	codeErrorTestEx(t, pkg, `./foo.gop:5:40: invalid operation: cannot index foo.Loader (value of type func(n int) string)`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, false, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
+				DefineVarStart(0, "v1").Val(fnLoader).Typ(tyInt).Index(1, 0, source(`v1 := foo.Loader[int]`, 5, 40)).EndInit(1).
 				End()
 		})
 }
@@ -1059,9 +1059,9 @@ func TestGenTypeParamsFunc(t *testing.T) {
 	fn1.BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fn1).Val("hello").Val(100).Val(200).Call(3).EndStmt().
-		Val(fn1).Typ(types.Typ[types.String]).Typ(types.Typ[types.Int]).Typ(types.Typ[types.Uint]).Index(3, false).Val("hello").Val(100).Val(200).Call(3).EndStmt().
-		Val(fn1).Typ(types.Typ[types.String]).Typ(types.Typ[types.Int]).Index(2, false).Val("hello").Val(100).Val(200).Call(3).EndStmt().
-		Val(fn1).Typ(types.Typ[types.String]).Index(1, false).Val("hello").Val(100).Val(200).Call(3).EndStmt().
+		Val(fn1).Typ(types.Typ[types.String]).Typ(types.Typ[types.Int]).Typ(types.Typ[types.Uint]).Index(3, 0).Val("hello").Val(100).Val(200).Call(3).EndStmt().
+		Val(fn1).Typ(types.Typ[types.String]).Typ(types.Typ[types.Int]).Index(2, 0).Val("hello").Val(100).Val(200).Call(3).EndStmt().
+		Val(fn1).Typ(types.Typ[types.String]).Index(1, 0).Val("hello").Val(100).Val(200).Call(3).EndStmt().
 		End()
 
 	domTest(t, pkg, `package main
@@ -1201,7 +1201,7 @@ var Numbers = []int{1,2,3,4}
 		Call(4).EndStmt().
 		Val(fooRef.Ref("ListMap")).
 		Val("a").Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")).
-		Typ(types.Typ[types.Int]).Index(1, false).
+		Typ(types.Typ[types.Int]).Index(1, 0).
 		Call(4).EndStmt().
 		Val(fooRef.Ref("ListMap")).
 		Val("a").Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump2")).
@@ -1211,13 +1211,13 @@ var Numbers = []int{1,2,3,4}
 		Val(fooRef.Ref("ListMapv")).
 		Val(100).Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")). //.SliceLit(tyFuncList, 1).
 		Val(fooRef.Ref("Dump")).
-		Typ(types.Typ[types.Int]).Index(1, false).
+		Typ(types.Typ[types.Int]).Index(1, 0).
 		Val(fooRef.Ref("Dump2")).
 		Call(6, false).EndStmt().
 		Val(fooRef.Ref("ListMapv")).
 		Val("a").Val(fooRef.Ref("Numbers")).Val(fooRef.Ref("Add")).Val(fooRef.Ref("Dump")). //.SliceLit(tyFuncList, 1).
 		Val(fooRef.Ref("Dump")).
-		Typ(types.Typ[types.Int]).Index(1, false).
+		Typ(types.Typ[types.Int]).Index(1, 0).
 		Val(fooRef.Ref("Dump2")).
 		Call(6, false).EndStmt().
 		End()

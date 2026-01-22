@@ -591,7 +591,7 @@ func TestRecv(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyChan, "a").
 		NewVarStart(types.Typ[types.Uint], "b").VarVal("a").UnaryOp(token.ARROW).EndInit(1).
-		DefineVarStart(0, "c", "ok").VarVal("a").UnaryOp(token.ARROW, true, nil).EndInit(1).
+		DefineVarStart(0, "c", "ok").VarVal("a").UnaryOpEx(token.ARROW, 2, nil).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -610,7 +610,7 @@ func TestRecv2(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(typ, "a").
 		NewVarStart(types.Typ[types.Uint], "b").VarVal("a").UnaryOp(token.ARROW).EndInit(1).
-		DefineVarStart(0, "c", "ok").VarVal("a").UnaryOp(token.ARROW, true).EndInit(1).
+		DefineVarStart(0, "c", "ok").VarVal("a").UnaryOpEx(token.ARROW, 2).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -632,7 +632,7 @@ func TestRecv3(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(typ, "a").
 		NewVarStart(tyUint, "b").VarVal("a").UnaryOp(token.ARROW).EndInit(1).
-		DefineVarStart(0, "c", "ok").VarVal("a").UnaryOp(token.ARROW, true).EndInit(1).
+		DefineVarStart(0, "c", "ok").VarVal("a").UnaryOpEx(token.ARROW, 2).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -935,8 +935,8 @@ func TestTypeAssert(t *testing.T) {
 	pkg := newMainPackage()
 	params := types.NewTuple(pkg.NewParam(token.NoPos, "v", gogen.TyEmptyInterface))
 	pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg, source("{}", 1, 5)).
-		DefineVarStart(0, "x").VarVal("v").TypeAssert(types.Typ[types.Int], false).EndInit(1).
-		DefineVarStart(0, "y", "ok").VarVal("v").TypeAssert(types.Typ[types.String], true).EndInit(1).
+		DefineVarStart(0, "x").VarVal("v").TypeAssert(types.Typ[types.Int], 0).EndInit(1).
+		DefineVarStart(0, "y", "ok").VarVal("v").TypeAssert(types.Typ[types.String], 2).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -2088,7 +2088,7 @@ func TestUnsafeFunc2(t *testing.T) {
 		Val(1).Val(2).Val(3).ArrayLit(types.NewArray(tyInt, 3), 3).EndInit(1).
 		NewVar(types.NewSlice(tyInt), "r2").
 		VarRef(ctxRef(pkg, "r")).Val(unsafe.Ref("Add")).VarVal("a").Val(10).Call(2).Assign(1).EndStmt().
-		VarRef(ctxRef(pkg, "r2")).Val(unsafe.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, false).UnaryOp(token.AND).Val(3).Call(2).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r2")).Val(unsafe.Ref("Slice")).Val(ctxRef(pkg, "ar")).Val(0).Index(1, 0).UnaryOp(token.AND).Val(3).Call(2).Assign(1).EndStmt().
 		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).VarRef(ctxRef(pkg, "r2")).Call(2).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -2203,7 +2203,7 @@ func TestInterfaceMethods(t *testing.T) {
 	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(tyInterf))
 	pkg.NewFunc(nil, "foo", types.NewTuple(b, v), nil, true).BodyStart(pkg).
 		Val(b).MemberVal("Bar").Call(0).EndStmt().
-		Val(v).Val(0).Index(1, false).MemberVal("Bar").Call(0).EndStmt().
+		Val(v).Val(0).Index(1, 0).MemberVal("Bar").Call(0).EndStmt().
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -3396,8 +3396,8 @@ func TestIndex(t *testing.T) {
 	y := pkg.NewParam(token.NoPos, "y", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
 	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
 	pkg.NewFunc(nil, "foo", types.NewTuple(x, y), types.NewTuple(ret), false).BodyStart(pkg).
-		DefineVarStart(0, "v", "ok").Val(y).Val("a").Index(1, true).EndInit(1).
-		Val(x).Val(0).Index(1, false).Return(1).
+		DefineVarStart(0, "v", "ok").Val(y).Val("a").Index(1, 2).EndInit(1).
+		Val(x).Val(0).Index(1, 0).Return(1).
 		End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
@@ -4164,7 +4164,7 @@ func TestTypesAliasLit(t *testing.T) {
 			SliceLit(sbar, 1).EndInit(1)
 		pkg.CB().NewVarStart(types.Typ[types.Int], "_").
 			Val(1).
-			SliceLit(sbar, 1).Val(0).Index(1, false).EndInit(1)
+			SliceLit(sbar, 1).Val(0).Index(1, 0).EndInit(1)
 
 		afoo := pkg.NewType("afoo").InitType(pkg, types.NewArray(types.Typ[types.String], 2))
 		abar := pkg.AliasType("abar", afoo)

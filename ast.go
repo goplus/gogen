@@ -474,7 +474,7 @@ var (
 )
 
 func toFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) *internal.Elem {
-	ret, err := matchFuncCall(pkg, fn, args, flags)
+	ret, err := matchFuncCall(pkg, fn, args, 0, flags)
 	if err != nil {
 		panic(err)
 	}
@@ -622,7 +622,7 @@ func getParam1st(sig *types.Signature) int {
 }
 
 // TODO: check if fn.recv != nil
-func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, lhs int, flags InstrFlags) (ret *internal.Elem, err error) {
 	fnType := fn.Type
 	if debugMatch {
 		ft := fnType
@@ -663,7 +663,7 @@ retry:
 			case *TyOverloadFunc:
 				backup := backupArgs(args)
 				for _, o := range ft.Funcs {
-					if ret, err = matchFuncCall(pkg, chgObject(pkg, o, fn), args, flags); err == nil {
+					if ret, err = matchFuncCall(pkg, chgObject(pkg, o, fn), args, lhs, flags); err == nil {
 						if ret.CVal == nil && isUntyped(pkg, ret.Type) {
 							ret.CVal = tryBuiltinCall(fn, args, false)
 						}
@@ -685,7 +685,7 @@ retry:
 						mfn.Val.(*ast.SelectorExpr).Sel = ident(o.Name())
 						mfn.Type = methodCallSig(o.Type())
 					}
-					if ret, err = matchFuncCall(pkg, &mfn, args, flags); err == nil {
+					if ret, err = matchFuncCall(pkg, &mfn, args, lhs, flags); err == nil {
 						fn.Val, fn.Type = mfn.Val, mfn.Type
 						if pkg.cb.rec != nil {
 							pkg.cb.rec.Call(fn.Src, o)
@@ -712,7 +712,7 @@ retry:
 							for j, arg := range args {
 								targs[j+1] = arg
 							}
-							if ret, err = matchFuncCall(pkg, tfn, targs, flags|instrFlagXGotFunc); err == nil {
+							if ret, err = matchFuncCall(pkg, tfn, targs, lhs, flags|instrFlagXGotFunc); err == nil {
 								if pkg.cb.rec != nil {
 									if _, ok := CheckFuncEx(ft.Func.Type().(*types.Signature)); !ok {
 										pkg.cb.rec.Call(fn.Src, ft.Func)
@@ -729,7 +729,7 @@ retry:
 				}
 				return
 			case *TyTypeAsParams:
-				return matchFuncCall(pkg, chgObject(pkg, ft.obj, fn), args, flags|instrFlagXGoxFunc)
+				return matchFuncCall(pkg, chgObject(pkg, ft.obj, fn), args, lhs, flags|instrFlagXGoxFunc)
 			}
 		} else {
 			sig = t
@@ -747,12 +747,12 @@ retry:
 			flags |= instrFlagApproxType
 		}
 	case *TyInstruction:
-		return t.instr.Call(pkg, args, flags, fn.Src)
+		return t.instr.Call(pkg, args, lhs, flags, fn.Src)
 	case *TypeType: // type convert
 		if on, ok := CheckOverloadNamed(t.typ); ok {
-			return matchOverloadNamedTypeCast(pkg, on.Obj, fn.Src, args, flags)
+			return matchOverloadNamedTypeCast(pkg, on.Obj, fn.Src, args, lhs, flags)
 		}
-		return matchTypeCast(pkg, t.typ, fn, args, flags)
+		return matchTypeCast(pkg, t.typ, fn, args, lhs, flags)
 	case *types.Named:
 		fnType = pkg.cb.getUnderlying(t)
 		goto retry
@@ -793,7 +793,7 @@ retry:
 		}
 	}
 
-	if err = matchFuncType(pkg, args, flags, sig, fn); err != nil {
+	if err = matchFuncType(pkg, args, lhs, flags, sig, fn); err != nil {
 		return
 	}
 	tyRet := toRetType(sig.Results(), it)
@@ -852,7 +852,7 @@ func isParamOptional(pkg *Package, param *types.Var) bool {
 	return strings.HasPrefix(param.Name(), xgoOptionalPrefix)
 }
 
-func matchOverloadNamedTypeCast(pkg *Package, t *types.TypeName, src ast.Node, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+func matchOverloadNamedTypeCast(pkg *Package, t *types.TypeName, src ast.Node, args []*internal.Elem, lhs int, flags InstrFlags) (ret *internal.Elem, err error) {
 	cast := xgoxPrefix + t.Name() + "_Cast"
 	o := t.Pkg().Scope().Lookup(cast)
 	if o == nil {
@@ -860,10 +860,10 @@ func matchOverloadNamedTypeCast(pkg *Package, t *types.TypeName, src ast.Node, a
 		return nil, err
 	}
 	fn := toObject(pkg, o, src)
-	return matchFuncCall(pkg, fn, args, flags|instrFlagXGoxFunc)
+	return matchFuncCall(pkg, fn, args, lhs, flags|instrFlagXGoxFunc)
 }
 
-func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (ret *internal.Elem, err error) {
+func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*internal.Elem, lhs int, flags InstrFlags) (ret *internal.Elem, err error) {
 	fnVal := fn.Val
 	switch typ.(type) {
 	case *types.Pointer, *types.Chan:
@@ -908,7 +908,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 					}
 				}
 				castFn := &internal.Elem{Val: toObjectExpr(pkg, cast), Type: cast.Type()}
-				if ret, err = matchFuncCall(pkg, castFn, args, flags); err == nil {
+				if ret, err = matchFuncCall(pkg, castFn, args, lhs, flags); err == nil {
 					if ret.CVal == nil && len(args) == 1 && checkUntypedType(scope, tname) {
 						ret.CVal = args[0].CVal
 					}
@@ -928,11 +928,11 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 				case *types.Signature:
 					if funcs, ok := CheckOverloadMethod(mt); ok {
 						for _, o := range funcs {
-							if ret, err = matchRcast(pkg, arg, o, typ, flags); err == nil {
+							if ret, err = matchRcast(pkg, arg, o, typ, lhs, flags); err == nil {
 								return
 							}
 						}
-					} else if ret, err = matchRcast(pkg, arg, m, typ, flags); err == nil {
+					} else if ret, err = matchRcast(pkg, arg, m, typ, lhs, flags); err == nil {
 						return
 					}
 				}
@@ -958,13 +958,13 @@ finish:
 	return
 }
 
-func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type, flags InstrFlags) (ret *internal.Elem, err error) {
+func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type, lhs int, flags InstrFlags) (ret *internal.Elem, err error) {
 	sig := m.Type().(*types.Signature)
 	if sig.Params().Len() != 0 {
 		log.Panicf("TODO: method %v should haven't no arguments\n", m)
 	}
 	n := 1
-	if (flags & InstrFlagTwoValue) != 0 {
+	if lhs == 2 { // TODO(xsw): check this
 		n = 2
 	}
 	results := sig.Results()
@@ -972,7 +972,7 @@ func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type,
 		return nil, fmt.Errorf("TODO: %v should return %d results", m, n)
 	}
 	if types.Identical(results.At(0).Type(), typ) {
-		return pkg.cb.Val(fn).MemberVal(m.Name()).CallWith(0, flags).stk.Pop(), nil
+		return pkg.cb.Val(fn).MemberVal(m.Name()).CallWith(0, lhs, flags).stk.Pop(), nil
 	}
 	return nil, &MatchError{
 		Src: fn.Src, Arg: fn.Type, Param: typ, At: "XGo_Rcast",
@@ -1090,8 +1090,8 @@ func toRetType(t *types.Tuple, it *instantiated) types.Type {
 }
 
 func matchFuncType(
-	pkg *Package, args []*internal.Elem, flags InstrFlags, sig *types.Signature, fn *internal.Elem) error {
-	if (flags & InstrFlagTwoValue) != 0 {
+	pkg *Package, args []*internal.Elem, lhs int, flags InstrFlags, sig *types.Signature, fn *internal.Elem) error {
+	if lhs == 2 {
 		if n := sig.Results().Len(); n != 2 {
 			caller, pos, end := getFunExpr(fn)
 			return pkg.cb.newCodeErrorf(pos, end, "assignment mismatch: 2 variables but %v returns %v values", caller, n)

@@ -219,7 +219,7 @@ func TestMatchOverloadNamedTypeCast(t *testing.T) {
 	foo := types.NewPackage("github.com/bar/foo", "foo")
 	tn := types.NewTypeName(0, foo, "t", nil)
 	types.NewNamed(tn, types.Typ[types.Int], nil)
-	_, err := matchOverloadNamedTypeCast(pkg, tn, nil, nil, 0)
+	_, err := matchOverloadNamedTypeCast(pkg, tn, nil, nil, 0, 0)
 	if err == nil || err.Error() != "-: typecast github.com/bar/foo.t not found" {
 		t.Fatal("TestMatchOverloadNamedTypeCast:", err)
 	}
@@ -1722,7 +1722,7 @@ func TestAliasRecv(t *testing.T) {
 		Type: pkg.AliasType("MyChan", types.NewChan(types.SendRecv, types.Typ[types.Int])),
 		Val:  ast.NewIdent("ch"),
 	}
-	_, err := instr.Call(pkg, []*Element{elem}, 0, nil)
+	_, err := instr.Call(pkg, []*Element{elem}, 0, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1756,7 +1756,7 @@ func TestAliasOffsetof(t *testing.T) {
 			Val:  ast.NewIdent("rect"),
 		}, "Y"),
 	}
-	_, err := instr.Call(pkg, []*Element{elem}, 0, nil)
+	_, err := instr.Call(pkg, []*Element{elem}, 0, 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
