@@ -45,6 +45,22 @@ func getConf() *Config {
 	return &Config{Fset: fset, Importer: imp}
 }
 
+/*
+NOTE(xsw): Remove auto-unpacking (https://github.com/goplus/xgo/issues/2538)
+
+func Test_commaOK(t *testing.T) {
+	x := types.NewField(token.NoPos, nil, "X_0", types.Typ[types.Int], false)
+	y := types.NewField(token.NoPos, nil, "X_1", types.Typ[types.Int], false)
+	flds := []*types.Var{x, y}
+	if commaOK(types.NewStruct(flds, nil), 2) {
+		t.Fatal("commaOK(2): return true?")
+	}
+	if !commaOK(types.NewStruct(flds, nil), 3) {
+		t.Fatal("commaOK(3): return false?")
+	}
+}
+*/
+
 func TestSwitchStmtThen(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	cb := pkg.CB()

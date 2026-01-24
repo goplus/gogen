@@ -60,18 +60,24 @@ func TestTupleMember(t *testing.T) {
 	b := types.NewParam(token.NoPos, pkg.Types, "b", pt)
 	typf := types.NewSignatureType(nil, nil, nil, nil, types.NewTuple(b), false)
 	f := types.NewParam(token.NoPos, pkg.Types, "f", typf)
-	pkg.NewFunc(nil, "foo", types.NewTuple(a, f), nil, false).BodyStart(pkg).
+	ok := types.NewParam(token.NoPos, pkg.Types, "ok", types.Typ[types.Bool])
+	typf2 := types.NewSignatureType(nil, nil, nil, nil, types.NewTuple(b, ok), false)
+	f2 := types.NewParam(token.NoPos, pkg.Types, "f2", typf2)
+	pkg.NewFunc(nil, "foo", types.NewTuple(a, f, f2), nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "a")).
 		MemberRef("x").
 		Val(ctxRef(pkg, "a")).
 		MemberVal("y").
 		Assign(1).
 		EndStmt().
-		DefineVarStart(token.NoPos, "x", "y").
+		DefineVarStart(token.NoPos, "x").
 		Val(ctxRef(pkg, "a")).
 		EndInit(1).
-		DefineVarStart(token.NoPos, "x2", "y2").
+		DefineVarStart(token.NoPos, "x2").
 		Val(ctxRef(pkg, "f")).Call(0).
+		EndInit(1).
+		DefineVarStart(token.NoPos, "x3", "ok").
+		Val(ctxRef(pkg, "f2")).Call(0).
 		EndInit(1).
 		Debug(func(cb *gogen.CodeBuilder) {
 			cb.Val(ctxRef(pkg, "a"))
@@ -85,12 +91,11 @@ func TestTupleMember(t *testing.T) {
 func foo(a struct {
 	X_0 int
 	X_1 int
-}, f func() (b Point)) {
+}, f func() (b Point), f2 func() (b Point, ok bool)) {
 	a.X_0 = a.X_1
-	x, y := a.X_0, a.X_1
-	x2, y2 := func(v Point) (int, int) {
-		return v.X_0, v.X_1
-	}(f())
+	x := a
+	x2 := f()
+	x3, ok := f2()
 }
 `)
 }

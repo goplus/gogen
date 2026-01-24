@@ -631,7 +631,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, lhs i
 				ft = ftex
 			}
 		}
-		log.Println("==> MatchFuncCall", ft, "args:", len(args), "flags:", flags)
+		log.Println("==> MatchFuncCall", ft, "args:", len(args), "lhs:", lhs, "flags:", flags)
 	}
 	var it *instantiated
 	var sig *types.Signature

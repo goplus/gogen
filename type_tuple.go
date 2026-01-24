@@ -109,6 +109,23 @@ func (p *CodeBuilder) IsTupleType(typ types.Type) bool {
 	return checkTupleType(typ) != nil
 }
 
+/*
+NOTE(xsw): Remove auto-unpacking (https://github.com/goplus/xgo/issues/2538)
+
+func commaOK(typ types.Type, lhs int) bool {
+	if lhs < 2 {
+		return false
+	}
+	if lhs == 2 {
+		return true
+	}
+	if t := checkTupleType(typ); t != nil {
+		return lhs == t.NumFields()+1
+	}
+	return false
+}
+*/
+
 func checkTupleType(typ types.Type) (result *types.Struct) {
 	result, _ = typ.Underlying().(*types.Struct)
 	if result != nil {
@@ -119,38 +136,66 @@ func checkTupleType(typ types.Type) (result *types.Struct) {
 	return
 }
 
-func (p *CodeBuilder) tryUnpackTuple() int {
+/*
+NOTE(xsw): Remove auto-unpacking (https://github.com/goplus/xgo/issues/2538)
+
+func (p *CodeBuilder) tryUnpackTuple(lhs int) int {
 	e := p.stk.Get(-1)
-	tuple := e.Type
-	if t := checkTupleType(tuple); t != nil {
+	typ := e.Type
+	typTuple, isTuple := typ.(*types.Tuple)
+	if isTuple {
+		if isTuple = typTuple.Len() == 2; isTuple {
+			if lhs == 2 {
+				return 1
+			}
+			typ = typTuple.At(0).Type()
+		}
+	}
+	if t := checkTupleType(typ); t != nil {
 		n := t.NumFields()
 		p.stk.PopN(1)
 		val := e.Val
-		if _, ok := val.(*ast.Ident); ok {
-			for i := 0; i < n; i++ {
-				p.stk.Push(e)
-				p.MemberVal(tupleFieldName(i))
-			}
-			return n
+		nArg := 1
+		nRet := n
+		if isTuple {
+			nArg = 2
+			nRet++
 		} else {
-			pkg := p.pkg
-			pkgType := pkg.Types
-			arg := types.NewParam(token.NoPos, pkgType, "v", tuple)
-			result := make([]*types.Var, n)
-			for i := 0; i < n; i++ {
-				result[i] = types.NewParam(token.NoPos, pkgType, "", t.Field(i).Type())
+			if _, ok := val.(*ast.Ident); ok {
+				for i := 0; i < n; i++ {
+					p.stk.Push(e)
+					p.MemberVal(tupleFieldName(i))
+				}
+				return n
 			}
-			p.NewClosure(types.NewTuple(arg), types.NewTuple(result...), false).BodyStart(pkg)
-			for i := 0; i < n; i++ {
-				p.Val(arg).MemberVal(tupleFieldName(i))
-			}
-			p.Return(n).End()
-			p.stk.Push(e)
-			p.Call(1)
 		}
+		pkg := p.pkg
+		pkgType := pkg.Types
+		args := make([]*types.Var, nArg)
+		args[0] = types.NewParam(token.NoPos, pkgType, "v", typ)
+		result := make([]*types.Var, nRet)
+		for i := 0; i < n; i++ {
+			result[i] = types.NewParam(token.NoPos, pkgType, "", t.Field(i).Type())
+		}
+		if isTuple {
+			v2Type := typTuple.At(1).Type()
+			args[1] = types.NewParam(token.NoPos, pkgType, "v2", v2Type)
+			result[n] = types.NewParam(token.NoPos, pkgType, "", v2Type)
+		}
+		p.NewClosure(types.NewTuple(args...), types.NewTuple(result...), false).BodyStart(pkg)
+		for i := 0; i < n; i++ {
+			p.Val(args[0]).MemberVal(tupleFieldName(i))
+		}
+		if isTuple {
+			p.Val(args[1])
+		}
+		p.Return(nRet).End()
+		p.stk.Push(e)
+		p.Call(1)
 	}
 	return 1
 }
+*/
 
 // LookupField looks up a field by name in the given struct type t.
 // It returns the field index if found, or -1 if not found.
