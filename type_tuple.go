@@ -202,6 +202,9 @@ func (p *CodeBuilder) tryUnpackTuple(lhs int) int {
 // It checks both the original fields and the virtual fields (e.g. tuple
 // fields).
 func (p *CodeBuilder) LookupField(t *types.Struct, name string) int {
+	if c := name[0]; c >= '0' && c <= '9' { // tuple: ordinal field
+		name = "X_" + name
+	}
 	for i, n := 0, t.NumFields(); i < n; i++ {
 		if fld := t.Field(i); fld.Name() == name {
 			return i

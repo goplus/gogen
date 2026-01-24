@@ -1560,6 +1560,9 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, sr
 
 func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast.Node, visited map[*types.Struct]none) bool {
 	var embed []*types.Var
+	if c := name[0]; c >= '0' && c <= '9' { // tuple: ordinal field
+		name = "X_" + name
+	}
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		if fld.Name() == name {
@@ -1923,6 +1926,9 @@ func (p *CodeBuilder) btiMethod(
 
 func (p *CodeBuilder) normalField(
 	o *types.Struct, name string, arg *Element, src ast.Node) MemberKind {
+	if c := name[0]; c >= '0' && c <= '9' { // tuple: ordinal field
+		name = "X_" + name
+	}
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		fld := o.Field(i)
 		v := fld.Name()
