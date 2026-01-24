@@ -914,6 +914,11 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 					}
 					return
 				}
+			} else if tuple := checkTupleType(o.Type()); tuple != nil {
+				for _, arg := range args {
+					pkg.cb.stk.Push(arg)
+				}
+				return pkg.cb.StructLit(t, len(args), false).stk.Pop(), nil
 			}
 		}
 	}
@@ -945,14 +950,14 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 
 finish:
 	valArgs := make([]ast.Expr, len(args))
-	for i, v := range args { // TODO: type check
+	for i, v := range args { // TODO(xsw): type check
 		valArgs[i] = v.Val
 	}
 	ret = &internal.Elem{
 		Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 		Type: typ,
 	}
-	if len(args) == 1 { // TODO: const value may changed by type-convert
+	if len(args) == 1 { // TODO(xsw): const value may changed by type-convert
 		ret.CVal = args[0].CVal
 	}
 	return
