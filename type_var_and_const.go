@@ -331,9 +331,10 @@ func checkTuple(t **types.Tuple, typ types.Type) (ok bool) {
 
 func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 	n := len(p.names)
+	/* NOTE(xsw): Remove auto-unpacking (https://github.com/goplus/xgo/issues/2538)
 	if arity == 1 && n > 1 {
-		arity = cb.tryUnpackTuple()
-	}
+		arity = cb.tryUnpackTuple(n)
+	} */
 	rets := cb.stk.GetArgs(arity)
 	defer func() {
 		cb.stk.PopN(arity)

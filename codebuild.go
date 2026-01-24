@@ -2215,9 +2215,10 @@ func (p *CodeBuilder) AssignWith(lhs, rhs int, src ...ast.Node) *CodeBuilder {
 }
 
 func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
+	/* NOTE(xsw): Remove auto-unpacking (https://github.com/goplus/xgo/issues/2538)
 	if rhs == 1 && lhs > 1 {
-		rhs = p.tryUnpackTuple()
-	}
+		rhs = p.tryUnpackTuple(lhs)
+	} */
 	mkBlockStmt := false
 	args := p.stk.GetArgs(lhs + rhs)
 	stmt := &ast.AssignStmt{

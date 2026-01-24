@@ -715,7 +715,7 @@ retry:
 	case *types.Chan:
 		if t.Dir() != types.SendOnly {
 			typ := t.Elem()
-			if lhs == 2 { // twoValue mode
+			if lhs == 2 {
 				typ = types.NewTuple(
 					pkg.NewParam(token.NoPos, "", typ),
 					pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
