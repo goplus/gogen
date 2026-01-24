@@ -65,6 +65,12 @@ func TestTupleMember(t *testing.T) {
 	f2 := types.NewParam(token.NoPos, pkg.Types, "f2", typf2)
 	pkg.NewFunc(nil, "foo", types.NewTuple(a, f, f2), nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "a")).
+		MemberRef("0").
+		Val(ctxRef(pkg, "a")).
+		MemberVal("1").
+		Assign(1).
+		EndStmt().
+		Val(ctxRef(pkg, "a")).
 		MemberRef("x").
 		Val(ctxRef(pkg, "a")).
 		MemberVal("y").
@@ -93,6 +99,7 @@ func foo(a struct {
 	X_1 int
 }, f func() (b Point), f2 func() (b Point, ok bool)) {
 	a.X_0 = a.X_1
+	a.X_0 = a.X_1
 	x := a
 	x2 := f()
 	x3, ok := f2()
@@ -120,6 +127,7 @@ func TestCodeBuilder_LookupField(t *testing.T) {
 		{"test1", types.NewStruct(newFields("a"), nil), "b", -1},
 		{"test2", types.NewStruct(newFields("a"), nil), "a", 0},
 		{"test3", p.NewTuple(true, newFields("a")...), "a", 0},
+		{"test4", p.NewTuple(true, newFields("a")...), "0", 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
