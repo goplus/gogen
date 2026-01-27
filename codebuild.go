@@ -1668,7 +1668,7 @@ func (p *CodeBuilder) Member(name string, lhs int, flag MemberFlag, src ...ast.N
 			flag = memberFlagMethodToFunc
 		}
 		aliasName, flag = aliasNameOf(name, flag)
-		kind = p.findMember(at, name, aliasName, flag, arg, srcExpr, nil)
+		kind = p.findMember(at, name, aliasName, lhs, flag, arg, srcExpr, nil)
 		if isType && kind != MemberMethod {
 			code, pos, end := p.loadExpr(srcExpr)
 			return MemberInvalid, p.newCodeError(
@@ -1716,7 +1716,7 @@ func getUnderlying(pkg *Package, typ types.Type) types.Type {
 }
 
 func (p *CodeBuilder) findMember(
-	typ types.Type, name, aliasName string, flag MemberFlag, arg *Element, srcExpr ast.Node, visited map[*types.Struct]none) MemberKind {
+	typ types.Type, name, aliasName string, lhs int, flag MemberFlag, arg *Element, srcExpr ast.Node, visited map[*types.Struct]none) MemberKind {
 	var named *types.Named
 retry:
 	switch o := typ.(type) {
@@ -1783,6 +1783,11 @@ retry:
 		tyRet := o.Elem()
 		if flag == MemberFlagRef {
 			tyRet = &refType{typ: tyRet}
+		} else if lhs == 2 { // two-value assignment
+			pkg := p.pkg.Types
+			tyRet = types.NewTuple(
+				types.NewParam(token.NoPos, pkg, "", tyRet),
+				types.NewParam(token.NoPos, pkg, "", types.Typ[types.Bool]))
 		}
 		elem := &internal.Elem{
 			Val: &ast.IndexExpr{X: arg.Val, Index: stringLit(name)}, Type: tyRet, Src: srcExpr,
@@ -1974,7 +1979,7 @@ func (p *CodeBuilder) embeddedField(
 
 	for i, n := 0, o.NumFields(); i < n; i++ {
 		if fld := o.Field(i); fld.Embedded() {
-			if kind := p.findMember(fld.Type(), name, aliasName, flag, arg, src, visited); kind != MemberInvalid {
+			if kind := p.findMember(fld.Type(), name, aliasName, 0, flag, arg, src, visited); kind != MemberInvalid {
 				if kind != memberBad {
 					return kind
 				}

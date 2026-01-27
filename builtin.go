@@ -1313,7 +1313,7 @@ retry:
 			// TODO: refactor
 			cb := pkg.cb
 			cb.stk.Push(elemNone)
-			kind := cb.findMember(typ, "XGo_Add", "", MemberFlagVal, &Element{}, nil, nil)
+			kind := cb.findMember(typ, "XGo_Add", "", 0, MemberFlagVal, &Element{}, nil, nil)
 			if kind != 0 {
 				cb.stk.PopN(1)
 				if kind == MemberMethod {
