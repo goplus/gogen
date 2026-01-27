@@ -1302,7 +1302,7 @@ func (p *CodeBuilder) Index(nidx int, lhs int, src ...ast.Node) *CodeBuilder {
 	}
 	argVal := args[0].Val
 	if ivKind == ivMapStringAny {
-		argVal = p.emitTypeAssert(argVal)
+		argVal = p.emitMapStringAnyAssert(argVal)
 	}
 	elem := &internal.Elem{
 		Val: &ast.IndexExpr{X: argVal, Index: args[1].Val}, Type: tyRet, Src: srcExpr,
@@ -1785,7 +1785,7 @@ retry:
 		o.Complete()
 
 		if o.Empty() { // empty interface (https://github.com/goplus/xgo/issues/2571)
-			argVal := p.emitTypeAssert(arg.Val)
+			argVal := p.emitMapStringAnyAssert(arg.Val)
 			return p.mapIndexExpr(tyMapStringAny, name, lhs, argVal, srcExpr)
 		}
 
@@ -1826,8 +1826,11 @@ retry:
 	return MemberInvalid
 }
 
+// emitMapStringAnyAssert generates a type assertion statement for empty interface (any) values.
+// It emits: `tmpVar, _ := argVal.(map[string]any)` and returns the tmpVar identifier.
+// This enables safe member access on any types by converting them to map[string]any.
 // See https://github.com/goplus/xgo/issues/2572#issuecomment-3807206716
-func (p *CodeBuilder) emitTypeAssert(argVal ast.Expr) ast.Expr {
+func (p *CodeBuilder) emitMapStringAnyAssert(argVal ast.Expr) ast.Expr {
 	pkg := p.pkg
 	e := &ast.TypeAssertExpr{X: argVal, Type: toMapType(pkg, tyMapStringAny)}
 	ret := ast.NewIdent(pkg.autoName())
