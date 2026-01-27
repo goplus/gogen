@@ -1310,7 +1310,7 @@ retry:
 		case pkg.utBigInt, pkg.utBigRat, pkg.utBigFlt:
 			return true
 		default:
-			// TODO: refactor
+			// TODO(xsw): refactor
 			cb := pkg.cb
 			cb.stk.Push(elemNone)
 			kind := cb.findMember(typ, "XGo_Add", "", 0, MemberFlagVal, &Element{}, nil, nil)
