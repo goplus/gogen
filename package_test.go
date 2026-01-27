@@ -3394,6 +3394,7 @@ func TestIndex(t *testing.T) {
 	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
 	pkg.NewFunc(nil, "foo", types.NewTuple(x, y, z), types.NewTuple(ret), false).BodyStart(pkg).
 		DefineVarStart(0, "v", "ok").Val(y).Val("a").Index(1, 2).EndInit(1).
+		DefineVarStart(0, "v1", "ok").Val(z).Val("a").Index(1, 2).EndInit(1).
 		DefineVarStart(0, "v2").Val(y).MemberVal("a", 0).EndInit(1).
 		DefineVarStart(0, "v3", "ok").Val(y).MemberVal("b", 2).EndInit(1).
 		DefineVarStart(0, "v4", "ok").Val(z).MemberVal("c", 2).EndInit(1).
@@ -3406,6 +3407,7 @@ func TestIndex(t *testing.T) {
 
 func foo(x []int, y map[string]int, z interface{}) int {
 	v, ok := y["a"]
+	v1, ok := z.(map[string]any)["a"]
 	v2 := y["a"]
 	v3, ok := y["b"]
 	v4, ok := z.(map[string]any)["c"]

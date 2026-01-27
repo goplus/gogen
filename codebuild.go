@@ -1285,10 +1285,10 @@ func (p *CodeBuilder) Index(nidx int, lhs int, src ...ast.Node) *CodeBuilder {
 		panic("Index doesn't support a[i, j...] yet")
 	}
 	srcExpr := getSrc(src)
-	typs, allowTwoValue := p.getIdxValTypes(args[0].Type, false, srcExpr)
+	typs, ivKind := p.getIdxValTypes(args[0].Type, false, srcExpr)
 	var tyRet types.Type
 	if lhs == 2 { // elem, ok = a[key]
-		if !allowTwoValue {
+		if ivKind == ivFalse {
 			pos := getSrcPos(srcExpr)
 			end := getSrcEnd(srcExpr)
 			p.panicCodeErrorf(pos, end, "assignment mismatch: 2 variables but 1 values")
@@ -1300,10 +1300,14 @@ func (p *CodeBuilder) Index(nidx int, lhs int, src ...ast.Node) *CodeBuilder {
 	} else { // elem = a[key]
 		tyRet = typs[1]
 	}
-	elem := &internal.Elem{
-		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val}, Type: tyRet, Src: srcExpr,
+	argVal := args[0].Val
+	if ivKind == ivMapStringAny {
+		argVal = &ast.TypeAssertExpr{X: argVal, Type: toMapType(p.pkg, tyMapStringAny)}
 	}
-	// TODO: check index type
+	elem := &internal.Elem{
+		Val: &ast.IndexExpr{X: argVal, Index: args[1].Val}, Type: tyRet, Src: srcExpr,
+	}
+	// TODO(xsw): check index type
 	p.stk.Ret(2, elem)
 	return p
 }
@@ -1334,22 +1338,28 @@ func (p *CodeBuilder) IndexRef(nidx int, src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-func (p *CodeBuilder) getIdxValTypes(typ types.Type, ref bool, idxSrc ast.Node) ([]types.Type, bool) {
+const (
+	ivFalse = iota
+	ivTwoValue
+	ivMapStringAny
+)
+
+func (p *CodeBuilder) getIdxValTypes(typ types.Type, ref bool, idxSrc ast.Node) ([]types.Type, int) {
 retry:
 	switch t := typ.(type) {
 	case *types.Slice:
-		return []types.Type{tyInt, t.Elem()}, false
+		return []types.Type{tyInt, t.Elem()}, 0
 	case *types.Map:
-		return []types.Type{t.Key(), t.Elem()}, true
+		return []types.Type{t.Key(), t.Elem()}, ivTwoValue
 	case *types.Array:
-		return []types.Type{tyInt, t.Elem()}, false
+		return []types.Type{tyInt, t.Elem()}, 0
 	case *types.Pointer:
 		elem := t.Elem()
 		if named, ok := elem.(*types.Named); ok {
 			elem = p.getUnderlying(named)
 		}
 		if e, ok := elem.(*types.Array); ok {
-			return []types.Type{tyInt, e.Elem()}, false
+			return []types.Type{tyInt, e.Elem()}, 0
 		}
 	case *types.Basic:
 		if (t.Info() & types.IsString) != 0 {
@@ -1357,15 +1367,19 @@ retry:
 				src, pos, end := p.loadExpr(idxSrc)
 				p.panicCodeErrorf(pos, end, "cannot assign to %s (strings are immutable)", src)
 			}
-			return []types.Type{tyInt, TyByte}, false
+			return []types.Type{tyInt, TyByte}, 0
 		}
 	case *types.Named:
 		typ = p.getUnderlying(t)
 		goto retry
+	case *types.Interface:
+		if !ref && t.Empty() { // empty interface (https://github.com/goplus/xgo/issues/2571)
+			return []types.Type{types.Typ[types.String], typ}, ivMapStringAny
+		}
 	}
 	src, pos, end := p.loadExpr(idxSrc)
 	p.panicCodeErrorf(pos, end, "invalid operation: %s (type %v does not support indexing)", src, typ)
-	return nil, false
+	return nil, 0
 }
 
 var (
