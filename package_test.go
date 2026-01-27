@@ -3407,11 +3407,14 @@ func TestIndex(t *testing.T) {
 
 func foo(x []int, y map[string]int, z interface{}) int {
 	v, ok := y["a"]
-	v1, ok := z.(map[string]any)["a"]
+	_autoGo_1, _ := z.(map[string]any)
+	v1, ok := _autoGo_1["a"]
 	v2 := y["a"]
 	v3, ok := y["b"]
-	v4, ok := z.(map[string]any)["c"]
-	v5 := z.(map[string]any)["d"]
+	_autoGo_2, _ := z.(map[string]any)
+	v4, ok := _autoGo_2["c"]
+	_autoGo_3, _ := z.(map[string]any)
+	v5 := _autoGo_3["d"]
 	return x[0]
 }
 func main() {
