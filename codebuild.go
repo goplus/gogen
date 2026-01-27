@@ -1792,6 +1792,12 @@ retry:
 				}
 			}
 		}
+		if o.Empty() { // empty interface (https://github.com/goplus/xgo/issues/2571)
+			tmap := tyMapStringAny()
+			p.TypeAssert(tmap, 0)
+			arg = p.stk.Get(-1)
+			return p.mapIndexExpr(tmap, name, lhs, arg.Val, srcExpr)
+		}
 	case *types.Map:
 		// Map member access provides syntactic sugar: m.key is converted to m["key"]
 		// This allows more concise map access when keys are valid identifiers.
@@ -1799,22 +1805,25 @@ retry:
 		if key, ok := o.Key().(*types.Basic); !ok || (key.Info()&types.IsString) == 0 {
 			break
 		}
-		tyRet := o.Elem()
-		if lhs == 2 { // two-value assignment
-			pkg := p.pkg.Types
-			tyRet = types.NewTuple(
-				types.NewParam(token.NoPos, pkg, "", tyRet),
-				types.NewParam(token.NoPos, pkg, "", types.Typ[types.Bool]))
-		}
-		elem := &internal.Elem{
-			Val: &ast.IndexExpr{X: arg.Val, Index: stringLit(name)}, Type: tyRet, Src: srcExpr,
-		}
-		p.stk.Ret(1, elem)
-		return MemberField
+		return p.mapIndexExpr(o, name, lhs, arg.Val, srcExpr)
 	case *types.Basic, *types.Slice, *types.Chan:
 		return p.btiMethod(p.getBuiltinTI(o), name, aliasName, flag, srcExpr)
 	}
 	return MemberInvalid
+}
+
+func (p *CodeBuilder) mapIndexExpr(o *types.Map, name string, lhs int, argVal ast.Expr, src ast.Node) MemberKind {
+	tyRet := o.Elem()
+	if lhs == 2 { // two-value assignment
+		pkg := p.pkg.Types
+		tyRet = types.NewTuple(
+			types.NewParam(token.NoPos, pkg, "", tyRet),
+			types.NewParam(token.NoPos, pkg, "", types.Typ[types.Bool]))
+	}
+	p.stk.Ret(1, &internal.Elem{
+		Val: &ast.IndexExpr{X: argVal, Index: stringLit(name)}, Type: tyRet, Src: src,
+	})
+	return MemberField
 }
 
 type methodList interface {

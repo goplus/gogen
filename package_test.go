@@ -3390,21 +3390,26 @@ func TestIndex(t *testing.T) {
 
 	x := pkg.NewParam(token.NoPos, "x", types.NewSlice(types.Typ[types.Int]))
 	y := pkg.NewParam(token.NoPos, "y", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
+	z := pkg.NewParam(token.NoPos, "z", gogen.TyEmptyInterface)
 	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
-	pkg.NewFunc(nil, "foo", types.NewTuple(x, y), types.NewTuple(ret), false).BodyStart(pkg).
+	pkg.NewFunc(nil, "foo", types.NewTuple(x, y, z), types.NewTuple(ret), false).BodyStart(pkg).
 		DefineVarStart(0, "v", "ok").Val(y).Val("a").Index(1, 2).EndInit(1).
 		DefineVarStart(0, "v2").Val(y).MemberVal("a", 0).EndInit(1).
 		DefineVarStart(0, "v3", "ok").Val(y).MemberVal("b", 2).EndInit(1).
+		DefineVarStart(0, "v4", "ok").Val(z).MemberVal("c", 2).EndInit(1).
+		DefineVarStart(0, "v5").Val(z).MemberVal("d", 0).EndInit(1).
 		Val(x).Val(0).Index(1, 0).Return(1).
 		End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(x []int, y map[string]int) int {
+func foo(x []int, y map[string]int, z interface{}) int {
 	v, ok := y["a"]
 	v2 := y["a"]
 	v3, ok := y["b"]
+	v4, ok := z.(map[string]any)["c"]
+	v5 := z.(map[string]any)["d"]
 	return x[0]
 }
 func main() {

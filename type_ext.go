@@ -173,7 +173,16 @@ var (
 	TyError          types.Type
 	TyAny            types.Type
 	TyEmptyInterface types.Type
+
+	mapStringAny *types.Map
 )
+
+func tyMapStringAny() *types.Map {
+	if mapStringAny == nil {
+		mapStringAny = types.NewMap(types.Typ[types.String], TyAny)
+	}
+	return mapStringAny
+}
 
 func init() {
 	universe := types.Universe
