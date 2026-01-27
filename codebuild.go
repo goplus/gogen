@@ -1793,10 +1793,10 @@ retry:
 			}
 		}
 		if o.Empty() { // empty interface (https://github.com/goplus/xgo/issues/2571)
-			tmap := tyMapStringAny()
-			p.TypeAssert(tmap, 0)
+			tyMap := tyMapStringAny
+			p.TypeAssert(tyMap, 0)
 			arg = p.stk.Get(-1)
-			return p.mapIndexExpr(tmap, name, lhs, arg.Val, srcExpr)
+			return p.mapIndexExpr(tyMap, name, lhs, arg.Val, srcExpr)
 		}
 	case *types.Map:
 		// Map member access provides syntactic sugar: m.key is converted to m["key"]
