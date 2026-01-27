@@ -1041,7 +1041,7 @@ func TestStaticMethod(t *testing.T) {
 	pkg := newMainPackage()
 	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		Typ(bar.Ref("Game").Type()).MemberVal("New").Call(0).EndStmt().
+		Typ(bar.Ref("Game").Type()).MemberVal("New", 0).Call(0).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -1058,7 +1058,7 @@ func TestTemplateRecvMethod(t *testing.T) {
 	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(bar.Ref("Game").Type(), "g").
-		VarVal("g").MemberVal("Run").Val("Hi").Call(1).EndStmt().
+		VarVal("g").MemberVal("Run", 0).Val("Hi").Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -1077,7 +1077,7 @@ func TestTemplateRecvMethod2(t *testing.T) {
 	tyGame := bar.Ref("Game").Type()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyGame, "g").
-		Typ(tyGame).MemberVal("Run").VarRef("g").UnaryOp(token.AND).Val("Hi").Call(2).EndStmt().
+		Typ(tyGame).MemberVal("Run", 0).VarRef("g").UnaryOp(token.AND).Val("Hi").Call(2).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -1100,7 +1100,7 @@ func TestErrTemplateRecvMethod(t *testing.T) {
 	}()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewPointer(bar.Ref("Game").Type()), "g").
-		VarVal("g").MemberVal("Run").Call(0).EndStmt().
+		VarVal("g").MemberVal("Run", 0).Call(0).EndStmt().
 		End()
 }
 
@@ -1163,8 +1163,8 @@ func main() {
 func TestUntypedBigDefaultCall(t *testing.T) {
 	pkg := newXGoMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		UntypedBigInt(big.NewInt(1)).MemberVal("Int64").Call(0).EndStmt().
-		UntypedBigRat(big.NewRat(1, 2)).MemberVal("Float64").Call(0).EndStmt().End()
+		UntypedBigInt(big.NewInt(1)).MemberVal("Int64", 0).Call(0).EndStmt().
+		UntypedBigRat(big.NewRat(1, 2)).MemberVal("Float64", 0).Call(0).EndStmt().End()
 	domTest(t, pkg, `package main
 
 import (
@@ -1190,7 +1190,7 @@ func TestUntypedBigIntToInterface(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tyA, "a").UntypedBigInt(big.NewInt(1)).EndInit(1).
 		Val(ctxRef(pkg, "println")).
-		VarVal("a").MemberVal("Int64").Call(0).Call(1).EndStmt().End()
+		VarVal("a").MemberVal("Int64", 0).Call(0).Call(1).EndStmt().End()
 	domTest(t, pkg, `package main
 
 import (

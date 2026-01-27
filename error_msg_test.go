@@ -1675,7 +1675,7 @@ func TestErrMember(t *testing.T) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(ctxRef(pkg, "T")).
 				Debug(func(cb *gogen.CodeBuilder) {
-					_, err := cb.Member("x", gogen.MemberFlagVal, source("T.x", 1, 5))
+					_, err := cb.Member("x", 0, gogen.MemberFlagVal, source("T.x", 1, 5))
 					if err != nil {
 						panic(err)
 					}
@@ -1690,7 +1690,7 @@ func TestErrMember(t *testing.T) {
 				NewVar(types.Typ[types.String], "x").
 				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
 				Debug(func(cb *gogen.CodeBuilder) {
-					_, err := cb.Member("y", gogen.MemberFlagVal, source("x.y", 1, 7))
+					_, err := cb.Member("y", 0, gogen.MemberFlagVal, source("x.y", 1, 7))
 					if err != nil {
 						panic(err)
 					}
@@ -1705,7 +1705,39 @@ func TestErrMember(t *testing.T) {
 				NewVar(types.Typ[types.String], "x").
 				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
 				Debug(func(cb *gogen.CodeBuilder) {
-					_, err := cb.Member("y", gogen.MemberFlagVal, source("x.y", 1, 5))
+					_, err := cb.Member("y", 0, gogen.MemberFlagVal, source("x.y", 1, 5))
+					if err != nil {
+						panic(err)
+					}
+				}).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:1:5: x.y undefined (type map[int]int has no field or method y)`,
+		func(pkg *gogen.Package) {
+			typ := types.NewMap(types.Typ[types.Int], types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(typ, "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				Debug(func(cb *gogen.CodeBuilder) {
+					_, err := cb.Member("y", 0, gogen.MemberFlagVal, source("x.y", 1, 5))
+					if err != nil {
+						panic(err)
+					}
+				}).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:1:5: x.y undefined (type map[int]int has no field or method y)`,
+		func(pkg *gogen.Package) {
+			typ := types.NewMap(types.Typ[types.Int], types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(typ, "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				Debug(func(cb *gogen.CodeBuilder) {
+					_, err := cb.Member("y", 0, gogen.MemberFlagRef, source("x.y", 1, 5))
 					if err != nil {
 						panic(err)
 					}
@@ -1812,7 +1844,7 @@ func TestErrUnsafe(t *testing.T) {
 			builtin := pkg.Unsafe()
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(foo, "a").
-				Val(builtin.Ref("Offsetof")).VarVal("a").MemberVal("Bar").CallWith(1, 0, 0, source("unsafe.Offsetof(a.Bar)", 14, 2)).EndStmt().
+				Val(builtin.Ref("Offsetof")).VarVal("a").MemberVal("Bar", 0).CallWith(1, 0, 0, source("unsafe.Offsetof(a.Bar)", 14, 2)).EndStmt().
 				EndStmt().
 				End()
 		})
@@ -1834,7 +1866,7 @@ func TestErrUnsafe(t *testing.T) {
 			tyT := pkg.NewType("T").InitType(pkg, typT)
 			pkg.CB().NewVar(tyT, "t")
 			pkg.CB().NewConstStart(nil, "c").
-				Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t"), source("t", 17, 27)).MemberVal("m").CallWith(1, 0, 0, source("unsafe.Offsetof(t.m)", 17, 11)).EndInit(1)
+				Val(builtin.Ref("Offsetof")).Val(ctxRef(pkg, "t"), source("t", 17, 27)).MemberVal("m", 0).CallWith(1, 0, 0, source("unsafe.Offsetof(t.m)", 17, 11)).EndInit(1)
 		})
 	codeErrorTest(t,
 		`./foo.gop:7:12: cannot use a (type int) as type unsafe.Pointer in argument to unsafe.Add`,
@@ -2019,7 +2051,7 @@ type M struct {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(tyM, "m").
 				VarVal("println").VarVal("m").
-				MemberVal("x", source("m.x", 3, 10)).Call(1).EndStmt().
+				MemberVal("x", 0, source("m.x", 3, 10)).Call(1).EndStmt().
 				End()
 		})
 }

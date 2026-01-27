@@ -35,11 +35,11 @@ func TestCircularEmbeddedFieldLookup(t *testing.T) {
 	}, nil))
 
 	cb.stk.Push(&Element{Type: typeA})
-	kind, _ := cb.Member("any", MemberFlagVal)
+	kind, _ := cb.Member("any", 0, MemberFlagVal)
 	if kind != MemberInvalid {
 		t.Fatal("Member should return MemberInvalid for circular embedding")
 	}
-	kind, _ = cb.Member("any", MemberFlagRef)
+	kind, _ = cb.Member("any", 0, MemberFlagRef)
 	if kind != MemberInvalid {
 		t.Fatal("Member should return MemberInvalid for circular embedding")
 	}
@@ -81,7 +81,7 @@ func TestFindMember(t *testing.T) {
 	// push an element whose type is the interface
 	cb.stk.Push(&Element{Type: named2})
 
-	kind, _ := cb.Member("step", MemberFlagVal)
+	kind, _ := cb.Member("step", 0, MemberFlagVal)
 	if kind != MemberMethod {
 		t.Fatalf("expected MemberMethod (1), got %v", kind)
 	}
