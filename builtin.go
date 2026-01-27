@@ -1499,7 +1499,6 @@ func (p *BuiltinTI) lookupByName(name string) mthdSignature {
 }
 
 var (
-	tyMap   types.Type = types.NewMap(types.Typ[types.Invalid], types.Typ[types.Invalid])
 	tyChan  types.Type = types.NewChan(0, types.Typ[types.Invalid])
 	tySlice types.Type = types.NewSlice(types.Typ[types.Invalid])
 )
@@ -1630,12 +1629,6 @@ func initBuiltinTIs(pkg *Package) {
 			},
 		},
 		{
-			typ: tyMap,
-			methods: []*BuiltinMethod{
-				{"Len", btoLen, nil},
-			},
-		},
-		{
 			typ: tyChan,
 			methods: []*BuiltinMethod{
 				{"Len", btoLen, nil},
@@ -1658,8 +1651,6 @@ func (p *CodeBuilder) getBuiltinTI(typ types.Type) *BuiltinTI {
 		if t.Elem() != types.Typ[types.String] {
 			typ = tySlice
 		}
-	case *types.Map:
-		typ = tyMap
 	case *types.Chan:
 		typ = tyChan
 	}

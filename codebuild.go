@@ -1779,7 +1779,17 @@ retry:
 				}
 			}
 		}
-	case *types.Basic, *types.Slice, *types.Map, *types.Chan:
+	case *types.Map:
+		tyRet := o.Elem()
+		if flag == MemberFlagRef {
+			tyRet = &refType{typ: tyRet}
+		}
+		elem := &internal.Elem{
+			Val: &ast.IndexExpr{X: arg.Val, Index: stringLit(name)}, Type: tyRet, Src: srcExpr,
+		}
+		p.stk.Ret(1, elem)
+		return MemberField
+	case *types.Basic, *types.Slice, *types.Chan:
 		return p.btiMethod(p.getBuiltinTI(o), name, aliasName, flag, srcExpr)
 	}
 	return MemberInvalid
