@@ -977,7 +977,7 @@ func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type,
 		return nil, fmt.Errorf("TODO: %v should return %d results", m, n)
 	}
 	if types.Identical(results.At(0).Type(), typ) {
-		return pkg.cb.Val(fn).MemberVal(m.Name()).CallWith(0, lhs, flags).stk.Pop(), nil
+		return pkg.cb.Val(fn).MemberVal(m.Name(), 0).CallWith(0, lhs, flags).stk.Pop(), nil
 	}
 	return nil, &MatchError{
 		Src: fn.Src, Arg: fn.Type, Param: typ, At: "XGo_Rcast",

@@ -143,7 +143,7 @@ func XGot_Table_XGox_Col__1[Array any](p *Table, v int) {
 
 	cb := pkg.NewFunc(nil, "Example", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewPointer(typ), "tbl")
-	_, err = cb.VarVal("tbl").Member("col", gogen.MemberFlagMethodAlias)
+	_, err = cb.VarVal("tbl").Member("col", 0, gogen.MemberFlagMethodAlias)
 	if err != nil {
 		t.Fatal("tbl.Member(col):", err)
 	}
@@ -218,7 +218,7 @@ func XGot_Table_XGox_Col__1[Array any](p *Table, v int) {
 
 	args := types.NewTuple(types.NewParam(0, pkg.Types, "tbls", typMap))
 	cb := pkg.NewFunc(nil, "Example", args, nil, false).BodyStart(pkg)
-	_, err = cb.VarVal("tbls").Val("Hi").Index(1, 0).Val(0).Index(1, 0).Member("col", gogen.MemberFlagMethodAlias)
+	_, err = cb.VarVal("tbls").Val("Hi").Index(1, 0).Val(0).Index(1, 0).Member("col", 0, gogen.MemberFlagMethodAlias)
 	if err != nil {
 		t.Fatal("tbl.Member(col):", err)
 	}
@@ -1123,8 +1123,8 @@ func TestGenTypeParamsType(t *testing.T) {
 	}
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "s").StructLit(inst, 0, false).UnaryOp(token.AND).EndInit(1).
-		Val(ctxRef(pkg, "s")).MemberVal("test").Val("hello").Val(100).Val(200).Call(3, false).EndStmt().
-		Val(pkg.Builtin().Ref("println")).Val(ctxRef(pkg, "s")).MemberVal("f1").Call(1, false).EndStmt().
+		Val(ctxRef(pkg, "s")).MemberVal("test", 0).Val("hello").Val(100).Val(200).Call(3, false).EndStmt().
+		Val(pkg.Builtin().Ref("println")).Val(ctxRef(pkg, "s")).MemberVal("f1", 0).Call(1, false).EndStmt().
 		End()
 
 	domTest(t, pkg, `package main

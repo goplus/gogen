@@ -1405,7 +1405,7 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 		p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
 			DefineVarStart(token.NoPos, "v", "_").
 			Val(pkg.builtin.Ref("new")).Typ(typ).Call(1).
-			MemberVal("SetString").Val(v.String()).Val(10).Call(2).EndInit(1).
+			MemberVal("SetString", 0).Val(v.String()).Val(10).Call(2).EndInit(1).
 			Val(p.Scope().Lookup("v")).Return(1).
 			End().Call(0)
 	}
@@ -1426,7 +1426,7 @@ func (p *CodeBuilder) UntypedBigRat(v *big.Rat, src ...ast.Node) *CodeBuilder {
 	} else {
 		// new(big.Rat).SetFrac(a, b)
 		p.Val(p.pkg.builtin.Ref("new")).Typ(bigPkg.Ref("Rat").Type()).Call(1).
-			MemberVal("SetFrac").UntypedBigInt(a).UntypedBigInt(b).Call(2)
+			MemberVal("SetFrac", 0).UntypedBigInt(a).UntypedBigInt(b).Call(2)
 	}
 	ret := p.stk.Get(-1)
 	ret.Type, ret.CVal, ret.Src = pkg.utBigRat, constant.Make(v), getSrc(src)
@@ -1525,8 +1525,8 @@ func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 }
 
 // MemberVal func
-func (p *CodeBuilder) MemberVal(name string, src ...ast.Node) *CodeBuilder {
-	_, err := p.Member(name, MemberFlagVal, src...)
+func (p *CodeBuilder) MemberVal(name string, lhs int, src ...ast.Node) *CodeBuilder {
+	_, err := p.Member(name, lhs, MemberFlagVal, src...)
 	if err != nil {
 		panic(err)
 	}
@@ -1535,7 +1535,7 @@ func (p *CodeBuilder) MemberVal(name string, src ...ast.Node) *CodeBuilder {
 
 // MemberRef func
 func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
-	_, err := p.Member(name, MemberFlagRef, src...)
+	_, err := p.Member(name, 0, MemberFlagRef, src...)
 	if err != nil {
 		panic(err)
 	}
@@ -1647,7 +1647,7 @@ func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
 
 // Member access member by its name.
 // src should point to the full source node `x.sel`
-func (p *CodeBuilder) Member(name string, flag MemberFlag, src ...ast.Node) (kind MemberKind, err error) {
+func (p *CodeBuilder) Member(name string, lhs int, flag MemberFlag, src ...ast.Node) (kind MemberKind, err error) {
 	srcExpr := getSrc(src)
 	arg := p.stk.Get(-1)
 	if debugInstr {

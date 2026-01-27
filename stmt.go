@@ -723,7 +723,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 		cb.emitStmt(p.stmt)
 	} else if n > 0 {
 		cb.stk.Push(p.x)
-		cb.MemberVal(p.enumName).Call(0)
+		cb.MemberVal(p.enumName, 0).Call(0)
 		callEnum := cb.stk.Pop().Val
 		/*
 			for _xgo_it := X.XGo_Enum();; {

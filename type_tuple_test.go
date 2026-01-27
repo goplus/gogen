@@ -67,13 +67,13 @@ func TestTupleMember(t *testing.T) {
 		Val(ctxRef(pkg, "a")).
 		MemberRef("0").
 		Val(ctxRef(pkg, "a")).
-		MemberVal("1").
+		MemberVal("1", 0).
 		Assign(1).
 		EndStmt().
 		Val(ctxRef(pkg, "a")).
 		MemberRef("x").
 		Val(ctxRef(pkg, "a")).
-		MemberVal("y").
+		MemberVal("y", 0).
 		Assign(1).
 		EndStmt().
 		DefineVarStart(token.NoPos, "x").
@@ -87,8 +87,8 @@ func TestTupleMember(t *testing.T) {
 		EndInit(1).
 		Debug(func(cb *gogen.CodeBuilder) {
 			cb.Val(ctxRef(pkg, "a"))
-			cb.Member("unknown", gogen.MemberFlagRef)
-			cb.Member("unknown", gogen.MemberFlagVal)
+			cb.Member("unknown", 0, gogen.MemberFlagRef)
+			cb.Member("unknown", 0, gogen.MemberFlagVal)
 			cb.ResetStmt()
 		}).
 		End()

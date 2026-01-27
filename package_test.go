@@ -193,21 +193,19 @@ func TestBTIMethod(t *testing.T) {
 		NewVar(types.NewChan(0, types.Typ[types.Int]), "a").
 		NewVar(types.NewSlice(types.Typ[types.Int]), "b").
 		NewVar(types.NewSlice(types.Typ[types.String]), "c").
-		NewVar(types.NewMap(types.Typ[types.String], types.Typ[types.Int]), "d").
 		NewVar(types.Typ[types.Int64], "e").
-		Val(fmt.Ref("Println")).VarVal("a").MemberVal("Len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).VarVal("b").MemberVal("Len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).VarVal("c").MemberVal("Len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).VarVal("d").MemberVal("Len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).VarVal("c").MemberVal("Join").Val(",").Call(1).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val("Hi").MemberVal("Len").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val("100").MemberVal("Int").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val("100").MemberVal("Uint64").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(100).MemberVal("String").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(1.34).MemberVal("String").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("a").MemberVal("Len", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("b").MemberVal("Len", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("c").MemberVal("Len", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("c").MemberVal("Join", 0).Val(",").Call(1).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val("Hi").MemberVal("Len", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val("100").MemberVal("Int", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val("100").MemberVal("Uint64", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(100).MemberVal("String", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(1.34).MemberVal("String", 0).Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).VarVal("e").Debug(
 		func(cb *gogen.CodeBuilder) {
-			cb.Member("string", gogen.MemberFlagAutoProperty)
+			cb.Member("string", 0, gogen.MemberFlagAutoProperty)
 		}).Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -222,12 +220,10 @@ func main() {
 	var a chan int
 	var b []int
 	var c []string
-	var d map[string]int
 	var e int64
 	fmt.Println(len(a))
 	fmt.Println(len(b))
 	fmt.Println(len(c))
-	fmt.Println(len(d))
 	fmt.Println(strings.Join(c, ","))
 	fmt.Println(len("Hi"))
 	fmt.Println(strconv.Atoi("100"))
@@ -253,11 +249,11 @@ func TestTypedBTIMethod(t *testing.T) {
 		NewVar(tyUint64, "c").
 		NewVar(tyFloat64, "d").
 		NewVar(tyString, "e").
-		Val(fmt.Ref("Println")).VarVal("a").MemberVal("String").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).VarVal("b").MemberVal("String").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).VarVal("c").MemberVal("String").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).VarVal("d").MemberVal("String").Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).VarVal("e").MemberVal("ToUpper").Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("a").MemberVal("String", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("b").MemberVal("String", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("c").MemberVal("String", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("d").MemberVal("String", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).VarVal("e").MemberVal("ToUpper", 0).Call(0).Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -2053,7 +2049,7 @@ func TestUnsafeFunc(t *testing.T) {
 		NewVar(tyT, "a").NewVar(tyUintptr, "r").
 		VarRef(ctxRef(pkg, "r")).Val(unsafe.Ref("Sizeof")).VarVal("a").Call(1).Assign(1).EndStmt().
 		VarRef(ctxRef(pkg, "r")).Val(unsafe.Ref("Alignof")).VarVal("a").Call(1).Assign(1).EndStmt().
-		VarRef(ctxRef(pkg, "r")).Val(unsafe.Ref("Offsetof")).VarVal("a").MemberVal("y").Call(1).Assign(1).EndStmt().
+		VarRef(ctxRef(pkg, "r")).Val(unsafe.Ref("Offsetof")).VarVal("a").MemberVal("y", 0).Call(1).Assign(1).EndStmt().
 		Val(builtin.Ref("println")).VarRef(ctxRef(pkg, "r")).Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -2133,9 +2129,9 @@ func TestUnsafeConst(t *testing.T) {
 	pkg.CB().NewConstStart(nil, "c4").
 		Val(unsafe_.Ref("Alignof")).Val(ctxRef(pkg, "t")).Call(1).EndInit(1)
 	pkg.CB().NewConstStart(nil, "c5").
-		Val(unsafe_.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("y").Call(1).EndInit(1)
+		Val(unsafe_.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("y", 0).Call(1).EndInit(1)
 	pkg.CB().NewConstStart(nil, "c6").
-		Val(unsafe_.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("n").Call(1).EndInit(1)
+		Val(unsafe_.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("n", 0).Call(1).EndInit(1)
 
 	domTest(t, pkg, `package main
 
@@ -2168,11 +2164,11 @@ const c6 = unsafe.Offsetof(t.n)
 	if v, ok := constant.Int64Val(c2.CVal); !ok || uintptr(v) != unsafe.Alignof("") {
 		t.Fatalf("unsafe.Alignof(t) %v", c2.CVal)
 	}
-	c3 := pkg.CB().Val(unsafe_.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("y").Call(1).Get(-1)
+	c3 := pkg.CB().Val(unsafe_.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("y", 0).Call(1).Get(-1)
 	if v, ok := constant.Int64Val(c3.CVal); !ok || uintptr(v) != unsafe.Sizeof(int(0)) {
 		t.Fatalf("unsafe.Offsetof(t.y) %v", c3.CVal)
 	}
-	c4 := pkg.CB().Val(unsafe_.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("n").Call(1).Get(-1)
+	c4 := pkg.CB().Val(unsafe_.Ref("Offsetof")).Val(ctxRef(pkg, "t")).MemberVal("n", 0).Call(1).Get(-1)
 	if v, ok := constant.Int64Val(c4.CVal); !ok || uintptr(v) != (unsafe.Sizeof(int(0))*2+unsafe.Sizeof("")) {
 		t.Fatalf("unsafe.Offsetof(t.n) %v", c4.CVal)
 	}
@@ -2202,8 +2198,8 @@ func TestInterfaceMethods(t *testing.T) {
 	b := pkg.NewParam(token.NoPos, "b", bar)
 	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(tyInterf))
 	pkg.NewFunc(nil, "foo", types.NewTuple(b, v), nil, true).BodyStart(pkg).
-		Val(b).MemberVal("Bar").Call(0).EndStmt().
-		Val(v).Val(0).Index(1, 0).MemberVal("Bar").Call(0).EndStmt().
+		Val(b).MemberVal("Bar", 0).Call(0).EndStmt().
+		Val(v).Val(0).Index(1, 0).MemberVal("Bar", 0).Call(0).EndStmt().
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -3053,7 +3049,7 @@ func TestImportAndCallMethod(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewAutoVar(token.NoPos, token.NoPos, "x", &x).
 		VarRef(x).Val(strings.Ref("NewReplacer")).Val("?").Val("!").Call(2).
-		/**/ MemberVal("Replace").Val("hello, world???").Call(1).Assign(1).EndStmt().
+		/**/ MemberVal("Replace", 0).Val("hello, world???").Call(1).Assign(1).EndStmt().
 		Val(pkg.Builtin().Ref("println")).Val(x).Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -3123,8 +3119,8 @@ func TestOverloadMethod(t *testing.T) {
 	bar := pkg.Import("github.com/goplus/gogen/internal/overload")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(bar.Ref("Game").Type(), "g").
-		VarVal("g").MemberVal("Run").Val("Hi").Call(1).EndStmt().
-		VarVal("g").MemberVal("Run2").Val(1).Call(1).EndStmt().
+		VarVal("g").MemberVal("Run", 0).Val("Hi").Call(1).EndStmt().
+		VarVal("g").MemberVal("Run2", 0).Val(1).Call(1).EndStmt().
 		// TODO: VarVal("g").MemberVal("Run3").Val("1").Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -3147,17 +3143,17 @@ func TestOverloadMethod2(t *testing.T) {
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "val", "err").Val(v).
 		Debug(func(cb *gogen.CodeBuilder) {
-			if kind, err := cb.Member("attr", gogen.MemberFlagAutoProperty); err == nil {
+			if kind, err := cb.Member("attr", 0, gogen.MemberFlagAutoProperty); err == nil {
 				t.Fatal("cb.Member v.attr no error?", kind)
 			}
-			cb.Member("attr", gogen.MemberFlagMethodAlias)
+			cb.Member("attr", 0, gogen.MemberFlagMethodAlias)
 		}).
 		Val("key").Call(1).EndInit(1).EndStmt().
 		Val(v).
 		Debug(func(cb *gogen.CodeBuilder) {
-			cb.Member("len", gogen.MemberFlagAutoProperty)
+			cb.Member("len", 0, gogen.MemberFlagAutoProperty)
 		}).EndStmt().
-		VarRef(v).Val(v).MemberVal("Attr").Val("key").Val("val").Call(2).Assign(1).
+		VarRef(v).Val(v).MemberVal("Attr", 0).Val("key").Val("val").Call(2).Assign(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -3179,17 +3175,17 @@ func TestOverloadInterfaceMethod(t *testing.T) {
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "val", "err").Val(v).
 		Debug(func(cb *gogen.CodeBuilder) {
-			if kind, err := cb.Member("attr", gogen.MemberFlagAutoProperty); err == nil {
+			if kind, err := cb.Member("attr", 0, gogen.MemberFlagAutoProperty); err == nil {
 				t.Fatal("cb.Member v.attr no error?", kind)
 			}
-			cb.Member("attr", gogen.MemberFlagMethodAlias)
+			cb.Member("attr", 0, gogen.MemberFlagMethodAlias)
 		}).
 		Val("key").Call(1).EndInit(1).EndStmt().
 		Val(v).
 		Debug(func(cb *gogen.CodeBuilder) {
-			cb.Member("len", gogen.MemberFlagAutoProperty)
+			cb.Member("len", 0, gogen.MemberFlagAutoProperty)
 		}).EndStmt().
-		VarRef(v).Val(v).MemberVal("Attr").Val("key").Val("val").Call(2).Assign(1).
+		VarRef(v).Val(v).MemberVal("Attr", 0).Val("key").Val("val").Call(2).Assign(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -3225,7 +3221,7 @@ func TestEmbbedMember(t *testing.T) {
 	typ := pkg.NewParam(token.NoPos, "t", types.NewPointer(test.Ref("T").Type()))
 	pkg.NewFunc(nil, "foo", types.NewTuple(typ), nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "t")).
-		MemberVal("Fatal").
+		MemberVal("Fatal", 0).
 		Call(0).
 		EndStmt().
 		End()
@@ -3272,10 +3268,10 @@ func TestMemberAutoProperty(t *testing.T) {
 	pkg.NewFunc(nil, "foo", types.NewTuple(typ), nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "t")).
 		Debug(func(cb *gogen.CodeBuilder) {
-			if kind, err := cb.Member("fatal", gogen.MemberFlagAutoProperty); err == nil {
+			if kind, err := cb.Member("fatal", 0, gogen.MemberFlagAutoProperty); err == nil {
 				t.Fatal("cb.Member t.fatal no error?", kind)
 			}
-			cb.Member("name", gogen.MemberFlagAutoProperty)
+			cb.Member("name", 0, gogen.MemberFlagAutoProperty)
 		}).
 		EndStmt().
 		End()
@@ -3303,26 +3299,26 @@ func TestStructMember(t *testing.T) {
 	pkg.CB().NewVarStart(nil, "b").
 		VarVal("a").
 		Debug(func(cb *gogen.CodeBuilder) {
-			kind, err := cb.Member("unknown", gogen.MemberFlagVal, source("a.unknown", 1, 5))
+			kind, err := cb.Member("unknown", 0, gogen.MemberFlagVal, source("a.unknown", 1, 5))
 			if kind != gogen.MemberInvalid ||
 				err.Error() != "./foo.gop:1:5: a.unknown undefined (type struct{x int; y string} has no field or method unknown)" {
 				t.Fatal("Member unknown:", kind, err)
 			}
 		}).
-		MemberVal("y").EndInit(1)
+		MemberVal("y", 0).EndInit(1)
 	pkg.CB().NewVarStart(nil, "c").
 		Val(123).Val("Hi").
 		StructLit(foo, 2, false).EndInit(1)
 	pkg.CB().NewVarStart(nil, "d").
-		VarVal("c").MemberVal("x").EndInit(1)
+		VarVal("c").MemberVal("x", 0).EndInit(1)
 	pkg.CB().NewVarStart(nil, "e").
 		VarVal("a").UnaryOp(token.AND).EndInit(1)
 	pkg.CB().NewVarStart(nil, "f").
-		VarVal("e").MemberVal("x").EndInit(1)
+		VarVal("e").MemberVal("x", 0).EndInit(1)
 	pkg.CB().NewVarStart(nil, "g").
 		VarVal("c").UnaryOp(token.AND).EndInit(1)
 	pkg.CB().NewVarStart(nil, "h").
-		VarVal("g").MemberVal("y").EndInit(1)
+		VarVal("g").MemberVal("y", 0).EndInit(1)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		VarVal("c").MemberRef("x").Val(1).Assign(1).
 		VarVal("a").MemberRef("y").Val("1").Assign(1).
@@ -3397,6 +3393,7 @@ func TestIndex(t *testing.T) {
 	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
 	pkg.NewFunc(nil, "foo", types.NewTuple(x, y), types.NewTuple(ret), false).BodyStart(pkg).
 		DefineVarStart(0, "v", "ok").Val(y).Val("a").Index(1, 2).EndInit(1).
+		DefineVarStart(0, "v2").Val(y).MemberVal("a", 0).EndInit(1).
 		Val(x).Val(0).Index(1, 0).Return(1).
 		End()
 
@@ -3405,6 +3402,7 @@ func TestIndex(t *testing.T) {
 
 func foo(x []int, y map[string]int) int {
 	v, ok := y["a"]
+	v2 := y["a"]
 	return x[0]
 }
 func main() {
@@ -3889,7 +3887,7 @@ func TestInterfaceMethodVarCall(t *testing.T) {
 		Val(fmt.Ref("Println")).Val(recv).Val(pkg.NewParam(token.NoPos, "info", tyString)).Call(2).EndStmt(). // fmt.Println(v)
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-		DefineVarStart(0, "v").Val(ctxRef(pkg, "foo")).MemberVal("bar").EndInit(1).
+		DefineVarStart(0, "v").Val(ctxRef(pkg, "foo")).MemberVal("bar", 0).EndInit(1).
 		NewVarStart(tt, "tt").Val(123).EndInit(1).
 		VarVal("v").Val(ctxRef(pkg, "tt")).Val("hello").Call(2, false).
 		EndStmt().End()
@@ -3970,7 +3968,7 @@ func (m *M) SetValue() {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyM, "m").VarVal("m").Debug(
 		func(cb *gogen.CodeBuilder) {
-			cb.Member("setValue", gogen.MemberFlagMethodAlias)
+			cb.Member("setValue", 0, gogen.MemberFlagMethodAlias)
 		}).Call(0).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -4005,7 +4003,7 @@ func (m *M) SetValue() {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVar(tyM, "m").VarVal("m").Debug(
 		func(cb *gogen.CodeBuilder) {
-			cb.Member("SetValue", gogen.MemberFlagMethodAlias)
+			cb.Member("SetValue", 0, gogen.MemberFlagMethodAlias)
 		}).Call(0).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -4033,15 +4031,15 @@ func TestMethodAlias(t *testing.T) {
 		NewVar(tyM, "m").
 		VarVal("m").Debug(
 		func(cb *gogen.CodeBuilder) {
-			cb.Member("setValue", gogen.MemberFlagMethodAlias)
+			cb.Member("setValue", 0, gogen.MemberFlagMethodAlias)
 		}).Call(0).EndStmt().
 		VarVal("m").Debug(
 		func(cb *gogen.CodeBuilder) {
-			cb.Member("SetValue", gogen.MemberFlagMethodAlias)
+			cb.Member("SetValue", 0, gogen.MemberFlagMethodAlias)
 		}).Call(0).EndStmt().
 		VarVal("m").Debug(
 		func(cb *gogen.CodeBuilder) {
-			cb.Member("value", gogen.MemberFlagMethodAlias)
+			cb.Member("value", 0, gogen.MemberFlagMethodAlias)
 		}).Call(0).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -4262,7 +4260,7 @@ type Game struct {
 	cb := pkg.NewFunc(nil, "Example", nil, nil, false).BodyStart(pkg).
 		NewVar(types.NewPointer(spriteDecl.Obj().Type()), "sprite").
 		If().Debug(func(cb *gogen.CodeBuilder) {
-		_, err = cb.VarVal("sprite").Member("play", gogen.MemberFlagAutoProperty)
+		_, err = cb.VarVal("sprite").Member("play", 0, gogen.MemberFlagAutoProperty)
 		if err != nil {
 			t.Fatal("tbl.Member(col):", err)
 		}
