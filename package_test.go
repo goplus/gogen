@@ -3423,6 +3423,7 @@ func TestIndexRef(t *testing.T) {
 		Val(x).Val(0).IndexRef(1).Val(1).Assign(1).
 		Val(y).Val(1).IndexRef(1).Val(2).Assign(1).
 		Val(z).Val("a").IndexRef(1).Val(3).Assign(1).
+		Val(z).MemberRef("b").Val(3).Assign(1).
 		Val(y).ElemRef().Val(x).Assign(1).
 		VarRef(x).Val(y).Elem().Assign(1).
 		End()
@@ -3434,6 +3435,7 @@ func foo(x [10]int, y *[10]int, z map[string]int) {
 	x[0] = 1
 	y[1] = 2
 	z["a"] = 3
+	z["b"] = 3
 	*y = x
 	x = *y
 }

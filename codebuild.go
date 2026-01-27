@@ -1554,6 +1554,19 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, sr
 		if p.fieldRef(argVal, o, name, src, visited) {
 			return MemberField
 		}
+	case *types.Map:
+		// Map member access provides syntactic sugar: m.key is converted to m["key"]
+		// This allows more concise map access when keys are valid identifiers.
+		// Note: Only works with string-keyed maps.
+		if key, ok := o.Key().(*types.Basic); !ok || (key.Info()&types.IsString) == 0 {
+			break
+		}
+		tyRet := &refType{typ: o.Elem()}
+		elem := &internal.Elem{
+			Val: &ast.IndexExpr{X: argVal, Index: stringLit(name)}, Type: tyRet, Src: src,
+		}
+		p.stk.Ret(1, elem)
+		return MemberField
 	}
 	return MemberInvalid
 }
@@ -1780,10 +1793,14 @@ retry:
 			}
 		}
 	case *types.Map:
+		// Map member access provides syntactic sugar: m.key is converted to m["key"]
+		// This allows more concise map access when keys are valid identifiers.
+		// Note: Only works with string-keyed maps.
+		if key, ok := o.Key().(*types.Basic); !ok || (key.Info()&types.IsString) == 0 {
+			break
+		}
 		tyRet := o.Elem()
-		if flag == MemberFlagRef {
-			tyRet = &refType{typ: tyRet}
-		} else if lhs == 2 { // two-value assignment
+		if lhs == 2 { // two-value assignment
 			pkg := p.pkg.Types
 			tyRet = types.NewTuple(
 				types.NewParam(token.NoPos, pkg, "", tyRet),

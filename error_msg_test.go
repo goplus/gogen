@@ -1713,6 +1713,38 @@ func TestErrMember(t *testing.T) {
 				EndStmt().
 				End()
 		})
+	codeErrorTest(t,
+		`./foo.gop:1:5: x.y undefined (type map[int]int has no field or method y)`,
+		func(pkg *gogen.Package) {
+			typ := types.NewMap(types.Typ[types.Int], types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(typ, "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				Debug(func(cb *gogen.CodeBuilder) {
+					_, err := cb.Member("y", 0, gogen.MemberFlagVal, source("x.y", 1, 5))
+					if err != nil {
+						panic(err)
+					}
+				}).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:1:5: x.y undefined (type map[int]int has no field or method y)`,
+		func(pkg *gogen.Package) {
+			typ := types.NewMap(types.Typ[types.Int], types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(typ, "x").
+				Val(ctxRef(pkg, "x"), source("x", 1, 5)).
+				Debug(func(cb *gogen.CodeBuilder) {
+					_, err := cb.Member("y", 0, gogen.MemberFlagRef, source("x.y", 1, 5))
+					if err != nil {
+						panic(err)
+					}
+				}).
+				EndStmt().
+				End()
+		})
 }
 
 func TestErrMemberRef(t *testing.T) {
