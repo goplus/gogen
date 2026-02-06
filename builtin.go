@@ -1506,7 +1506,7 @@ var (
 func initBuiltinTIs(pkg *Package) {
 	var (
 		float64TI, intTI, int64TI, uint64TI *BuiltinTI
-		ioxTI, stringTI, stringSliceTI      *BuiltinTI
+		osxTI, stringTI, stringSliceTI      *BuiltinTI
 	)
 	btiMap := new(typeutil.Map)
 	strconv := pkg.TryImport("strconv")
@@ -1514,17 +1514,17 @@ func initBuiltinTIs(pkg *Package) {
 	btoLen := types.Universe.Lookup("len")
 	btoCap := types.Universe.Lookup("cap")
 	{
-		ioxPkg := pkg.conf.PkgPathIox
-		if debugImportIox && ioxPkg == "" {
-			ioxPkg = "github.com/goplus/gogen/internal/iox"
+		osxPkg := pkg.conf.PkgPathOsx
+		if debugImportOsx && osxPkg == "" {
+			osxPkg = "github.com/goplus/gogen/internal/iox"
 		}
-		if ioxPkg != "" {
+		if osxPkg != "" {
 			if os := pkg.TryImport("os"); os.isValid() {
-				if iox := pkg.TryImport(ioxPkg); iox.isValid() {
-					ioxTI = &BuiltinTI{
+				if osx := pkg.TryImport(osxPkg); osx.isValid() {
+					osxTI = &BuiltinTI{
 						typ: os.Ref("File").Type(),
 						methods: []*BuiltinMethod{
-							{"XGo_Enum", iox.Ref("EnumLines"), nil},
+							{"XGo_Enum", osx.Ref("EnumLines"), nil},
 						},
 					}
 				}
@@ -1614,7 +1614,7 @@ func initBuiltinTIs(pkg *Package) {
 		}
 	}
 	tis := []*BuiltinTI{
-		ioxTI,
+		osxTI,
 		float64TI,
 		intTI,
 		int64TI,

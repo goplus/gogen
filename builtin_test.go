@@ -36,7 +36,7 @@ var (
 )
 
 func init() {
-	debugImportIox = true
+	debugImportOsx = true
 }
 
 func getConf() *Config {
