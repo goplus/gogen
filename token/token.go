@@ -22,10 +22,10 @@ type Token = token.Token
 
 const (
 	additional_beg = token.TILDE - 1
-	additional_end = token.TILDE + 1
+	additional_op1 = token.TILDE + 1
 
 	SRARROW   = additional_beg // -> (single right arrow)
-	BIDIARROW = additional_end // <> (bidirectional arrow)
+	BIDIARROW = additional_op1 // <> (bidirectional arrow)
 )
 
 func String(tok Token) string {
