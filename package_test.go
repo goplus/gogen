@@ -2749,6 +2749,104 @@ func main() {
 `)
 }
 
+func TestForRangeFunc0(t *testing.T) {
+	// Test range over func(yield func() bool) - 0 values
+	pkg := newMainPackage()
+	// Define iterator function type: func(yield func() bool)
+	yieldSig := types.NewSignatureType(nil, nil, nil, nil, types.NewTuple(types.NewVar(token.NoPos, nil, "", types.Typ[types.Bool])), false)
+	yieldParam := pkg.NewParam(token.NoPos, "yield", yieldSig)
+	iterSig := types.NewTuple(yieldParam)
+
+	// Define foo function
+	pkg.NewFunc(nil, "foo", iterSig, nil, false).BodyStart(pkg).
+		End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		ForRange().Val(ctxRef(pkg, "foo")).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
+		End().
+		End()
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+func foo(yield func() bool) {
+}
+func main() {
+	for range foo {
+		fmt.Println("Hi")
+	}
+}
+`)
+}
+
+func TestForRangeFunc1(t *testing.T) {
+	// Test range over func(yield func(V) bool) - 1 value
+	pkg := newMainPackage()
+	// Define iterator function type: func(yield func(string) bool)
+	yieldParamV := types.NewVar(token.NoPos, nil, "v", types.Typ[types.String])
+	yieldRet := types.NewVar(token.NoPos, nil, "", types.Typ[types.Bool])
+	yieldSig := types.NewSignatureType(nil, nil, nil, types.NewTuple(yieldParamV), types.NewTuple(yieldRet), false)
+	iterParam := pkg.NewParam(token.NoPos, "yield", yieldSig)
+	iterSig := types.NewTuple(iterParam)
+
+	// Define bar function
+	pkg.NewFunc(nil, "bar", iterSig, nil, false).BodyStart(pkg).
+		End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		ForRange("v").Val(ctxRef(pkg, "bar")).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "v")).Call(1).EndStmt().
+		End().
+		End()
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+func bar(yield func(v string) bool) {
+}
+func main() {
+	for v := range bar {
+		fmt.Println(v)
+	}
+}
+`)
+}
+
+func TestForRangeFunc2(t *testing.T) {
+	// Test range over func(yield func(K, V) bool) - 2 values (key-value pairs)
+	pkg := newMainPackage()
+	// Define iterator function type: func(yield func(string, int) bool)
+	yieldParamK := types.NewVar(token.NoPos, nil, "k", types.Typ[types.String])
+	yieldParamV := types.NewVar(token.NoPos, nil, "v", types.Typ[types.Int])
+	yieldRet := types.NewVar(token.NoPos, nil, "", types.Typ[types.Bool])
+	yieldSig := types.NewSignatureType(nil, nil, nil, types.NewTuple(yieldParamK, yieldParamV), types.NewTuple(yieldRet), false)
+	iterParam := pkg.NewParam(token.NoPos, "yield", yieldSig)
+	iterSig := types.NewTuple(iterParam)
+
+	// Define weekdays function
+	pkg.NewFunc(nil, "weekdays", iterSig, nil, false).BodyStart(pkg).
+		End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		ForRange("k", "v").Val(ctxRef(pkg, "weekdays")).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "k")).Val(ctxRef(pkg, "v")).Call(2).EndStmt().
+		End().
+		End()
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+func weekdays(yield func(k string, v int) bool) {
+}
+func main() {
+	for k, v := range weekdays {
+		fmt.Println(k, v)
+	}
+}
+`)
+}
+
 func TestReturn(t *testing.T) {
 	pkg := newMainPackage()
 	format := pkg.NewParam(token.NoPos, "format", types.Typ[types.String])
