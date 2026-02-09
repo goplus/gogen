@@ -20,6 +20,7 @@ import (
 	"log"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/typesalias"
 )
 
 type controlFlow interface {
@@ -636,7 +637,8 @@ func checkIteratorFunc(sig *types.Signature) []types.Type {
 		return nil
 	}
 	// The parameter must be a function
-	yieldSig, ok := sig.Params().At(0).Type().(*types.Signature)
+	paramType := sig.Params().At(0).Type()
+	yieldSig, ok := typesalias.Unalias(paramType).(*types.Signature)
 	if !ok {
 		return nil
 	}
