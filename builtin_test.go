@@ -21,6 +21,7 @@ import (
 	"go/types"
 	"log"
 	"math/big"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -904,6 +905,50 @@ func TestGetIdxValTypes(t *testing.T) {
 	if ivKind == ivTwoValue || kv[0] != types.Typ[types.Int] || kv[1] != types.Typ[types.Int] {
 		t.Fatal("TestGetIdxValTypes failed:", kv, ivKind)
 	}
+}
+
+func Test_checkIteratorFunc(t *testing.T) {
+	type testCase struct {
+		name     string
+		in, out  []types.Type // nil means yield
+		yieldIn  []types.Type
+		yieldOut []types.Type
+		expect   []types.Type
+	}
+	in := []types.Type{nil}
+	tyInt := []types.Type{types.Typ[types.Int]}
+	ty3Ints := []types.Type{types.Typ[types.Int], types.Typ[types.Int], types.Typ[types.Int]}
+	tyBool := []types.Type{types.Typ[types.Bool]}
+	cases := []testCase{
+		{name: "func()", expect: nil},
+		{name: "func() int", out: tyInt, expect: nil},
+		{name: "func(int)", in: tyInt, expect: nil},
+		{name: "yield: func()", in: in, expect: nil},
+		{name: "yield: func() int", in: in, yieldOut: tyInt, expect: nil},
+		{name: "yield: func(int, int, int) bool", in: in, yieldIn: ty3Ints, yieldOut: tyBool, expect: nil},
+	}
+	for _, c := range cases {
+		yieldIn := newParams(c.yieldIn, nil)
+		yieldOut := newParams(c.yieldOut, nil)
+		yield := types.NewSignatureType(nil, nil, nil, yieldIn, yieldOut, false)
+		in := newParams(c.in, yield)
+		out := newParams(c.out, nil)
+		sig := types.NewSignatureType(nil, nil, nil, in, out, false)
+		if ret := checkIteratorFunc(sig); !reflect.DeepEqual(ret, c.expect) {
+			t.Fatal("checkIteratorFunc failed:", c.name)
+		}
+	}
+}
+
+func newParams(typs []types.Type, yldt types.Type) *types.Tuple {
+	in := make([]*types.Var, len(typs))
+	for i, typ := range typs {
+		if i == 0 && typ == nil {
+			typ = yldt
+		}
+		in[i] = types.NewParam(0, nil, "", typ)
+	}
+	return types.NewTuple(in...)
 }
 
 func TestGetIdxValTypes2(t *testing.T) {
