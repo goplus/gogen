@@ -626,7 +626,7 @@ retry:
 
 // checkIteratorFunc checks if sig is a Go 1.23 iterator function signature.
 // Returns [keyType, valType] if valid, nil otherwise.
-// For 0-value iterators, returns empty slice.
+// For 0-value iterators, returns [nil, nil].
 // For 1-value iterators, returns [valType, nil].
 // For 2-value iterators, returns [keyType, valType].
 func checkIteratorFunc(sig *types.Signature) []types.Type {
