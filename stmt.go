@@ -608,12 +608,61 @@ retry:
 		if (t.Info() & types.IsString) != 0 {
 			return []types.Type{types.Typ[types.Int], types.Typ[types.Rune]}
 		}
+	case *types.Signature:
+		// Go 1.23 range over function types:
+		// func(yield func() bool)           - 0 values
+		// func(yield func(V) bool)          - 1 value
+		// func(yield func(K, V) bool)       - 2 values
+		if kvt := checkIteratorFunc(t); kvt != nil {
+			return kvt
+		}
 	case *types.Named:
 		if kv, ok := p.checkUdt(cb, t); ok {
 			return kv
 		}
 		typ = cb.getUnderlying(t)
 		goto retry
+	}
+	return nil
+}
+
+// checkIteratorFunc checks if sig is a Go 1.23 iterator function signature.
+// Returns [keyType, valType] if valid, nil otherwise.
+// For 0-value iterators, returns empty slice.
+// For 1-value iterators, returns [valType, nil].
+// For 2-value iterators, returns [keyType, valType].
+func checkIteratorFunc(sig *types.Signature) []types.Type {
+	// Must have no results
+	if sig.Results().Len() != 0 {
+		return nil
+	}
+	// Must have exactly 1 parameter (the yield function)
+	if sig.Params().Len() != 1 {
+		return nil
+	}
+	// The parameter must be a function
+	yieldSig, ok := sig.Params().At(0).Type().(*types.Signature)
+	if !ok {
+		return nil
+	}
+	// yield must return bool
+	if yieldSig.Results().Len() != 1 {
+		return nil
+	}
+	retType := yieldSig.Results().At(0).Type()
+	basic, ok := retType.(*types.Basic)
+	if !ok || basic.Kind() != types.Bool {
+		return nil
+	}
+	// Check yield parameters (0, 1, or 2)
+	n := yieldSig.Params().Len()
+	switch n {
+	case 0:
+		return []types.Type{nil, nil}
+	case 1:
+		return []types.Type{yieldSig.Params().At(0).Type(), nil}
+	case 2:
+		return []types.Type{yieldSig.Params().At(0).Type(), yieldSig.Params().At(1).Type()}
 	}
 	return nil
 }
