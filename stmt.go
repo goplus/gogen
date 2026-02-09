@@ -20,6 +20,7 @@ import (
 	"log"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/typesalias"
 )
 
 type controlFlow interface {
@@ -608,12 +609,57 @@ retry:
 		if (t.Info() & types.IsString) != 0 {
 			return []types.Type{types.Typ[types.Int], types.Typ[types.Rune]}
 		}
+	case *types.Signature:
+		// Go 1.23 range over function types:
+		// func(yield func() bool)           - 0 values
+		// func(yield func(V) bool)          - 1 value
+		// func(yield func(K, V) bool)       - 2 values
+		return checkIteratorFunc(t)
 	case *types.Named:
 		if kv, ok := p.checkUdt(cb, t); ok {
 			return kv
 		}
 		typ = cb.getUnderlying(t)
 		goto retry
+	}
+	return nil
+}
+
+// checkIteratorFunc checks if sig is a Go 1.23 iterator function signature.
+// Returns [keyType, valType] if valid, nil otherwise.
+// For 0-value iterators, returns [nil, nil].
+// For 1-value iterators, returns [valType, nil].
+// For 2-value iterators, returns [keyType, valType].
+func checkIteratorFunc(sig *types.Signature) []types.Type {
+	// Must have no results
+	// Must have exactly 1 parameter (the yield function)
+	if sig.Results().Len() != 0 || sig.Params().Len() != 1 {
+		return nil
+	}
+	// The parameter must be a function
+	paramType := sig.Params().At(0).Type()
+	yieldSig, ok := typesalias.Unalias(paramType).(*types.Signature)
+	if !ok {
+		return nil
+	}
+	// yield must return bool
+	yieldRets := yieldSig.Results()
+	if yieldRets.Len() != 1 {
+		return nil
+	}
+	basic, ok := yieldRets.At(0).Type().(*types.Basic)
+	if !ok || basic.Kind() != types.Bool {
+		return nil
+	}
+	// Check yield parameters (0, 1, or 2)
+	yieldParams := yieldSig.Params()
+	switch yieldParams.Len() {
+	case 0:
+		return []types.Type{nil, nil}
+	case 1:
+		return []types.Type{yieldParams.At(0).Type(), nil}
+	case 2:
+		return []types.Type{yieldParams.At(0).Type(), yieldParams.At(1).Type()}
 	}
 	return nil
 }
