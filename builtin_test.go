@@ -346,7 +346,7 @@ func TestGetBuiltinTI(t *testing.T) {
 	if sig == nil || sig.Params().Len() != 1 {
 		t.Fatal("string.Index (Params):", sig)
 	}
-	if sig == nil || sig.Results().Len() != 1 {
+	if sig.Results().Len() != 1 {
 		t.Fatal("string.Index (Results):", sig)
 	}
 	if tsig := tiStr.lookupByName("__unknown"); tsig != nil {
@@ -361,7 +361,7 @@ func TestFindMethodType(t *testing.T) {
 	if sig == nil || sig.Params().Len() != 0 {
 		t.Fatal("os.File.XGoEnum (Params):", sig)
 	}
-	if sig == nil || sig.Results().Len() != 1 {
+	if sig.Results().Len() != 1 {
 		t.Fatal("os.File.XGoEnum (Results):", sig)
 	}
 }

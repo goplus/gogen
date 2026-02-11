@@ -1035,6 +1035,54 @@ func bar(v *os.File) {
 `)
 }
 
+func TestForRangeUDT7(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+	bar := foo.Ref("Foo5").Type()
+	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		ForRange("_", "v").Val(v).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "v")).Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	"fmt"
+	"github.com/goplus/gogen/internal/foo"
+)
+
+func bar(v *foo.Foo5) {
+	for _, v := range v.XGo_Enum() {
+		fmt.Println(v)
+	}
+}
+`)
+}
+
+func TestForRangeUDT8(t *testing.T) {
+	pkg := newMainPackage()
+	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+	bar := foo.Ref("Foo6").Type()
+	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		ForRange("_", "v").Val(v).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "v")).Call(1).EndStmt().
+		End().End()
+	domTest(t, pkg, `package main
+
+import (
+	"fmt"
+	"github.com/goplus/gogen/internal/foo"
+)
+
+func bar(v *foo.Foo6) {
+	for _, v := range v.XGo_Enum() {
+		fmt.Println(v)
+	}
+}
+`)
+}
+
 // ----------------------------------------------------------------------------
 
 func TestStaticMethod(t *testing.T) {

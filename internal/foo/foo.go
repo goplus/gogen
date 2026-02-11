@@ -14,6 +14,8 @@
 package foo
 
 import (
+	"iter"
+
 	"github.com/goplus/gogen/internal/bar"
 )
 
@@ -74,6 +76,33 @@ func (p *Bar) XGo_Enum() barIt {
 
 // -----------------------------------------------------------------------------
 
+type barIt2 struct {
+}
+
+type Bar2 struct {
+}
+
+func (p *Bar2) XGo_Enum() barIt2 {
+	return barIt2{}
+}
+
+// -----------------------------------------------------------------------------
+
+type barIt3 struct {
+}
+
+func (p barIt3) Next() {
+}
+
+type Bar3 struct {
+}
+
+func (p *Bar3) XGo_Enum() barIt3 {
+	return barIt3{}
+}
+
+// -----------------------------------------------------------------------------
+
 type Foo struct {
 }
 
@@ -107,6 +136,24 @@ type Foo4 struct {
 }
 
 func (p Foo4) XGo_Enum(c func()) {
+}
+
+// -----------------------------------------------------------------------------
+
+type Foo5 struct {
+}
+
+func (p Foo5) XGo_Enum() iter.Seq2[int, string] {
+	return nil
+}
+
+// -----------------------------------------------------------------------------
+
+type Foo6 struct {
+}
+
+func (p Foo6) XGo_Enum() func(yield func(int, string) bool) {
+	return nil
 }
 
 // -----------------------------------------------------------------------------
