@@ -1,6 +1,6 @@
 module github.com/goplus/gogen
 
-go 1.19
+go 1.23
 
 retract (
 	v1.20.0
