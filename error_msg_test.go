@@ -472,6 +472,30 @@ func TestErrForRange(t *testing.T) {
 				End().
 				End()
 		})
+	codeErrorTest(t, `./foo.gop:1:17: cannot range over v (type *github.com/goplus/gogen/internal/foo.Bar2)`,
+		func(pkg *gogen.Package) {
+			foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+			bar := foo.Ref("Bar2").Type()
+			v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+				ForRange("a", "b").
+				Val(v, source("v", 1, 9)).
+				RangeAssignThen(position(1, 17)).
+				End().
+				End()
+		})
+	codeErrorTest(t, `./foo.gop:1:17: cannot range over v (type *github.com/goplus/gogen/internal/foo.Bar3)`,
+		func(pkg *gogen.Package) {
+			foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+			bar := foo.Ref("Bar3").Type()
+			v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+				ForRange("a", "b").
+				Val(v, source("v", 1, 9)).
+				RangeAssignThen(position(1, 17)).
+				End().
+				End()
+		})
 	codeErrorTest(t, `./foo.gop:1:17: cannot range over 13 (type untyped int)`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

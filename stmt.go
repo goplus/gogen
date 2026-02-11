@@ -698,28 +698,50 @@ func (p *forRangeStmt) checkUdt(cb *CodeBuilder, o *types.Named) ([]types.Type, 
 		}
 		if enumRet.Len() == 1 {
 			typ := enumRet.At(0).Type()
-			if t, ok := typ.(*types.Pointer); ok {
+			switch t := typ.(type) {
+			case *types.Pointer:
 				typ = t.Elem()
-			}
-			if it, ok := typ.(*types.Named); ok {
-				if next := findMethodType(cb, it, "Next"); next != nil {
-					ret := next.Results()
-					typs := make([]types.Type, 2)
-					n := ret.Len()
-					switch n {
-					case 2: // elem, ok
-						typs[0] = ret.At(0).Type()
-					case 3: // key, elem, ok
-						typs[0], typs[1] = ret.At(0).Type(), ret.At(1).Type()
-					default:
-						return nil, false
+				if it, ok := typ.(*types.Named); ok {
+					return p.checkUdtEnumRet(cb, it)
+				}
+			case *types.Named:
+				u := cb.getUnderlying(t)
+				if sig, ok := u.(*types.Signature); ok {
+					if ret := checkIteratorFunc(sig); ret != nil {
+						return ret, true
 					}
-					if ret.At(n-1).Type() == types.Typ[types.Bool] {
-						p.udt = n
-						return typs, true
-					}
+				} else {
+					return p.checkUdtEnumRet(cb, t)
+				}
+			case *types.Signature:
+				if ret := checkIteratorFunc(t); ret != nil {
+					return ret, true
 				}
 			}
+		}
+	}
+	return nil, false
+}
+
+// checkUdtEnumRet checks if a named type 'it' returned by XGo_Enum()
+// implements the iterator pattern with a Next() method.
+// Returns the key/value types and true if valid, nil and false otherwise.
+func (p *forRangeStmt) checkUdtEnumRet(cb *CodeBuilder, it *types.Named) ([]types.Type, bool) {
+	if next := findMethodType(cb, it, "Next"); next != nil {
+		ret := next.Results()
+		typs := make([]types.Type, 2)
+		n := ret.Len()
+		switch n {
+		case 2: // elem, ok
+			typs[0] = ret.At(0).Type()
+		case 3: // key, elem, ok
+			typs[0], typs[1] = ret.At(0).Type(), ret.At(1).Type()
+		default:
+			return nil, false
+		}
+		if ret.At(n-1).Type() == types.Typ[types.Bool] {
+			p.udt = n
+			return typs, true
 		}
 	}
 	return nil, false
@@ -765,6 +787,11 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
 	if n := p.udt; n == 0 {
+		if p.enumName != "" {
+			p.stmt.X = &ast.CallExpr{
+				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: ident(p.enumName)},
+			}
+		}
 		p.stmt.Body = p.handleFor(&ast.BlockStmt{List: stmts}, 1)
 		cb.emitStmt(p.stmt)
 	} else if n > 0 {
