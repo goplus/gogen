@@ -723,6 +723,9 @@ func (p *forRangeStmt) checkUdt(cb *CodeBuilder, o *types.Named) ([]types.Type, 
 	return nil, false
 }
 
+// checkUdtEnumRet checks if a named type 'it' returned by XGo_Enum()
+// implements the iterator pattern with a Next() method.
+// Returns the key/value types and true if valid, nil and false otherwise.
 func (p *forRangeStmt) checkUdtEnumRet(cb *CodeBuilder, it *types.Named) ([]types.Type, bool) {
 	if next := findMethodType(cb, it, "Next"); next != nil {
 		ret := next.Results()
