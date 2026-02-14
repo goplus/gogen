@@ -129,7 +129,7 @@ func commaOK(typ types.Type, lhs int) bool {
 func checkTupleType(typ types.Type) (result *types.Struct) {
 	result, _ = typ.Underlying().(*types.Struct)
 	if result != nil {
-		if result.NumFields() > 0 && result.Field(0).Name() != tupleField0 {
+		if result.NumFields() == 0 || result.Field(0).Name() != tupleField0 {
 			result = nil
 		}
 	}
