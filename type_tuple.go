@@ -129,6 +129,8 @@ func commaOK(typ types.Type, lhs int) bool {
 func checkTupleType(typ types.Type) (result *types.Struct) {
 	result, _ = typ.Underlying().(*types.Struct)
 	if result != nil {
+		// Reject if: (1) empty struct, or (2) first field is not named X_0
+		// A tuple type must have at least one field named X_0, X_1, etc.
 		if result.NumFields() == 0 || result.Field(0).Name() != tupleField0 {
 			result = nil
 		}
