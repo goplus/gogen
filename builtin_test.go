@@ -1706,7 +1706,7 @@ func TestAliasTypeMethod(t *testing.T) {
 }
 
 func TestAliasCheckInterface(t *testing.T) {
-	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	pkg := NewPackage("", "foo", nil)
 	alias := pkg.AliasType("Any", types.NewInterfaceType(nil, nil))
 	if typ, ok := pkg.cb.checkInterface(alias); typ == nil || !ok {
 		t.Fatal("TestAliasCheckInterface failed:", typ, ok)
@@ -1714,7 +1714,7 @@ func TestAliasCheckInterface(t *testing.T) {
 }
 
 func TestAliasUnsigned(t *testing.T) {
-	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	pkg := NewPackage("", "foo", nil)
 	typ := pkg.AliasType("Int", types.Typ[types.Uint8])
 	if !isUnsigned(typ) {
 		t.Fatal("TestAliasUnsigned failed:", typ)
@@ -1722,7 +1722,7 @@ func TestAliasUnsigned(t *testing.T) {
 }
 
 func TestAliasContract(t *testing.T) {
-	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	pkg := NewPackage("", "foo", nil)
 	at := types.NewPackage("foo", "foo")
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	tfoo := foo.Ref("Foo").Type()
@@ -1753,7 +1753,7 @@ func TestAliasContract(t *testing.T) {
 }
 
 func TestAliasIsNumeric(t *testing.T) {
-	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	pkg := NewPackage("", "foo", nil)
 	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "MyInt", nil), types.Typ[types.Int], nil)
 	if !isNumeric(&pkg.cb, typ) {
 		t.Fatal("TestAliasIsNumeric: MyInt not isNumeric?")
@@ -1765,7 +1765,7 @@ func TestAliasIsNumeric(t *testing.T) {
 }
 
 func TestAliasGetStruct(t *testing.T) {
-	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	pkg := NewPackage("", "foo", nil)
 	st := types.NewStruct(
 		[]*types.Var{types.NewField(token.NoPos, pkg.Types, "F", types.Typ[types.Int], false)},
 		nil,
@@ -1777,7 +1777,7 @@ func TestAliasGetStruct(t *testing.T) {
 }
 
 func TestAliasRecv(t *testing.T) {
-	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	pkg := NewPackage("", "foo", nil)
 	var instr recvInstr
 	elem := &Element{
 		Type: pkg.AliasType("MyChan", types.NewChan(types.SendRecv, types.Typ[types.Int])),
@@ -1790,7 +1790,7 @@ func TestAliasRecv(t *testing.T) {
 }
 
 func TestAliasOffsetof(t *testing.T) {
-	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	pkg := NewPackage("", "foo", nil)
 	var instr unsafeOffsetofInstr
 	typ := types.NewNamed(
 		types.NewTypeName(token.NoPos, pkg.Types, "Point", nil),
@@ -1824,7 +1824,7 @@ func TestAliasOffsetof(t *testing.T) {
 }
 
 func TestAliasBasic(t *testing.T) {
-	pkg := NewPackage("", "foo", &Config{EnableTypesalias: true})
+	pkg := NewPackage("", "foo", nil)
 	aliasType := pkg.AliasType("MyInt", types.Typ[types.Int])
 	elem := &Element{
 		Type: aliasType,
