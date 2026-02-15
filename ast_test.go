@@ -18,8 +18,6 @@ import (
 	"go/token"
 	"go/types"
 	"testing"
-
-	"github.com/goplus/gogen/internal/typesalias"
 )
 
 func TestToVariadic(t *testing.T) {
@@ -44,7 +42,7 @@ func TestToType(t *testing.T) {
 
 func TestToTypeAlias(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
-	alias := typesalias.NewAlias(types.NewTypeName(token.NoPos, nil, "Int", nil), types.Typ[types.Int])
+	alias := types.NewAlias(types.NewTypeName(token.NoPos, nil, "Int", nil), types.Typ[types.Int])
 	expr := toType(pkg, alias)
 	if ident, ok := expr.(*ast.Ident); !ok || ident.Name != "Int" {
 		t.Fatalf("bad alias %#v", expr)
@@ -75,12 +73,12 @@ func Test_embedName(t *testing.T) {
 		},
 		{
 			name: "alias type",
-			typ:  typesalias.NewAlias(types.NewTypeName(0, nil, "MyInt", nil), types.Typ[types.Int]),
+			typ:  types.NewAlias(types.NewTypeName(0, nil, "MyInt", nil), types.Typ[types.Int]),
 			want: "MyInt",
 		},
 		{
 			name: "pointer to alias type",
-			typ:  types.NewPointer(typesalias.NewAlias(types.NewTypeName(0, nil, "MyInt", nil), types.Typ[types.Int])),
+			typ:  types.NewPointer(types.NewAlias(types.NewTypeName(0, nil, "MyInt", nil), types.Typ[types.Int])),
 			want: "MyInt",
 		},
 		{

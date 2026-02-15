@@ -21,7 +21,6 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/internal"
-	"github.com/goplus/gogen/internal/typesalias"
 )
 
 // ----------------------------------------------------------------------------
@@ -115,7 +114,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam)
 	}
 	if named, ok := typ.(*types.Named); ok {
 		p.typ.SetUnderlying(pkg.cb.getUnderlying(named))
-	} else if alias, ok := typ.(*typesalias.Alias); ok {
+	} else if alias, ok := typ.(*types.Alias); ok {
 		p.typ.SetUnderlying(alias.Underlying())
 	} else {
 		p.typ.SetUnderlying(typ)
@@ -160,10 +159,7 @@ func (p *TypeDefs) AliasType(name string, typ types.Type, src ...ast.Node) types
 	if debugInstr {
 		log.Println("AliasType", name, typ)
 	}
-	if typesalias.Support && p.pkg.conf.EnableTypesalias {
-		return p.pkg.doNewAlias(p, getPos(src), getEnd(src), name, typ, 1)
-	}
-	return p.pkg.doNewType(p, getPos(src), getEnd(src), name, typ, 1).typ
+	return p.pkg.doNewAlias(p, getPos(src), getEnd(src), name, typ, 1)
 }
 
 // Complete checks type declarations & marks completed.
@@ -247,7 +243,7 @@ func (p *Package) doNewAlias(tdecl *TypeDefs, pos, end token.Pos, name string, t
 	decl.Specs = append(decl.Specs, spec)
 	spec.Type = toType(p, typ)
 	p.useName(name)
-	return typesalias.NewAlias(typName, typ)
+	return types.NewAlias(typName, typ)
 }
 
 func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {

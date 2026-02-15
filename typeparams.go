@@ -25,7 +25,6 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/goxdbg"
-	"github.com/goplus/gogen/internal/typesalias"
 )
 
 // ----------------------------------------------------------------------------
@@ -87,8 +86,8 @@ func isGenericType(typ types.Type) bool {
 		return t.Obj() != nil && t.TypeArgs() == nil && t.TypeParams() != nil
 	case *types.Signature:
 		return t.TypeParams() != nil
-	case *typesalias.Alias:
-		return typesalias.TypeParams(t) != nil
+	case *types.Alias:
+		return t.TypeParams() != nil
 	}
 	return false
 }
@@ -221,9 +220,9 @@ func toNamedType(pkg *Package, t *types.Named) ast.Expr {
 	return toTypeArgs(pkg, expr, t.TypeArgs())
 }
 
-func toAliasType(pkg *Package, t *typesalias.Alias) ast.Expr {
+func toAliasType(pkg *Package, t *types.Alias) ast.Expr {
 	expr := toObjectExpr(pkg, t.Obj())
-	return toTypeArgs(pkg, expr, typesalias.TypeArgs(t))
+	return toTypeArgs(pkg, expr, t.TypeArgs())
 }
 
 type operandMode byte
@@ -534,6 +533,54 @@ func instanceFunc(pkg *Package, arg *internal.Elem, tsig *types.Signature, sig *
 		}
 	}
 	return nil
+}
+
+func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type, args []*Element, flags InstrFlags) ([]types.Type, types.Type, error) {
+	args, err := checkInferArgs(pkg, fn, sig, args, flags)
+	if err != nil {
+		return nil, nil, err
+	}
+	xlist := make([]*operand, len(args))
+	tp := sig.TypeParams()
+	n := tp.Len()
+	tparams := make([]*types.TypeParam, n)
+	for i := 0; i < n; i++ {
+		tparams[i] = tp.At(i)
+	}
+	for i, arg := range args {
+		xlist[i] = &operand{
+			mode: value,
+			expr: arg.Val,
+			typ:  arg.Type,
+			val:  arg.CVal,
+		}
+		tt := arg.Type
+	retry:
+		switch t := tt.(type) {
+		case *types.Slice:
+			tt = t.Elem()
+			goto retry
+		case *inferFuncType:
+			xlist[i].typ = t.typ
+			if tp := t.typ.TypeParams(); tp != nil {
+				for i := 0; i < tp.Len(); i++ {
+					tparams = append(tparams, tp.At(i))
+				}
+			}
+		case *types.Signature:
+			if tp := t.TypeParams(); tp != nil {
+				for i := 0; i < tp.Len(); i++ {
+					tparams = append(tparams, tp.At(i))
+				}
+			}
+		}
+	}
+	targs, err = infer(pkg, fn.Val, tparams, targs, sig.Params(), xlist)
+	if err != nil {
+		return nil, nil, err
+	}
+	typ, err := types.Instantiate(pkg.cb.ctxt, sig, targs[:n], true)
+	return targs, typ, err
 }
 
 // ----------------------------------------------------------------------------

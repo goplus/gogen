@@ -1,10 +1,19 @@
-//go:build !go1.23
-// +build !go1.23
+// Copyright 2021 The XGo Authors (xgo.dev)
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//     http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package gogen
 
 import (
 	"errors"
+	"go/token"
 	"go/types"
 	_ "unsafe"
 )
@@ -18,13 +27,39 @@ const (
 	variable                     // operand is an addressable variable
 	mapindex                     // operand is a map index expression (acts like a variable on lhs, commaok on rhs of an assignment)
 	value                        // operand is a computed value
+	nilvalue                     // operand is the nil value - only used by types2
 	commaok                      // like value, but operand may be used in a comma,ok expression
 	commaerr                     // like commaok, but second value is error, not boolean
 	cgofunc                      // operand is a cgo function
 )
 
+type errorDesc struct {
+	posn positioner
+	msg  string
+}
+
+// An error_ represents a type-checking error.
+// A new error_ is created with Checker.newError.
+// To report an error_, call error_.report.
+type error_ struct {
+	check *types.Checker
+	desc  []errorDesc
+	code  int
+	soft  bool
+}
+
 //go:linkname checker_infer go/types.(*Checker).infer
-func checker_infer(check *types.Checker, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type)
+func checker_infer(check *types.Checker, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand, reverse bool, err *error_) (inferred []types.Type)
+
+func checkerInfer(check *types.Checker, conf *types.Config, fset *token.FileSet, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type) {
+	const CannotInferTypeArgs = 138
+	err := &error_{check: check, code: CannotInferTypeArgs}
+	result = checker_infer(check, posn, tparams, targs, params, args, true, err)
+	for _, d := range err.desc {
+		conf.Error(types.Error{Fset: fset, Pos: d.posn.Pos(), Msg: d.msg})
+	}
+	return
+}
 
 func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []types.Type, params *types.Tuple, args []*operand) (result []types.Type, err error) {
 	conf := &types.Config{
@@ -36,6 +71,6 @@ func infer(pkg *Package, posn positioner, tparams []*types.TypeParam, targs []ty
 		},
 	}
 	checker := types.NewChecker(conf, pkg.Fset, pkg.Types, nil)
-	result = checker_infer(checker, posn, tparams, targs, params, args)
+	result = checkerInfer(checker, conf, pkg.Fset, posn, tparams, targs, params, args)
 	return
 }

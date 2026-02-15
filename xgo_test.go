@@ -84,7 +84,7 @@ func main() {
 }
 
 func TestXGooConst(t *testing.T) {
-	pkg := newPackage("foo", false)
+	pkg := newPackage("foo")
 	pkg.CB().NewConstStart(nil, "XGoo_x").
 		Val("Hello").EndInit(1)
 	domTest(t, pkg, `package foo
