@@ -354,6 +354,13 @@ func TestGetBuiltinTI(t *testing.T) {
 	}
 }
 
+func Test_aliasNameOf(t *testing.T) {
+	name, flag := aliasNameOf("_text", MemberFlagAutoProperty)
+	if name != "XGo_text" || flag != MemberFlagAutoProperty {
+		t.Fatal("Test_aliasNameOf:", name, flag)
+	}
+}
+
 func TestFindMethodType(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	tyFile := pkg.Import("os").Ref("File").Type().(*types.Named)

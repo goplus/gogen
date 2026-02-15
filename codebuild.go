@@ -1664,6 +1664,8 @@ func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
 	if flag > 0 && name != "" {
 		if c := name[0]; c >= 'a' && c <= 'z' {
 			return string(rune(c)+('A'-'a')) + name[1:], flag
+		} else if c == '_' {
+			return "XGo" + name, flag
 		}
 		if flag != memberFlagMethodToFunc {
 			flag = MemberFlagVal
