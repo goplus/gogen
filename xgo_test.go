@@ -1083,6 +1083,49 @@ func bar(v *foo.Foo6) {
 `)
 }
 
+// Test that pre-range statements are emitted to outer scope
+// Regression test for: goplus/xgo#2629
+func TestForRangePreStmts(t *testing.T) {
+	pkg := newMainPackage()
+	// Create a function that takes an interface{} parameter
+	v := pkg.NewParam(token.NoPos, "data", types.NewInterfaceType(nil, nil).Complete())
+
+	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
+		// Start for-range and push the block scope
+		ForRange("k", "v").
+		// This simulates the scenario where type assertion statements are emitted
+		// during range expression compilation. We'll manually emit a statement
+		// to the current block (which is the for-range block scope) before
+		// calling RangeAssignThen.
+		DefineVarStart(token.NoPos, "_autoGo_1", "_").
+		Val(ctxRef(pkg, "data")).TypeAssert(types.NewMap(
+		types.Typ[types.String],
+		types.NewInterfaceType(nil, nil).Complete(),
+	), 2).
+		EndInit(1).
+		// Now call RangeAssignThen which should extract the DefineVar statement
+		// and save it as a pre-statement
+		VarVal("_autoGo_1").
+		RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "k")).Val(ctxRef(pkg, "v")).Call(2).EndStmt().
+		End().
+		End()
+
+	// The expected output should have the type assertion BEFORE the for-range loop,
+	// not inside it
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+func bar(data interface{}) {
+	_autoGo_1, _ := data.(map[string]interface{})
+	for k, v := range _autoGo_1 {
+		fmt.Println(k, v)
+	}
+}
+`)
+}
+
 // ----------------------------------------------------------------------------
 
 func TestStaticMethod(t *testing.T) {
