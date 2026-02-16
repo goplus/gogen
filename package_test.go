@@ -24,8 +24,6 @@ import (
 	"go/types"
 	"log"
 	"os"
-	"runtime"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -59,18 +57,17 @@ func (p eventRecorder) Call(fn ast.Node, obj types.Object)   {}
 
 func newMainPackage(
 	implicitCast ...func(pkg *gogen.Package, V, T types.Type, pv *gogen.Element) bool) *gogen.Package {
-	return newPackage("main", false, implicitCast...)
+	return newPackage("main", implicitCast...)
 }
 
 func newPackage(
-	name string, gotypesalias bool, implicitCast ...func(pkg *gogen.Package, V, T types.Type, pv *gogen.Element) bool) *gogen.Package {
+	name string, implicitCast ...func(pkg *gogen.Package, V, T types.Type, pv *gogen.Element) bool) *gogen.Package {
 	conf := &gogen.Config{
-		Fset:             gblFset,
-		Importer:         gblImp,
-		Recorder:         eventRecorder{},
-		NodeInterpreter:  nodeInterp{},
-		DbgPositioner:    nodeInterp{},
-		EnableTypesalias: gotypesalias,
+		Fset:            gblFset,
+		Importer:        gblImp,
+		Recorder:        eventRecorder{},
+		NodeInterpreter: nodeInterp{},
+		DbgPositioner:   nodeInterp{},
 	}
 	if len(implicitCast) > 0 {
 		conf.CanImplicitCast = implicitCast[0]
@@ -342,32 +339,10 @@ func bar(v mytype) rune {
 	if err != nil {
 		t.Fatal("conf.Check:", err)
 	}
-	// check typesalias
-	if isLeastGo122() {
-		t.Setenv("GODEBUG", "gotypesalias=1")
-		pkg, err := conf.Check("foo", fset, []*ast.File{f}, nil)
-		if err != nil {
-			t.Fatal("conf.Check:", err)
-		}
-		bar := pkg.Scope().Lookup("bar")
-		if bar.String() != "func foo.bar(v foo.mytype) rune" {
-			t.Fatal("bar.Type:", bar)
-		}
-	} else {
-		bar := pkg.Scope().Lookup("bar")
-		if bar.String() != "func foo.bar(v byte) rune" {
-			t.Fatal("bar.Type:", bar)
-		}
+	bar := pkg.Scope().Lookup("bar")
+	if bar.String() != "func foo.bar(v foo.mytype) rune" {
+		t.Fatal("bar.Type:", bar)
 	}
-}
-
-func isLeastGo122() bool {
-	return isLeastGo(22)
-}
-
-func isLeastGo(minor int64) bool {
-	ver, err := strconv.ParseInt(runtime.Version()[4:6], 10, 0)
-	return err == nil && ver >= minor
 }
 
 func TestMethods(t *testing.T) {
@@ -668,7 +643,7 @@ func main() {
 }
 
 func TestZeroLitAlias(t *testing.T) {
-	pkg := newPackage("main", true)
+	pkg := newPackage("main")
 	bar := pkg.AliasType("bar", types.Typ[types.Float64])
 	results := types.NewTuple(types.NewVar(token.NoPos, pkg.Types, "", bar))
 	pkg.NewFunc(nil, "foo", nil, results, false).BodyStart(pkg).
@@ -4175,10 +4150,7 @@ func main() {
 }
 
 func TestTypeAliasInFunc(t *testing.T) {
-	if !isLeastGo122() {
-		t.Skip("skip")
-	}
-	pkg := newPackage("main", true)
+	pkg := newPackage("main")
 	fields := []*types.Var{
 		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
 		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
@@ -4211,10 +4183,7 @@ func main() {
 }
 
 func TestTypeAliasInInitType(t *testing.T) {
-	if !isLeastGo122() {
-		t.Skip("skip")
-	}
-	pkg := newPackage("main", true)
+	pkg := newPackage("main")
 	foo := pkg.NewType("foo").InitType(pkg, types.Typ[types.Float64])
 	foo2 := pkg.AliasType("foo2", types.Typ[types.Float64])
 	afoo := pkg.AliasType("afoo", foo)
@@ -4231,16 +4200,13 @@ type tfoo2 foo2
 }
 
 func TestTypeAliasError(t *testing.T) {
-	if !isLeastGo122() {
-		t.Skip("skip")
-	}
 	defer func() {
 		v := recover()
 		if v == nil {
 			t.Fatal("no error?")
 		}
 	}()
-	pkg := newPackage("main", true)
+	pkg := newPackage("main")
 	fields := []*types.Var{
 		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
 		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
@@ -4253,55 +4219,54 @@ func TestTypeAliasError(t *testing.T) {
 }
 
 func TestTypesAliasLit(t *testing.T) {
-	for _, typesalias := range []bool{false, true} {
-		pkg := newPackage("main", typesalias)
-		mfoo := pkg.NewType("mfoo").InitType(pkg, types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]))
-		mbar := pkg.AliasType("mbar", mfoo)
-		pkg.CB().NewVarStart(mfoo, "_").
-			Val(1).Val(true).
-			MapLit(mfoo, 2).EndInit(1)
-		pkg.CB().NewVarStart(mbar, "_").
-			Val(1).Val(true).
-			MapLit(mbar, 2).EndInit(1)
+	pkg := newPackage("main")
+	mfoo := pkg.NewType("mfoo").InitType(pkg, types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]))
+	mbar := pkg.AliasType("mbar", mfoo)
+	pkg.CB().NewVarStart(mfoo, "_").
+		Val(1).Val(true).
+		MapLit(mfoo, 2).EndInit(1)
+	pkg.CB().NewVarStart(mbar, "_").
+		Val(1).Val(true).
+		MapLit(mbar, 2).EndInit(1)
 
-		sfoo := pkg.NewType("sfoo").InitType(pkg, types.NewSlice(types.Typ[types.Int]))
-		sbar := pkg.AliasType("sbar", sfoo)
-		pkg.CB().NewVarStart(sfoo, "_").
-			Val(1).
-			SliceLit(sfoo, 1).EndInit(1)
-		pkg.CB().NewVarStart(sbar, "_").
-			Val(1).
-			SliceLit(sbar, 1).EndInit(1)
-		pkg.CB().NewVarStart(types.Typ[types.Int], "_").
-			Val(1).
-			SliceLit(sbar, 1).Val(0).Index(1, 0).EndInit(1)
+	sfoo := pkg.NewType("sfoo").InitType(pkg, types.NewSlice(types.Typ[types.Int]))
+	sbar := pkg.AliasType("sbar", sfoo)
+	pkg.CB().NewVarStart(sfoo, "_").
+		Val(1).
+		SliceLit(sfoo, 1).EndInit(1)
+	pkg.CB().NewVarStart(sbar, "_").
+		Val(1).
+		SliceLit(sbar, 1).EndInit(1)
+	pkg.CB().NewVarStart(types.Typ[types.Int], "_").
+		Val(1).
+		SliceLit(sbar, 1).Val(0).Index(1, 0).EndInit(1)
 
-		afoo := pkg.NewType("afoo").InitType(pkg, types.NewArray(types.Typ[types.String], 2))
-		abar := pkg.AliasType("abar", afoo)
-		pkg.CB().NewVarStart(afoo, "_").
-			Val("a").Val("b").ArrayLit(afoo, 2).EndInit(1)
-		pkg.CB().NewVarStart(abar, "_").
-			Val("a").Val("b").ArrayLit(abar, 2).EndInit(1)
+	afoo := pkg.NewType("afoo").InitType(pkg, types.NewArray(types.Typ[types.String], 2))
+	abar := pkg.AliasType("abar", afoo)
+	pkg.CB().NewVarStart(afoo, "_").
+		Val("a").Val("b").ArrayLit(afoo, 2).EndInit(1)
+	pkg.CB().NewVarStart(abar, "_").
+		Val("a").Val("b").ArrayLit(abar, 2).EndInit(1)
 
-		fields := []*types.Var{
-			types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
-			types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
-		}
-		typU := types.NewStruct(fields, nil)
-		tfoo := pkg.NewType("tfoo").InitType(pkg, typU)
-		tbar := pkg.AliasType("tbar", tfoo)
-		pkg.CB().NewVarStart(tfoo, "_").
-			StructLit(tfoo, 0, false).EndInit(1)
-		pkg.CB().NewVarStart(types.NewPointer(tbar), "_").
-			Val(123).Val("Hi").
-			StructLit(tbar, 2, false).
-			UnaryOp(token.AND).
-			EndInit(1)
-		pkg.CB().NewVarStart(tbar, "_").
-			Val(1).Val("abc").
-			StructLit(tfoo, 2, true).EndInit(1)
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.String], false),
+	}
+	typU := types.NewStruct(fields, nil)
+	tfoo := pkg.NewType("tfoo").InitType(pkg, typU)
+	tbar := pkg.AliasType("tbar", tfoo)
+	pkg.CB().NewVarStart(tfoo, "_").
+		StructLit(tfoo, 0, false).EndInit(1)
+	pkg.CB().NewVarStart(types.NewPointer(tbar), "_").
+		Val(123).Val("Hi").
+		StructLit(tbar, 2, false).
+		UnaryOp(token.AND).
+		EndInit(1)
+	pkg.CB().NewVarStart(tbar, "_").
+		Val(1).Val("abc").
+		StructLit(tfoo, 2, true).EndInit(1)
 
-		domTest(t, pkg, `package main
+	domTest(t, pkg, `package main
 
 type mfoo map[int]bool
 type mbar = mfoo
@@ -4332,8 +4297,6 @@ var _ tfoo = tfoo{}
 var _ *tbar = &tbar{123, "Hi"}
 var _ tbar = tfoo{y: "abc"}
 `)
-	}
-	// sliceLit
 }
 
 func TestEmbedFields(t *testing.T) {

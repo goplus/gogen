@@ -34,30 +34,3 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
-  Test_Alias:
-    strategy:
-      matrix:
-        go-version: [1.23.x, 1.24.x, 1.25.x]
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v6
-
-    - name: Set up Go
-      uses: actions/setup-go@v6
-      with:
-        go-version: ${{ matrix.go-version }}
-
-    - name: Set types alias env
-      run: echo "GODEBUG=gotypesalias=1" >> $GITHUB_ENV
-
-    - name: Build
-      run: go build -v ./...
-
-    - name: Test
-      run: go test -race -v -coverprofile="coverage.txt" -covermode=atomic ./...
-
-    - name: Codecov
-      uses: codecov/codecov-action@v5
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}

@@ -19,6 +19,7 @@ import (
 	"go/types"
 	"log"
 	"runtime"
+	"strconv"
 	"testing"
 
 	"github.com/goplus/gogen"
@@ -275,9 +276,6 @@ func XGox_Var_Cast__1[T map[string]any]() *Var__1[T] {
 	return new(Var__1[T])
 }
 `
-	if isLeastGo122() {
-		t.Setenv("GODEBUG", "gotypesalias=1")
-	}
 	gt := newGoxTest()
 	_, err := gt.LoadGoPackage("foo", "foo.go", src)
 	if err != nil {
@@ -308,8 +306,7 @@ func XGox_Var_Cast__1[T map[string]any]() *Var__1[T] {
 		Val(objVar).Typ(tyM).Call(1).EndStmt().
 		End()
 
-	if isLeastGo122() {
-		domTest(t, pkg, `package main
+	domTest(t, pkg, `package main
 
 import "foo"
 
@@ -321,20 +318,6 @@ func main() {
 	foo.XGox_Var_Cast__1[foo.M]()
 }
 `)
-	} else {
-		domTest(t, pkg, `package main
-
-import "foo"
-
-type t1 foo.Var__0[int]
-type t2 foo.Var__1[map[string]any]
-
-func main() {
-	foo.XGox_Var_Cast__0[int]()
-	foo.XGox_Var_Cast__1[map[string]any]()
-}
-`)
-	}
 
 	func() {
 		defer func() {
@@ -439,9 +422,6 @@ type (
 	SliceInt = Slice[[]int,int]
 )
 `
-	if isLeastGo122() {
-		t.Setenv("GODEBUG", "gotypesalias=1")
-	}
 	gt := newGoxTest()
 	_, err := gt.LoadGoPackage("foo", "foo.go", src)
 	if err != nil {
@@ -460,8 +440,7 @@ type (
 		NewVarStart(types.NewPointer(tyDataInt), "data").Typ(tyData).Typ(tyInt).Index(1, 0).Star().Val(nil).Call(1).EndInit(1).
 		NewVarStart(types.NewPointer(tySliceInt), "slice").Typ(tySlice).Typ(tyIntSlice).Typ(tyInt).Index(2, 0).Star().Val(nil).Call(1).EndInit(1).
 		End()
-	if isLeastGo122() {
-		domTest(t, pkg, `package main
+	domTest(t, pkg, `package main
 
 import "foo"
 
@@ -470,17 +449,6 @@ func main() {
 	var slice *foo.SliceInt = (*foo.Slice[[]int, int])(nil)
 }
 `)
-	} else {
-		domTest(t, pkg, `package main
-
-import "foo"
-
-func main() {
-	var data *foo.Data[int] = (*foo.Data[int])(nil)
-	var slice *foo.Slice[[]int, int] = (*foo.Slice[[]int, int])(nil)
-}
-`)
-	}
 }
 
 func TestTypeParamsFunc(t *testing.T) {
@@ -666,6 +634,11 @@ var	AtInt = At[[]int]
 			NewVarStart(tyAtInt, "at").Val(fnAt).Typ(tyInt).Index(1, 0, source(`foo.At[int]`, 5, 40)).EndInit(1).
 			End()
 	})
+}
+
+func isLeastGo(minor int64) bool {
+	ver, err := strconv.ParseInt(runtime.Version()[4:6], 10, 0)
+	return err == nil && ver >= minor
 }
 
 func TestTypeParamsErrInferFunc(t *testing.T) {
@@ -1241,7 +1214,6 @@ func TestAliasTypeParams(t *testing.T) {
 	if !isLeastGo(24) {
 		t.Skip()
 	}
-	t.Setenv("GODEBUG", "gotypesalias=1")
 	const src = `package foo
 
 type Set[T comparable] = map[T]int
@@ -1252,7 +1224,7 @@ type Set[T comparable] = map[T]int
 		t.Fatal(err)
 	}
 	pkg := gt.NewPackageEx("", "main", &gogen.Config{
-		Fset: gt.fset, Importer: gt.imp, EnableTypesalias: true},
+		Fset: gt.fset, Importer: gt.imp},
 	)
 	fooRef := pkg.Import("foo")
 	fmtRef := pkg.Import("fmt")
