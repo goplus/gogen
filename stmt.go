@@ -493,11 +493,12 @@ func (p *forStmt) End(cb *CodeBuilder, src ast.Node) {
 //
 // end
 type forRangeStmt struct {
-	names []string
-	stmt  *ast.RangeStmt
-	x     *internal.Elem
-	old   codeBlockCtx
-	kvt   []types.Type
+	names    []string
+	stmt     *ast.RangeStmt
+	x        *internal.Elem
+	old      codeBlockCtx
+	kvt      []types.Type
+	preStmts []ast.Stmt // statements emitted during range expression compilation
 
 	enumName string // XGo_Enum or Gop_Enum
 
@@ -506,6 +507,10 @@ type forRangeStmt struct {
 }
 
 func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
+	// Extract statements emitted during range expression compilation (e.g., auto-generated
+	// type assertions like `_autoGo_1, _ := doc.(map[string]any)`). These were emitted to
+	// the for-range block scope but belong in the outer scope before the for statement.
+	p.preStmts = cb.clearBlockStmt()
 	if names := p.names; names != nil { // for k, v := range XXX {
 		var val ast.Expr
 		switch len(names) {
@@ -785,6 +790,11 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 	}
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
+	// Emit pre-range statements (e.g., type assertions) to the outer scope
+	// before the for-range statement.
+	for _, s := range p.preStmts {
+		cb.emitStmt(s)
+	}
 	if n := p.udt; n == 0 {
 		if p.enumName != "" {
 			p.stmt.X = &ast.CallExpr{
