@@ -52,6 +52,20 @@ func (p *Package) NewParamEx(pos token.Pos, name string, typ types.Type, optiona
 	return param
 }
 
+// NewReturn returns a new variable representing a function return.
+func (p *Package) NewResult(pos token.Pos, name string, typ types.Type) *Param {
+	param := types.NewParam(pos, p.Types, name, typ)
+	p.SetVarKind(param, ResultVar)
+	return param
+}
+
+// NewRecv returns a new variable representing a function recv.
+func (p *Package) NewRecv(pos token.Pos, name string, typ types.Type) *Param {
+	param := types.NewParam(pos, p.Types, name, typ)
+	p.SetVarKind(param, RecvVar)
+	return param
+}
+
 // ----------------------------------------------------------------------------
 
 // Func type

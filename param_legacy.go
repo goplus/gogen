@@ -28,12 +28,12 @@ func (o *optionalVars) setParamOptional(param *types.Var) {
 	if o.paramsMeta == nil {
 		o.paramsMeta = make(map[*types.Var]VarKind)
 	}
-	o.paramsMeta[param] = 0xff
+	o.paramsMeta[param] = ParamOptionalVar
 }
 
 // isParamOptional checks if a parameter is marked as optional using the map (for Go < 1.25).
 func (o *optionalVars) isParamOptional(param *types.Var) bool {
-	return o.paramsMeta[param] == 0xff
+	return o.paramsMeta[param] == ParamOptionalVar
 }
 
 func (o *optionalVars) SetVarKind(v *types.Var, kind VarKind) {
@@ -47,6 +47,8 @@ func (o *optionalVars) VarKind(v *types.Var) VarKind {
 	return o.paramsMeta[v]
 }
 
+const varKindLegacy = true
+
 // A VarKind discriminates the various kinds of variables.
 type VarKind uint8
 
@@ -58,6 +60,8 @@ const (
 	ParamVar                  // a function parameter variable
 	ResultVar                 // a function result variable
 	FieldVar                  // a struct field
+
+	ParamOptionalVar VarKind = 0xff
 )
 
 var varKindNames = [...]string{
@@ -73,6 +77,8 @@ var varKindNames = [...]string{
 func (kind VarKind) String() string {
 	if 0 <= kind && int(kind) < len(varKindNames) {
 		return varKindNames[kind]
+	} else if kind == ParamOptionalVar {
+		return "ParamOptional"
 	}
 	return fmt.Sprintf("VarKind(%d)", kind)
 }
