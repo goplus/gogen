@@ -27,3 +27,23 @@ func (o *optionalVars) setParamOptional(param *types.Var) {
 func (o *optionalVars) isParamOptional(param *types.Var) bool {
 	return param.Kind() == 0xff
 }
+
+func (o *optionalVars) SetVarKind(v *types.Var, kind VarKind) {
+	v.SetKind(kind)
+}
+
+func (o *optionalVars) VarKind(v *types.Var) VarKind {
+	return v.Kind()
+}
+
+type VarKind = types.VarKind
+
+const (
+	_          VarKind = iota // (not meaningful)
+	PackageVar                // a package-level variable
+	LocalVar                  // a local variable
+	RecvVar                   // a method receiver variable
+	ParamVar                  // a function parameter variable
+	ResultVar                 // a function result variable
+	FieldVar                  // a struct field
+)
