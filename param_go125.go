@@ -36,25 +36,4 @@ func (o *optionalVars) VarKind(v *types.Var) VarKind {
 	return VarKind(v.Kind())
 }
 
-const varKindLegacy = false
-
-type VarKind types.VarKind
-
-const (
-	_          VarKind = iota // (not meaningful)
-	PackageVar                // a package-level variable
-	LocalVar                  // a local variable
-	RecvVar                   // a method receiver variable
-	ParamVar                  // a function parameter variable
-	ResultVar                 // a function result variable
-	FieldVar                  // a struct field
-
-	ParamOptionalVar VarKind = 0xff
-)
-
-func (kind VarKind) String() string {
-	if kind == ParamOptionalVar {
-		return "ParamOptional"
-	}
-	return types.VarKind(kind).String()
-}
+const HasVarKind = true

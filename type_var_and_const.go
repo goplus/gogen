@@ -410,7 +410,9 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 				values[i] = parg.Val
 			}
 			newVar := types.NewVar(p.pos, pkg.Types, name, retType)
-			pkg.SetVarKind(newVar, LocalVar)
+			if HasVarKind {
+				pkg.SetVarKind(newVar, LocalVar)
+			}
 			if old := p.scope.Insert(newVar); old != nil {
 				if p.tok != token.DEFINE {
 					oldpos := cb.fset.Position(old.Pos())
@@ -460,7 +462,7 @@ func (p *Package) newValueDecl(
 		}
 		if typ != nil && tok == token.VAR {
 			newVar := types.NewVar(pos, p.Types, name, typ)
-			if p.Types.Scope() != scope {
+			if HasVarKind && p.Types.Scope() != scope {
 				p.SetVarKind(newVar, LocalVar)
 			}
 			if old := scope.Insert(newVar); old != nil {

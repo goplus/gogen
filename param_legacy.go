@@ -14,71 +14,32 @@
 package gogen
 
 import (
-	"fmt"
 	"go/types"
 )
 
 // optionalVars manages optional parameter metadata for Go < 1.25.
 type optionalVars struct {
-	paramsMeta map[*types.Var]VarKind
+	paramsMeta map[*types.Var]bool
 }
 
 // setParamOptional marks a parameter as optional using a map (for Go < 1.25).
 func (o *optionalVars) setParamOptional(param *types.Var) {
 	if o.paramsMeta == nil {
-		o.paramsMeta = make(map[*types.Var]VarKind)
+		o.paramsMeta = make(map[*types.Var]bool)
 	}
-	o.paramsMeta[param] = ParamOptionalVar
+	o.paramsMeta[param] = true
 }
 
 // isParamOptional checks if a parameter is marked as optional using the map (for Go < 1.25).
 func (o *optionalVars) isParamOptional(param *types.Var) bool {
-	return o.paramsMeta[param] == ParamOptionalVar
+	return o.paramsMeta[param]
 }
 
 func (o *optionalVars) SetVarKind(v *types.Var, kind VarKind) {
-	if o.paramsMeta == nil {
-		o.paramsMeta = make(map[*types.Var]VarKind)
-	}
-	o.paramsMeta[v] = kind
 }
 
 func (o *optionalVars) VarKind(v *types.Var) VarKind {
-	return o.paramsMeta[v]
+	return 0
 }
 
-const varKindLegacy = true
-
-// A VarKind discriminates the various kinds of variables.
-type VarKind uint8
-
-const (
-	_          VarKind = iota // (not meaningful)
-	PackageVar                // a package-level variable
-	LocalVar                  // a local variable
-	RecvVar                   // a method receiver variable
-	ParamVar                  // a function parameter variable
-	ResultVar                 // a function result variable
-	FieldVar                  // a struct field
-
-	ParamOptionalVar VarKind = 0xff
-)
-
-var varKindNames = [...]string{
-	0:          "VarKind(0)",
-	PackageVar: "PackageVar",
-	LocalVar:   "LocalVar",
-	RecvVar:    "RecvVar",
-	ParamVar:   "ParamVar",
-	ResultVar:  "ResultVar",
-	FieldVar:   "FieldVar",
-}
-
-func (kind VarKind) String() string {
-	if 0 <= kind && int(kind) < len(varKindNames) {
-		return varKindNames[kind]
-	} else if kind == ParamOptionalVar {
-		return "ParamOptional"
-	}
-	return fmt.Sprintf("VarKind(%d)", kind)
-}
+const HasVarKind = false
