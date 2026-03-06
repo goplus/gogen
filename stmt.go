@@ -537,7 +537,9 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 			if name == "_" {
 				continue
 			}
-			if scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, typs[i])) != nil {
+			newVar := types.NewVar(token.NoPos, pkg.Types, name, typs[i])
+			pkg.SetVarKind(newVar, LocalVar)
+			if scope.Insert(newVar) != nil {
 				log.Panicln("TODO: variable already defined -", name)
 			}
 		}
