@@ -82,6 +82,9 @@ func (p *Package) WriteTo(dst io.Writer, fname ...string) (err error) {
 	if file == nil {
 		return syscall.ENOENT
 	}
+	if GeneratedHeader != "" {
+		io.WriteString(dst, GeneratedHeader)
+	}
 	fset := token.NewFileSet()
 	return format.Node(dst, fset, file)
 }
