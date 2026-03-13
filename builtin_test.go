@@ -141,6 +141,19 @@ func TestCheckXGoDeps(t *testing.T) {
 	}
 }
 
+// TestCheckXGoDepsWithNilFuncType tests that CheckXGoDeps does not panic
+// when a FuncDecl has a nil Type field (e.g., when generated before End() is called).
+func TestCheckXGoDepsWithNilFuncType(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	file := pkg.CurFile()
+	file.forceImport("github.com/qiniu/x/errors")
+	// Simulate a FuncDecl with nil Type (as created by NewFuncWith before End() is called)
+	file.decls = append(file.decls, &ast.FuncDecl{})
+	file.dirty = true
+	// Should not panic
+	_ = file.CheckXGoDeps(pkg)
+}
+
 func TestInitXGoPkg(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	pkg.Types.Scope().Insert(types.NewVar(
