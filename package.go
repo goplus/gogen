@@ -202,7 +202,9 @@ func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 			ast.Walk(p, x)
 		}
 	case *ast.FuncDecl:
-		ast.Walk(p, v.Type)
+		if v.Type != nil {
+			ast.Walk(p, v.Type)
+		}
 		if v.Body != nil {
 			ast.Walk(p, v.Body)
 		}
