@@ -330,10 +330,11 @@ func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Ob
 		scope.Insert(o)
 		checkXGotsx(pkg, scope, m.name, o)
 	} else {
+		typName := m.typ.Obj().Name()
 		if debugImport {
-			log.Println("==> NewOverloadMethod", m.typ.Obj().Name(), m.name)
+			log.Println("==> NewOverloadMethod", typName, m.name)
 		}
-		NewOverloadMethod(m.typ, pos[m.typ.Obj().Name()+"."+m.name], pkg, m.name, fns...)
+		NewOverloadMethod(m.typ, pos[typName+"."+m.name], pkg, m.name, fns...)
 	}
 }
 
