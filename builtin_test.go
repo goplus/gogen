@@ -353,7 +353,8 @@ func TestIsTypeEx(t *testing.T) {
 		t.Fatal("IsTypeEx: not OverloadFunc?")
 	}
 	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "t", nil), types.Typ[types.Int], nil)
-	bar := types.NewFunc(token.NoPos, pkg, "bar", types.NewSignatureType(types.NewVar(token.NoPos, pkg, "", typ), nil, nil, nil, nil, false))
+	recv := types.NewVar(token.NoPos, pkg, "", types.NewPointer(typ))
+	bar := types.NewFunc(token.NoPos, pkg, "bar", types.NewSignatureType(recv, nil, nil, nil, nil, false))
 	typ.AddMethod(bar)
 	NewOverloadMethod(typ, token.NoPos, pkg, "bar", bar)
 	if !IsTypeEx(bar.Type()) {

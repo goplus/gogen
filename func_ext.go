@@ -212,8 +212,12 @@ func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name
 	for i, method := range methods {
 		if m, ok := method.(*types.Func); ok {
 			sig := m.Type().(*types.Signature)
-			if recv := sig.Recv(); recv != nil {
-				if tn, ok := recv.Type().(*types.Named); ok && tn == typ && m.Name() == name {
+			if recv := sig.Recv(); recv != nil && m.Name() == name {
+				recvType := recv.Type()
+				if tp, ok := recvType.(*types.Pointer); ok {
+					recvType = tp.Elem()
+				}
+				if types.Identical(recvType, typ) {
 					// replace method with overload method if method already exists
 					orig := *m
 					methods[i] = &orig
