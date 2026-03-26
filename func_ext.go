@@ -169,8 +169,8 @@ func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...ty
 			sig := f.Type().(*types.Signature)
 			if sig.Recv() == nil && f.Name() == name {
 				// replace func with overload func if func already exists
-				copy := *f
-				funcs[i] = &copy
+				orig := *f
+				funcs[i] = &orig
 				ofn := newFuncEx(pos, pkg, nil, name, &TyOverloadFunc{funcs})
 				*f = *ofn
 				return ofn
@@ -215,8 +215,8 @@ func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name
 			if recv := sig.Recv(); recv != nil {
 				if tn, ok := recv.Type().(*types.Named); ok && tn == typ && m.Name() == name {
 					// replace method with overload method if method already exists
-					copy := *m
-					methods[i] = &copy
+					orig := *m
+					methods[i] = &orig
 					ofn := newFuncEx(pos, pkg, recv, name, &TyOverloadMethod{methods})
 					*m = *ofn
 					return ofn
