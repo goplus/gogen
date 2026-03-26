@@ -210,16 +210,17 @@ func (p *TyOverloadMethod) funcEx()                {}
 // NewOverloadMethod creates an overload method.
 func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, methods ...types.Object) *types.Func {
 	for i, method := range methods {
-		m := method.(*types.Func)
-		sig := m.Type().(*types.Signature)
-		if recv := sig.Recv(); recv != nil {
-			if tn, ok := recv.Type().(*types.Named); ok && tn == typ && m.Name() == name {
-				// replace method with overload method if method already exists
-				copy := *m
-				methods[i] = &copy
-				ofn := newFuncEx(pos, pkg, recv, name, &TyOverloadMethod{methods})
-				*m = *ofn
-				return ofn
+		if m, ok := method.(*types.Func); ok {
+			sig := m.Type().(*types.Signature)
+			if recv := sig.Recv(); recv != nil {
+				if tn, ok := recv.Type().(*types.Named); ok && tn == typ && m.Name() == name {
+					// replace method with overload method if method already exists
+					copy := *m
+					methods[i] = &copy
+					ofn := newFuncEx(pos, pkg, recv, name, &TyOverloadMethod{methods})
+					*m = *ofn
+					return ofn
+				}
 			}
 		}
 	}
