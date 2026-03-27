@@ -409,7 +409,11 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			if values != nil {
 				values[i] = parg.Val
 			}
-			if old := p.scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
+			newVar := types.NewVar(p.pos, pkg.Types, name, retType)
+			if HasVarKind {
+				pkg.SetVarKind(newVar, LocalVar)
+			}
+			if old := p.scope.Insert(newVar); old != nil {
 				if p.tok != token.DEFINE {
 					oldpos := cb.fset.Position(old.Pos())
 					cb.panicCodeErrorf(
@@ -457,7 +461,11 @@ func (p *Package) newValueDecl(
 			continue
 		}
 		if typ != nil && tok == token.VAR {
-			if old := scope.Insert(types.NewVar(pos, p.Types, name, typ)); old != nil {
+			newVar := types.NewVar(pos, p.Types, name, typ)
+			if HasVarKind && p.Types.Scope() != scope {
+				p.SetVarKind(newVar, LocalVar)
+			}
+			if old := scope.Insert(newVar); old != nil {
 				allowRedecl := p.allowRedecl && scope == p.Types.Scope()
 				if !(allowRedecl && types.Identical(old.Type(), typ)) { // for c2go
 					oldpos := p.cb.fset.Position(old.Pos())
