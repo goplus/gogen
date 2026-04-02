@@ -164,19 +164,6 @@ func (p *TyOverloadFunc) funcEx()                {}
 
 // NewOverloadFunc creates an overload func.
 func NewOverloadFunc(pos token.Pos, pkg *types.Package, name string, funcs ...types.Object) *types.Func {
-	for i, fn := range funcs {
-		if f, ok := fn.(*types.Func); ok {
-			sig := f.Type().(*types.Signature)
-			if sig.Recv() == nil && f.Name() == name {
-				// replace func with overload func if func already exists
-				orig := *f
-				funcs[i] = &orig
-				ofn := newFuncEx(pos, pkg, nil, name, &TyOverloadFunc{funcs})
-				*f = *ofn
-				return ofn
-			}
-		}
-	}
 	fn := newFuncEx(pos, pkg, nil, name, &TyOverloadFunc{funcs})
 	return fn
 }
@@ -209,25 +196,6 @@ func (p *TyOverloadMethod) funcEx()                {}
 
 // NewOverloadMethod creates an overload method.
 func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, methods ...types.Object) *types.Func {
-	for i, method := range methods {
-		if m, ok := method.(*types.Func); ok {
-			sig := m.Type().(*types.Signature)
-			if recv := sig.Recv(); recv != nil && m.Name() == name {
-				recvType := recv.Type()
-				if tp, ok := recvType.(*types.Pointer); ok {
-					recvType = tp.Elem()
-				}
-				if types.Identical(recvType, typ) {
-					// replace method with overload method if method already exists
-					orig := *m
-					methods[i] = &orig
-					ofn := newFuncEx(pos, pkg, recv, name, &TyOverloadMethod{methods})
-					*m = *ofn
-					return ofn
-				}
-			}
-		}
-	}
 	return newMethodEx(typ, pos, pkg, name, &TyOverloadMethod{methods})
 }
 

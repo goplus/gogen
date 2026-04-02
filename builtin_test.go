@@ -346,20 +346,6 @@ func TestIsTypeEx(t *testing.T) {
 	if IsTypeEx(tyInt) {
 		t.Fatal("IsTypeEx: not tyInt?")
 	}
-	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
-	foo := types.NewFunc(token.NoPos, pkg, "foo", sig)
-	NewOverloadFunc(0, pkg, "foo", foo)
-	if !IsTypeEx(foo.Type()) {
-		t.Fatal("IsTypeEx: not OverloadFunc?")
-	}
-	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg, "t", nil), types.Typ[types.Int], nil)
-	recv := types.NewVar(token.NoPos, pkg, "", types.NewPointer(typ))
-	bar := types.NewFunc(token.NoPos, pkg, "bar", types.NewSignatureType(recv, nil, nil, nil, nil, false))
-	typ.AddMethod(bar)
-	NewOverloadMethod(typ, token.NoPos, pkg, "bar", bar)
-	if !IsTypeEx(bar.Type()) {
-		t.Fatal("IsTypeEx: not OverloadMethod?")
-	}
 }
 
 func TestGetBuiltinTI(t *testing.T) {

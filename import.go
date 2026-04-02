@@ -183,8 +183,8 @@ func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 	}
 }
 
-// name
-// .name
+// name (global func in `scope`)
+// .name (method of `tname`)
 func lookupFunc(scope *types.Scope, name, tname string) types.Object {
 	if name[0] == '.' {
 		name = name[1:]
@@ -206,7 +206,7 @@ func lookupFunc(scope *types.Scope, name, tname string) types.Object {
 			return o
 		}
 	}
-	return nil
+	return nil // not found
 }
 
 type omthd struct {
