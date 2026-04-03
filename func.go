@@ -35,7 +35,11 @@ func (p *Package) NewAutoParam(name string) *Param {
 
 // NewAutoParamEx returns a new variable representing a function result parameter with auto type.
 func (p *Package) NewAutoParamEx(pos token.Pos, name string) *Param {
-	return types.NewParam(pos, p.Types, name, &unboundType{})
+	param := types.NewParam(pos, p.Types, name, &unboundType{})
+	if HasVarKind {
+		p.SetVarKind(param, ResultVar)
+	}
+	return param
 }
 
 // NewParam returns a new variable representing a function parameter.
@@ -48,6 +52,24 @@ func (p *Package) NewParamEx(pos token.Pos, name string, typ types.Type, optiona
 	param := types.NewParam(pos, p.Types, name, typ)
 	if optional {
 		p.setParamOptional(param)
+	}
+	return param
+}
+
+// NewResult returns a new variable representing a function result.
+func (p *Package) NewResult(pos token.Pos, name string, typ types.Type) *Param {
+	param := types.NewParam(pos, p.Types, name, typ)
+	if HasVarKind {
+		p.SetVarKind(param, ResultVar)
+	}
+	return param
+}
+
+// NewRecv returns a new variable representing a method receiver.
+func (p *Package) NewRecv(pos token.Pos, name string, typ types.Type) *Param {
+	param := types.NewParam(pos, p.Types, name, typ)
+	if HasVarKind {
+		p.SetVarKind(param, RecvVar)
 	}
 	return param
 }
