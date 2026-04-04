@@ -29,7 +29,7 @@ const (
 
 type XGo_ninteger = uint
 
-func XGo_istmp(a interface{}) bool {
+func XGo_istmp(a any) bool {
 	return false
 }
 

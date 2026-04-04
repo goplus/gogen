@@ -31,8 +31,8 @@ func main() {
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "a", "b").Val("Hi").Val(3).EndInit(2). // a, b := "Hi", 3
-		NewVarStart(nil, "c").VarVal("b").EndInit(1).                      // var c = b
-		NewVar(gogen.TyEmptyInterface, "x", "y").                          // var x, y interface{}
+		NewVarStart(nil, "c").VarVal("b").EndInit(1). // var c = b
+		NewVar(gogen.TyAny, "x", "y").                // var x, y any
 		Val(fmt.Ref("Println")).
 		/**/ VarVal("a").VarVal("b").VarVal("c"). // fmt.Println(a, b, c)
 		/**/ Call(3).EndStmt().
@@ -64,7 +64,7 @@ import "fmt"
 func main() {
 	a, b := "Hi", 3
 	var c = b
-	var x, y interface{}
+	var x, y any
 	fmt.Println(a, b, c)
 	func(v string) {
 		fmt.Println(v)
