@@ -258,7 +258,7 @@ func (p *unboundMapElemType) String() string {
 
 type btiMethodType struct {
 	types.Type
-	eargs []interface{}
+	eargs []any
 }
 
 // ----------------------------------------------------------------------------

@@ -264,7 +264,7 @@ type typeBFunc struct {
 	result types.BasicKind
 }
 
-type xType = interface{}
+type xType = any
 type typeXParam struct {
 	name string
 	typ  xType // tidx | types.Type
@@ -284,16 +284,16 @@ var _builtinFns = [...]struct {
 	params  []typeXParam
 	result  xType
 }{
-	{"copy", []typeTParam{{"Type", any}}, []typeXParam{{"dst", xtSlice}, {"src", xtSlice}}, types.Typ[types.Int]},
+	{"copy", []typeTParam{{"Type", _any}}, []typeXParam{{"dst", xtSlice}, {"src", xtSlice}}, types.Typ[types.Int]},
 	// func [Type any] copy(dst, src []Type) int
 
-	{"close", []typeTParam{{"Type", any}}, []typeXParam{{"c", xtChanIn}}, nil},
+	{"close", []typeTParam{{"Type", _any}}, []typeXParam{{"c", xtChanIn}}, nil},
 	// func [Type any] close(c chan<- Type)
 
-	{"append", []typeTParam{{"Type", any}}, []typeXParam{{"slice", xtSlice}, {"elems", xtEllipsis}}, xtSlice},
+	{"append", []typeTParam{{"Type", _any}}, []typeXParam{{"slice", xtSlice}, {"elems", xtEllipsis}}, xtSlice},
 	// func [Type any] append(slice []Type, elems ...Type) []Type
 
-	{"delete", []typeTParam{{"Key", comparable}, {"Elem", any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
+	{"delete", []typeTParam{{"Key", comparable}, {"Elem", _any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
 	// func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
 
 	{"clear", []typeTParam{{"Type", clearable}}, []typeXParam{{"t", 0}}, nil},
@@ -383,10 +383,10 @@ func initBuiltinFuncs(builtin *types.Package) {
 		}
 		gbl.Insert(NewOverloadFunc(token.NoPos, builtin, overload.name, fns...))
 	}
-	// func panic(v interface{})
-	// func recover() interface{}
-	// func print(args ...interface{})
-	// func println(args ...interface{})
+	// func panic(v any)
+	// func recover() any
+	// func print(args ...any)
+	// func println(args ...any)
 	emptyIntfVar := types.NewVar(token.NoPos, builtin, "v", TyEmptyInterface)
 	emptyIntfTuple := types.NewTuple(emptyIntfVar)
 	emptyIntfSlice := types.NewSlice(TyEmptyInterface)
@@ -454,7 +454,7 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 // ----------------------------------------------------------------------------
 
 type builtinFn struct {
-	fn   interface{}
+	fn   any
 	narg int
 }
 
@@ -1422,7 +1422,7 @@ func (p clearableT) String() string {
 // ----------------------------------------------------------------------------
 
 var (
-	any        = anyT{}
+	_any       = anyT{}
 	capable    = capableT{}
 	lenable    = lenableT{}
 	makable    = makableT{}
@@ -1440,12 +1440,12 @@ var (
 
 // ----------------------------------------------------------------------------
 
-type bmExargs = []interface{}
+type bmExargs = []any
 
 type BuiltinMethod struct {
 	Name   string
 	Fn     types.Object
-	Exargs []interface{}
+	Exargs []any
 }
 
 func (p *BuiltinMethod) Results() *types.Tuple {

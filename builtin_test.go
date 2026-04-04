@@ -391,7 +391,7 @@ func TestContractName(t *testing.T) {
 		Contract
 		name string
 	}{
-		{any, "any"},
+		{_any, "any"},
 		{capable, "capable"},
 		{lenable, "lenable"},
 		{makable, "makable"},
@@ -1498,7 +1498,7 @@ func TestVarVal(t *testing.T) {
 	cb.VarVal("unknown")
 }
 
-func isError(e interface{}, msg string) bool {
+func isError(e any, msg string) bool {
 	if e != nil {
 		if err, ok := e.(error); ok {
 			return err.Error() == msg
