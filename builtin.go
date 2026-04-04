@@ -284,16 +284,16 @@ var _builtinFns = [...]struct {
 	params  []typeXParam
 	result  xType
 }{
-	{"copy", []typeTParam{{"Type", any}}, []typeXParam{{"dst", xtSlice}, {"src", xtSlice}}, types.Typ[types.Int]},
+	{"copy", []typeTParam{{"Type", _any}}, []typeXParam{{"dst", xtSlice}, {"src", xtSlice}}, types.Typ[types.Int]},
 	// func [Type any] copy(dst, src []Type) int
 
-	{"close", []typeTParam{{"Type", any}}, []typeXParam{{"c", xtChanIn}}, nil},
+	{"close", []typeTParam{{"Type", _any}}, []typeXParam{{"c", xtChanIn}}, nil},
 	// func [Type any] close(c chan<- Type)
 
-	{"append", []typeTParam{{"Type", any}}, []typeXParam{{"slice", xtSlice}, {"elems", xtEllipsis}}, xtSlice},
+	{"append", []typeTParam{{"Type", _any}}, []typeXParam{{"slice", xtSlice}, {"elems", xtEllipsis}}, xtSlice},
 	// func [Type any] append(slice []Type, elems ...Type) []Type
 
-	{"delete", []typeTParam{{"Key", comparable}, {"Elem", any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
+	{"delete", []typeTParam{{"Key", comparable}, {"Elem", _any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
 	// func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
 
 	{"clear", []typeTParam{{"Type", clearable}}, []typeXParam{{"t", 0}}, nil},
@@ -1422,7 +1422,7 @@ func (p clearableT) String() string {
 // ----------------------------------------------------------------------------
 
 var (
-	any        = anyT{}
+	_any       = anyT{}
 	capable    = capableT{}
 	lenable    = lenableT{}
 	makable    = makableT{}

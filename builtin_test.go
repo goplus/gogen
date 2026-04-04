@@ -391,7 +391,7 @@ func TestContractName(t *testing.T) {
 		Contract
 		name string
 	}{
-		{any, "any"},
+		{_any, "any"},
 		{capable, "capable"},
 		{lenable, "lenable"},
 		{makable, "makable"},
