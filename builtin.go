@@ -264,7 +264,7 @@ type typeBFunc struct {
 	result types.BasicKind
 }
 
-type xType = interface{}
+type xType = any
 type typeXParam struct {
 	name string
 	typ  xType // tidx | types.Type
@@ -383,10 +383,10 @@ func initBuiltinFuncs(builtin *types.Package) {
 		}
 		gbl.Insert(NewOverloadFunc(token.NoPos, builtin, overload.name, fns...))
 	}
-	// func panic(v interface{})
-	// func recover() interface{}
-	// func print(args ...interface{})
-	// func println(args ...interface{})
+	// func panic(v any)
+	// func recover() any
+	// func print(args ...any)
+	// func println(args ...any)
 	emptyIntfVar := types.NewVar(token.NoPos, builtin, "v", TyEmptyInterface)
 	emptyIntfTuple := types.NewTuple(emptyIntfVar)
 	emptyIntfSlice := types.NewSlice(TyEmptyInterface)
@@ -454,7 +454,7 @@ func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
 // ----------------------------------------------------------------------------
 
 type builtinFn struct {
-	fn   interface{}
+	fn   any
 	narg int
 }
 
@@ -1440,12 +1440,12 @@ var (
 
 // ----------------------------------------------------------------------------
 
-type bmExargs = []interface{}
+type bmExargs = []any
 
 type BuiltinMethod struct {
 	Name   string
 	Fn     types.Object
-	Exargs []interface{}
+	Exargs []any
 }
 
 func (p *BuiltinMethod) Results() *types.Tuple {

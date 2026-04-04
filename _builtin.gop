@@ -173,10 +173,10 @@ func imag = (
 
 func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
 
-func panic(v interface{})
-func recover() interface{}
+func panic(v any)
+func recover() any
 
-func print(args ...interface{})
-func println(args ...interface{})
+func print(args ...any)
+func println(args ...any)
 
 // -----------------------------------------------------------------------------
