@@ -28,6 +28,7 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/target"
 	xtoken "github.com/goplus/gogen/token"
 	"github.com/goplus/gogen/typeutil"
 )
@@ -1877,22 +1878,22 @@ func denoteRecv(v *ast.SelectorExpr) *Element {
 	return nil
 }
 
-func getDenoted(expr ast.Expr) *ast.Object {
+func getDenoted(expr target.Expr) *target.Object {
 	switch v := expr.(type) {
-	case *ast.SelectorExpr:
+	case *target.SelectorExpr:
 		return v.Sel.Obj
-	case *ast.Ident:
+	case *target.Ident:
 		return v.Obj
 	default:
 		return nil
 	}
 }
 
-func setDenoted(expr ast.Expr, denoted *ast.Object) {
+func setDenoted(expr target.Expr, denoted *target.Object) {
 	switch v := expr.(type) {
-	case *ast.SelectorExpr:
+	case *target.SelectorExpr:
 		v.Sel.Obj = denoted
-	case *ast.Ident:
+	case *target.Ident:
 		v.Obj = denoted
 	}
 }

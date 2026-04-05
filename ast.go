@@ -27,6 +27,8 @@ import (
 	"strings"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/target"
+	"github.com/goplus/gogen/internal/target/util"
 )
 
 var (
@@ -51,25 +53,25 @@ var (
 	identIota   = ident("iota")
 )
 
-func ident(name string) *ast.Ident {
-	return &ast.Ident{Name: name}
+func ident(name string) *target.Ident {
+	return &target.Ident{Name: name}
 }
 
-func boolean(v bool) *ast.Ident {
+func boolean(v bool) *target.Ident {
 	if v {
 		return identTrue
 	}
 	return identFalse
 }
 
-func stringLit(val string) *ast.BasicLit {
-	return &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(val)}
+func stringLit(val string) *target.BasicLit {
+	return &target.BasicLit{Kind: token.STRING, Value: strconv.Quote(val)}
 }
 
 func toRecv(pkg *Package, recv *types.Var) *ast.FieldList {
 	var names []*ast.Ident
 	if name := recv.Name(); name != "" {
-		names = []*ast.Ident{ident(name)}
+		names = []*ast.Ident{{Name: name}}
 	}
 	fld := &ast.Field{Names: names, Type: toRecvType(pkg, recv.Type())}
 	return &ast.FieldList{List: []*ast.Field{fld}}
@@ -91,7 +93,7 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 			if pkg.isParamOptional(item) {
 				name = xgoOptionalPrefix + name
 			}
-			names = []*ast.Ident{ident(name)}
+			names = []*ast.Ident{{Name: name}}
 		}
 		typ := toType(pkg, item.Type())
 		flds[i] = &ast.Field{Names: names, Type: typ}
@@ -184,7 +186,7 @@ retry:
 		typ = t.tBound
 		goto retry
 	case *TypeParam:
-		return toObjectExpr(pkg, t.Obj())
+		return toObjectTypeExpr(pkg, t.Obj())
 	case *Union:
 		return toUnionType(pkg, t)
 	case *types.Alias:
@@ -196,7 +198,7 @@ retry:
 
 func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
 	if t.Kind() == types.UnsafePointer {
-		return toObjectExpr(pkg, unsafeRef("Pointer"))
+		return toObjectTypeExpr(pkg, unsafeRef("Pointer"))
 	}
 	if (t.Info() & types.IsUntyped) != 0 {
 		panic("unexpected: untyped type")
@@ -266,7 +268,7 @@ func toInterface(pkg *Package, t *types.Interface) ast.Expr {
 	}
 	for i, n := 0, t.NumExplicitMethods(); i < n; i++ {
 		fn := t.ExplicitMethod(i)
-		name := ident(fn.Name())
+		name := &ast.Ident{Name: fn.Name()}
 		typ := toFuncType(pkg, fn.Type().(*types.Signature))
 		fld := &ast.Field{Names: []*ast.Ident{name}, Type: typ}
 		flds = append(flds, fld)
@@ -287,12 +289,7 @@ func toExpr(pkg *Package, val any, src ast.Node) *internal.Elem {
 	}
 	switch v := val.(type) {
 	case *ast.BasicLit:
-		return &internal.Elem{
-			Val:  v,
-			Type: types.Typ[toBasicKind(v.Kind)],
-			CVal: constant.MakeFromLiteral(v.Value, v.Kind, 0),
-			Src:  src,
-		}
+		return util.ElemFromBasicLit(v, src)
 	case *types.TypeName:
 		switch typ := v.Type(); typ.(type) {
 		case *TyInstruction: // instruction as a type
@@ -302,7 +299,7 @@ func toExpr(pkg *Package, val any, src ast.Node) *internal.Elem {
 				log.Printf("Val %v => Typ %v", v, typ)
 			}
 			return &internal.Elem{
-				Val: toType(pkg, typ), Type: NewTypeType(typ), Src: src,
+				Val: util.TypeExpr(toType(pkg, typ)), Type: NewTypeType(typ), Src: src,
 			}
 		}
 	case *types.Builtin:
@@ -327,14 +324,14 @@ func toExpr(pkg *Package, val any, src ast.Node) *internal.Elem {
 		return v
 	case int:
 		return &internal.Elem{
-			Val:  &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(v)},
+			Val:  util.IntLit(v),
 			Type: types.Typ[types.UntypedInt],
 			CVal: constant.MakeInt64(int64(v)),
 			Src:  src,
 		}
 	case string:
 		return &internal.Elem{
-			Val:  &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(v)},
+			Val:  util.StringLit(v),
 			Type: types.Typ[types.UntypedString],
 			CVal: constant.MakeString(v),
 			Src:  src,
@@ -348,18 +345,14 @@ func toExpr(pkg *Package, val any, src ast.Node) *internal.Elem {
 		}
 	case rune:
 		return &internal.Elem{
-			Val:  &ast.BasicLit{Kind: token.CHAR, Value: strconv.QuoteRune(v)},
+			Val:  util.RuneLit(v),
 			Type: types.Typ[types.UntypedRune],
 			CVal: constant.MakeInt64(int64(v)),
 			Src:  src,
 		}
 	case float64:
-		val := strconv.FormatFloat(v, 'g', -1, 64)
-		if !strings.ContainsAny(val, ".e") {
-			val += ".0"
-		}
 		return &internal.Elem{
-			Val:  &ast.BasicLit{Kind: token.FLOAT, Value: val},
+			Val:  util.FloatLit(v),
 			Type: types.Typ[types.UntypedFloat],
 			CVal: constant.MakeFloat64(v),
 			Src:  src,
@@ -370,20 +363,6 @@ func toExpr(pkg *Package, val any, src ast.Node) *internal.Elem {
 
 var (
 	iotaObj types.Object
-)
-
-func toBasicKind(tok token.Token) types.BasicKind {
-	return tok2BasicKinds[tok]
-}
-
-var (
-	tok2BasicKinds = [...]types.BasicKind{
-		token.INT:    types.UntypedInt,
-		token.STRING: types.UntypedString,
-		token.CHAR:   types.UntypedRune,
-		token.FLOAT:  types.UntypedFloat,
-		token.IMAG:   types.UntypedComplex,
-	}
 )
 
 func chgObject(pkg *Package, v types.Object, old *internal.Elem) *internal.Elem {
@@ -404,7 +383,7 @@ func toObject(pkg *Package, v types.Object, src ast.Node) *internal.Elem {
 	}
 }
 
-func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
+func toObjectExpr(pkg *Package, v types.Object) target.Expr {
 	atPkg, name := v.Pkg(), v.Name()
 	if atPkg == nil || atPkg == pkg.Types { // at universe or at this package
 		if param, ok := v.(*types.Var); ok && pkg.isParamOptional(param) {
@@ -418,19 +397,25 @@ func toObjectExpr(pkg *Package, v types.Object) ast.Expr {
 			if op, ok := nameToOps[opName]; ok {
 				switch op.Arity {
 				case 2:
-					return &ast.BinaryExpr{Op: op.Tok}
+					return &target.BinaryExpr{Op: op.Tok}
 				case 1:
-					return &ast.UnaryExpr{Op: op.Tok}
+					return &target.UnaryExpr{Op: op.Tok}
 				}
 			}
 		}
 		return ident(name)
 	}
 	x := pkg.file.newImport(atPkg.Name(), atPkg.Path())
-	return &ast.SelectorExpr{
-		X:   x,
-		Sel: ident(v.Name()),
+	return util.Ref(x, v.Name())
+}
+
+func toObjectTypeExpr(pkg *Package, v types.Object) ast.Expr {
+	atPkg, name := v.Pkg(), v.Name()
+	if atPkg == nil || atPkg == pkg.Types || atPkg == pkg.builtin.Types { // at universe/builtin or at this package
+		return &ast.Ident{Name: name}
 	}
+	x := pkg.file.newImport(atPkg.Name(), atPkg.Path())
+	return util.RefType(x, v.Name())
 }
 
 type operator struct {
@@ -681,7 +666,7 @@ retry:
 					if (flags & instrFlagBinaryOp) != 0 { // from cb.BinaryOp
 						mfn.Type = methodToFuncSig(pkg, o, &mfn)
 					} else {
-						mfn.Val.(*ast.SelectorExpr).Sel = ident(o.Name())
+						mfn.Val.(*target.SelectorExpr).Sel = ident(o.Name())
 						mfn.Type = methodCallSig(o.Type())
 					}
 					if ret, err = matchFuncCall(pkg, &mfn, args, lhs, flags); err == nil {
@@ -704,7 +689,7 @@ retry:
 							targs := make([]*internal.Elem, len(args)+1)
 							targ0 := *recv
 							if i == 1 {
-								targ0.Val = &ast.UnaryExpr{Op: token.AND, X: targ0.Val}
+								targ0.Val = util.AddrOf(targ0.Val)
 								targ0.Type = types.NewPointer(targ0.Type)
 							}
 							targs[0] = &targ0
@@ -802,17 +787,17 @@ retry:
 		}
 	}
 	switch t := fn.Val.(type) {
-	case *ast.BinaryExpr:
+	case *target.BinaryExpr:
 		t.X, t.Y = checkParenExpr(args[0].Val), checkParenExpr(args[1].Val)
 		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
-	case *ast.UnaryExpr:
+	case *target.UnaryExpr:
 		t.X = args[0].Val
 		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	}
-	var valArgs []ast.Expr
+	var valArgs []target.Expr
 	var recv = getParam1st(sig)
 	if n := len(args); n > recv { // for method, args[0] is already in fn.Val
-		valArgs = make([]ast.Expr, n-recv)
+		valArgs = make([]target.Expr, n-recv)
 		for i := recv; i < n; i++ {
 			valArgs[i-recv] = args[i].Val
 		}
@@ -836,7 +821,7 @@ retry:
 
 	return &internal.Elem{
 		Type: tyRet, CVal: cval,
-		Val: &ast.CallExpr{
+		Val: &target.CallExpr{
 			Fun: fn.Val, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 	}, nil
 }
@@ -866,7 +851,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 	fnVal := fn.Val
 	switch typ.(type) {
 	case *types.Pointer, *types.Chan:
-		fnVal = &ast.ParenExpr{X: fnVal}
+		fnVal = &target.ParenExpr{X: fnVal}
 	}
 	if len(args) == 1 && ConvertibleTo(pkg, args[0].Type, typ) {
 		if args[0].CVal != nil {
@@ -948,12 +933,12 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 	}
 
 finish:
-	valArgs := make([]ast.Expr, len(args))
+	valArgs := make([]target.Expr, len(args))
 	for i, v := range args { // TODO(xsw): type check
 		valArgs[i] = v.Val
 	}
 	ret = &internal.Elem{
-		Val:  &ast.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
+		Val:  &target.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 		Type: typ,
 	}
 	if len(args) == 1 { // TODO(xsw): const value may changed by type-convert
@@ -1011,19 +996,13 @@ func isPointer(typ types.Type) bool {
 	return ok
 }
 
-func checkParenExpr(x ast.Expr) ast.Expr {
-	switch v := x.(type) {
-	case *ast.CompositeLit:
-		return &ast.ParenExpr{X: x}
-	case *ast.SelectorExpr:
-		v.X = checkParenExpr(v.X)
-	}
-	return x
+func checkParenExpr(x target.Expr) target.Expr {
+	return util.CheckParenExpr(x)
 }
 
 type backupElem struct {
 	typ types.Type
-	val ast.Expr
+	val target.Expr
 }
 
 func backupArgs(args []*internal.Elem) []backupElem {

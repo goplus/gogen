@@ -22,6 +22,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/goplus/gogen/internal/target"
 	"github.com/goplus/gogen/packages"
 )
 
@@ -140,18 +141,18 @@ type importUsed bool
 type File struct {
 	decls []ast.Decl
 	fname string
-	imps  map[string]*ast.Ident // importPath => impRef (nil means force-import)
+	imps  map[string]*target.PkgRef // importPath => impRef (nil means force-import)
 	dirty bool
 }
 
 func newFile(fname string) *File {
-	return &File{fname: fname, imps: make(map[string]*ast.Ident)}
+	return &File{fname: fname, imps: make(map[string]*target.PkgRef)}
 }
 
-func (p *File) newImport(name, pkgPath string) *ast.Ident {
+func (p *File) newImport(name, pkgPath string) *target.PkgRef {
 	id := p.imps[pkgPath]
 	if id == nil {
-		id = &ast.Ident{Name: name, Obj: &ast.Object{Data: importUsed(false)}}
+		id = &target.PkgRef{Name: name, Obj: &target.Object{Data: importUsed(false)}}
 		p.imps[pkgPath] = id
 		p.dirty = true
 	}
