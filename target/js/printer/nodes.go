@@ -9,11 +9,9 @@
 package printer
 
 import (
-	"go/ast"
 	"go/token"
 	"math"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/goplus/gogen/target/js"
 )
@@ -102,6 +100,7 @@ const (
 	noIndent                           // no extra indentation in multi-line lists
 )
 
+/* TODO(xsw):
 // If indent is set, a multi-line identifier list is indented after the
 // first linebreak encountered.
 func (p *printer) identList(list []*js.Ident, indent bool) {
@@ -116,6 +115,7 @@ func (p *printer) identList(list []*js.Ident, indent bool) {
 	}
 	p.exprList(token.NoPos, xlist, 1, mode, token.NoPos, false)
 }
+*/
 
 const filteredMsg = "contains filtered or unexported fields"
 
@@ -392,6 +392,7 @@ func (p *printer) parameters(fields *js.FuncDecl, mode paramMode) {
 	p.print(fields.Closing, closeTok)
 }
 
+/* TODO(xsw):
 // combinesWithName reports whether a name followed by the expression x
 // syntactically combines to another valid (value) expression. For instance
 // using *T for x, "name *T" syntactically appears as the expression x*T.
@@ -425,6 +426,7 @@ func isTypeElem(x ast.Expr) bool {
 	}
 	return false
 }
+*/
 
 func (p *printer) signature(sig *js.FuncDecl) {
 	/* TODO(xsw):
@@ -453,6 +455,7 @@ func (p *printer) signature(sig *js.FuncDecl) {
 	*/
 }
 
+/* TODO(xsw):
 func identListSize(list []*js.Ident, maxSize int) (size int) {
 	for i, x := range list {
 		if i > 0 {
@@ -466,7 +469,6 @@ func identListSize(list []*js.Ident, maxSize int) (size int) {
 	return
 }
 
-/* TODO(xsw):
 func (p *printer) isOneLineFieldList(list []*js.Field) bool {
 	if len(list) != 1 {
 		return false // allow only one field
@@ -484,13 +486,11 @@ func (p *printer) isOneLineFieldList(list []*js.Field) bool {
 	typeSize := p.nodeSize(f.Type, maxSize)
 	return namesSize+typeSize <= maxSize
 }
-*/
 
 func (p *printer) setLineComment(text string) {
 	p.setComment(&astCommentGroup{List: []*ast.Comment{{Slash: token.NoPos, Text: text}}})
 }
 
-/* TODO(xsw):
 func (p *printer) fieldList(fields *js.FieldList, isStruct, isIncomplete bool) {
 	lbrace := fields.Opening
 	list := fields.List
@@ -809,10 +809,12 @@ func (p *printer) binaryExpr(x *js.BinaryExpr, prec1, cutoff, depth int) {
 	}
 }
 
+/* TODO(xsw):
 func isBinary(expr js.Expr) bool {
 	_, ok := expr.(*js.BinaryExpr)
 	return ok
 }
+*/
 
 func (p *printer) expr1(expr js.Expr, prec1, depth int) {
 	p.setPos(expr.Pos())
@@ -1214,6 +1216,7 @@ func (p *printer) block(b *js.BlockStmt, nindent int) {
 	p.print(b.Rbrace, token.RBRACE)
 }
 
+/* TODO(xsw):
 func isTypeName(x js.Expr) bool {
 	switch t := x.(type) {
 	case *js.Ident:
@@ -1223,6 +1226,7 @@ func isTypeName(x js.Expr) bool {
 	}
 	return false
 }
+*/
 
 func stripParens(x js.Expr) js.Expr {
 	/* TODO(xsw):
@@ -1252,12 +1256,14 @@ func stripParens(x js.Expr) js.Expr {
 	return x
 }
 
+/* TODO(xsw):
 func stripParensAlways(x js.Expr) js.Expr {
 	if x, ok := x.(*js.ParenExpr); ok {
 		return stripParensAlways(x.X)
 	}
 	return x
 }
+*/
 
 func (p *printer) controlClause(isForStmt bool, init js.Stmt, expr js.Expr, post js.Stmt) {
 	p.print(blank)
@@ -1293,6 +1299,7 @@ func (p *printer) controlClause(isForStmt bool, init js.Stmt, expr js.Expr, post
 	}
 }
 
+/* TODO(xsw):
 // indentList reports whether an expression list would look better if it
 // were indented wholesale (starting with the very first element, rather
 // than starting at the first line break).
@@ -1326,6 +1333,7 @@ func (p *printer) indentList(list []js.Expr) bool {
 	}
 	return false
 }
+*/
 
 func (p *printer) stmt(stmt js.Stmt, nextIsRBrace bool) {
 	p.setPos(stmt.Pos())

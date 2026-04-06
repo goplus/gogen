@@ -26,6 +26,7 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/target/js"
+	"github.com/goplus/gogen/target/js/format"
 	"github.com/goplus/gogen/target/js/printer"
 )
 
@@ -65,10 +66,7 @@ func (p *Package) WriteJSTo(dst io.Writer, fname ...string) (err error) {
 		return syscall.ENOENT
 	}
 	fset := token.NewFileSet()
-	_ = file
-	_ = fset
-	// return format.Node(dst, fset, file)
-	panic("todo")
+	return format.Node(dst, fset, file)
 }
 
 // WriteJSFile writes a JavaScript file named fname.
@@ -96,10 +94,7 @@ func (p *Package) WriteJSFile(file string, fname ...string) (err error) {
 		f.WriteString(GeneratedHeader)
 	}
 	fset := token.NewFileSet()
-	_ = ast
-	_ = fset
-	// return format.Node(f, fset, ast)
-	panic("todo")
+	return format.Node(f, fset, ast)
 }
 
 // ----------------------------------------------------------------------------
