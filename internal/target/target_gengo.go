@@ -34,4 +34,11 @@ type (
 	SelectorExpr = ast.SelectorExpr
 	CallExpr     = ast.CallExpr
 	ParenExpr    = ast.ParenExpr
+
+	Stmt      = ast.Stmt
+	EmptyStmt = ast.EmptyStmt
+	BlockStmt = ast.BlockStmt
+	IfStmt    = ast.IfStmt
+	ForStmt   = ast.ForStmt
+	RangeStmt = ast.RangeStmt
 )

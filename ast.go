@@ -38,7 +38,7 @@ var (
 // ----------------------------------------------------------------------------
 
 var (
-	underscore = &ast.Ident{Name: "_"}
+	underscore = &target.Ident{Name: "_"}
 )
 
 var (

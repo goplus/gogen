@@ -19,6 +19,8 @@ limitations under the License.
 package target
 
 import (
+	"go/token"
+
 	"github.com/goplus/gogen/internal/target/js"
 )
 
@@ -34,4 +36,20 @@ type (
 	SelectorExpr = js.SelectorExpr
 	CallExpr     = js.CallExpr
 	ParenExpr    = js.ParenExpr
+
+	Stmt      = js.Stmt
+	EmptyStmt = js.EmptyStmt
+	BlockStmt = js.BlockStmt
+	IfStmt    = js.IfStmt
+	ForStmt   = js.ForStmt
 )
+
+type RangeStmt struct {
+	For        token.Pos   // position of "for" keyword
+	Key, Value Expr        // Key, Value may be nil
+	TokPos     token.Pos   // position of Tok; invalid if Key == nil
+	Tok        token.Token // ILLEGAL if Key == nil, ASSIGN, DEFINE
+	Range      token.Pos   // position of "range" keyword
+	X          Expr        // value to range over
+	Body       *BlockStmt
+}

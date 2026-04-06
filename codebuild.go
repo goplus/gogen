@@ -100,7 +100,7 @@ type codeBlockCtx struct {
 	codeBlock
 	scope *types.Scope
 	base  int
-	stmts []ast.Stmt
+	stmts []target.Stmt
 	label *ast.LabeledStmt
 	flows int // flow flags
 }
@@ -312,10 +312,10 @@ func (p *CodeBuilder) startBlockStmt(current codeBlock, src []ast.Node, comment 
 	return p
 }
 
-func (p *CodeBuilder) endBlockStmt(old *codeBlockCtx) ([]ast.Stmt, int) {
+func (p *CodeBuilder) endBlockStmt(old *codeBlockCtx) ([]target.Stmt, int) {
 	flows := p.current.flows
 	if p.current.label != nil {
-		p.emitStmt(&ast.EmptyStmt{})
+		p.emitStmt(&target.EmptyStmt{})
 	}
 	stmts := p.current.stmts
 	p.stk.SetLen(p.current.base)
@@ -323,7 +323,7 @@ func (p *CodeBuilder) endBlockStmt(old *codeBlockCtx) ([]ast.Stmt, int) {
 	return stmts, flows
 }
 
-func (p *CodeBuilder) clearBlockStmt() []ast.Stmt {
+func (p *CodeBuilder) clearBlockStmt() []target.Stmt {
 	stmts := p.current.stmts
 	p.current.stmts = nil
 	return stmts
@@ -369,7 +369,7 @@ func (p *CodeBuilder) commitStmt(idx int) {
 	}
 }
 
-func (p *CodeBuilder) emitStmt(stmt ast.Stmt) {
+func (p *CodeBuilder) emitStmt(stmt target.Stmt) {
 	if p.comments != nil {
 		p.pkg.setStmtComments(stmt, p.comments)
 		if p.commentOnce {
