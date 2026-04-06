@@ -48,7 +48,9 @@ type Stmt interface {
 	stmtNode()
 }
 
+// A File node represents a JavaScript source file.
 type File struct {
+	Stmts []Stmt // top-level statements; or nil
 }
 
 // ----------------------------------------------------------------------------

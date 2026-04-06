@@ -263,7 +263,7 @@ func (p *Package) NewFuncWith(
 	}
 
 	fn.decl = &funcDecl{}
-	p.file.appendFuncDecl(fn.decl)
+	p.file.appendFuncDecl(fn.decl, sig)
 	return fn, nil
 }
 

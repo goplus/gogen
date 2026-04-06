@@ -152,6 +152,7 @@ type jsDecl interface {
 
 type funcDecl struct {
 	ast.FuncDecl
+	sig  *types.Signature
 	Body *js.BlockStmt
 }
 
@@ -184,7 +185,8 @@ type fileDecls struct {
 	jsDecls []jsDecl
 }
 
-func (p *fileDecls) appendFuncDecl(decl *funcDecl) {
+func (p *fileDecls) appendFuncDecl(decl *funcDecl, sig *types.Signature) {
+	decl.sig = sig
 	p.goDecls = append(p.goDecls, &decl.FuncDecl)
 	p.jsDecls = append(p.jsDecls, decl)
 }
@@ -201,6 +203,32 @@ func startValDeclStmtAt(cb *CodeBuilder, decl *valDecl) int {
 func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
 	p.goDecls = append(p.goDecls, &decl.GenDecl)
 	p.jsDecls = append(p.jsDecls, decl)
+}
+
+func (p *File) getJSFile(_ *Package) *js.File {
+	decls := make([]js.Stmt, 0, len(p.jsDecls))
+	for i, decl := range p.jsDecls {
+		switch d := decl.(type) {
+		case *funcDecl:
+			sig := d.sig
+			if sig.Recv() != nil {
+				panic("todo")
+			}
+			in := sig.Params()
+			n := in.Len()
+			params := make([]*js.Ident, n)
+			for i := range n {
+				params[i] = &js.Ident{Name: in.At(i).Name()}
+			}
+			decls = append(decls, &js.FuncDecl{
+				Recv:   recv,
+				Name:   &js.Ident{Name: d.Name.Name},
+				Params: params,
+				Body:   d.Body,
+			})
+		}
+	}
+	return &js.File{Stmts: decls}
 }
 
 // ----------------------------------------------------------------------------

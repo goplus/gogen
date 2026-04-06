@@ -949,7 +949,7 @@ func asValueSpec(spec ast.Spec) *valueSpec {
 	return spec.(*valueSpec)
 }
 
-func (p *fileDecls) appendFuncDecl(decl *funcDecl) {
+func (p *fileDecls) appendFuncDecl(decl *funcDecl, _ *types.Signature) {
 	p.goDecls = append(p.goDecls, decl)
 }
 
