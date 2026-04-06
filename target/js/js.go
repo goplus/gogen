@@ -50,7 +50,9 @@ type Stmt interface {
 
 // A File node represents a JavaScript source file.
 type File struct {
-	Stmts []Stmt // top-level statements; or nil
+	Doc      *CommentGroup   // associated documentation; or nil
+	Stmts    []Stmt          // top-level statements; or nil
+	Comments []*CommentGroup // comments in the file, in lexical order
 }
 
 // ----------------------------------------------------------------------------
@@ -305,12 +307,14 @@ func (*ReturnStmt) stmtNode() {}
 // function Name(params) { body }
 // Recv.prototype.Name = function(params) { body }
 type FuncDecl struct {
-	//Doc *CommentGroup // associated documentation; or nil
-	Recv   *Ident     // receiver (methods); or nil (functions)
-	Func   token.Pos  // position of "function" keyword
-	Name   *Ident     // function/method name
-	Params []*Ident   // parameters
-	Body   *BlockStmt // function body
+	Doc     *CommentGroup // associated documentation; or nil
+	Recv    *Ident        // receiver (methods); or nil (functions)
+	Func    token.Pos     // position of "function" keyword
+	Name    *Ident        // function/method name
+	Opening token.Pos     // position of (
+	Params  []*Ident      // parameters
+	Closing token.Pos     // position of )
+	Body    *BlockStmt    // function body
 }
 
 func (f *FuncDecl) Pos() token.Pos {

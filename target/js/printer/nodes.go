@@ -12,10 +12,10 @@ import (
 	"go/ast"
 	"go/token"
 	"math"
-	"strconv"
 	"strings"
-	"unicode"
 	"unicode/utf8"
+
+	"github.com/goplus/gogen/target/js"
 )
 
 // Formatting issues:
@@ -104,9 +104,9 @@ const (
 
 // If indent is set, a multi-line identifier list is indented after the
 // first linebreak encountered.
-func (p *printer) identList(list []*ast.Ident, indent bool) {
+func (p *printer) identList(list []*js.Ident, indent bool) {
 	// convert into an expression list so we can re-use exprList formatting
-	xlist := make([]ast.Expr, len(list))
+	xlist := make([]js.Expr, len(list))
 	for i, x := range list {
 		xlist[i] = x
 	}
@@ -127,7 +127,7 @@ const filteredMsg = "contains filtered or unexported fields"
 //
 //	so that we can use the algorithm for any kind of list
 //	(e.g., pass list via a channel over which to range).
-func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exprListMode, next0 token.Pos, isIncomplete bool) {
+func (p *printer) exprList(prev0 token.Pos, list []js.Expr, depth int, mode exprListMode, next0 token.Pos, isIncomplete bool) {
 	if len(list) == 0 {
 		if isIncomplete {
 			prev := p.posFor(prev0)
@@ -211,7 +211,8 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 		prevSize := size
 		const infinity = 1e6 // larger than any source line
 		size = p.nodeSize(x, infinity)
-		pair, isPair := x.(*ast.KeyValueExpr)
+		/* TODO(xsw):
+		pair, isPair := x.(*js.KeyValueExpr)
 		if size <= infinity && prev.IsValid() && next.IsValid() {
 			// x fits on a single line
 			if isPair {
@@ -221,6 +222,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 			// size too large or we don't have good layout information
 			size = 0
 		}
+		*/
 
 		// If the previous line and the current line had single-
 		// line-expressions and the key sizes are small or the
@@ -273,6 +275,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 			}
 		}
 
+		/* TODO(xsw):
 		if len(list) > 1 && isPair && size > 0 && needsLinebreak {
 			// We have a key:value expression that fits onto one line
 			// and it's not on the same line as the prior expression:
@@ -282,7 +285,7 @@ func (p *printer) exprList(prev0 token.Pos, list []ast.Expr, depth int, mode exp
 			p.expr(pair.Key)
 			p.print(pair.Colon, token.COLON, vtab)
 			p.expr(pair.Value)
-		} else {
+		} else */{
 			p.expr0(x, depth)
 		}
 
@@ -328,16 +331,16 @@ const (
 	typeTParam
 )
 
-func (p *printer) parameters(fields *ast.FieldList, mode paramMode) {
+func (p *printer) parameters(fields *js.FuncDecl, mode paramMode) {
 	openTok, closeTok := token.LPAREN, token.RPAREN
 	if mode != funcParam {
 		openTok, closeTok = token.LBRACK, token.RBRACK
 	}
 	p.print(fields.Opening, openTok)
-	if len(fields.List) > 0 {
+	if len(fields.Params) > 0 {
 		prevLine := p.lineFor(fields.Opening)
 		ws := indent
-		for i, par := range fields.List {
+		for i, par := range fields.Params {
 			// determine par begin and end line (may be different
 			// if there are multiple parameter names for this par
 			// or the type is on a separate line)
@@ -361,6 +364,8 @@ func (p *printer) parameters(fields *ast.FieldList, mode paramMode) {
 			} else if i > 0 {
 				p.print(blank)
 			}
+			p.expr(par)
+			/* REMOVE:
 			// parameter names
 			if len(par.Names) > 0 {
 				// Very subtle: If we indented before (ws == ignore), identList
@@ -374,20 +379,8 @@ func (p *printer) parameters(fields *ast.FieldList, mode paramMode) {
 			}
 			// parameter type
 			p.expr(stripParensAlways(par.Type))
+			*/
 			prevLine = parLineEnd
-		}
-
-		// if the closing ")" is on a separate line from the last parameter,
-		// print an additional "," and line break
-		if closing := p.lineFor(fields.Closing); 0 < prevLine && prevLine < closing {
-			p.print(token.COMMA)
-			p.linebreak(closing, 0, ignore, true)
-		} else if mode == typeTParam && fields.NumFields() == 1 && combinesWithName(stripParensAlways(fields.List[0].Type)) {
-			// A type parameter list [P T] where the name P and the type expression T syntactically
-			// combine to another valid (value) expression requires a trailing comma, as in [P *T,]
-			// (or an enclosing interface as in [P interface(*T)]), so that the type parameter list
-			// is not parsed as an array length [P*T].
-			p.print(token.COMMA)
 		}
 
 		// unindent if we indented
@@ -433,15 +426,18 @@ func isTypeElem(x ast.Expr) bool {
 	return false
 }
 
-func (p *printer) signature(sig *ast.FuncType) {
+func (p *printer) signature(sig *js.FuncDecl) {
+	/* TODO(xsw):
 	if sig.TypeParams != nil {
 		p.parameters(sig.TypeParams, funcTParam)
 	}
+	*/
 	if sig.Params != nil {
-		p.parameters(sig.Params, funcParam)
+		p.parameters(sig, funcParam)
 	} else {
 		p.print(token.LPAREN, token.RPAREN)
 	}
+	/* TODO(xsw):
 	res := sig.Results
 	n := res.NumFields()
 	if n > 0 {
@@ -454,9 +450,10 @@ func (p *printer) signature(sig *ast.FuncType) {
 		}
 		p.parameters(res, funcParam)
 	}
+	*/
 }
 
-func identListSize(list []*ast.Ident, maxSize int) (size int) {
+func identListSize(list []*js.Ident, maxSize int) (size int) {
 	for i, x := range list {
 		if i > 0 {
 			size += len(", ")
@@ -469,7 +466,8 @@ func identListSize(list []*ast.Ident, maxSize int) (size int) {
 	return
 }
 
-func (p *printer) isOneLineFieldList(list []*ast.Field) bool {
+/* TODO(xsw):
+func (p *printer) isOneLineFieldList(list []*js.Field) bool {
 	if len(list) != 1 {
 		return false // allow only one field
 	}
@@ -486,12 +484,14 @@ func (p *printer) isOneLineFieldList(list []*ast.Field) bool {
 	typeSize := p.nodeSize(f.Type, maxSize)
 	return namesSize+typeSize <= maxSize
 }
+*/
 
 func (p *printer) setLineComment(text string) {
 	p.setComment(&astCommentGroup{List: []*ast.Comment{{Slash: token.NoPos, Text: text}}})
 }
 
-func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) {
+/* TODO(xsw):
+func (p *printer) fieldList(fields *js.FieldList, isStruct, isIncomplete bool) {
 	lbrace := fields.Opening
 	list := fields.List
 	rbrace := fields.Closing
@@ -640,11 +640,12 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 	p.setPos(rbrace)
 	p.print(token.RBRACE)
 }
+*/
 
 // ----------------------------------------------------------------------------
 // Expressions
 
-func walkBinary(e *ast.BinaryExpr) (has4, has5 bool, maxProblem int) {
+func walkBinary(e *js.BinaryExpr) (has4, has5 bool, maxProblem int) {
 	switch e.Op.Precedence() {
 	case 4:
 		has4 = true
@@ -653,10 +654,10 @@ func walkBinary(e *ast.BinaryExpr) (has4, has5 bool, maxProblem int) {
 	}
 
 	switch l := e.X.(type) {
-	case *ast.BinaryExpr:
+	case *js.BinaryExpr:
 		if l.Op.Precedence() < e.Op.Precedence() {
 			// parens will be inserted.
-			// pretend this is an *ast.ParenExpr and do nothing.
+			// pretend this is an *js.ParenExpr and do nothing.
 			break
 		}
 		h4, h5, mp := walkBinary(l)
@@ -668,10 +669,10 @@ func walkBinary(e *ast.BinaryExpr) (has4, has5 bool, maxProblem int) {
 	}
 
 	switch r := e.Y.(type) {
-	case *ast.BinaryExpr:
+	case *js.BinaryExpr:
 		if r.Op.Precedence() <= e.Op.Precedence() {
 			// parens will be inserted.
-			// pretend this is an *ast.ParenExpr and do nothing.
+			// pretend this is an *js.ParenExpr and do nothing.
 			break
 		}
 		h4, h5, mp := walkBinary(r)
@@ -681,12 +682,13 @@ func walkBinary(e *ast.BinaryExpr) (has4, has5 bool, maxProblem int) {
 			maxProblem = mp
 		}
 
-	case *ast.StarExpr:
-		if e.Op == token.QUO { // `*/`
-			maxProblem = 5
-		}
+	// TODO(xsw):
+	// case *js.StarExpr:
+	//	if e.Op == token.QUO { // `*/`
+	//		maxProblem = 5
+	//	}
 
-	case *ast.UnaryExpr:
+	case *js.UnaryExpr:
 		switch e.Op.String() + r.Op.String() {
 		case "/*", "&&", "&^":
 			maxProblem = 5
@@ -699,7 +701,7 @@ func walkBinary(e *ast.BinaryExpr) (has4, has5 bool, maxProblem int) {
 	return
 }
 
-func cutoff(e *ast.BinaryExpr, depth int) int {
+func cutoff(e *js.BinaryExpr, depth int) int {
 	has4, has5, maxProblem := walkBinary(e)
 	if maxProblem > 0 {
 		return maxProblem + 1
@@ -716,8 +718,8 @@ func cutoff(e *ast.BinaryExpr, depth int) int {
 	return 4
 }
 
-func diffPrec(expr ast.Expr, prec int) int {
-	x, ok := expr.(*ast.BinaryExpr)
+func diffPrec(expr js.Expr, prec int) int {
+	x, ok := expr.(*js.BinaryExpr)
 	if !ok || prec != x.Op.Precedence() {
 		return 1
 	}
@@ -768,11 +770,11 @@ func reduceDepth(depth int) int {
 //  3. If there are no level 4 operators or no level 5 operators, then the
 //     cutoff is 6 (always use spaces) in Normal mode
 //     and 4 (never use spaces) in Compact mode.
-func (p *printer) binaryExpr(x *ast.BinaryExpr, prec1, cutoff, depth int) {
+func (p *printer) binaryExpr(x *js.BinaryExpr, prec1, cutoff, depth int) {
 	prec := x.Op.Precedence()
 	if prec < prec1 {
 		// parenthesis needed
-		// Note: The parser inserts an ast.ParenExpr node; thus this case
+		// Note: The parser inserts an js.ParenExpr node; thus this case
 		//       can only occur if the AST is created in a different way.
 		p.print(token.LPAREN)
 		p.expr0(x, reduceDepth(depth)) // parentheses undo one level of depth
@@ -807,34 +809,35 @@ func (p *printer) binaryExpr(x *ast.BinaryExpr, prec1, cutoff, depth int) {
 	}
 }
 
-func isBinary(expr ast.Expr) bool {
-	_, ok := expr.(*ast.BinaryExpr)
+func isBinary(expr js.Expr) bool {
+	_, ok := expr.(*js.BinaryExpr)
 	return ok
 }
 
-func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
+func (p *printer) expr1(expr js.Expr, prec1, depth int) {
 	p.setPos(expr.Pos())
 
 	switch x := expr.(type) {
-	case *ast.BadExpr:
-		p.print("BadExpr")
+	//case *js.BadExpr:
+	//	p.print("BadExpr")
 
-	case *ast.Ident:
+	case *js.Ident:
 		p.print(x)
 
-	case *ast.BinaryExpr:
+	case *js.BinaryExpr:
 		if depth < 1 {
 			p.internalError("depth < 1:", depth)
 			depth = 1
 		}
 		p.binaryExpr(x, prec1, cutoff(x, depth), depth)
 
-	case *ast.KeyValueExpr:
+	/* TODO(xsw):
+	case *js.KeyValueExpr:
 		p.expr(x.Key)
 		p.print(x.Colon, token.COLON, blank)
 		p.expr(x.Value)
 
-	case *ast.StarExpr:
+	case *js.StarExpr:
 		const prec = token.UnaryPrec
 		if prec < prec1 {
 			// parenthesis needed
@@ -847,8 +850,8 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 			p.print(token.MUL)
 			p.expr(x.X)
 		}
-
-	case *ast.UnaryExpr:
+	*/
+	case *js.UnaryExpr:
 		const prec = token.UnaryPrec
 		if prec < prec1 {
 			// parenthesis needed
@@ -865,22 +868,25 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 			p.expr1(x.X, prec, depth)
 		}
 
-	case *ast.BasicLit:
+	case *js.BasicLit:
 		if p.Config.Mode&normalizeNumbers != 0 {
 			x = normalizedNumber(x)
 		}
 		p.print(x)
 
-	case *ast.FuncLit:
+	case *js.FuncLit:
+		/* TODO(xsw):
 		p.setPos(x.Type.Pos())
 		p.print(token.FUNC)
 		// See the comment in funcDecl about how the header size is computed.
 		startCol := p.out.Column - len("func")
 		p.signature(x.Type)
 		p.funcBody(p.distanceFrom(x.Type.Pos(), startCol), blank, x.Body)
+		*/
+		panic("todo: print js.FuncLit")
 
-	case *ast.ParenExpr:
-		if _, hasParens := x.X.(*ast.ParenExpr); hasParens {
+	case *js.ParenExpr:
+		if _, hasParens := x.X.(*js.ParenExpr); hasParens {
 			// don't print parentheses around an already parenthesized expression
 			// TODO(gri) consider making this more general and incorporate precedence levels
 			p.expr0(x.X, depth)
@@ -890,10 +896,11 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 			p.print(x.Rparen, token.RPAREN)
 		}
 
-	case *ast.SelectorExpr:
+	case *js.SelectorExpr:
 		p.selectorExpr(x, depth, false)
 
-	case *ast.TypeAssertExpr:
+	/* TODO(xsw):
+	case *js.TypeAssertExpr:
 		p.expr1(x.X, token.HighestPrec, depth)
 		p.print(token.PERIOD, x.Lparen, token.LPAREN)
 		if x.Type != nil {
@@ -902,22 +909,23 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 			p.print(token.TYPE)
 		}
 		p.print(x.Rparen, token.RPAREN)
-
-	case *ast.IndexExpr:
+	*/
+	case *js.IndexExpr:
 		// TODO(gri): should treat[] like parentheses and undo one level of depth
 		p.expr1(x.X, token.HighestPrec, 1)
 		p.print(x.Lbrack, token.LBRACK)
 		p.expr0(x.Index, depth+1)
 		p.print(x.Rbrack, token.RBRACK)
 
-	case *ast.IndexListExpr:
+	/* TODO(xsw):
+	case *js.IndexListExpr:
 		// TODO(gri): should treat[] like parentheses and undo one level of depth
 		p.expr1(x.X, token.HighestPrec, 1)
 		p.print(x.Lbrack, token.LBRACK)
 		p.exprList(x.Lbrack, x.Indices, depth+1, commaTerm, x.Rbrack, false)
 		p.print(x.Rbrack, token.RBRACK)
 
-	case *ast.SliceExpr:
+	case *js.SliceExpr:
 		// TODO(gri): should treat[] like parentheses and undo one level of depth
 		p.expr1(x.X, token.HighestPrec, 1)
 		p.print(x.Lbrack, token.LBRACK)
@@ -957,18 +965,19 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 			}
 		}
 		p.print(x.Rbrack, token.RBRACK)
-
-	case *ast.CallExpr:
+	*/
+	case *js.CallExpr:
 		if len(x.Args) > 1 {
 			depth++
 		}
 		var wasIndented bool
-		if _, ok := x.Fun.(*ast.FuncType); ok {
+		/* TODO(xsw):
+		if _, ok := x.Fun.(*js.FuncType); ok {
 			// conversions to literal function types require parentheses around the type
 			p.print(token.LPAREN)
 			wasIndented = p.possibleSelectorExpr(x.Fun, token.HighestPrec, depth)
 			p.print(token.RPAREN)
-		} else {
+		} else */{
 			wasIndented = p.possibleSelectorExpr(x.Fun, token.HighestPrec, depth)
 		}
 		p.print(x.Lparen, token.LPAREN)
@@ -986,7 +995,8 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 			p.print(unindent)
 		}
 
-	case *ast.CompositeLit:
+	/* TODO(xsw):
+	case *js.CompositeLit:
 		// composite literal elements that are composite literals themselves may have the type omitted
 		if x.Type != nil {
 			p.expr1(x.Type, token.HighestPrec, depth)
@@ -1008,13 +1018,13 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		p.print(indent, unindent, mode, x.Rbrace, token.RBRACE, mode)
 		p.level--
 
-	case *ast.Ellipsis:
+	case *js.Ellipsis:
 		p.print(token.ELLIPSIS)
 		if x.Elt != nil {
 			p.expr(x.Elt)
 		}
 
-	case *ast.ArrayType:
+	case *js.ArrayType:
 		p.print(token.LBRACK)
 		if x.Len != nil {
 			p.expr(x.Len)
@@ -1022,25 +1032,25 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		p.print(token.RBRACK)
 		p.expr(x.Elt)
 
-	case *ast.StructType:
+	case *js.StructType:
 		p.print(token.STRUCT)
 		p.fieldList(x.Fields, true, x.Incomplete)
 
-	case *ast.FuncType:
+	case *js.FuncType:
 		p.print(token.FUNC)
 		p.signature(x)
 
-	case *ast.InterfaceType:
+	case *js.InterfaceType:
 		p.print(token.INTERFACE)
 		p.fieldList(x.Methods, false, x.Incomplete)
 
-	case *ast.MapType:
+	case *js.MapType:
 		p.print(token.MAP, token.LBRACK)
 		p.expr(x.Key)
 		p.print(token.RBRACK)
 		p.expr(x.Value)
 
-	case *ast.ChanType:
+	case *js.ChanType:
 		switch x.Dir {
 		case ast.SEND | ast.RECV:
 			p.print(token.CHAN)
@@ -1051,7 +1061,7 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 		}
 		p.print(blank)
 		p.expr(x.Value)
-
+	*/
 	default:
 		panic("unreachable")
 	}
@@ -1065,7 +1075,7 @@ func (p *printer) expr1(expr ast.Expr, prec1, depth int) {
 // normalizedNumber doesn't modify the ast.BasicLit value lit points to.
 // If lit is not a number or a number in canonical format already,
 // lit is returned as is. Otherwise a new ast.BasicLit is created.
-func normalizedNumber(lit *ast.BasicLit) *ast.BasicLit {
+func normalizedNumber(lit *js.BasicLit) *js.BasicLit {
 	if lit.Kind != token.INT && lit.Kind != token.FLOAT && lit.Kind != token.IMAG {
 		return lit // not a number - nothing to do
 	}
@@ -1114,20 +1124,20 @@ func normalizedNumber(lit *ast.BasicLit) *ast.BasicLit {
 		return lit // nothing to do
 	}
 
-	return &ast.BasicLit{ValuePos: lit.ValuePos, Kind: lit.Kind, Value: x}
+	return &js.BasicLit{ValuePos: lit.ValuePos, Kind: lit.Kind, Value: x}
 }
 
-func (p *printer) possibleSelectorExpr(expr ast.Expr, prec1, depth int) bool {
-	if x, ok := expr.(*ast.SelectorExpr); ok {
+func (p *printer) possibleSelectorExpr(expr js.Expr, prec1, depth int) bool {
+	if x, ok := expr.(*js.SelectorExpr); ok {
 		return p.selectorExpr(x, depth, true)
 	}
 	p.expr1(expr, prec1, depth)
 	return false
 }
 
-// selectorExpr handles an *ast.SelectorExpr node and reports whether x spans
+// selectorExpr handles an *js.SelectorExpr node and reports whether x spans
 // multiple lines.
-func (p *printer) selectorExpr(x *ast.SelectorExpr, depth int, isMethod bool) bool {
+func (p *printer) selectorExpr(x *js.SelectorExpr, depth int, isMethod bool) bool {
 	p.expr1(x.X, token.HighestPrec, depth)
 	p.print(token.PERIOD)
 	if line := p.lineFor(x.Sel.Pos()); p.pos.IsValid() && p.pos.Line < line {
@@ -1144,11 +1154,11 @@ func (p *printer) selectorExpr(x *ast.SelectorExpr, depth int, isMethod bool) bo
 	return false
 }
 
-func (p *printer) expr0(x ast.Expr, depth int) {
+func (p *printer) expr0(x js.Expr, depth int) {
 	p.expr1(x, token.LowestPrec, depth)
 }
 
-func (p *printer) expr(x ast.Expr) {
+func (p *printer) expr(x js.Expr) {
 	const depth = 1
 	p.expr1(x, token.LowestPrec, depth)
 }
@@ -1159,7 +1169,7 @@ func (p *printer) expr(x ast.Expr) {
 // Print the statement list indented, but without a newline after the last statement.
 // Extra line breaks between statements in the source are respected but at most one
 // empty line is printed between statements.
-func (p *printer) stmtList(list []ast.Stmt, nindent int, nextIsRBrace bool) {
+func (p *printer) stmtList(list []js.Stmt, nindent int, nextIsRBrace bool) {
 	if nindent > 0 {
 		p.print(indent)
 	}
@@ -1167,7 +1177,7 @@ func (p *printer) stmtList(list []ast.Stmt, nindent int, nextIsRBrace bool) {
 	i := 0
 	for _, s := range list {
 		// ignore empty statements (was issue 3466)
-		if _, isEmpty := s.(*ast.EmptyStmt); !isEmpty {
+		if _, isEmpty := s.(*js.EmptyStmt); !isEmpty {
 			// nindent == 0 only for lists of switch/select case clauses;
 			// in those cases each clause is a new section
 			if len(p.output) > 0 {
@@ -1181,7 +1191,7 @@ func (p *printer) stmtList(list []ast.Stmt, nindent int, nextIsRBrace bool) {
 			// we only care about the start line of the actual statement
 			// without label - correct line for each label
 			for t := s; ; {
-				lt, _ := t.(*ast.LabeledStmt)
+				lt, _ := t.(*js.LabeledStmt)
 				if lt == nil {
 					break
 				}
@@ -1196,35 +1206,36 @@ func (p *printer) stmtList(list []ast.Stmt, nindent int, nextIsRBrace bool) {
 	}
 }
 
-// block prints an *ast.BlockStmt; it always spans at least two lines.
-func (p *printer) block(b *ast.BlockStmt, nindent int) {
+// block prints an *js.BlockStmt; it always spans at least two lines.
+func (p *printer) block(b *js.BlockStmt, nindent int) {
 	p.print(b.Lbrace, token.LBRACE)
 	p.stmtList(b.List, nindent, true)
 	p.linebreak(p.lineFor(b.Rbrace), 1, ignore, true)
 	p.print(b.Rbrace, token.RBRACE)
 }
 
-func isTypeName(x ast.Expr) bool {
+func isTypeName(x js.Expr) bool {
 	switch t := x.(type) {
-	case *ast.Ident:
+	case *js.Ident:
 		return true
-	case *ast.SelectorExpr:
+	case *js.SelectorExpr:
 		return isTypeName(t.X)
 	}
 	return false
 }
 
-func stripParens(x ast.Expr) ast.Expr {
-	if px, strip := x.(*ast.ParenExpr); strip {
+func stripParens(x js.Expr) js.Expr {
+	/* TODO(xsw):
+	if px, strip := x.(*js.ParenExpr); strip {
 		// parentheses must not be stripped if there are any
 		// unparenthesized composite literals starting with
 		// a type name
-		ast.Inspect(px.X, func(node ast.Node) bool {
+		js.Inspect(px.X, func(node js.Node) bool {
 			switch x := node.(type) {
-			case *ast.ParenExpr:
+			case *js.ParenExpr:
 				// parentheses protect enclosed composite literals
 				return false
-			case *ast.CompositeLit:
+			case *js.CompositeLit:
 				if isTypeName(x.Type) {
 					strip = false // do not strip parentheses
 				}
@@ -1237,17 +1248,18 @@ func stripParens(x ast.Expr) ast.Expr {
 			return stripParens(px.X)
 		}
 	}
+	*/
 	return x
 }
 
-func stripParensAlways(x ast.Expr) ast.Expr {
-	if x, ok := x.(*ast.ParenExpr); ok {
+func stripParensAlways(x js.Expr) js.Expr {
+	if x, ok := x.(*js.ParenExpr); ok {
 		return stripParensAlways(x.X)
 	}
 	return x
 }
 
-func (p *printer) controlClause(isForStmt bool, init ast.Stmt, expr ast.Expr, post ast.Stmt) {
+func (p *printer) controlClause(isForStmt bool, init js.Stmt, expr js.Expr, post js.Stmt) {
 	p.print(blank)
 	needsBlank := false
 	if init == nil && post == nil {
@@ -1284,7 +1296,7 @@ func (p *printer) controlClause(isForStmt bool, init ast.Stmt, expr ast.Expr, po
 // indentList reports whether an expression list would look better if it
 // were indented wholesale (starting with the very first element, rather
 // than starting at the first line break).
-func (p *printer) indentList(list []ast.Expr) bool {
+func (p *printer) indentList(list []js.Expr) bool {
 	// Heuristic: indentList reports whether there are more than one multi-
 	// line element in the list, or if there is any element that is not
 	// starting on the same line as the previous one ends.
@@ -1315,7 +1327,7 @@ func (p *printer) indentList(list []ast.Expr) bool {
 	return false
 }
 
-func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
+func (p *printer) stmt(stmt js.Stmt, nextIsRBrace bool) {
 	p.setPos(stmt.Pos())
 
 	if p.commentedStmts != nil { // by XGo
@@ -1325,23 +1337,24 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 	}
 
 	switch s := stmt.(type) {
-	case *ast.BadStmt:
+	/* TODO(xsw):
+	case *js.BadStmt:
 		p.print("BadStmt")
 
-	case *ast.DeclStmt:
+	case *js.DeclStmt:
 		p.decl(s.Decl)
-
-	case *ast.EmptyStmt:
+	*/
+	case *js.EmptyStmt:
 		// nothing to do
 
-	case *ast.LabeledStmt:
+	case *js.LabeledStmt:
 		// a "correcting" unindent immediately following a line break
 		// is applied before the line break if there is no comment
 		// between (see writeWhitespace)
 		p.print(unindent)
 		p.expr(s.Label)
 		p.print(s.Colon, token.COLON, indent)
-		if e, isEmpty := s.Stmt.(*ast.EmptyStmt); isEmpty {
+		if e, isEmpty := s.Stmt.(*js.EmptyStmt); isEmpty {
 			if !nextIsRBrace {
 				p.print(newline, e.Pos(), token.SEMICOLON)
 				break
@@ -1351,22 +1364,23 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		}
 		p.stmt(s.Stmt, nextIsRBrace)
 
-	case *ast.ExprStmt:
+	case *js.ExprStmt:
 		const depth = 1
 		p.expr0(s.X, depth)
 
-	case *ast.SendStmt:
+	/* TODO(xsw):
+	case *js.SendStmt:
 		const depth = 1
 		p.expr0(s.Chan, depth)
 		p.print(blank, s.Arrow, token.ARROW, blank)
 		p.expr0(s.Value, depth)
 
-	case *ast.IncDecStmt:
+	case *js.IncDecStmt:
 		const depth = 1
 		p.expr0(s.X, depth+1)
 		p.print(s.TokPos, s.Tok)
 
-	case *ast.AssignStmt:
+	case *js.AssignStmt:
 		var depth = 1
 		if len(s.Lhs) > 1 && len(s.Rhs) > 1 {
 			depth++
@@ -1375,52 +1389,55 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		p.print(blank, s.TokPos, s.Tok, blank)
 		p.exprList(s.TokPos, s.Rhs, depth, 0, token.NoPos, false)
 
-	case *ast.GoStmt:
+	case *js.GoStmt:
 		p.print(token.GO, blank)
 		p.expr(s.Call)
 
-	case *ast.DeferStmt:
+	case *js.DeferStmt:
 		p.print(token.DEFER, blank)
 		p.expr(s.Call)
-
-	case *ast.ReturnStmt:
+	*/
+	case *js.ReturnStmt:
 		p.print(token.RETURN)
-		if s.Results != nil {
+		if s.Result != nil {
 			p.print(blank)
+			p.expr(s.Result)
+			/* REMOVE:
 			// Use indentList heuristic to make corner cases look
 			// better (issue 1207). A more systematic approach would
 			// always indent, but this would cause significant
 			// reformatting of the code base and not necessarily
 			// lead to more nicely formatted code in general.
-			if p.indentList(s.Results) {
+			if p.indentList(s.Result) {
 				p.print(indent)
 				// Use NoPos so that a newline never goes before
 				// the results (see issue #32854).
-				p.exprList(token.NoPos, s.Results, 1, noIndent, token.NoPos, false)
+				p.exprList(token.NoPos, s.Result, 1, noIndent, token.NoPos, false)
 				p.print(unindent)
 			} else {
-				p.exprList(token.NoPos, s.Results, 1, 0, token.NoPos, false)
+				p.exprList(token.NoPos, s.Result, 1, 0, token.NoPos, false)
 			}
+			*/
 		}
 
-	case *ast.BranchStmt:
+	case *js.BranchStmt:
 		p.print(s.Tok)
 		if s.Label != nil {
 			p.print(blank)
 			p.expr(s.Label)
 		}
 
-	case *ast.BlockStmt:
+	case *js.BlockStmt:
 		p.block(s, 1)
 
-	case *ast.IfStmt:
+	case *js.IfStmt:
 		p.print(token.IF)
-		p.controlClause(false, s.Init, s.Cond, nil)
+		p.controlClause(false, nil, s.Cond, nil)
 		p.block(s.Body, 1)
 		if s.Else != nil {
 			p.print(blank, token.ELSE, blank)
 			switch s.Else.(type) {
-			case *ast.BlockStmt, *ast.IfStmt:
+			case *js.BlockStmt, *js.IfStmt:
 				p.stmt(s.Else, nextIsRBrace)
 			default:
 				// This can only happen with an incorrectly
@@ -1432,7 +1449,8 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 			}
 		}
 
-	case *ast.CaseClause:
+	/* TODO(xsw):
+	case *js.CaseClause:
 		if s.List != nil {
 			p.print(token.CASE, blank)
 			p.exprList(s.Pos(), s.List, 1, 0, s.Colon, false)
@@ -1442,12 +1460,12 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		p.print(s.Colon, token.COLON)
 		p.stmtList(s.Body, 1, nextIsRBrace)
 
-	case *ast.SwitchStmt:
+	case *js.SwitchStmt:
 		p.print(token.SWITCH)
 		p.controlClause(false, s.Init, s.Tag, nil)
 		p.block(s.Body, 0)
 
-	case *ast.TypeSwitchStmt:
+	case *js.TypeSwitchStmt:
 		p.print(token.SWITCH)
 		if s.Init != nil {
 			p.print(blank)
@@ -1459,7 +1477,7 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		p.print(blank)
 		p.block(s.Body, 0)
 
-	case *ast.CommClause:
+	case *js.CommClause:
 		if s.Comm != nil {
 			p.print(token.CASE, blank)
 			p.stmt(s.Comm, false)
@@ -1469,7 +1487,7 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		p.print(s.Colon, token.COLON)
 		p.stmtList(s.Body, 1, nextIsRBrace)
 
-	case *ast.SelectStmt:
+	case *js.SelectStmt:
 		p.print(token.SELECT, blank)
 		body := s.Body
 		if len(body.List) == 0 && !p.commentBefore(p.posFor(body.Rbrace)) {
@@ -1478,13 +1496,14 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		} else {
 			p.block(body, 0)
 		}
-
-	case *ast.ForStmt:
+	*/
+	case *js.ForStmt:
 		p.print(token.FOR)
 		p.controlClause(true, s.Init, s.Cond, s.Post)
 		p.block(s.Body, 1)
 
-	case *ast.RangeStmt:
+	/* TODO(xsw):
+	case *js.RangeStmt:
 		p.print(token.FOR, blank)
 		if s.Key != nil {
 			p.expr(s.Key)
@@ -1503,7 +1522,7 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 		p.expr(stripParens(s.X))
 		p.print(blank)
 		p.block(s.Body, 1)
-
+	*/
 	default:
 		panic("unreachable")
 	}
@@ -1512,6 +1531,7 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 // ----------------------------------------------------------------------------
 // Declarations
 
+/* TODO(xsw):
 // The keepTypeColumn function determines if the type column of a series of
 // consecutive const or var declarations must be kept, or if initialization
 // values (V) can be placed in the type column (T) instead. The i'th entry
@@ -1536,7 +1556,7 @@ func (p *printer) stmt(stmt ast.Stmt, nextIsRBrace bool) {
 //		-  V          -  V          true      column must be kept
 //		-  -          -  -          false
 //		-  V          V  -          false     V is moved into T column
-func keepTypeColumn(specs []ast.Spec) []bool {
+func keepTypeColumn(specs []js.Spec) []bool {
 	m := make([]bool, len(specs))
 
 	populate := func(i, j int, keepType bool) {
@@ -1576,7 +1596,7 @@ func keepTypeColumn(specs []ast.Spec) []bool {
 	return m
 }
 
-func (p *printer) valueSpec(s *ast.ValueSpec, keepType bool) {
+func (p *printer) valueSpec(s *js.ValueSpec, keepType bool) {
 	p.setComment(s.Doc)
 	p.identList(s.Names, false) // always present
 	extraTabs := 3
@@ -1600,7 +1620,7 @@ func (p *printer) valueSpec(s *ast.ValueSpec, keepType bool) {
 	}
 }
 
-func sanitizeImportPath(lit *ast.BasicLit) *ast.BasicLit {
+func sanitizeImportPath(lit *js.BasicLit) *js.BasicLit {
 	// Note: An unmodified AST generated by go/parser will already
 	// contain a backward- or double-quoted path string that does
 	// not contain any invalid characters, and most of the work
@@ -1640,15 +1660,15 @@ func sanitizeImportPath(lit *ast.BasicLit) *ast.BasicLit {
 	if s == lit.Value {
 		return lit // nothing wrong with lit
 	}
-	return &ast.BasicLit{ValuePos: lit.ValuePos, Kind: token.STRING, Value: s}
+	return &js.BasicLit{ValuePos: lit.ValuePos, Kind: token.STRING, Value: s}
 }
 
 // The parameter n is the number of specs in the group. If doIndent is set,
 // multi-line identifier lists in the spec are indented when the first
 // linebreak is encountered.
-func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
+func (p *printer) spec(spec js.Spec, n int, doIndent bool) {
 	switch s := spec.(type) {
-	case *ast.ImportSpec:
+	case *js.ImportSpec:
 		p.setComment(s.Doc)
 		if s.Name != nil {
 			p.expr(s.Name)
@@ -1658,7 +1678,7 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 		p.setComment(s.Comment)
 		p.print(s.EndPos)
 
-	case *ast.ValueSpec:
+	case *js.ValueSpec:
 		if n != 1 {
 			p.internalError("expected n = 1; got", n)
 		}
@@ -1674,7 +1694,7 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 		}
 		p.setComment(s.Comment)
 
-	case *ast.TypeSpec:
+	case *js.TypeSpec:
 		p.setComment(s.Doc)
 		p.expr(s.Name)
 		if s.TypeParams != nil {
@@ -1696,14 +1716,14 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 	}
 }
 
-func checkSpecs(d *ast.GenDecl) {
+func checkSpecs(d *js.GenDecl) {
 	if d.Tok == token.TYPE { // for gogen.TypeDecl.Delete
 		for i, spec := range d.Specs {
-			if spec.(*ast.TypeSpec).Name == nil {
+			if spec.(*js.TypeSpec).Name == nil {
 				leftSpecs := d.Specs[i+1:]
 				d.Specs = d.Specs[:i]
 				for _, spec := range leftSpecs {
-					if spec.(*ast.TypeSpec).Name != nil {
+					if spec.(*js.TypeSpec).Name != nil {
 						d.Specs = append(d.Specs, spec)
 					}
 				}
@@ -1713,7 +1733,7 @@ func checkSpecs(d *ast.GenDecl) {
 	}
 }
 
-func (p *printer) genDecl(d *ast.GenDecl) {
+func (p *printer) genDecl(d *js.GenDecl) {
 	checkSpecs(d)
 	n := len(d.Specs)
 	if n == 0 { // no values, ignore
@@ -1739,7 +1759,7 @@ func (p *printer) genDecl(d *ast.GenDecl) {
 						p.linebreak(p.lineFor(s.Pos()), 1, ignore, p.linesFrom(line) > 0)
 					}
 					p.recordLine(&line)
-					p.valueSpec(s.(*ast.ValueSpec), keepType[i])
+					p.valueSpec(s.(*js.ValueSpec), keepType[i])
 				}
 			} else {
 				var line int
@@ -1759,6 +1779,7 @@ func (p *printer) genDecl(d *ast.GenDecl) {
 		p.spec(d.Specs[0], 1, true)
 	}
 }
+*/
 
 // sizeCounter is an io.Writer that counts the number of bytes written,
 // and tracks whether a newline character was seen.
@@ -1784,7 +1805,7 @@ func (c *sizeCounter) Write(p []byte) (int, error) {
 // The result is <= maxSize if the node fits on one line with at
 // most maxSize chars and the formatted output doesn't contain
 // any control chars. Otherwise, the result is > maxSize.
-func (p *printer) nodeSize(n ast.Node, maxSize int) (size int) {
+func (p *printer) nodeSize(n astNode, maxSize int) (size int) {
 	// nodeSize invokes the printer, which may invoke nodeSize
 	// recursively. For deep composite literal nests, this can
 	// lead to an exponential algorithm. Remember previous
@@ -1812,7 +1833,7 @@ func (p *printer) nodeSize(n ast.Node, maxSize int) (size int) {
 }
 
 // numLines returns the number of lines spanned by node n in the original source.
-func (p *printer) numLines(n ast.Node) int {
+func (p *printer) numLines(n astNode) int {
 	if from := n.Pos(); from.IsValid() {
 		if to := n.End(); to.IsValid() {
 			return p.lineFor(to) - p.lineFor(from) + 1
@@ -1821,8 +1842,8 @@ func (p *printer) numLines(n ast.Node) int {
 	return infinity
 }
 
-// bodySize is like nodeSize but it is specialized for *ast.BlockStmt's.
-func (p *printer) bodySize(b *ast.BlockStmt, maxSize int) int {
+// bodySize is like nodeSize but it is specialized for *js.BlockStmt's.
+func (p *printer) bodySize(b *js.BlockStmt, maxSize int) int {
 	pos1 := b.Pos()
 	pos2 := b.Rbrace
 	if pos1.IsValid() && pos2.IsValid() && p.lineFor(pos1) != p.lineFor(pos2) {
@@ -1852,7 +1873,7 @@ func (p *printer) bodySize(b *ast.BlockStmt, maxSize int) int {
 // the block is printed on the current line, without line breaks, spaced from the header
 // by sep. Otherwise the block's opening "{" is printed on the current line, followed by
 // lines for the block's statements and its closing "}".
-func (p *printer) funcBody(headerSize int, sep whiteSpace, b *ast.BlockStmt) {
+func (p *printer) funcBody(headerSize int, sep whiteSpace, b *js.BlockStmt) {
 	if b == nil {
 		return
 	}
@@ -1896,7 +1917,7 @@ func (p *printer) distanceFrom(startPos token.Pos, startOutCol int) int {
 	return infinity
 }
 
-func (p *printer) funcDecl(d *ast.FuncDecl) {
+func (p *printer) funcDecl(d *js.FuncDecl) {
 	p.setComment(d.Doc)
 	p.setPos(d.Pos())
 	p.print(token.FUNC, blank)
@@ -1905,22 +1926,27 @@ func (p *printer) funcDecl(d *ast.FuncDecl) {
 	// FUNC is emitted).
 	startCol := p.out.Column - len("func ")
 	if d.Recv != nil {
+		/* TODO(xsw):
 		p.parameters(d.Recv, funcParam) // method: print receiver
 		p.print(blank)
+		*/
+		panic("todo")
 	}
 	p.expr(d.Name)
-	p.signature(d.Type)
+	p.signature(d)
 	p.funcBody(p.distanceFrom(d.Pos(), startCol), vtab, d.Body)
 }
 
-func (p *printer) decl(decl ast.Decl) {
+func (p *printer) decl(decl js.Stmt) {
 	switch d := decl.(type) {
-	case *ast.BadDecl:
+	/* TODO(xsw):
+	case *js.BadDecl:
 		p.setPos(d.Pos())
 		p.print("BadDecl")
-	case *ast.GenDecl:
+	case *js.GenDecl:
 		p.genDecl(d)
-	case *ast.FuncDecl:
+	*/
+	case *js.FuncDecl:
 		p.funcDecl(d)
 	default:
 		panic("unreachable")
@@ -1930,23 +1956,31 @@ func (p *printer) decl(decl ast.Decl) {
 // ----------------------------------------------------------------------------
 // Files
 
-func declToken(decl ast.Decl) (tok token.Token) {
+func declToken(decl js.Stmt) (tok token.Token) {
 	tok = token.ILLEGAL
+	/* TODO(xsw):
 	switch d := decl.(type) {
-	case *ast.GenDecl:
+	case *js.GenDecl:
 		tok = d.Tok
-	case *ast.FuncDecl:
+	case *js.FuncDecl:
+		tok = token.FUNC
+	}
+	*/
+	switch decl.(type) {
+	case *js.FuncDecl:
 		tok = token.FUNC
 	}
 	return
 }
 
-func (p *printer) declList(list []ast.Decl) {
+func (p *printer) declList(list []js.Stmt) {
 	tok := token.ILLEGAL
 	for _, d := range list {
-		if gd, ok := d.(*ast.GenDecl); ok && len(gd.Specs) == 0 {
+		/* TODO(xsw):
+		if gd, ok := d.(*js.GenDecl); ok && len(gd.Specs) == 0 {
 			continue // skip empty genDecl
 		}
+		*/
 		prev := tok
 		tok = declToken(d)
 		// If the declaration token changed (e.g., from CONST to TYPE)
@@ -1971,11 +2005,11 @@ func (p *printer) declList(list []ast.Decl) {
 	}
 }
 
-func (p *printer) file(src *ast.File) {
+func (p *printer) file(src *js.File) {
 	p.setComment(src.Doc)
-	p.setPos(src.Pos())
-	p.print(token.PACKAGE, blank)
-	p.expr(src.Name)
-	p.declList(src.Decls)
+	//p.setPos(src.Pos())
+	//p.print(token.PACKAGE, blank)
+	//p.expr(src.Name)
+	p.declList(src.Stmts)
 	p.print(newline)
 }

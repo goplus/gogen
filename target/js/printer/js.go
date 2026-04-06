@@ -19,9 +19,12 @@ import (
 	"go/ast"
 	"go/token"
 	"io"
+
+	"github.com/goplus/gogen/target/js"
 )
 
 type (
+	astNode         = ast.Node
 	astComment      = ast.Comment
 	astCommentGroup = ast.CommentGroup
 )
@@ -29,22 +32,20 @@ type (
 // A CommentedNode bundles an AST node and corresponding comments.
 // It may be provided as argument to any of the [Fprint] functions.
 type CommentedNode struct {
-	Node     any // *ast.File, or ast.Expr, ast.Decl, ast.Spec, or ast.Stmt
+	Node     any
 	Comments []*ast.CommentGroup
 }
 
 // by XGo
 type CommentedNodes struct {
 	Node           any
-	CommentedStmts map[ast.Stmt]*ast.CommentGroup
+	CommentedStmts map[js.Stmt]*ast.CommentGroup
 }
 
 // Fprint "pretty-prints" an AST node to output for a given configuration cfg.
 // Position information is interpreted relative to the file set fset.
-// The node type must be *[ast.File], *[CommentedNode], [][ast.Decl], [][ast.Stmt],
-// or assignment-compatible to [ast.Expr], [ast.Decl], [ast.Spec], or [ast.Stmt].
 func (cfg *Config) Fprint(output io.Writer, fset *token.FileSet, node any) error {
-	return cfg.fprint(output, fset, node, make(map[ast.Node]int))
+	return cfg.fprint(output, fset, node, make(map[astNode]int))
 }
 
 // Fprint "pretty-prints" an AST node to output.

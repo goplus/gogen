@@ -18,8 +18,6 @@ package printer
 
 import (
 	"fmt"
-	"go/ast"
-	"go/build/constraint"
 	"go/token"
 	"io"
 	"os"
@@ -27,6 +25,8 @@ import (
 	"sync"
 	"text/tabwriter"
 	"unicode"
+
+	"github.com/goplus/gogen/target/js"
 )
 
 const (
@@ -56,10 +56,10 @@ const (
 )
 
 type commentInfo struct {
-	cindex         int               // index of the next comment
-	comment        *ast.CommentGroup // = printer.comments[cindex-1]; or nil
-	commentOffset  int               // = printer.posFor(printer.comments[cindex-1].List[0].Pos()).Offset; or infinity
-	commentNewline bool              // true if the comment group contains newlines
+	cindex         int              // index of the next comment
+	comment        *astCommentGroup // = printer.comments[cindex-1]; or nil
+	commentOffset  int              // = printer.posFor(printer.comments[cindex-1].List[0].Pos()).Offset; or infinity
+	commentNewline bool             // true if the comment group contains newlines
 }
 
 type printer struct {
@@ -77,8 +77,6 @@ type printer struct {
 	lastTok      token.Token  // last token printed (token.ILLEGAL if it's whitespace)
 	prevOpen     token.Token  // previous non-brace "open" token (, [, or token.ILLEGAL
 	wsbuf        []whiteSpace // delayed white space
-	goBuild      []int        // start index of all //go:build comments in output
-	plusBuild    []int        // start index of all // +build comments in output
 
 	// Positions
 	// The out position differs from the pos position when the result
@@ -93,35 +91,32 @@ type printer struct {
 	sourcePosErr error          // if non-nil, the first error emitting a //line directive
 
 	// The list of all source comments, in order of appearance.
-	comments        []*ast.CommentGroup // may be nil
-	useNodeComments bool                // if not set, ignore lead and line comments of nodes
+	comments        []*astCommentGroup // may be nil
+	useNodeComments bool               // if not set, ignore lead and line comments of nodes
 
 	// Information about p.comments[p.cindex]; set up by nextComment.
 	commentInfo
 
 	// Cache of already computed node sizes.
-	nodeSizes map[ast.Node]int
+	nodeSizes map[astNode]int
 
 	// Cache of most recently computed line position.
 	cachedPos  token.Pos
 	cachedLine int // line corresponding to cachedPos
 
 	// by XGo
-	commentedStmts map[ast.Stmt]*ast.CommentGroup
+	commentedStmts map[js.Stmt]*astCommentGroup
 }
 
 func (p *printer) internalError(msg ...any) {
 	if debug {
 		fmt.Print(p.pos.String() + ": ")
 		fmt.Println(msg...)
-		panic("go/printer")
+		panic("js/printer")
 	}
 }
 
-// commentsHaveNewline reports whether a list of comments belonging to
-// an *ast.CommentGroup contains newlines. Because the position information
-// may only be partially correct, we also have to read the comment text.
-func (p *printer) commentsHaveNewline(list []*ast.Comment) bool {
+func (p *printer) commentsHaveNewline(list []*astComment) bool {
 	// len(list) > 0
 	line := p.lineFor(list[0].Pos())
 	for i, c := range list {
@@ -148,7 +143,7 @@ func (p *printer) nextComment() {
 			return
 		}
 		// we should not reach here (correct ASTs don't have empty
-		// ast.CommentGroup nodes), but be conservative and try again
+		// astCommentGroup nodes), but be conservative and try again
 	}
 	// no more comments
 	p.commentOffset = infinity
@@ -213,7 +208,7 @@ func (p *printer) writeLineDirective(pos token.Position) {
 	if pos.IsValid() && (p.out.Line != pos.Line || p.out.Filename != pos.Filename) {
 		if strings.ContainsAny(pos.Filename, "\r\n") {
 			if p.sourcePosErr == nil {
-				p.sourcePosErr = fmt.Errorf("go/printer: source filename contains unexpected newline character: %q", pos.Filename)
+				p.sourcePosErr = fmt.Errorf("js/printer: source filename contains unexpected newline character: %q", pos.Filename)
 			}
 			return
 		}
@@ -360,7 +355,7 @@ func (p *printer) writeString(pos token.Position, s string, isLit bool) {
 // pos is the comment position, next the position of the item
 // after all pending comments, prev is the previous comment in
 // a group of comments (or nil), and tok is the next token.
-func (p *printer) writeCommentPrefix(pos, next token.Position, prev *ast.Comment, tok token.Token) {
+func (p *printer) writeCommentPrefix(pos, next token.Position, prev *astComment, tok token.Token) {
 	if len(p.output) == 0 {
 		// the comment is the first item to be printed - don't write any whitespace
 		return
@@ -640,7 +635,7 @@ func stripCommonPrefix(lines []string) {
 	}
 }
 
-func (p *printer) writeComment(comment *ast.Comment) {
+func (p *printer) writeComment(comment *astComment) {
 	text := comment.Text
 	pos := p.posFor(comment.Pos())
 
@@ -654,11 +649,6 @@ func (p *printer) writeComment(comment *ast.Comment) {
 
 	// shortcut common case of //-style comments
 	if text[1] == '/' {
-		if constraint.IsGoBuild(text) {
-			p.goBuild = append(p.goBuild, len(p.output))
-		} else if constraint.IsPlusBuild(text) {
-			p.plusBuild = append(p.plusBuild, len(p.output))
-		}
 		p.writeString(pos, trimRight(text), true)
 		return
 	}
@@ -749,7 +739,7 @@ func (p *printer) containsLinebreak() bool {
 // the comments and whitespace. The intersperseComments result indicates if a
 // newline was written or if a formfeed was dropped from the whitespace buffer.
 func (p *printer) intersperseComments(next token.Position, tok token.Token) (wroteNewline, droppedFF bool) {
-	var last *ast.Comment
+	var last *astComment
 	for p.commentBefore(next) {
 		list := p.comment.List
 		changed := false
@@ -966,12 +956,12 @@ func (p *printer) print(args ...any) {
 			p.lastTok = token.ILLEGAL
 			continue
 
-		case *ast.Ident:
+		case *js.Ident:
 			data = x.Name
 			impliedSemi = true
 			p.lastTok = token.IDENT
 
-		case *ast.BasicLit:
+		case *js.BasicLit:
 			data = x.Value
 			isLit = true
 			impliedSemi = true
@@ -1017,7 +1007,7 @@ func (p *printer) print(args ...any) {
 
 		default:
 			fmt.Fprintf(os.Stderr, "print: unsupported argument %v (%T)\n", arg, arg)
-			panic("go/printer type")
+			panic("js/printer type")
 		}
 		// data != ""
 
@@ -1069,52 +1059,53 @@ func (p *printer) flush(next token.Position, tok token.Token) (wroteNewline, dro
 	return
 }
 
-// getDoc returns the ast.CommentGroup associated with n, if any.
-func getDoc(n ast.Node) *ast.CommentGroup {
+func getDoc(n astNode) *astCommentGroup {
+	/* TODO(xsw):
 	switch n := n.(type) {
-	case *ast.Field:
+	case *js.Field:
 		return n.Doc
-	case *ast.ImportSpec:
+	case *js.ImportSpec:
 		return n.Doc
-	case *ast.ValueSpec:
+	case *js.ValueSpec:
 		return n.Doc
-	case *ast.TypeSpec:
+	case *js.TypeSpec:
 		return n.Doc
-	case *ast.GenDecl:
+	case *js.GenDecl:
 		return n.Doc
-	case *ast.FuncDecl:
+	case *js.FuncDecl:
 		return n.Doc
-	case *ast.File:
+	case *js.File:
 		return n.Doc
-	}
+	} */
 	return nil
 }
 
-func getLastComment(n ast.Node) *ast.CommentGroup {
+func getLastComment(n astNode) *astCommentGroup {
+	/* TODO(xsw):
 	switch n := n.(type) {
-	case *ast.Field:
+	case *js.Field:
 		return n.Comment
-	case *ast.ImportSpec:
+	case *js.ImportSpec:
 		return n.Comment
-	case *ast.ValueSpec:
+	case *js.ValueSpec:
 		return n.Comment
-	case *ast.TypeSpec:
+	case *js.TypeSpec:
 		return n.Comment
-	case *ast.GenDecl:
+	case *js.GenDecl:
 		if len(n.Specs) > 0 {
 			return getLastComment(n.Specs[len(n.Specs)-1])
 		}
-	case *ast.File:
+	case *js.File:
 		if len(n.Comments) > 0 {
 			return n.Comments[len(n.Comments)-1]
 		}
-	}
+	} */
 	return nil
 }
 
 func (p *printer) printNode(node any) error {
 	// unpack *CommentedNode or *CommentedNodes, if any
-	var comments []*ast.CommentGroup
+	var comments []*astCommentGroup
 	if cnodes, ok := node.(*CommentedNodes); ok { // by XGo
 		node = cnodes.Node
 		p.commentedStmts = cnodes.CommentedStmts
@@ -1125,7 +1116,7 @@ func (p *printer) printNode(node any) error {
 
 	if comments != nil {
 		// commented node - restrict comment list to relevant range
-		n, ok := node.(ast.Node)
+		n, ok := node.(astNode)
 		if !ok {
 			goto unsupported
 		}
@@ -1156,8 +1147,8 @@ func (p *printer) printNode(node any) error {
 		if i < j {
 			p.comments = comments[i:j]
 		}
-	} else if n, ok := node.(*ast.File); ok {
-		// use ast.File comments, if any
+	} else if n, ok := node.(*js.File); ok {
+		// use js.File comments, if any
 		p.comments = n.Comments
 	}
 
@@ -1171,31 +1162,33 @@ func (p *printer) printNode(node any) error {
 
 	// format node
 	switch n := node.(type) {
-	case ast.Expr:
+	case js.Expr:
 		p.expr(n)
-	case ast.Stmt:
+	case js.Stmt:
 		// A labeled statement will un-indent to position the label.
 		// Set p.indent to 1 so we don't get indent "underflow".
-		if _, ok := n.(*ast.LabeledStmt); ok {
+		if _, ok := n.(*js.LabeledStmt); ok {
 			p.indent = 1
 		}
 		p.stmt(n, false)
-	case ast.Decl:
+	/* TODO(xsw):
+	case js.Decl:
 		p.decl(n)
-	case ast.Spec:
+	case js.Spec:
 		p.spec(n, 1, false)
-	case []ast.Stmt:
+	case []js.Stmt:
 		// A labeled statement will un-indent to position the label.
 		// Set p.indent to 1 so we don't get indent "underflow".
 		for _, s := range n {
-			if _, ok := s.(*ast.LabeledStmt); ok {
+			if _, ok := s.(*js.LabeledStmt); ok {
 				p.indent = 1
 			}
 		}
 		p.stmtList(n, 0, false)
-	case []ast.Decl:
+	case []js.Decl:
 		p.declList(n)
-	case *ast.File:
+	*/
+	case *js.File:
 		p.file(n)
 	default:
 		goto unsupported
@@ -1204,7 +1197,7 @@ func (p *printer) printNode(node any) error {
 	return p.sourcePosErr
 
 unsupported:
-	return fmt.Errorf("go/printer: unsupported node type %T", node)
+	return fmt.Errorf("js/printer: unsupported node type %T", node)
 }
 
 // ----------------------------------------------------------------------------
@@ -1328,13 +1321,12 @@ const (
 // The mode below is not included in printer's public API because
 // editing code text is deemed out of scope. Because this mode is
 // unexported, it's also possible to modify or remove it based on
-// the evolving needs of go/format and cmd/gofmt without breaking
-// users. See discussion in CL 240683.
+// the evolving needs of js/format without breaking users.
 const (
 	// normalizeNumbers means to canonicalize number
 	// literal prefixes and exponents while printing.
 	//
-	// This value is known in and used by go/format and cmd/gofmt.
+	// This value is known in and used by js/format.
 	// It is currently more convenient and performant for those
 	// packages to apply number normalization during printing,
 	// rather than by modifying the AST in advance.
@@ -1360,7 +1352,7 @@ var printerPool = sync.Pool{
 	},
 }
 
-func newPrinter(cfg *Config, fset *token.FileSet, nodeSizes map[ast.Node]int) *printer {
+func newPrinter(cfg *Config, fset *token.FileSet, nodeSizes map[astNode]int) *printer {
 	p := printerPool.Get().(*printer)
 	*p = printer{
 		Config:    *cfg,
@@ -1385,7 +1377,7 @@ func (p *printer) free() {
 }
 
 // fprint implements Fprint and takes a nodesSizes map for setting up the printer state.
-func (cfg *Config) fprint(output io.Writer, fset *token.FileSet, node any, nodeSizes map[ast.Node]int) (err error) {
+func (cfg *Config) fprint(output io.Writer, fset *token.FileSet, node any, nodeSizes map[astNode]int) (err error) {
 	// print node
 	p := newPrinter(cfg, fset, nodeSizes)
 	defer p.free()
