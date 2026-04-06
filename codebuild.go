@@ -101,7 +101,7 @@ type codeBlockCtx struct {
 	scope *types.Scope
 	base  int
 	stmts []target.Stmt
-	label *ast.LabeledStmt
+	label *target.LabeledStmt
 	flows int // flow flags
 }
 
@@ -2536,7 +2536,7 @@ func (p *CodeBuilder) Send() *CodeBuilder {
 	val := p.stk.Pop()
 	ch := p.stk.Pop()
 	// TODO: check types
-	p.emitStmt(&ast.SendStmt{Chan: ch.Val, Value: val.Val})
+	emitSendStmt(p, ch.Val, val.Val)
 	return p
 }
 
@@ -2546,11 +2546,11 @@ func (p *CodeBuilder) Defer() *CodeBuilder {
 		log.Println("Defer")
 	}
 	arg := p.stk.Pop()
-	call, ok := arg.Val.(*ast.CallExpr)
+	call, ok := arg.Val.(*target.CallExpr)
 	if !ok {
 		panic("TODO: please use defer callExpr()")
 	}
-	p.emitStmt(&ast.DeferStmt{Call: call})
+	emitDeferStmt(p, call)
 	return p
 }
 
@@ -2560,11 +2560,11 @@ func (p *CodeBuilder) Go() *CodeBuilder {
 		log.Println("Go")
 	}
 	arg := p.stk.Pop()
-	call, ok := arg.Val.(*ast.CallExpr)
+	call, ok := arg.Val.(*target.CallExpr)
 	if !ok {
 		panic("TODO: please use go callExpr()")
 	}
-	p.emitStmt(&ast.GoStmt{Call: call})
+	emitGoStmt(p, call)
 	return p
 }
 
@@ -2821,10 +2821,10 @@ func (p *CodeBuilder) Label(l *Label) *CodeBuilder {
 		log.Println("Label", name)
 	}
 	if p.current.label != nil {
-		p.current.label.Stmt = &ast.EmptyStmt{}
+		p.current.label.Stmt = &target.EmptyStmt{}
 		p.current.stmts = append(p.current.stmts, p.current.label)
 	}
-	p.current.label = &ast.LabeledStmt{Label: ident(name)}
+	p.current.label = &target.LabeledStmt{Label: ident(name)}
 	return p
 }
 
@@ -2836,11 +2836,11 @@ func (p *CodeBuilder) Goto(l *Label) *CodeBuilder {
 	}
 	l.used = true
 	p.current.flows |= flowFlagGoto
-	p.emitStmt(&ast.BranchStmt{Tok: token.GOTO, Label: ident(name)})
+	emitGotoStmt(p, name)
 	return p
 }
 
-func (p *CodeBuilder) labelFlow(flow int, l *Label) (string, *ast.Ident) {
+func (p *CodeBuilder) labelFlow(flow int, l *Label) (string, *target.Ident) {
 	if l != nil {
 		l.used = true
 		p.current.flows |= (flow | flowFlagWithLabel)
@@ -2856,7 +2856,7 @@ func (p *CodeBuilder) Break(l *Label) *CodeBuilder {
 	if debugInstr {
 		log.Println("Break", name)
 	}
-	p.emitStmt(&ast.BranchStmt{Tok: token.BREAK, Label: label})
+	p.emitStmt(&target.BranchStmt{Tok: token.BREAK, Label: label})
 	return p
 }
 
@@ -2866,7 +2866,7 @@ func (p *CodeBuilder) Continue(l *Label) *CodeBuilder {
 	if debugInstr {
 		log.Println("Continue", name)
 	}
-	p.emitStmt(&ast.BranchStmt{Tok: token.CONTINUE, Label: label})
+	p.emitStmt(&target.BranchStmt{Tok: token.CONTINUE, Label: label})
 	return p
 }
 

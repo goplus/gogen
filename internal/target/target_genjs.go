@@ -37,11 +37,13 @@ type (
 	CallExpr     = js.CallExpr
 	ParenExpr    = js.ParenExpr
 
-	Stmt      = js.Stmt
-	EmptyStmt = js.EmptyStmt
-	BlockStmt = js.BlockStmt
-	IfStmt    = js.IfStmt
-	ForStmt   = js.ForStmt
+	Stmt        = js.Stmt
+	EmptyStmt   = js.EmptyStmt
+	LabeledStmt = js.LabeledStmt
+	BlockStmt   = js.BlockStmt
+	IfStmt      = js.IfStmt
+	ForStmt     = js.ForStmt
+	BranchStmt  = js.BranchStmt
 )
 
 type RangeStmt struct {

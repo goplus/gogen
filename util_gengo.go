@@ -23,6 +23,22 @@ import (
 	"go/token"
 )
 
+func emitGoStmt(cb *CodeBuilder, call ast.Expr) {
+	cb.emitStmt(&ast.GoStmt{Call: call})
+}
+
+func emitDeferStmt(cb *CodeBuilder, call ast.Expr) {
+	cb.emitStmt(&ast.DeferStmt{Call: call})
+}
+
+func emitSendStmt(cb *CodeBuilder, ch, val ast.Expr) {
+	cb.emitStmt(&ast.SendStmt{Chan: ch, Value: val})
+}
+
+func emitGotoStmt(cb *CodeBuilder, name string) {
+	cb.emitStmt(&ast.BranchStmt{Tok: token.GOTO, Label: ident(name)})
+}
+
 func emitIfStmt(cb *CodeBuilder, p *ifStmt, el ast.Stmt) {
 	cb.emitStmt(&ast.IfStmt{Init: p.init, Cond: p.cond, Body: p.body, Else: el})
 }

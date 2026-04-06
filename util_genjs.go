@@ -19,6 +19,22 @@ import (
 	"github.com/goplus/gogen/internal/target/js"
 )
 
+func emitGoStmt(cb *CodeBuilder, call js.Expr) {
+	panic("todo")
+}
+
+func emitDeferStmt(cb *CodeBuilder, call js.Expr) {
+	panic("todo")
+}
+
+func emitSendStmt(cb *CodeBuilder, ch, val js.Expr) {
+	panic("todo")
+}
+
+func emitGotoStmt(cb *CodeBuilder, name string) {
+	panic("todo")
+}
+
 func emitIfStmt(cb *CodeBuilder, p *ifStmt, el js.Stmt) {
 	cb.emitStmt(p.init)
 	cb.emitStmt(&js.IfStmt{Cond: p.cond, Body: p.body, Else: el})

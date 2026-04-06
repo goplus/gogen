@@ -35,10 +35,12 @@ type (
 	CallExpr     = ast.CallExpr
 	ParenExpr    = ast.ParenExpr
 
-	Stmt      = ast.Stmt
-	EmptyStmt = ast.EmptyStmt
-	BlockStmt = ast.BlockStmt
-	IfStmt    = ast.IfStmt
-	ForStmt   = ast.ForStmt
-	RangeStmt = ast.RangeStmt
+	Stmt        = ast.Stmt
+	EmptyStmt   = ast.EmptyStmt
+	LabeledStmt = ast.LabeledStmt
+	BlockStmt   = ast.BlockStmt
+	IfStmt      = ast.IfStmt
+	ForStmt     = ast.ForStmt
+	RangeStmt   = ast.RangeStmt
+	BranchStmt  = ast.BranchStmt
 )

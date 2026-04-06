@@ -212,6 +212,17 @@ func (s *EmptyStmt) End() token.Pos {
 }
 func (*EmptyStmt) stmtNode() {}
 
+// A LabeledStmt node represents a labeled statement.
+type LabeledStmt struct {
+	Label *Ident
+	Colon token.Pos // position of ":"
+	Stmt  Stmt
+}
+
+func (s *LabeledStmt) Pos() token.Pos { return s.Label.Pos() }
+func (s *LabeledStmt) End() token.Pos { return s.Stmt.End() }
+func (*LabeledStmt) stmtNode()        {}
+
 // A BlockStmt node represents a braced statement list.
 type BlockStmt struct {
 	Lbrace token.Pos // position of "{"
@@ -260,5 +271,21 @@ type ForStmt struct {
 func (s *ForStmt) Pos() token.Pos { return s.For }
 func (s *ForStmt) End() token.Pos { return s.Body.End() }
 func (*ForStmt) stmtNode()        {}
+
+// A BranchStmt node represents a break or continue statement.
+type BranchStmt struct {
+	TokPos token.Pos   // position of Tok
+	Tok    token.Token // keyword token (BREAK, CONTINUE)
+	Label  *Ident      // label name; or nil
+}
+
+func (s *BranchStmt) Pos() token.Pos { return s.TokPos }
+func (s *BranchStmt) End() token.Pos {
+	if s.Label != nil {
+		return s.Label.End()
+	}
+	return token.Pos(int(s.TokPos) + len(s.Tok.String()))
+}
+func (*BranchStmt) stmtNode() {}
 
 // ----------------------------------------------------------------------------
