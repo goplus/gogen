@@ -88,7 +88,6 @@ func (x *Ident) End() token.Pos { return token.Pos(int(x.NamePos) + len(x.Name))
 func (p *Ident) exprNode()      {}
 
 // A UnaryExpr node represents a unary expression.
-// Unary "*" expressions are represented via StarExpr nodes.
 type UnaryExpr struct {
 	OpPos token.Pos   // position of Op
 	Op    token.Token // operator

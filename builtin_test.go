@@ -687,12 +687,6 @@ func TestWriteFile(t *testing.T) {
 	if WriteFile("/", pkg, "") == nil {
 		t.Fatal("WriteFile: no error?")
 	}
-	file := &File{}
-	file.goDecls = []ast.Decl{
-		&ast.GenDecl{Specs: []ast.Spec{
-			&ast.ValueSpec{Type: &ast.Ident{}},
-		}},
-	}
 	pkg.files[""] = &File{fileDecls: fileDecls{goDecls: []ast.Decl{
 		&ast.GenDecl{Specs: []ast.Spec{
 			&ast.ValueSpec{Type: &ast.Ident{}},

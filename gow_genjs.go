@@ -69,8 +69,9 @@ func (p *Package) WriteJSTo(dst io.Writer, fname ...string) (err error) {
 	return format.Node(dst, fset, file)
 }
 
-// WriteJSFile writes a JavaScript file named fname.
-// If fname is not provided, it writes the default (NOT current) file.
+// WriteJSFile writes the generated JavaScript to the file at path `file`.
+// fname optionally identifies which source file's AST to use;
+// if not provided, it uses the default (NOT current) file.
 func (p *Package) WriteJSFile(file string, fname ...string) (err error) {
 	ast := p.CommentedJSFile(fname...)
 	if ast == nil {

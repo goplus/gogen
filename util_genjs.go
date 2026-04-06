@@ -350,7 +350,9 @@ func emitReturnStmt(cb *CodeBuilder, pos token.Pos, rets ...js.Expr) {
 }
 
 func emitIfStmt(cb *CodeBuilder, p *ifStmt, el js.Stmt) {
-	cb.emitStmt(p.init)
+	if p.init != nil {
+		cb.emitStmt(p.init)
+	}
 	cb.emitStmt(&js.IfStmt{Cond: p.cond, Body: p.body, Else: el})
 }
 
