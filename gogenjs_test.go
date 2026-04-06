@@ -19,6 +19,8 @@ limitations under the License.
 package gogen_test
 
 import (
+	"go/token"
+	"go/types"
 	"testing"
 )
 
@@ -31,5 +33,19 @@ func TestBasic(t *testing.T) {
 	domTest(t, pkg, `package main
 
 func main()
+`)
+}
+
+func TestZeroLitAlias(t *testing.T) {
+	pkg := newPackage("main")
+	bar := pkg.AliasType("bar", types.Typ[types.Float64])
+	results := types.NewTuple(types.NewVar(token.NoPos, pkg.Types, "", bar))
+	pkg.NewFunc(nil, "foo", nil, results, false).BodyStart(pkg).
+		ZeroLit(bar).Return(1).End()
+	domTest(t, pkg, `package main
+
+type bar = float64
+
+func foo() bar
 `)
 }

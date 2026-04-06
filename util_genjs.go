@@ -310,7 +310,15 @@ func emitGotoStmt(cb *CodeBuilder, name string) {
 }
 
 func emitReturnStmt(cb *CodeBuilder, pos token.Pos, rets ...js.Expr) {
-	panic("todo")
+	ret := &js.ReturnStmt{}
+	switch len(rets) {
+	case 0:
+	case 1:
+		ret.Result = rets[0]
+	default:
+		ret.Result = &js.ArrayLit{Values: rets}
+	}
+	cb.emitStmt(ret)
 }
 
 func emitIfStmt(cb *CodeBuilder, p *ifStmt, el js.Stmt) {

@@ -141,6 +141,17 @@ func (x *ParenExpr) Pos() token.Pos { return x.Lparen }
 func (x *ParenExpr) End() token.Pos { return x.Rparen + 1 }
 func (p *ParenExpr) exprNode()      {}
 
+// An ArrayLit node represents an array literal.
+type ArrayLit struct {
+	Lbrack token.Pos // position of "["
+	Values []Expr    // array elements; or nil
+	Rbrack token.Pos // position of "]"
+}
+
+func (x *ArrayLit) Pos() token.Pos { return x.Lbrack }
+func (x *ArrayLit) End() token.Pos { return x.Rbrack + 1 }
+func (*ArrayLit) exprNode()        {}
+
 // A FuncLit node represents a function literal.
 type FuncLit struct {
 	Opening token.Pos  // position of (
@@ -269,6 +280,21 @@ func (s *BranchStmt) End() token.Pos {
 	return token.Pos(int(s.TokPos) + len(s.Tok.String()))
 }
 func (*BranchStmt) stmtNode() {}
+
+// A ReturnStmt node represents a return statement.
+type ReturnStmt struct {
+	Return token.Pos // position of "return" keyword
+	Result Expr      // result expression; or nil
+}
+
+func (s *ReturnStmt) Pos() token.Pos { return s.Return }
+func (s *ReturnStmt) End() token.Pos {
+	if s.Result != nil {
+		return s.Result.End()
+	}
+	return s.Return + 6 // len("return")
+}
+func (*ReturnStmt) stmtNode() {}
 
 // ----------------------------------------------------------------------------
 

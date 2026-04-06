@@ -30,7 +30,7 @@ type termChecker struct {
 
 // isTerminating reports whether s is a terminating statement.
 func (c *termChecker) isTerminating(s js.Stmt, label string) bool {
-	panic("todo")
+	return true // TODO(xsw): implement this
 }
 
 // ----------------------------------------------------------------------------
