@@ -139,7 +139,7 @@ type Config struct {
 type importUsed bool
 
 type File struct {
-	decls []target.Decl
+	fileDecls
 	fname string
 	imps  map[string]*target.PkgRef // importPath => impRef (nil means force-import)
 	dirty bool
@@ -168,7 +168,7 @@ func (p *File) forceImport(pkgPath string) {
 
 func (p *File) markUsed(this *Package) {
 	if p.dirty {
-		astVisitor{this, p}.markUsed(p.decls)
+		markUsed(this, p)
 		p.dirty = false
 	}
 }
@@ -238,10 +238,10 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 		valXGoPkg, addXGoPkg = checkXGoPkg(this)
 	}
 	if len(specs) == 0 && !addXGoPkg {
-		return toDecls(p.decls)
+		return p.goDecls
 	}
 
-	decls = make([]ast.Decl, 0, len(p.decls)+2)
+	decls = make([]ast.Decl, 0, len(p.goDecls)+2)
 	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
 	if addXGoPkg {
 		decls = append(decls, &ast.GenDecl{Tok: token.CONST, Specs: []ast.Spec{
@@ -253,7 +253,7 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			},
 		}})
 	}
-	return appendDecls(decls, p.decls)
+	return append(decls, p.goDecls...)
 }
 
 // ----------------------------------------------------------------------------

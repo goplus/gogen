@@ -58,7 +58,7 @@ func (p *Package) NewParamEx(pos token.Pos, name string, typ types.Type, optiona
 // Func type
 type Func struct {
 	*types.Func
-	decl   *target.FuncDecl
+	decl   *funcDecl
 	old    funcBodyCtx
 	arity1 int // 0 for normal, (arity+1) for inlineClosure
 }
@@ -133,8 +133,7 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 		expr := newFuncLit(pkg, t, body)
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t, Src: src})
 	} else {
-		fn.Name, fn.Type = &ast.Ident{Name: p.Name()}, toFuncType(pkg, t)
-		target.SetFuncBody(fn, body)
+		fn.Name, fn.Type, fn.Body = &ast.Ident{Name: p.Name()}, toFuncType(pkg, t), body
 		if recv := t.Recv(); IsMethodRecv(recv) {
 			fn.Recv = toRecv(pkg, recv)
 		}
@@ -263,8 +262,8 @@ func (p *Package) NewFuncWith(
 		p.expObjTypes = append(p.expObjTypes, sig)
 	}
 
-	fn.decl = &target.FuncDecl{}
-	p.file.decls = append(p.file.decls, fn.decl)
+	fn.decl = &funcDecl{}
+	p.file.appendFuncDecl(fn.decl)
 	return fn, nil
 }
 

@@ -16,7 +16,6 @@ limitations under the License.
 package gogen
 
 import (
-	"github.com/goplus/gogen/internal/target"
 	"github.com/goplus/gogen/target/js"
 )
 
@@ -38,7 +37,7 @@ type astVisitor struct {
 	file *File
 }
 
-func (p astVisitor) markUsed(decls []target.Decl) {
+func markUsed(this *Package, p *File) {
 	panic("todo")
 }
 

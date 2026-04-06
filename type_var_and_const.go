@@ -21,6 +21,7 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/target"
 )
 
 // ----------------------------------------------------------------------------
@@ -130,7 +131,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam)
 
 // TypeDefs represents a type declaration block.
 type TypeDefs struct {
-	decl  *ast.GenDecl
+	decl  *target.TypeDecl
 	scope *types.Scope
 	pkg   *Package
 }
@@ -205,7 +206,7 @@ func (p *Package) NewType(name string, src ...ast.Node) *TypeDecl {
 
 // NewTypeDefs starts a type declaration block.
 func (p *Package) NewTypeDefs() *TypeDefs {
-	decl := &ast.GenDecl{Tok: token.TYPE}
+	decl := target.NewTypeDecl()
 	p.file.decls = append(p.file.decls, decl)
 	return &TypeDefs{decl: decl, scope: p.Types.Scope(), pkg: p}
 }

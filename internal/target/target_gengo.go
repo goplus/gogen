@@ -47,11 +47,4 @@ type (
 	ForStmt     = ast.ForStmt
 	RangeStmt   = ast.RangeStmt
 	BranchStmt  = ast.BranchStmt
-
-	Decl     = ast.Decl
-	FuncDecl = ast.FuncDecl
 )
-
-func SetFuncBody(decl *FuncDecl, body *BlockStmt) {
-	decl.Body = body
-}

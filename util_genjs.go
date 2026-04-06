@@ -132,12 +132,25 @@ func getCaller(expr *internal.Elem) string {
 	panic("todo")
 }
 
-func toDecls(decls []target.Decl) []ast.Decl {
-	panic("todo")
+type jsDecl interface {
+	declNode()
 }
 
-func appendDecls(to []ast.Decl, decls []target.Decl) []ast.Decl {
-	panic("todo")
+type funcDecl struct {
+	ast.FuncDecl
+	Body *js.BlockStmt
+}
+
+func (*funcDecl) declNode() {}
+
+type fileDecls struct {
+	goDecls []ast.Decl
+	jsDecls []jsDecl
+}
+
+func (p *fileDecls) appendFuncDecl(decl *funcDecl) {
+	p.goDecls = append(p.goDecls, &decl.FuncDecl)
+	p.jsDecls = append(p.jsDecls, decl)
 }
 
 func zeroCompositeLit(p *Package, typ types.Type) js.Expr {

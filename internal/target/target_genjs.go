@@ -19,7 +19,6 @@ limitations under the License.
 package target
 
 import (
-	"go/ast"
 	"go/token"
 
 	"github.com/goplus/gogen/target/js"
@@ -67,21 +66,4 @@ type AssignStmt struct {
 	TokPos token.Pos   // position of Tok
 	Tok    token.Token // assignment token, DEFINE
 	Rhs    []Expr
-}
-
-// All declaration nodes implement the Decl interface.
-type Decl interface {
-	declNode()
-}
-
-// A FuncDecl node represents a function declaration.
-type FuncDecl struct {
-	ast.FuncDecl
-	JsBody *js.BlockStmt
-}
-
-func (*FuncDecl) declNode() {}
-
-func SetFuncBody(decl *FuncDecl, body *BlockStmt) {
-	decl.JsBody = body
 }

@@ -861,12 +861,14 @@ func getCaller(expr *internal.Elem) string {
 	return "the function call"
 }
 
-func toDecls(decls []ast.Decl) []ast.Decl {
-	return decls
+type fileDecls struct {
+	goDecls []ast.Decl
 }
 
-func appendDecls(to []ast.Decl, decls []ast.Decl) []ast.Decl {
-	return append(to, decls...)
+type funcDecl = ast.FuncDecl
+
+func (p *fileDecls) appendFuncDecl(decl *funcDecl) {
+	p.goDecls = append(p.goDecls, decl)
 }
 
 func zeroCompositeLit(p *Package, typ types.Type) *ast.CompositeLit {
