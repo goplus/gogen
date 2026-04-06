@@ -238,6 +238,14 @@ func newOffsetofExpr(pkg *Package, args []*internal.Elem) js.Expr {
 	panic("todo")
 }
 
+func newUnsafeAddExpr(pkg *Package, args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
+func newUnsafeDataExpr(p unsafeDataInstr, pkg *Package, args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
 func newRecvExpr(args []*internal.Elem) js.Expr {
 	panic("todo")
 }

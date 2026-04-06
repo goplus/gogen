@@ -1028,6 +1028,24 @@ func newOffsetofExpr(pkg *Package, args []*internal.Elem) *ast.CallExpr {
 	return &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}}
 }
 
+func newUnsafeAddExpr(pkg *Package, args []*internal.Elem) *ast.CallExpr {
+	fn := toObjectExpr(pkg, unsafeRef("Sizeof")).(*ast.SelectorExpr)
+	fn.Sel.Name = "Add"
+	return &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}}
+}
+
+func newUnsafeDataExpr(p unsafeDataInstr, pkg *Package, args []*internal.Elem) *ast.CallExpr {
+	fn := toObjectExpr(pkg, unsafeRef("Sizeof")).(*ast.SelectorExpr)
+	fn.Sel.Name = p.name
+	var exprs []ast.Expr
+	if p.args == 2 {
+		exprs = []ast.Expr{args[0].Val, args[1].Val}
+	} else {
+		exprs = []ast.Expr{args[0].Val}
+	}
+	return &ast.CallExpr{Fun: fn, Args: exprs}
+}
+
 func newRecvExpr(args []*internal.Elem) *ast.UnaryExpr {
 	return &ast.UnaryExpr{Op: token.ARROW, X: args[0].Val}
 }

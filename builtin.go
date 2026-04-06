@@ -961,6 +961,9 @@ type unsafeAddInstr struct{}
 
 // func unsafe.Add(ptr Pointer, len IntegerType) Pointer
 func (p unsafeAddInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error) {
+	const (
+		tokenLen = token.Pos(len("unsafe.Add"))
+	)
 	checkArgsCount(pkg, "unsafe.Add", 2, len(args), src)
 
 	if ts := args[0].Type.String(); ts != "unsafe.Pointer" {
@@ -968,8 +971,8 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, lhs int, flags Instr
 		pos := getSrcPos(src)
 		end := getSrcEnd(src)
 		if pos != token.NoPos {
-			pos += token.Pos(len("unsafe.Add"))
-			end += token.Pos(len("unsafe.Add"))
+			pos += tokenLen
+			end += tokenLen
 		}
 		pkg.cb.panicCodeErrorf(pos, end, "cannot use %v (type %v) as type unsafe.Pointer in argument to unsafe.Add", s, ts)
 	}
@@ -978,15 +981,13 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, lhs int, flags Instr
 		pos := getSrcPos(src)
 		end := getSrcEnd(src)
 		if pos != token.NoPos {
-			pos += token.Pos(len("unsafe.Add"))
-			end += token.Pos(len("unsafe.Add"))
+			pos += tokenLen
+			end += tokenLen
 		}
 		pkg.cb.panicCodeErrorf(pos, end, "cannot use %v (type %v) as type int", s, t)
 	}
-	fn := toObjectExpr(pkg, unsafeRef("Sizeof")).(*ast.SelectorExpr)
-	fn.Sel.Name = "Add" // only in go v1.7+
 	ret = &Element{
-		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val, args[1].Val}},
+		Val:  newUnsafeAddExpr(pkg, args),
 		Type: types.Typ[types.UnsafePointer],
 	}
 	return
@@ -1055,16 +1056,8 @@ func (p unsafeDataInstr) Call(pkg *Package, args []*Element, lhs int, flags Inst
 			return nil, pkg.cb.newCodeErrorf(pos, end, "non-integer len argument in %v - %v", fname, t)
 		}
 	}
-	fn := toObjectExpr(pkg, unsafeRef("Sizeof")).(*ast.SelectorExpr)
-	fn.Sel.Name = p.name
-	var exprs []ast.Expr
-	if p.args == 2 {
-		exprs = []ast.Expr{args[0].Val, args[1].Val}
-	} else {
-		exprs = []ast.Expr{args[0].Val}
-	}
 	ret = &Element{
-		Val:  &ast.CallExpr{Fun: fn, Args: exprs},
+		Val:  newUnsafeDataExpr(p, pkg, args),
 		Type: typ,
 	}
 	return

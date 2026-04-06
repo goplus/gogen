@@ -1,3 +1,6 @@
+//go:build gengo
+// +build gengo
+
 /*
  Copyright 2021 The XGo Authors (xgo.dev)
  Licensed under the Apache License, Version 2.0 (the "License");
