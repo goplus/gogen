@@ -45,6 +45,38 @@ func (p *CodeBuilder) emitMapStringAnyAssert(argVal ast.Expr) ast.Expr {
 	return ret
 }
 
+// TypeAssert func
+func (p *CodeBuilder) TypeAssert(typ types.Type, lhs int, src ...ast.Node) *CodeBuilder {
+	if debugInstr {
+		log.Println("TypeAssert", typ, lhs)
+	}
+	arg := p.stk.Get(-1)
+	xType, ok := p.checkInterface(arg.Type)
+	if !ok {
+		text, pos, end := p.loadExpr(getSrc(src))
+		p.panicCodeErrorf(
+			pos, end, "invalid type assertion: %s (non-interface type %v on left)", text, arg.Type)
+	}
+	if missing := p.missingMethod(typ, xType); missing != "" {
+		pos := getSrcPos(getSrc(src))
+		end := getSrcEnd(getSrc(src))
+		p.panicCodeErrorf(
+			pos, end, "impossible type assertion:\n\t%v does not implement %v (missing %s method)",
+			typ, arg.Type, missing)
+	}
+	pkg := p.pkg
+	ret := &ast.TypeAssertExpr{X: arg.Val, Type: toType(pkg, typ)}
+	if lhs == 2 {
+		tyRet := types.NewTuple(
+			pkg.NewParam(token.NoPos, "", typ),
+			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
+		p.stk.Ret(1, &internal.Elem{Type: tyRet, Val: ret, Src: getSrc(src)})
+	} else {
+		p.stk.Ret(1, &internal.Elem{Type: typ, Val: ret, Src: getSrc(src)})
+	}
+	return p
+}
+
 func (p *CodeBuilder) mapIndexExpr(o *types.Map, name string, lhs int, argVal ast.Expr, src ast.Node) MemberKind {
 	tyRet := o.Elem()
 	if lhs == 2 { // two-value assignment
@@ -458,6 +490,168 @@ func (p *CodeBuilder) Index(nidx int, lhs int, src ...ast.Node) *CodeBuilder {
 	return p
 }
 
+// Star func
+func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
+	if debugInstr {
+		log.Println("Star")
+	}
+	arg := p.stk.Get(-1)
+	ret := &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Src: getSrc(src)}
+	argType := arg.Type
+retry:
+	switch t := argType.(type) {
+	case *TypeType:
+		ret.Type = t.Pointer()
+	case *types.Pointer:
+		ret.Type = t.Elem()
+	case *types.Named:
+		argType = p.getUnderlying(t)
+		goto retry
+	default:
+		code, pos, end := p.loadExpr(arg.Src)
+		p.panicCodeErrorf(pos, end, "invalid indirect of %s (type %v)", code, t)
+	}
+	p.stk.Ret(1, ret)
+	return p
+}
+
+// Elem func
+func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
+	if debugInstr {
+		log.Println("Elem")
+	}
+	arg := p.stk.Get(-1)
+	t, ok := arg.Type.(*types.Pointer)
+	if !ok {
+		code, pos, end := p.loadExpr(arg.Src)
+		p.panicCodeErrorf(pos, end, "invalid indirect of %s (type %v)", code, arg.Type)
+	}
+	p.stk.Ret(1, &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Type: t.Elem(), Src: getSrc(src)})
+	return p
+}
+
+// ElemRef func
+func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
+	if debugInstr {
+		log.Println("ElemRef")
+	}
+	arg := p.stk.Get(-1)
+	t, ok := arg.Type.(*types.Pointer)
+	if !ok {
+		code, pos, end := p.loadExpr(arg.Src)
+		p.panicCodeErrorf(pos, end, "invalid indirect of %s (type %v)", code, arg.Type)
+	}
+	p.stk.Ret(1, &internal.Elem{
+		Val: &ast.StarExpr{X: arg.Val}, Type: &refType{typ: t.Elem()}, Src: getSrc(src),
+	})
+	return p
+}
+
+func (p *CodeBuilder) doVarRef(ref any, src ast.Node, allowDebug bool) *CodeBuilder {
+	if ref == nil {
+		if allowDebug && debugInstr {
+			log.Println("VarRef _")
+		}
+		p.stk.Push(&internal.Elem{
+			Val: underscore, // _
+		})
+	} else {
+		if v, ok := ref.(string); ok {
+			_, ref = p.Scope().LookupParent(v, token.NoPos)
+		}
+		if v, ok := ref.(*types.Var); ok {
+			if allowDebug && debugInstr {
+				log.Println("VarRef", v.Name(), v.Type())
+			}
+			fn := p.current.fn
+			if fn != nil && fn.isInline() { // is in an inline call
+				key := closureParamInst{fn, v}
+				if arg, ok := p.paramInsts[key]; ok { // replace param with arg
+					v = arg
+				}
+			}
+			p.stk.Push(&internal.Elem{
+				Val: toObjectExpr(p.pkg, v), Type: &refType{typ: v.Type()}, Src: src,
+			})
+		} else {
+			code, pos, end := p.loadExpr(src)
+			p.panicCodeErrorf(pos, end, "%s is not a variable", code)
+		}
+	}
+	return p
+}
+
+// NewAutoVar func
+func (p *CodeBuilder) NewAutoVar(pos, end token.Pos, name string, pv **types.Var) *CodeBuilder {
+	spec := &ast.ValueSpec{Names: []*ast.Ident{ident(name)}}
+	decl := &ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{spec}}
+	stmt := &ast.DeclStmt{
+		Decl: decl,
+	}
+	if debugInstr {
+		log.Println("NewAutoVar", name)
+	}
+	p.emitStmt(stmt)
+	typ := &unboundType{ptypes: []*ast.Expr{&spec.Type}}
+	*pv = types.NewVar(pos, p.pkg.Types, name, typ)
+	if old := p.current.scope.Insert(*pv); old != nil {
+		oldPos := p.fset.Position(old.Pos())
+		p.panicCodeErrorf(
+			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
+	}
+	return p
+}
+
+func methodToFuncSig(pkg *Package, o types.Object, fn *Element) *types.Signature {
+	sig := o.Type().(*types.Signature)
+	recv := sig.Recv()
+	if recv == nil { // special signature
+		fn.Val = toObjectExpr(pkg, o)
+		return sig
+	}
+
+	sel := fn.Val.(*ast.SelectorExpr)
+	sel.Sel = ident(o.Name())
+	sel.X = &ast.ParenExpr{X: sel.X}
+	return toFuncSig(sig, recv)
+}
+
+func (p *CodeBuilder) methodSigOf(typ types.Type, flag MemberFlag, arg, ret *Element) (types.Type, bool) {
+	if flag != memberFlagMethodToFunc {
+		return methodCallSig(typ), true
+	}
+
+	sig := typ.(*types.Signature)
+	if t, ok := CheckFuncEx(sig); ok {
+		switch ext := t.(type) {
+		case *TyStaticMethod:
+			return p.funcExSigOf(ext.Func, ret)
+		case *TyTemplateRecvMethod:
+			return p.funcExSigOf(ext.Func, ret)
+		}
+		// TODO: We should take `methodSigOf` more seriously
+		return typ, true
+	}
+
+	sel := ret.Val.(*ast.SelectorExpr)
+	at := arg.Type.(*TypeType).typ
+	recv := sig.Recv().Type()
+	_, isPtr := recv.(*types.Pointer) // recv is a pointer
+	if t, ok := at.(*types.Pointer); ok {
+		if !isPtr {
+			if _, ok := recv.Underlying().(*types.Interface); !ok { // and recv isn't a interface
+				log.Panicf("recv of method %v.%s isn't a pointer\n", t.Elem(), sel.Sel.Name)
+			}
+		}
+	} else if isPtr { // use *T
+		at = types.NewPointer(at)
+		sel.X = &ast.StarExpr{X: sel.X}
+	}
+	sel.X = &ast.ParenExpr{X: sel.X}
+
+	return toFuncSig(sig, types.NewVar(token.NoPos, nil, "", at)), true
+}
+
 func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
 	if fn == nil {
 		return "the closure call", token.NoPos, token.NoPos
@@ -511,8 +705,16 @@ func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
 	}
 }
 
-func newStarExpr(arg *internal.Elem) *ast.StarExpr {
-	return &ast.StarExpr{X: arg.Val}
+func newAssignOpStmt(tok token.Token, args []*internal.Elem) *ast.AssignStmt {
+	return &ast.AssignStmt{
+		Tok: tok,
+		Lhs: []ast.Expr{args[0].Val},
+		Rhs: []ast.Expr{args[1].Val},
+	}
+}
+
+func emitAssignStmt(cb *CodeBuilder, stmt *ast.AssignStmt) {
+	cb.emitStmt(stmt)
 }
 
 func emitGoStmt(cb *CodeBuilder, call ast.Expr) {

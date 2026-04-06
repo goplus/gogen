@@ -195,6 +195,16 @@ func (s *LabeledStmt) Pos() token.Pos { return s.Label.Pos() }
 func (s *LabeledStmt) End() token.Pos { return s.Stmt.End() }
 func (*LabeledStmt) stmtNode()        {}
 
+// An ExprStmt node represents a (stand-alone) expression
+// in a statement list.
+type ExprStmt struct {
+	X Expr // expression
+}
+
+func (s *ExprStmt) Pos() token.Pos { return s.X.Pos() }
+func (s *ExprStmt) End() token.Pos { return s.X.End() }
+func (*ExprStmt) stmtNode()        {}
+
 // A BlockStmt node represents a braced statement list.
 type BlockStmt struct {
 	Lbrace token.Pos // position of "{"

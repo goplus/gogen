@@ -30,6 +30,11 @@ func (p *CodeBuilder) emitMapStringAnyAssert(argVal js.Expr) js.Expr {
 	panic("todo")
 }
 
+// TypeAssert func
+func (p *CodeBuilder) TypeAssert(typ types.Type, lhs int, src ...ast.Node) *CodeBuilder {
+	panic("todo")
+}
+
 func (p *CodeBuilder) mapIndexExpr(o *types.Map, name string, lhs int, argVal js.Expr, src ast.Node) MemberKind {
 	panic("todo")
 }
@@ -67,6 +72,38 @@ func (p *CodeBuilder) Index(nidx int, lhs int, src ...ast.Node) *CodeBuilder {
 	panic("todo")
 }
 
+// Star func
+func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
+	panic("todo")
+}
+
+// Elem func
+func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
+	panic("todo")
+}
+
+// ElemRef func
+func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
+	panic("todo")
+}
+
+func (p *CodeBuilder) doVarRef(ref any, src ast.Node, allowDebug bool) *CodeBuilder {
+	panic("todo")
+}
+
+// NewAutoVar func
+func (p *CodeBuilder) NewAutoVar(pos, end token.Pos, name string, pv **types.Var) *CodeBuilder {
+	panic("todo")
+}
+
+func methodToFuncSig(pkg *Package, o types.Object, fn *Element) *types.Signature {
+	panic("todo")
+}
+
+func (p *CodeBuilder) methodSigOf(typ types.Type, flag MemberFlag, arg, ret *Element) (types.Type, bool) {
+	panic("todo")
+}
+
 func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
 	panic("todo")
 }
@@ -97,8 +134,12 @@ func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
 	}
 }
 
-func newStarExpr(arg *internal.Elem) js.Expr {
-	return arg.Val
+func newAssignOpStmt(tok token.Token, args []*internal.Elem) js.Stmt {
+	panic("todo")
+}
+
+func emitAssignStmt(cb *CodeBuilder, stmt *target.AssignStmt) {
+	panic("todo")
 }
 
 func emitGoStmt(cb *CodeBuilder, call js.Expr) {

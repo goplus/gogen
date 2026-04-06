@@ -43,6 +43,7 @@ type (
 	Stmt        = js.Stmt
 	EmptyStmt   = js.EmptyStmt
 	LabeledStmt = js.LabeledStmt
+	ExprStmt    = js.ExprStmt
 	BlockStmt   = js.BlockStmt
 	IfStmt      = js.IfStmt
 	ForStmt     = js.ForStmt
@@ -57,6 +58,15 @@ type RangeStmt struct {
 	Range      token.Pos   // position of "range" keyword
 	X          Expr        // value to range over
 	Body       *BlockStmt
+}
+
+// An AssignStmt node represents an assignment or
+// a short variable declaration.
+type AssignStmt struct {
+	Lhs    []Expr
+	TokPos token.Pos   // position of Tok
+	Tok    token.Token // assignment token, DEFINE
+	Rhs    []Expr
 }
 
 // All declaration nodes implement the Decl interface.

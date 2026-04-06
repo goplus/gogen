@@ -525,12 +525,12 @@ func (p *CodeBuilder) CallWithEx(n, lhs int, flags InstrFlags, src ...ast.Node) 
 	}
 	ret.Src = s
 	// Track calls to builtin panic for accurate termination analysis
-	if call, ok := ret.Val.(*ast.CallExpr); ok {
-		if id, ok := call.Fun.(*ast.Ident); ok && id.Name == "panic" {
+	if call, ok := ret.Val.(*target.CallExpr); ok {
+		if id, ok := call.Fun.(*target.Ident); ok && id.Name == "panic" {
 			if _, obj := p.Scope().LookupParent("panic", token.NoPos); obj != nil {
 				if _, ok := obj.(*types.Builtin); ok {
 					if p.current.panicCalls == nil {
-						p.current.panicCalls = make(map[*ast.CallExpr]none)
+						p.current.panicCalls = make(map[*target.CallExpr]none)
 					}
 					p.current.panicCalls[call] = none{}
 				}
@@ -577,7 +577,7 @@ func (p *Func) inlineClosureEnd(cb *CodeBuilder) {
 		cb.Label(ending)
 	}
 	sig := p.Type().(*types.Signature)
-	cb.emitStmt(&ast.BlockStmt{List: cb.endFuncBody(p.old)})
+	cb.emitStmt(&target.BlockStmt{List: cb.endFuncBody(p.old)})
 	cb.stk.PopN(p.getInlineCallArity())
 	results := sig.Results()
 	for i, n := 0, results.Len(); i < n; i++ { // return results & clean env
@@ -709,64 +709,9 @@ func (p *CodeBuilder) DefineVarStart(pos token.Pos, names ...string) *CodeBuilde
 		ValueAt{}, p.current.scope, pos, token.DEFINE, nil, names...).InitStart(p.pkg)
 }
 
-// NewAutoVar func
-func (p *CodeBuilder) NewAutoVar(pos, end token.Pos, name string, pv **types.Var) *CodeBuilder {
-	spec := &ast.ValueSpec{Names: []*ast.Ident{ident(name)}}
-	decl := &ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{spec}}
-	stmt := &ast.DeclStmt{
-		Decl: decl,
-	}
-	if debugInstr {
-		log.Println("NewAutoVar", name)
-	}
-	p.emitStmt(stmt)
-	typ := &unboundType{ptypes: []*ast.Expr{&spec.Type}}
-	*pv = types.NewVar(pos, p.pkg.Types, name, typ)
-	if old := p.current.scope.Insert(*pv); old != nil {
-		oldPos := p.fset.Position(old.Pos())
-		p.panicCodeErrorf(
-			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
-	}
-	return p
-}
-
 // VarRef func: p.VarRef(nil) means underscore (_)
 func (p *CodeBuilder) VarRef(ref any, src ...ast.Node) *CodeBuilder {
 	return p.doVarRef(ref, getSrc(src), true)
-}
-
-func (p *CodeBuilder) doVarRef(ref any, src ast.Node, allowDebug bool) *CodeBuilder {
-	if ref == nil {
-		if allowDebug && debugInstr {
-			log.Println("VarRef _")
-		}
-		p.stk.Push(&internal.Elem{
-			Val: underscore, // _
-		})
-	} else {
-		if v, ok := ref.(string); ok {
-			_, ref = p.Scope().LookupParent(v, token.NoPos)
-		}
-		if v, ok := ref.(*types.Var); ok {
-			if allowDebug && debugInstr {
-				log.Println("VarRef", v.Name(), v.Type())
-			}
-			fn := p.current.fn
-			if fn != nil && fn.isInline() { // is in an inline call
-				key := closureParamInst{fn, v}
-				if arg, ok := p.paramInsts[key]; ok { // replace param with arg
-					v = arg
-				}
-			}
-			p.stk.Push(&internal.Elem{
-				Val: toObjectExpr(p.pkg, v), Type: &refType{typ: v.Type()}, Src: src,
-			})
-		} else {
-			code, pos, end := p.loadExpr(src)
-			p.panicCodeErrorf(pos, end, "%s is not a variable", code)
-		}
-	}
-	return p
 }
 
 var (
@@ -1051,63 +996,6 @@ func (p *CodeBuilder) pushVal(v any, src ast.Node) *CodeBuilder {
 	return p
 }
 
-// Star func
-func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
-	if debugInstr {
-		log.Println("Star")
-	}
-	arg := p.stk.Get(-1)
-	ret := &internal.Elem{Val: newStarExpr(arg), Src: getSrc(src)}
-	argType := arg.Type
-retry:
-	switch t := argType.(type) {
-	case *TypeType:
-		ret.Type = t.Pointer()
-	case *types.Pointer:
-		ret.Type = t.Elem()
-	case *types.Named:
-		argType = p.getUnderlying(t)
-		goto retry
-	default:
-		code, pos, end := p.loadExpr(arg.Src)
-		p.panicCodeErrorf(pos, end, "invalid indirect of %s (type %v)", code, t)
-	}
-	p.stk.Ret(1, ret)
-	return p
-}
-
-// Elem func
-func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
-	if debugInstr {
-		log.Println("Elem")
-	}
-	arg := p.stk.Get(-1)
-	t, ok := arg.Type.(*types.Pointer)
-	if !ok {
-		code, pos, end := p.loadExpr(arg.Src)
-		p.panicCodeErrorf(pos, end, "invalid indirect of %s (type %v)", code, arg.Type)
-	}
-	p.stk.Ret(1, &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Type: t.Elem(), Src: getSrc(src)})
-	return p
-}
-
-// ElemRef func
-func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
-	if debugInstr {
-		log.Println("ElemRef")
-	}
-	arg := p.stk.Get(-1)
-	t, ok := arg.Type.(*types.Pointer)
-	if !ok {
-		code, pos, end := p.loadExpr(arg.Src)
-		p.panicCodeErrorf(pos, end, "invalid indirect of %s (type %v)", code, arg.Type)
-	}
-	p.stk.Ret(1, &internal.Elem{
-		Val: &ast.StarExpr{X: arg.Val}, Type: &refType{typ: t.Elem()}, Src: getSrc(src),
-	})
-	return p
-}
-
 // MemberVal func
 func (p *CodeBuilder) MemberVal(name string, lhs int, src ...ast.Node) *CodeBuilder {
 	_, err := p.Member(name, lhs, MemberFlagVal, src...)
@@ -1126,7 +1014,7 @@ func (p *CodeBuilder) MemberRef(name string, src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, src ast.Node, visited map[*types.Struct]none) MemberKind {
+func (p *CodeBuilder) refMember(typ types.Type, name string, argVal target.Expr, src ast.Node, visited map[*types.Struct]none) MemberKind {
 	switch o := indirect(typ).(type) {
 	case *types.Named:
 		if struc, ok := p.getUnderlying(o).(*types.Struct); ok {
@@ -1147,7 +1035,7 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, sr
 		}
 		tyRet := &refType{typ: o.Elem()}
 		elem := &internal.Elem{
-			Val: &ast.IndexExpr{X: argVal, Index: stringLit(name)}, Type: tyRet, Src: src,
+			Val: &target.IndexExpr{X: argVal, Index: stringLit(name)}, Type: tyRet, Src: src,
 		}
 		p.stk.Ret(1, elem)
 		return MemberField
@@ -1155,7 +1043,7 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal ast.Expr, sr
 	return MemberInvalid
 }
 
-func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast.Node, visited map[*types.Struct]none) bool {
+func (p *CodeBuilder) fieldRef(x target.Expr, o *types.Struct, name string, src ast.Node, visited map[*types.Struct]none) bool {
 	var embed []*types.Var
 	if c := name[0]; c >= '0' && c <= '9' { // tuple: ordinal field
 		name = "X_" + name
@@ -1167,7 +1055,7 @@ func (p *CodeBuilder) fieldRef(x ast.Expr, o *types.Struct, name string, src ast
 				p.rec.Member(src, fld)
 			}
 			p.stk.Ret(1, &internal.Elem{
-				Val:  &ast.SelectorExpr{X: x, Sel: ident(name)},
+				Val:  &target.SelectorExpr{X: x, Sel: ident(name)},
 				Type: &refType{typ: fld.Type()},
 			})
 			return true
@@ -1403,9 +1291,9 @@ type methodList interface {
 	Method(i int) *types.Func
 }
 
-func selector(arg *Element, name string) *ast.SelectorExpr {
-	denoted := &ast.Object{Data: arg}
-	return &ast.SelectorExpr{X: arg.Val, Sel: &ast.Ident{Name: name, Obj: denoted}}
+func selector(arg *Element, name string) *target.SelectorExpr {
+	denoted := &target.Object{Data: arg}
+	return &target.SelectorExpr{X: arg.Val, Sel: &target.Ident{Name: name, Obj: denoted}}
 }
 
 func denoteRecv(v *ast.SelectorExpr) *Element {
@@ -1513,9 +1401,9 @@ func (p *CodeBuilder) btiMethod(
 				autoprop := flag == MemberFlagAutoProperty && v == aliasName
 				this := p.stk.Pop()
 				if fn, ok := isTypeConvert(o.typ, this.Type); ok {
-					this.Val = &ast.CallExpr{
-						Fun:  ast.NewIdent(fn),
-						Args: []ast.Expr{this.Val},
+					this.Val = &target.CallExpr{
+						Fun:  ident(fn),
+						Args: []target.Expr{this.Val},
 					}
 					this.Type = &btiMethodType{Type: o.typ, eargs: method.Exargs}
 				} else {
@@ -1606,56 +1494,6 @@ func toFuncSig(sig *types.Signature, recv *types.Var) *types.Signature {
 	return types.NewSignatureType(nil, nil, nil, types.NewTuple(vars...), sig.Results(), sig.Variadic())
 }
 
-func methodToFuncSig(pkg *Package, o types.Object, fn *Element) *types.Signature {
-	sig := o.Type().(*types.Signature)
-	recv := sig.Recv()
-	if recv == nil { // special signature
-		fn.Val = toObjectExpr(pkg, o)
-		return sig
-	}
-
-	sel := fn.Val.(*ast.SelectorExpr)
-	sel.Sel = ident(o.Name())
-	sel.X = &ast.ParenExpr{X: sel.X}
-	return toFuncSig(sig, recv)
-}
-
-func (p *CodeBuilder) methodSigOf(typ types.Type, flag MemberFlag, arg, ret *Element) (types.Type, bool) {
-	if flag != memberFlagMethodToFunc {
-		return methodCallSig(typ), true
-	}
-
-	sig := typ.(*types.Signature)
-	if t, ok := CheckFuncEx(sig); ok {
-		switch ext := t.(type) {
-		case *TyStaticMethod:
-			return p.funcExSigOf(ext.Func, ret)
-		case *TyTemplateRecvMethod:
-			return p.funcExSigOf(ext.Func, ret)
-		}
-		// TODO: We should take `methodSigOf` more seriously
-		return typ, true
-	}
-
-	sel := ret.Val.(*ast.SelectorExpr)
-	at := arg.Type.(*TypeType).typ
-	recv := sig.Recv().Type()
-	_, isPtr := recv.(*types.Pointer) // recv is a pointer
-	if t, ok := at.(*types.Pointer); ok {
-		if !isPtr {
-			if _, ok := recv.Underlying().(*types.Interface); !ok { // and recv isn't a interface
-				log.Panicf("recv of method %v.%s isn't a pointer\n", t.Elem(), sel.Sel.Name)
-			}
-		}
-	} else if isPtr { // use *T
-		at = types.NewPointer(at)
-		sel.X = &ast.StarExpr{X: sel.X}
-	}
-	sel.X = &ast.ParenExpr{X: sel.X}
-
-	return toFuncSig(sig, types.NewVar(token.NoPos, nil, "", at)), true
-}
-
 func (p *CodeBuilder) funcExSigOf(o types.Object, ret *Element) (types.Type, bool) {
 	ret.Val = toObjectExpr(p.pkg, o)
 	ret.Type = o.Type()
@@ -1690,14 +1528,14 @@ func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
 		op := lookupMethod(t, name)
 		if op != nil {
 			fn := &internal.Elem{
-				Val:  &ast.SelectorExpr{X: arg.Val, Sel: ident(name)},
+				Val:  &target.SelectorExpr{X: arg.Val, Sel: ident(name)},
 				Type: realType(op.Type()),
 			}
 			ret := toFuncCall(pkg, fn, []*Element{arg}, 0)
 			if ret.Type != nil {
 				p.shouldNoResults(name, src)
 			}
-			p.emitStmt(&ast.ExprStmt{X: ret.Val})
+			p.emitStmt(&target.ExprStmt{X: ret.Val})
 			return p
 		}
 	}
@@ -1751,7 +1589,7 @@ func checkDivisionByZero(cb *CodeBuilder, a, b *internal.Elem) {
 	}
 }
 
-func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []ast.Node) ast.Stmt {
+func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []ast.Node) target.Stmt {
 	name := goxPrefix + assignOps[tok]
 	if debugInstr {
 		log.Println("AssignOp", tok, name)
@@ -1760,14 +1598,14 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 		op := lookupMethod(t, name)
 		if op != nil {
 			fn := &internal.Elem{
-				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
+				Val:  &target.SelectorExpr{X: args[0].Val, Sel: ident(name)},
 				Type: realType(op.Type()),
 			}
 			ret := toFuncCall(pkg, fn, args, 0)
 			if ret.Type != nil {
 				pkg.cb.shouldNoResults(name, src)
 			}
-			return &ast.ExprStmt{X: ret.Val}
+			return &target.ExprStmt{X: ret.Val}
 		}
 	}
 	op := pkg.builtin.Ref(name)
@@ -1778,11 +1616,7 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 		Val: ident(op.Name()), Type: op.Type(),
 	}
 	toFuncCall(pkg, fn, args, 0)
-	return &ast.AssignStmt{
-		Tok: tok,
-		Lhs: []ast.Expr{args[0].Val},
-		Rhs: []ast.Expr{args[1].Val},
-	}
+	return newAssignOpStmt(tok, args)
 }
 
 func (p *CodeBuilder) shouldNoResults(name string, src []ast.Node) {
@@ -1840,10 +1674,10 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 	} */
 	mkBlockStmt := false
 	args := p.stk.GetArgs(lhs + rhs)
-	stmt := &ast.AssignStmt{
+	stmt := &target.AssignStmt{
 		Tok: token.ASSIGN,
-		Lhs: make([]ast.Expr, lhs),
-		Rhs: make([]ast.Expr, rhs),
+		Lhs: make([]target.Expr, lhs),
+		Rhs: make([]target.Expr, rhs),
 	}
 	if rhs == 1 {
 		if rhsVals, ok := args[lhs].Type.(*types.Tuple); ok {
@@ -1878,7 +1712,7 @@ func (p *CodeBuilder) doAssignWith(lhs, rhs int, src ast.Node) *CodeBuilder {
 			pos, end, "assignment mismatch: %d variables but %d values", lhs, rhs)
 	}
 done:
-	p.emitStmt(stmt)
+	emitAssignStmt(p, stmt)
 	if mkBlockStmt { // }
 		p.End()
 	} else {
@@ -1907,7 +1741,7 @@ retry:
 		lm := lookupMethod(t, name)
 		if lm != nil {
 			fn := &internal.Elem{
-				Val:  &ast.SelectorExpr{X: args[0].Val, Sel: ident(name)},
+				Val:  &target.SelectorExpr{X: args[0].Val, Sel: ident(name)},
 				Type: realType(lm.Type()),
 			}
 			return matchFuncCall(pkg, fn, args, lhs, 0)
@@ -1980,7 +1814,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 				err = errors.New("mismatched types")
 			} else {
 				ret, err = &internal.Elem{
-					Val: &ast.BinaryExpr{
+					Val: &target.BinaryExpr{
 						X: checkParenExpr(args[0].Val), Op: op,
 						Y: checkParenExpr(args[1].Val),
 					},
@@ -2189,38 +2023,6 @@ func (p *CodeBuilder) TypeSwitch(name string, src ...ast.Node) *CodeBuilder {
 	}
 	stmt := &typeSwitchStmt{name: name}
 	p.startBlockStmt(stmt, src, "type switch statement", &stmt.old)
-	return p
-}
-
-// TypeAssert func
-func (p *CodeBuilder) TypeAssert(typ types.Type, lhs int, src ...ast.Node) *CodeBuilder {
-	if debugInstr {
-		log.Println("TypeAssert", typ, lhs)
-	}
-	arg := p.stk.Get(-1)
-	xType, ok := p.checkInterface(arg.Type)
-	if !ok {
-		text, pos, end := p.loadExpr(getSrc(src))
-		p.panicCodeErrorf(
-			pos, end, "invalid type assertion: %s (non-interface type %v on left)", text, arg.Type)
-	}
-	if missing := p.missingMethod(typ, xType); missing != "" {
-		pos := getSrcPos(getSrc(src))
-		end := getSrcEnd(getSrc(src))
-		p.panicCodeErrorf(
-			pos, end, "impossible type assertion:\n\t%v does not implement %v (missing %s method)",
-			typ, arg.Type, missing)
-	}
-	pkg := p.pkg
-	ret := &ast.TypeAssertExpr{X: arg.Val, Type: toType(pkg, typ)}
-	if lhs == 2 {
-		tyRet := types.NewTuple(
-			pkg.NewParam(token.NoPos, "", typ),
-			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
-		p.stk.Ret(1, &internal.Elem{Type: tyRet, Val: ret, Src: getSrc(src)})
-	} else {
-		p.stk.Ret(1, &internal.Elem{Type: typ, Val: ret, Src: getSrc(src)})
-	}
 	return p
 }
 
@@ -2486,7 +2288,7 @@ func (p *CodeBuilder) EndStmt() *CodeBuilder {
 			panic("syntax error: unexpected newline, expecting := or = or comma")
 		}
 		if e := p.stk.Pop(); p.noSkipConst || e.CVal == nil { // skip constant
-			p.emitStmt(&ast.ExprStmt{X: e.Val})
+			p.emitStmt(&target.ExprStmt{X: e.Val})
 		}
 	}
 	return p

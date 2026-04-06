@@ -40,7 +40,9 @@ type (
 	Stmt        = ast.Stmt
 	EmptyStmt   = ast.EmptyStmt
 	LabeledStmt = ast.LabeledStmt
+	ExprStmt    = ast.ExprStmt
 	BlockStmt   = ast.BlockStmt
+	AssignStmt  = ast.AssignStmt
 	IfStmt      = ast.IfStmt
 	ForStmt     = ast.ForStmt
 	RangeStmt   = ast.RangeStmt
