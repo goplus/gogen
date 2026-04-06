@@ -37,6 +37,8 @@ type (
 	SelectorExpr = js.SelectorExpr
 	CallExpr     = js.CallExpr
 	ParenExpr    = js.ParenExpr
+	FuncLit      = js.FuncLit
+	IndexExpr    = js.IndexExpr
 
 	Stmt        = js.Stmt
 	EmptyStmt   = js.EmptyStmt

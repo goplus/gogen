@@ -26,6 +26,47 @@ import (
 	"github.com/goplus/gogen/target/js"
 )
 
+func (p *CodeBuilder) emitMapStringAnyAssert(argVal js.Expr) js.Expr {
+	panic("todo")
+}
+
+func (p *CodeBuilder) mapIndexExpr(o *types.Map, name string, lhs int, argVal js.Expr, src ast.Node) MemberKind {
+	panic("todo")
+}
+
+// MapLitEx func
+func (p *CodeBuilder) MapLitEx(typ types.Type, arity int, src ...ast.Node) error {
+	panic("todo")
+}
+
+// SliceLitEx func
+func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
+	panic("todo")
+}
+
+// ArrayLitEx func
+func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
+	panic("todo")
+}
+
+// StructLit func
+func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
+	panic("todo")
+}
+
+// Slice func
+func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:j:k]
+	panic("todo")
+}
+
+// Index func:
+//   - a[i]
+//   - fn[T1, T2, ..., Tn]
+//   - G[T1, T2, ..., Tn]
+func (p *CodeBuilder) Index(nidx int, lhs int, src ...ast.Node) *CodeBuilder {
+	panic("todo")
+}
+
 func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
 	panic("todo")
 }
@@ -42,6 +83,10 @@ func appendDecls(to []ast.Decl, decls []target.Decl) []ast.Decl {
 	panic("todo")
 }
 
+func zeroCompositeLit(p *Package, typ types.Type) js.Expr {
+	panic("todo")
+}
+
 func newFuncLit(pkg *Package, t *types.Signature, body *js.BlockStmt) *js.FuncLit {
 	panic("todo")
 }
@@ -50,6 +95,10 @@ func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
 	return &printer.CommentedNodes{
 		Node: f,
 	}
+}
+
+func newStarExpr(arg *internal.Elem) js.Expr {
+	return arg.Val
 }
 
 func emitGoStmt(cb *CodeBuilder, call js.Expr) {
@@ -65,6 +114,10 @@ func emitSendStmt(cb *CodeBuilder, ch, val js.Expr) {
 }
 
 func emitGotoStmt(cb *CodeBuilder, name string) {
+	panic("todo")
+}
+
+func emitReturnStmt(cb *CodeBuilder, pos token.Pos, rets ...js.Expr) {
 	panic("todo")
 }
 

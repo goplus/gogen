@@ -29,6 +29,7 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/target"
+	"github.com/goplus/gogen/internal/target/util"
 	xtoken "github.com/goplus/gogen/token"
 	"github.com/goplus/gogen/typeutil"
 )
@@ -426,16 +427,16 @@ func (p *CodeBuilder) ReturnErr(outer bool) *CodeBuilder {
 }
 
 func (p *CodeBuilder) returnResults(n int) {
-	var rets []ast.Expr
+	var rets []target.Expr
 	if n > 0 {
 		args := p.stk.GetArgs(n)
-		rets = make([]ast.Expr, n)
+		rets = make([]target.Expr, n)
 		for i := 0; i < n; i++ {
 			rets[i] = args[i].Val
 		}
 		p.stk.PopN(n)
 	}
-	p.emitStmt(&ast.ReturnStmt{Results: rets})
+	emitReturnStmt(p, token.NoPos, rets...)
 }
 
 // Return func
@@ -451,7 +452,7 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 	// still a return statement syntactically.
 	if !fn.isInline() && p.stk.Len()-p.current.base < n {
 		p.current.flows |= flowFlagReturn
-		p.emitStmt(&ast.ReturnStmt{Return: getPos(src)})
+		emitReturnStmt(p, getPos(src))
 		return p
 	}
 
@@ -657,9 +658,7 @@ func (p *CodeBuilder) ConvertToClosure() *CodeBuilder {
 	e := p.stk.Pop()
 	ret := pkg.NewParam(token.NoPos, "", types.Default(e.Type))
 	p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg)
-	p.emitStmt(&ast.ReturnStmt{
-		Results: []ast.Expr{e.Val},
-	})
+	emitReturnStmt(p, token.NoPos, e.Val)
 	return p.End(e.Src)
 }
 
@@ -794,7 +793,7 @@ func (p *CodeBuilder) ZeroLit(typ types.Type) *CodeBuilder {
 
 func (p *Package) Zero(typ types.Type) *Element {
 	var typ0 = typ
-	var val ast.Expr
+	var val target.Expr
 	var cval constant.Value
 
 retry:
@@ -810,7 +809,7 @@ retry:
 		case types.UnsafePointer:
 			val = ident("nil")
 		default:
-			val = &ast.BasicLit{Kind: token.INT, Value: "0"}
+			val = &target.BasicLit{Kind: token.INT, Value: "0"}
 			cval = constant.MakeInt64(0)
 		}
 	case *types.Interface, *types.Map, *types.Slice, *types.Pointer, *types.Signature, *types.Chan:
@@ -822,20 +821,7 @@ retry:
 		typ = types.Unalias(t)
 		goto retry
 	default:
-		ret := &ast.CompositeLit{}
-		switch t := typ.(type) {
-		case *unboundType:
-			if t.tBound == nil {
-				t.ptypes = append(t.ptypes, &ret.Type)
-			} else {
-				typ = t.tBound
-				typ0 = typ
-				ret.Type = toType(p, typ)
-			}
-		default:
-			ret.Type = toType(p, typ)
-		}
-		val = ret
+		val = zeroCompositeLit(p, typ)
 	}
 	return &Element{Val: val, Type: typ0, CVal: cval}
 }
@@ -846,77 +832,6 @@ func (p *CodeBuilder) MapLit(typ types.Type, arity int, src ...ast.Node) *CodeBu
 		panic(err)
 	}
 	return p
-}
-
-// MapLit func
-func (p *CodeBuilder) MapLitEx(typ types.Type, arity int, src ...ast.Node) error {
-	if debugInstr {
-		log.Println("MapLit", typ, arity)
-	}
-	var t *types.Map
-	var typExpr ast.Expr
-	var pkg = p.pkg
-	if typ != nil {
-		typExpr = toType(pkg, typ)
-		var ok bool
-	retry:
-		switch tt := typ.(type) {
-		case *types.Named:
-			t, ok = p.getUnderlying(tt).(*types.Map)
-		case *types.Map:
-			t, ok = tt, true
-		case *types.Alias:
-			typ = types.Unalias(tt)
-			goto retry
-		}
-		if !ok {
-			return p.newCodeErrorf(getPos(src), getEnd(src), "type %v isn't a map", typ)
-		}
-	}
-	if arity == 0 {
-		if t == nil {
-			t = types.NewMap(types.Typ[types.String], TyEmptyInterface)
-			typ = t
-			typExpr = toMapType(pkg, t)
-		}
-		ret := &ast.CompositeLit{Type: typExpr}
-		p.stk.Push(&internal.Elem{Type: typ, Val: ret, Src: getSrc(src)})
-		return nil
-	}
-	if (arity & 1) != 0 {
-		return p.newCodeErrorf(getPos(src), getEnd(src), "MapLit: invalid arity, can't be odd - %d", arity)
-	}
-	var key, val types.Type
-	var args = p.stk.GetArgs(arity)
-	var check = (t != nil)
-	if check {
-		key, val = t.Key(), t.Elem()
-	} else {
-		key = boundElementType(pkg, args, 0, arity, 2)
-		val = boundElementType(pkg, args, 1, arity, 2)
-		t = types.NewMap(Default(pkg, key), Default(pkg, val))
-		typ = t
-		typExpr = toMapType(pkg, t)
-	}
-	elts := make([]ast.Expr, arity>>1)
-	for i := 0; i < arity; i += 2 {
-		elts[i>>1] = &ast.KeyValueExpr{Key: args[i].Val, Value: args[i+1].Val}
-		if check {
-			if !AssignableTo(pkg, args[i].Type, key) {
-				code, pos, end := p.loadExpr(args[i].Src)
-				return p.newCodeErrorf(
-					pos, end, "cannot use %s (type %v) as type %v in map key", code, args[i].Type, key)
-			} else if !AssignableTo(pkg, args[i+1].Type, val) {
-				code, pos, end := p.loadExpr(args[i+1].Src)
-				return p.newCodeErrorf(
-					pos, end, "cannot use %s (type %v) as type %v in map value", code, args[i+1].Type, val)
-			}
-		}
-	}
-	p.stk.Ret(arity, &internal.Elem{
-		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
-	})
-	return nil
 }
 
 func (p *CodeBuilder) toBoundArrayLen(elts []*internal.Elem, arity, limit int) int {
@@ -955,344 +870,16 @@ func (p *CodeBuilder) toIntVal(v *internal.Elem, msg string) int {
 	return 0
 }
 
-func (p *CodeBuilder) indexElemExpr(args []*internal.Elem, i int) ast.Expr {
-	key := args[i].Val
-	if key == nil { // none
-		return args[i+1].Val
-	}
-	p.toIntVal(args[i], "index which must be non-negative integer constant")
-	return &ast.KeyValueExpr{Key: key, Value: args[i+1].Val}
-}
-
 // SliceLit func
 func (p *CodeBuilder) SliceLit(typ types.Type, arity int, keyVal ...bool) *CodeBuilder {
 	var keyValMode = (keyVal != nil && keyVal[0])
 	return p.SliceLitEx(typ, arity, keyValMode)
 }
 
-// SliceLitEx func
-func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
-	var elts []ast.Expr
-	if debugInstr {
-		log.Println("SliceLit", typ, arity, keyVal)
-	}
-	var t *types.Slice
-	var typExpr ast.Expr
-	var pkg = p.pkg
-	if typ != nil {
-		typExpr = toType(pkg, typ)
-	retry:
-		switch tt := typ.(type) {
-		case *types.Named:
-			t = p.getUnderlying(tt).(*types.Slice)
-		case *types.Slice:
-			t = tt
-		case *types.Alias:
-			typ = types.Unalias(typ)
-			goto retry
-		default:
-			p.panicCodeErrorf(getPos(src), getEnd(src), "type %v isn't a slice", typ)
-		}
-	}
-	if keyVal { // in keyVal mode
-		if (arity & 1) != 0 {
-			log.Panicln("SliceLit: invalid arity, can't be odd in keyVal mode -", arity)
-		}
-		args := p.stk.GetArgs(arity)
-		val := t.Elem()
-		n := arity >> 1
-		elts = make([]ast.Expr, n)
-		for i := 0; i < arity; i += 2 {
-			arg := args[i+1]
-			if !AssignableConv(pkg, arg.Type, val, arg) {
-				src, pos, end := p.loadExpr(args[i+1].Src)
-				p.panicCodeErrorf(
-					pos, end, "cannot use %s (type %v) as type %v in slice literal", src, args[i+1].Type, val)
-			}
-			elts[i>>1] = p.indexElemExpr(args, i)
-		}
-	} else {
-		if arity == 0 {
-			if t == nil {
-				t = types.NewSlice(TyEmptyInterface)
-				typ = t
-				typExpr = toSliceType(pkg, t)
-			}
-			p.stk.Push(&internal.Elem{
-				Type: typ, Val: &ast.CompositeLit{Type: typExpr}, Src: getSrc(src),
-			})
-			return p
-		}
-		var val types.Type
-		var args = p.stk.GetArgs(arity)
-		var check = (t != nil)
-		if check {
-			val = t.Elem()
-		} else {
-			val = boundElementType(pkg, args, 0, arity, 1)
-			t = types.NewSlice(Default(pkg, val))
-			typ = t
-			typExpr = toSliceType(pkg, t)
-		}
-		elts = make([]ast.Expr, arity)
-		for i, arg := range args {
-			elts[i] = arg.Val
-			if check {
-				if !AssignableConv(pkg, arg.Type, val, arg) {
-					src, pos, end := p.loadExpr(arg.Src)
-					p.panicCodeErrorf(
-						pos, end, "cannot use %s (type %v) as type %v in slice literal", src, arg.Type, val)
-				}
-			}
-		}
-	}
-	p.stk.Ret(arity, &internal.Elem{
-		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
-	})
-	return p
-}
-
 // ArrayLit func
 func (p *CodeBuilder) ArrayLit(typ types.Type, arity int, keyVal ...bool) *CodeBuilder {
 	var keyValMode = (keyVal != nil && keyVal[0])
 	return p.ArrayLitEx(typ, arity, keyValMode)
-}
-
-// ArrayLitEx func
-func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
-	var elts []ast.Expr
-	if debugInstr {
-		log.Println("ArrayLit", typ, arity, keyVal)
-	}
-	var t *types.Array
-	var pkg = p.pkg
-	typExpr := toType(pkg, typ)
-retry:
-	switch tt := typ.(type) {
-	case *types.Named:
-		t = p.getUnderlying(tt).(*types.Array)
-	case *types.Array:
-		t = tt
-	case *types.Alias:
-		typ = types.Unalias(tt)
-		goto retry
-	default:
-		p.panicCodeErrorf(getPos(src), getEnd(src), "type %v isn't a array", typ)
-	}
-	if keyVal { // in keyVal mode
-		if (arity & 1) != 0 {
-			log.Panicln("ArrayLit: invalid arity, can't be odd in keyVal mode -", arity)
-		}
-		n := int(t.Len())
-		args := p.stk.GetArgs(arity)
-		max := p.toBoundArrayLen(args, arity, n)
-		val := t.Elem()
-		if n < 0 {
-			t = types.NewArray(val, int64(max))
-			typ = t
-		}
-		elts = make([]ast.Expr, arity>>1)
-		for i := 0; i < arity; i += 2 {
-			if !AssignableTo(pkg, args[i+1].Type, val) {
-				src, pos, end := p.loadExpr(args[i+1].Src)
-				p.panicCodeErrorf(
-					pos, end, "cannot use %s (type %v) as type %v in array literal", src, args[i+1].Type, val)
-			}
-			elts[i>>1] = p.indexElemExpr(args, i)
-		}
-	} else {
-		args := p.stk.GetArgs(arity)
-		val := t.Elem()
-		if n := t.Len(); n < 0 {
-			t = types.NewArray(val, int64(arity))
-			typ = t
-		} else if int(n) < arity {
-			pos := getSrcPos(args[n].Src)
-			end := getSrcEnd(args[n].Src)
-			p.panicCodeErrorf(pos, end, "array index %d out of bounds [0:%d]", n, n)
-		}
-		elts = make([]ast.Expr, arity)
-		for i, arg := range args {
-			elts[i] = arg.Val
-			if !AssignableConv(pkg, arg.Type, val, arg) {
-				src, pos, end := p.loadExpr(arg.Src)
-				p.panicCodeErrorf(
-					pos, end, "cannot use %s (type %v) as type %v in array literal", src, arg.Type, val)
-			}
-		}
-	}
-	p.stk.Ret(arity, &internal.Elem{
-		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
-	})
-	return p
-}
-
-// StructLit func
-func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
-	if debugInstr {
-		log.Println("StructLit", typ, arity, keyVal)
-	}
-	var t *types.Struct
-	var pkg = p.pkg
-	typExpr := toType(pkg, typ)
-retry:
-	switch tt := typ.(type) {
-	case *types.Named:
-		t = p.getUnderlying(tt).(*types.Struct)
-	case *types.Struct:
-		t = tt
-	case *types.Alias:
-		typ = types.Unalias(tt)
-		goto retry
-	default:
-		p.panicCodeErrorf(getPos(src), getEnd(src), "type %v isn't a struct", typ)
-	}
-	var elts []ast.Expr
-	var n = t.NumFields()
-	var args = p.stk.GetArgs(arity)
-	if keyVal {
-		if (arity & 1) != 0 {
-			log.Panicln("StructLit: invalid arity, can't be odd in keyVal mode -", arity)
-		}
-		elts = make([]ast.Expr, arity>>1)
-		for i := 0; i < arity; i += 2 {
-			idx := p.toIntVal(args[i], "field which must be non-negative integer constant")
-			if idx >= n {
-				panic("invalid struct field index")
-			}
-			elt := t.Field(idx)
-			eltTy, eltName := elt.Type(), elt.Name()
-			if !AssignableTo(pkg, args[i+1].Type, eltTy) {
-				src, pos, end := p.loadExpr(args[i+1].Src)
-				p.panicCodeErrorf(
-					pos, end, "cannot use %s (type %v) as type %v in value of field %s",
-					src, args[i+1].Type, eltTy, eltName)
-			}
-			elts[i>>1] = &ast.KeyValueExpr{Key: ident(eltName), Value: args[i+1].Val}
-		}
-	} else if arity != n {
-		if arity != 0 {
-			fewOrMany := "few"
-			if arity > n {
-				fewOrMany = "many"
-			}
-			pos := getSrcPos(args[arity-1].Src)
-			end := getSrcEnd(args[arity-1].Src)
-			p.panicCodeErrorf(pos, end, "too %s values in %v{...}", fewOrMany, typ)
-		}
-	} else {
-		elts = make([]ast.Expr, arity)
-		for i, arg := range args {
-			elts[i] = arg.Val
-			eltTy := t.Field(i).Type()
-			if !AssignableTo(pkg, arg.Type, eltTy) {
-				src, pos, end := p.loadExpr(arg.Src)
-				p.panicCodeErrorf(
-					pos, end, "cannot use %s (type %v) as type %v in value of field %s",
-					src, arg.Type, eltTy, t.Field(i).Name())
-			}
-		}
-	}
-	p.stk.Ret(arity, &internal.Elem{
-		Type: typ, Val: &ast.CompositeLit{Type: typExpr, Elts: elts}, Src: getSrc(src),
-	})
-	return p
-}
-
-// Slice func
-func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:j:k]
-	if debugInstr {
-		log.Println("Slice", slice3)
-	}
-	n := 3
-	if slice3 {
-		n++
-	}
-	srcExpr := getSrc(src)
-	args := p.stk.GetArgs(n)
-	x := args[0]
-	typ := x.Type
-	switch t := typ.(type) {
-	case *types.Slice:
-		// nothing to do
-	case *types.Basic:
-		if t.Kind() == types.String || t.Kind() == types.UntypedString {
-			if slice3 {
-				code, pos, end := p.loadExpr(srcExpr)
-				p.panicCodeErrorf(pos, end, "invalid operation %s (3-index slice of string)", code)
-			}
-		} else {
-			code, pos, end := p.loadExpr(x.Src)
-			p.panicCodeErrorf(pos, end, "cannot slice %s (type %v)", code, typ)
-		}
-	case *types.Array:
-		typ = types.NewSlice(t.Elem())
-	case *types.Pointer:
-		if tt, ok := t.Elem().(*types.Array); ok {
-			typ = types.NewSlice(tt.Elem())
-		} else {
-			code, pos, end := p.loadExpr(x.Src)
-			p.panicCodeErrorf(pos, end, "cannot slice %s (type %v)", code, typ)
-		}
-	}
-	var exprMax ast.Expr
-	if slice3 {
-		exprMax = args[3].Val
-	}
-	// TODO: check type
-	elem := &internal.Elem{
-		Val: &ast.SliceExpr{
-			X: x.Val, Low: args[1].Val, High: args[2].Val, Max: exprMax, Slice3: slice3,
-		},
-		Type: typ, Src: srcExpr,
-	}
-	p.stk.Ret(n, elem)
-	return p
-}
-
-// Index func:
-//   - a[i]
-//   - fn[T1, T2, ..., Tn]
-//   - G[T1, T2, ..., Tn]
-func (p *CodeBuilder) Index(nidx int, lhs int, src ...ast.Node) *CodeBuilder {
-	if debugInstr {
-		log.Println("Index", nidx, lhs)
-	}
-	args := p.stk.GetArgs(nidx + 1)
-	if nidx > 0 {
-		if _, ok := args[1].Type.(*TypeType); ok {
-			return p.instantiate(nidx, args, src...)
-		}
-	}
-	if nidx != 1 {
-		panic("Index doesn't support a[i, j...] yet")
-	}
-	srcExpr := getSrc(src)
-	typs, ivKind := p.getIdxValTypes(args[0].Type, false, srcExpr)
-	var tyRet types.Type
-	if lhs == 2 { // elem, ok = a[key]
-		if ivKind == ivFalse {
-			pos := getSrcPos(srcExpr)
-			end := getSrcEnd(srcExpr)
-			p.panicCodeErrorf(pos, end, "assignment mismatch: 2 variables but 1 values")
-		}
-		pkg := p.pkg
-		tyRet = types.NewTuple(
-			pkg.NewParam(token.NoPos, "", typs[1]),
-			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
-	} else { // elem = a[key]
-		tyRet = typs[1]
-	}
-	argVal := args[0].Val
-	if ivKind == ivMapStringAny {
-		argVal = p.emitMapStringAnyAssert(argVal)
-	}
-	elem := &internal.Elem{
-		Val: &ast.IndexExpr{X: argVal, Index: args[1].Val}, Type: tyRet, Src: srcExpr,
-	}
-	// TODO(xsw): check index type
-	p.stk.Ret(2, elem)
-	return p
 }
 
 // IndexRef func
@@ -1306,7 +893,7 @@ func (p *CodeBuilder) IndexRef(nidx int, src ...ast.Node) *CodeBuilder {
 	args := p.stk.GetArgs(2)
 	typ := args[0].Type
 	elemRef := &internal.Elem{
-		Val: &ast.IndexExpr{X: args[0].Val, Index: args[1].Val},
+		Val: &target.IndexExpr{X: args[0].Val, Index: args[1].Val},
 		Src: getSrc(src),
 	}
 	if t, ok := typ.(*unboundType); ok {
@@ -1375,7 +962,7 @@ func (p *CodeBuilder) Typ(typ types.Type, src ...ast.Node) *CodeBuilder {
 		log.Println("Typ", typ)
 	}
 	p.stk.Push(&internal.Elem{
-		Val:  toType(p.pkg, typ),
+		Val:  util.TypeExpr(toType(p.pkg, typ)),
 		Type: NewTypeType(typ),
 		Src:  getSrc(src),
 	})
@@ -1470,7 +1057,7 @@ func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 		log.Println("Star")
 	}
 	arg := p.stk.Get(-1)
-	ret := &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Src: getSrc(src)}
+	ret := &internal.Elem{Val: newStarExpr(arg), Src: getSrc(src)}
 	argType := arg.Type
 retry:
 	switch t := argType.(type) {
@@ -1809,37 +1396,6 @@ retry:
 		return p.btiMethod(p.getBuiltinTI(o), name, aliasName, flag, srcExpr)
 	}
 	return MemberInvalid
-}
-
-// emitMapStringAnyAssert generates a type assertion statement for empty interface (any) values.
-// It emits: `tmpVar, _ := argVal.(map[string]any)` and returns the tmpVar identifier.
-// This enables safe member access on any types by converting them to map[string]any.
-// See https://github.com/goplus/xgo/issues/2572#issuecomment-3807206716
-func (p *CodeBuilder) emitMapStringAnyAssert(argVal ast.Expr) ast.Expr {
-	pkg := p.pkg
-	e := &ast.TypeAssertExpr{X: argVal, Type: toMapType(pkg, tyMapStringAny)}
-	ret := ast.NewIdent(pkg.autoName())
-	stmt := &ast.AssignStmt{
-		Lhs: []ast.Expr{ret, underscore},
-		Tok: token.DEFINE,
-		Rhs: []ast.Expr{e},
-	}
-	p.emitStmt(stmt)
-	return ret
-}
-
-func (p *CodeBuilder) mapIndexExpr(o *types.Map, name string, lhs int, argVal ast.Expr, src ast.Node) MemberKind {
-	tyRet := o.Elem()
-	if lhs == 2 { // two-value assignment
-		pkg := p.pkg.Types
-		tyRet = types.NewTuple(
-			types.NewParam(token.NoPos, pkg, "", tyRet),
-			types.NewParam(token.NoPos, pkg, "", types.Typ[types.Bool]))
-	}
-	p.stk.Ret(1, &internal.Elem{
-		Val: &ast.IndexExpr{X: argVal, Index: stringLit(name)}, Type: tyRet, Src: src,
-	})
-	return MemberField
 }
 
 type methodList interface {

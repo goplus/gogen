@@ -153,6 +153,18 @@ func (x *FuncLit) Pos() token.Pos { return x.Opening }
 func (x *FuncLit) End() token.Pos { return x.Body.End() }
 func (*FuncLit) exprNode()        {}
 
+// An IndexExpr node represents an expression followed by an index.
+type IndexExpr struct {
+	X      Expr      // expression
+	Lbrack token.Pos // position of "["
+	Index  Expr      // index expression
+	Rbrack token.Pos // position of "]"
+}
+
+func (x *IndexExpr) Pos() token.Pos { return x.X.Pos() }
+func (x *IndexExpr) End() token.Pos { return x.Rbrack + 1 }
+func (*IndexExpr) exprNode()        {}
+
 // ----------------------------------------------------------------------------
 
 // An EmptyStmt node represents an empty statement.
