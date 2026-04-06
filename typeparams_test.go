@@ -1,3 +1,6 @@
+//go:build !genjs
+// +build !genjs
+
 /*
  Copyright 2022 The XGo Authors (xgo.dev)
  Licensed under the Apache License, Version 2.0 (the "License");

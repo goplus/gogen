@@ -20,6 +20,8 @@ import (
 	"go/types"
 	"log"
 	"strings"
+
+	"github.com/goplus/gogen/internal/target"
 )
 
 // ----------------------------------------------------------------------------
@@ -116,7 +118,7 @@ func (p *CodeBuilder) ValWithUnit(v *ast.BasicLit, t types.Type, unit string) *C
 	}
 	val := constant.BinaryOp(e.CVal, token.MUL, u)
 	e.CVal = val
-	e.Val = &ast.BasicLit{Kind: token.INT, Value: val.ExactString()}
+	e.Val = &target.BasicLit{Kind: token.INT, Value: val.ExactString()}
 	e.Type = t
 	p.Val(e, v)
 	return p

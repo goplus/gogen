@@ -1,14 +1,19 @@
+//go:build !genjs
+// +build !genjs
+
 /*
- Copyright 2026 The XGo Authors (xgo.dev)
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-     http://www.apache.org/licenses/LICENSE-2.0
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
+Copyright 2026 The XGo Authors (xgo.dev)
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 
 package gogen
@@ -17,6 +22,8 @@ import (
 	"go/ast"
 	"go/token"
 )
+
+// ----------------------------------------------------------------------------
 
 // termChecker checks whether statements are terminating.
 //
@@ -168,3 +175,66 @@ func unparen(x ast.Expr) ast.Expr {
 		x = p.X
 	}
 }
+
+// ----------------------------------------------------------------------------
+
+type astVisitor struct {
+	pkg  *Package
+	file *File
+}
+
+func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
+	if node == nil {
+		return nil
+	}
+	switch v := node.(type) {
+	case *ast.CommentGroup, *ast.Ident, *ast.BasicLit:
+	case *ast.SelectorExpr:
+		x := v.X
+		if id, ok := x.(*ast.Ident); ok && id.Obj != nil {
+			if used, ok := id.Obj.Data.(importUsed); ok && bool(!used) {
+				id.Obj.Data = importUsed(true)
+				if name, renamed := p.pkg.importName(p.file.Name(), id.Name); renamed {
+					id.Name = name
+					id.Obj.Name = name
+				}
+			}
+		} else {
+			ast.Walk(p, x)
+		}
+	case *ast.FuncDecl:
+		if v.Type != nil {
+			ast.Walk(p, v.Type)
+		}
+		if v.Body != nil {
+			ast.Walk(p, v.Body)
+		}
+	case *ast.ValueSpec:
+		if v.Type != nil {
+			ast.Walk(p, v.Type)
+		}
+		for _, val := range v.Values {
+			ast.Walk(p, val)
+		}
+	case *ast.TypeSpec:
+		ast.Walk(p, v.Type)
+	case *ast.BranchStmt:
+	case *ast.LabeledStmt:
+		ast.Walk(p, v.Stmt)
+	default:
+		return p
+	}
+	return nil
+}
+
+func (p astVisitor) markUsed(decls []ast.Decl) {
+	for _, decl := range decls {
+		ast.Walk(p, decl)
+	}
+}
+
+func markUsed(this *Package, p *File) {
+	astVisitor{this, p}.markUsed(p.goDecls)
+}
+
+// ----------------------------------------------------------------------------

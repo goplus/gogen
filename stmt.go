@@ -20,6 +20,7 @@ import (
 	"log"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/target"
 )
 
 type controlFlow interface {
@@ -40,7 +41,7 @@ type blockStmt struct {
 func (p *blockStmt) End(cb *CodeBuilder, src ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
-	cb.emitStmt(&ast.BlockStmt{List: stmts})
+	cb.emitStmt(&target.BlockStmt{List: stmts})
 }
 
 // ----------------------------------------------------------------------------
@@ -70,9 +71,9 @@ func (p *vblockStmt) End(cb *CodeBuilder, src ast.Node) {
 //
 // end
 type ifStmt struct {
-	init ast.Stmt
-	cond ast.Expr
-	body *ast.BlockStmt
+	init target.Stmt
+	cond target.Expr
+	body *target.BlockStmt
 	old  codeBlockCtx
 	old2 codeBlockCtx
 }
@@ -102,7 +103,7 @@ func (p *ifStmt) Else(cb *CodeBuilder, src ...ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old2)
 	cb.current.flows |= flows
 
-	p.body = &ast.BlockStmt{List: stmts}
+	p.body = &target.BlockStmt{List: stmts}
 	cb.startBlockStmt(p, src, "else body", &p.old2)
 }
 
@@ -110,12 +111,12 @@ func (p *ifStmt) End(cb *CodeBuilder, src ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old2)
 	cb.current.flows |= flows
 
-	var blockStmt = &ast.BlockStmt{List: stmts}
-	var el ast.Stmt
+	var blockStmt = &target.BlockStmt{List: stmts}
+	var el target.Stmt
 	if p.body != nil { // if..else
 		el = blockStmt
 		if len(stmts) == 1 { // if..else if
-			if stmt, ok := stmts[0].(*ast.IfStmt); ok {
+			if stmt, ok := stmts[0].(*target.IfStmt); ok {
 				el = stmt
 			}
 		}
@@ -123,7 +124,7 @@ func (p *ifStmt) End(cb *CodeBuilder, src ast.Node) {
 		p.body = blockStmt
 	}
 	cb.endBlockStmt(&p.old)
-	cb.emitStmt(&ast.IfStmt{Init: p.init, Cond: p.cond, Body: p.body, Else: el})
+	emitIfStmt(cb, p, el)
 }
 
 // ----------------------------------------------------------------------------
@@ -144,7 +145,7 @@ func (p *ifStmt) End(cb *CodeBuilder, src ast.Node) {
 //
 // end
 type switchStmt struct {
-	init ast.Stmt
+	init target.Stmt
 	tag  *internal.Elem
 	old  codeBlockCtx
 }
@@ -179,20 +180,19 @@ func (p *switchStmt) End(cb *CodeBuilder, src ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ flowFlagBreak)
 
-	body := &ast.BlockStmt{List: stmts}
-	cb.emitStmt(&ast.SwitchStmt{Init: p.init, Tag: checkParenExpr(p.tag.Val), Body: body})
+	emitSWitchStmt(cb, p, stmts)
 }
 
 type caseStmt struct {
 	tag  *internal.Elem
-	list []ast.Expr
+	list []target.Expr
 	old  codeBlockCtx
 }
 
 func (p *caseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	n := cb.stk.Len() - cb.current.base
 	if n > 0 {
-		p.list = make([]ast.Expr, n)
+		p.list = make([]target.Expr, n)
 		for i, arg := range cb.stk.GetArgs(n) {
 			if p.tag.Val != nil { // switch tag {...}
 				if !ComparableTo(cb.pkg, arg, p.tag) {
@@ -213,13 +213,13 @@ func (p *caseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 }
 
 func (p *caseStmt) Fallthrough(cb *CodeBuilder) {
-	cb.emitStmt(&ast.BranchStmt{Tok: token.FALLTHROUGH})
+	emitFullthrough(cb)
 }
 
 func (p *caseStmt) End(cb *CodeBuilder, src ast.Node) {
 	body, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
-	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
+	emitCaseClause(cb, p, body)
 }
 
 // ----------------------------------------------------------------------------
@@ -253,12 +253,12 @@ func (p *selectStmt) CommCase(cb *CodeBuilder, src ...ast.Node) {
 func (p *selectStmt) End(cb *CodeBuilder, src ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ flowFlagBreak)
-	cb.emitStmt(&ast.SelectStmt{Body: &ast.BlockStmt{List: stmts}})
+	emitSelectStmt(cb, stmts)
 }
 
 type commCase struct {
 	old  codeBlockCtx
-	comm ast.Stmt
+	comm target.Stmt
 }
 
 func (p *commCase) Then(cb *CodeBuilder, src ...ast.Node) {
@@ -274,7 +274,7 @@ func (p *commCase) Then(cb *CodeBuilder, src ...ast.Node) {
 func (p *commCase) End(cb *CodeBuilder, src ast.Node) {
 	body, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
-	cb.emitStmt(&ast.CommClause{Comm: p.comm, Body: body})
+	emitCommClause(cb, p, body)
 }
 
 // ----------------------------------------------------------------------------
@@ -297,9 +297,9 @@ func (p *commCase) End(cb *CodeBuilder, src ast.Node) {
 //
 // end
 type typeSwitchStmt struct {
-	init  ast.Stmt
+	init  target.Stmt
 	name  string
-	x     ast.Expr
+	x     target.Expr
 	xSrc  ast.Node
 	xType *types.Interface
 	old   codeBlockCtx
@@ -330,25 +330,12 @@ func (p *typeSwitchStmt) TypeCase(cb *CodeBuilder, src ...ast.Node) {
 func (p *typeSwitchStmt) End(cb *CodeBuilder, src ast.Node) {
 	stmts, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= (flows &^ flowFlagBreak)
-
-	body := &ast.BlockStmt{List: stmts}
-	var assign ast.Stmt
-	x := &ast.TypeAssertExpr{X: p.x}
-	if p.name != "" {
-		assign = &ast.AssignStmt{
-			Tok: token.DEFINE,
-			Lhs: []ast.Expr{ident(p.name)},
-			Rhs: []ast.Expr{x},
-		}
-	} else {
-		assign = &ast.ExprStmt{X: x}
-	}
-	cb.emitStmt(&ast.TypeSwitchStmt{Init: p.init, Assign: assign, Body: body})
+	emitTypeSwitchStmt(cb, p, stmts)
 }
 
 type typeCaseStmt struct {
 	pss  *typeSwitchStmt
-	list []ast.Expr
+	list []target.Expr
 	old  codeBlockCtx
 }
 
@@ -357,7 +344,7 @@ func (p *typeCaseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 	pss := p.pss
 	n := cb.stk.Len() - cb.current.base
 	if n > 0 {
-		p.list = make([]ast.Expr, n)
+		p.list = make([]target.Expr, n)
 		args := cb.stk.GetArgs(n)
 		for i, arg := range args {
 			typ = arg.Type
@@ -391,27 +378,27 @@ func (p *typeCaseStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 func (p *typeCaseStmt) End(cb *CodeBuilder, src ast.Node) {
 	body, flows := cb.endBlockStmt(&p.old)
 	cb.current.flows |= flows
-	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
+	emitTypeCaseClause(cb, p, body)
 }
 
 // ----------------------------------------------------------------------------
 
 type loopBodyHandler struct {
-	handle func(body *ast.BlockStmt, kind int)
+	handle func(body *target.BlockStmt, kind int)
 }
 
-func (p *loopBodyHandler) SetBodyHandler(handle func(body *ast.BlockStmt, kind int)) {
+func (p *loopBodyHandler) SetBodyHandler(handle func(body *target.BlockStmt, kind int)) {
 	p.handle = handle
 }
 
-func (p *loopBodyHandler) handleFor(body *ast.BlockStmt, kind int) *ast.BlockStmt {
+func (p *loopBodyHandler) handleFor(body *target.BlockStmt, kind int) *target.BlockStmt {
 	if p.handle != nil {
 		p.handle(body, kind)
 	}
 	return body
 }
 
-func InsertStmtFront(body *ast.BlockStmt, stmt ast.Stmt) {
+func InsertStmtFront(body *target.BlockStmt, stmt target.Stmt) {
 	list := append(body.List, nil)
 	copy(list[1:], list)
 	list[0] = stmt
@@ -427,9 +414,9 @@ func InsertStmtFront(body *ast.BlockStmt, stmt ast.Stmt) {
 //
 // end
 type forStmt struct {
-	init ast.Stmt
-	cond ast.Expr
-	body *ast.BlockStmt
+	init target.Stmt
+	cond target.Expr
+	body *target.BlockStmt
 	old  codeBlockCtx
 	old2 codeBlockCtx
 	loopBodyHandler
@@ -457,11 +444,11 @@ func (p *forStmt) Then(cb *CodeBuilder, src ...ast.Node) {
 func (p *forStmt) Post(cb *CodeBuilder) {
 	stmts, flows := cb.endBlockStmt(&p.old2)
 	cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
-	p.body = &ast.BlockStmt{List: stmts}
+	p.body = &target.BlockStmt{List: stmts}
 }
 
 func (p *forStmt) End(cb *CodeBuilder, src ast.Node) {
-	var post ast.Stmt
+	var post target.Stmt
 	if p.body != nil { // has post stmt
 		stmts, _ := cb.endBlockStmt(&p.old)
 		if len(stmts) != 1 {
@@ -471,10 +458,10 @@ func (p *forStmt) End(cb *CodeBuilder, src ast.Node) {
 	} else { // no post
 		stmts, flows := cb.endBlockStmt(&p.old2)
 		cb.current.flows |= (flows &^ (flowFlagBreak | flowFlagContinue))
-		p.body = &ast.BlockStmt{List: stmts}
+		p.body = &target.BlockStmt{List: stmts}
 		cb.endBlockStmt(&p.old)
 	}
-	cb.emitStmt(&ast.ForStmt{
+	cb.emitStmt(&target.ForStmt{
 		Init: p.init, Cond: p.cond, Post: post, Body: p.handleFor(p.body, 0),
 	})
 }
@@ -494,11 +481,11 @@ func (p *forStmt) End(cb *CodeBuilder, src ast.Node) {
 // end
 type forRangeStmt struct {
 	names    []string
-	stmt     *ast.RangeStmt
+	stmt     *target.RangeStmt
 	x        *internal.Elem
 	old      codeBlockCtx
 	kvt      []types.Type
-	preStmts []ast.Stmt // statements emitted during range expression compilation
+	preStmts []target.Stmt // statements emitted during range expression compilation
 
 	enumName string // XGo_Enum or Gop_Enum
 
@@ -512,7 +499,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 	// the for-range block scope but belong in the outer scope before the for statement.
 	p.preStmts = cb.clearBlockStmt()
 	if names := p.names; names != nil { // for k, v := range XXX {
-		var val ast.Expr
+		var val target.Expr
 		switch len(names) {
 		case 1:
 		case 2:
@@ -544,7 +531,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 		if p.udt != 0 {
 			p.x = x
 		}
-		p.stmt = &ast.RangeStmt{
+		p.stmt = &target.RangeStmt{
 			Key:   ident(names[0]),
 			Value: val,
 			Tok:   token.DEFINE,
@@ -573,7 +560,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 		if p.udt != 0 {
 			p.x = &x
 		}
-		p.stmt = &ast.RangeStmt{
+		p.stmt = &target.RangeStmt{
 			Key:   key.Val,
 			Value: val.Val,
 			X:     x.Val,
@@ -777,8 +764,9 @@ func findEnumMethodType(cb *CodeBuilder, o *types.Named) (string, mthdSignature)
 	return "", nil
 }
 
-const (
-	cantUseFlows = "can't use return/continue/break/goto in for range of udt.XGo_Enum(callback)"
+var (
+	nameXGoEnum1 = "XGo_Enum"
+	nameXGoEnum2 = "Gop_Enum"
 )
 
 func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
@@ -795,131 +783,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 	for _, s := range p.preStmts {
 		cb.emitStmt(s)
 	}
-	if n := p.udt; n == 0 {
-		if p.enumName != "" {
-			p.stmt.X = &ast.CallExpr{
-				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: ident(p.enumName)},
-			}
-		}
-		p.stmt.Body = p.handleFor(&ast.BlockStmt{List: stmts}, 1)
-		cb.emitStmt(p.stmt)
-	} else if n > 0 {
-		cb.stk.Push(p.x)
-		cb.MemberVal(p.enumName, 0).Call(0)
-		callEnum := cb.stk.Pop().Val
-		/*
-			for _xgo_it := X.XGo_Enum();; {
-				var _xgo_ok bool
-				k, v, _xgo_ok = _xgo_it.Next()
-				if !_xgo_ok {
-					break
-				}
-				...
-			}
-		*/
-		lhs := make([]ast.Expr, n)
-		lhs[0] = p.stmt.Key
-		lhs[1] = p.stmt.Value
-		lhs[n-1] = identXgoOk
-		if lhs[0] == nil { // bugfix: for range udt { ... }
-			lhs[0] = underscore
-			if p.stmt.Tok == token.ILLEGAL {
-				p.stmt.Tok = token.ASSIGN
-			}
-		} else {
-			// for _ = range udt { ... }
-			if ki, ok := lhs[0].(*ast.Ident); ok && ki.Name == "_" {
-				if n == 2 {
-					p.stmt.Tok = token.ASSIGN
-				} else {
-					// for _ , _ = range udt { ... }
-					if vi, ok := lhs[1].(*ast.Ident); ok && vi.Name == "_" {
-						p.stmt.Tok = token.ASSIGN
-					}
-				}
-			}
-		}
-		body := make([]ast.Stmt, len(stmts)+3)
-		body[0] = stmtXGoOkDecl
-		body[1] = &ast.AssignStmt{Lhs: lhs, Tok: p.stmt.Tok, Rhs: exprIterNext}
-		body[2] = stmtBreakIfNotXGoOk
-		copy(body[3:], stmts)
-		stmt := &ast.ForStmt{
-			Init: &ast.AssignStmt{
-				Lhs: []ast.Expr{identXgoIt},
-				Tok: token.DEFINE,
-				Rhs: []ast.Expr{callEnum},
-			},
-			Body: p.handleFor(&ast.BlockStmt{List: body}, 2),
-		}
-		cb.emitStmt(stmt)
-	} else {
-		/*
-			X.XGo_Enum(func(k K, v V) {
-				...
-			})
-		*/
-		if flows != 0 {
-			cb.panicCodeError(p.stmt.For, p.stmt.For, cantUseFlows)
-		}
-		n = -n
-		def := p.stmt.Tok == token.DEFINE
-		args := make([]*ast.Field, n)
-		if def {
-			args[0] = &ast.Field{
-				Names: []*ast.Ident{p.stmt.Key.(*ast.Ident)},
-				Type:  toType(cb.pkg, p.kvt[0]),
-			}
-			if n > 1 {
-				args[1] = &ast.Field{
-					Names: []*ast.Ident{p.stmt.Value.(*ast.Ident)},
-					Type:  toType(cb.pkg, p.kvt[1]),
-				}
-			}
-		} else {
-			panic("TODO: for range udt assign")
-		}
-		stmt := &ast.ExprStmt{
-			X: &ast.CallExpr{
-				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: ident(p.enumName)},
-				Args: []ast.Expr{
-					&ast.FuncLit{
-						Type: &ast.FuncType{Params: &ast.FieldList{List: args}},
-						Body: p.handleFor(&ast.BlockStmt{List: stmts}, -1),
-					},
-				},
-			},
-		}
-		cb.emitStmt(stmt)
-	}
+	emitForRangeStmt(cb, p, stmts, flows)
 }
-
-var (
-	nameXGoEnum1 = "XGo_Enum"
-	nameXGoEnum2 = "Gop_Enum"
-
-	identXgoOk = ident("_xgo_ok")
-	identXgoIt = ident("_xgo_it")
-)
-
-var (
-	stmtXGoOkDecl = &ast.DeclStmt{
-		Decl: &ast.GenDecl{
-			Tok: token.VAR,
-			Specs: []ast.Spec{
-				&ast.ValueSpec{Names: []*ast.Ident{identXgoOk}, Type: ident("bool")},
-			},
-		},
-	}
-	stmtBreakIfNotXGoOk = &ast.IfStmt{
-		Cond: &ast.UnaryExpr{Op: token.NOT, X: identXgoOk},
-		Body: &ast.BlockStmt{List: []ast.Stmt{&ast.BranchStmt{Tok: token.BREAK}}},
-	}
-	exprIterNext = []ast.Expr{
-		&ast.CallExpr{
-			Fun: &ast.SelectorExpr{X: identXgoIt, Sel: ident("Next")},
-		},
-	}
-)
 
 // ----------------------------------------------------------------------------

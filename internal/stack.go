@@ -17,6 +17,8 @@ import (
 	"go/ast"
 	"go/constant"
 	"go/types"
+
+	"github.com/goplus/gogen/internal/target"
 )
 
 // -----------------------------------------------------------------------------
@@ -24,7 +26,7 @@ import (
 const defaultStkSize = 64
 
 type Elem struct {
-	Val  ast.Expr
+	Val  target.Expr
 	Type types.Type
 	CVal constant.Value
 	Src  ast.Node

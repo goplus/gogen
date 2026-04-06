@@ -21,6 +21,7 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/target"
 )
 
 // ----------------------------------------------------------------------------
@@ -130,7 +131,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam)
 
 // TypeDefs represents a type declaration block.
 type TypeDefs struct {
-	decl  *ast.GenDecl
+	decl  *typeDecl
 	scope *types.Scope
 	pkg   *Package
 }
@@ -205,8 +206,9 @@ func (p *Package) NewType(name string, src ...ast.Node) *TypeDecl {
 
 // NewTypeDefs starts a type declaration block.
 func (p *Package) NewTypeDefs() *TypeDefs {
-	decl := &ast.GenDecl{Tok: token.TYPE}
-	p.file.decls = append(p.file.decls, decl)
+	decl := &typeDecl{}
+	decl.Tok = token.TYPE
+	p.file.appendTypeDecl(decl)
 	return &TypeDefs{decl: decl, scope: p.Types.Scope(), pkg: p}
 }
 
@@ -220,12 +222,13 @@ func (p *CodeBuilder) NewTypeDefs() *TypeDefs {
 // NewTypeDecls starts a type declaration block but delay to define it.
 func (p *CodeBuilder) NewTypeDecls() (ret *TypeDefs, defineHere func()) {
 	pkg, scope := p.pkg, p.current.scope
-	decl := &ast.GenDecl{Tok: token.TYPE}
+	decl := &typeDecl{}
+	decl.Tok = token.TYPE
 	return &TypeDefs{decl: decl, scope: scope, pkg: pkg}, func() {
 		if scope == pkg.Types.Scope() {
-			pkg.file.decls = append(pkg.file.decls, decl)
+			pkg.file.appendTypeDecl(decl)
 		} else {
-			p.emitStmt(&ast.DeclStmt{Decl: decl})
+			emitTypeDeclStmt(p, decl)
 		}
 	}
 }
@@ -239,7 +242,7 @@ func (p *Package) doNewAlias(tdecl *TypeDefs, pos, end token.Pos, name string, t
 			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
 	}
 	decl := tdecl.decl
-	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
+	spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}, Assign: alias}
 	decl.Specs = append(decl.Specs, spec)
 	spec.Type = toType(p, typ)
 	p.useName(name)
@@ -255,7 +258,7 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, ty
 			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
 	}
 	decl := tdecl.decl
-	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
+	spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}, Assign: alias}
 	decl.Specs = append(decl.Specs, spec)
 	var methods []*types.Func
 	if alias != 0 { // alias don't need to call InitType
@@ -284,7 +287,7 @@ type ValueDecl struct {
 	old   codeBlock
 	oldv  *ValueDecl
 	scope *types.Scope
-	vals  *[]ast.Expr
+	vals  *[]target.Expr
 	tok   token.Token
 	pos   token.Pos
 	at    int // commitStmt(at)
@@ -336,18 +339,18 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 		cb.stk.PopN(arity)
 		cb.endInitExpr(p.old)
 		if p.at >= 0 {
-			cb.commitStmt(p.at) // to support inline call, we must emitStmt at EndInit stage
+			commitAssignStmt(cb, p) // to support inline call, we must emitStmt at EndInit stage
 		}
 	}()
 	var t *types.Tuple
-	var values []ast.Expr
+	var values []target.Expr
 	if arity == 1 && checkTuple(&t, rets[0].Type) {
 		if n != t.Len() {
 			caller := getCaller(rets[0])
 			cb.panicCodeErrorf(
 				p.pos, p.pos, "assignment mismatch: %d variables but %s returns %d values", n, caller, t.Len())
 		}
-		*p.vals = []ast.Expr{rets[0].Val}
+		*p.vals = []target.Expr{rets[0].Val}
 		rets = make([]*internal.Elem, n)
 		for i := 0; i < n; i++ {
 			rets[i] = &internal.Elem{Type: t.At(i).Type()}
@@ -361,7 +364,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 		}
 		cb.panicCodeErrorf(p.pos, p.pos, "assignment mismatch: %d variables but %d values", n, arity)
 	} else {
-		values = make([]ast.Expr, arity)
+		values = make([]target.Expr, arity)
 		for i, ret := range rets {
 			values[i] = ret.Val
 		}
@@ -432,7 +435,7 @@ func (p *Package) newValueDecl(
 	n := len(names)
 	if tok == token.DEFINE { // a, b := expr
 		noNewVar := true
-		nameIdents := make([]ast.Expr, n)
+		nameIdents := make([]target.Expr, n)
 		for i, name := range names {
 			nameIdents[i] = ident(name)
 			if noNewVar && scope.Lookup(name) == nil {
@@ -442,7 +445,7 @@ func (p *Package) newValueDecl(
 		if noNewVar {
 			p.cb.handleCodeError(pos, pos, "no new variables on left side of :=")
 		}
-		stmt := &ast.AssignStmt{Tok: token.DEFINE, Lhs: nameIdents}
+		stmt := &target.AssignStmt{Tok: token.DEFINE, Lhs: nameIdents}
 		at := p.cb.startStmtAt(stmt)
 		return &ValueDecl{names: names, tok: tok, pos: pos, scope: scope, vals: &stmt.Rhs, at: at}
 	} else if tok == token.CONST && len(names) == 1 && isXGooConst(names[0]) { // XGoo_XXX
@@ -452,7 +455,7 @@ func (p *Package) newValueDecl(
 	// const a, b = expr
 	nameIdents := make([]*ast.Ident, n)
 	for i, name := range names {
-		nameIdents[i] = ident(name)
+		nameIdents[i] = &ast.Ident{Name: name}
 		if name == "_" { // skip underscore
 			continue
 		}
@@ -481,23 +484,25 @@ func (p *Package) newValueDecl(
 
 func (p *Package) newValueDefs(scope *types.Scope, tok token.Token) *valueDefs {
 	at := -1
-	decl := &ast.GenDecl{Tok: tok}
+	decl := &valDecl{}
+	decl.Tok = tok
 	if scope == p.Types.Scope() {
-		p.file.decls = append(p.file.decls, decl)
+		p.file.appendValDecl(decl)
 	} else {
-		at = p.cb.startStmtAt(&ast.DeclStmt{Decl: decl})
+		at = startValDeclStmtAt(&p.cb, decl)
 	}
 	return &valueDefs{pkg: p, scope: scope, decl: decl, at: at}
 }
 
 func (p *CodeBuilder) valueDefs(tok token.Token) *valueDefs {
 	at := -1
-	decl := &ast.GenDecl{Tok: tok}
+	decl := &valDecl{}
+	decl.Tok = tok
 	pkg, scope := p.pkg, p.current.scope
 	if scope == pkg.Types.Scope() {
-		pkg.file.decls = append(pkg.file.decls, decl)
+		pkg.file.appendValDecl(decl)
 	} else {
-		at = p.startStmtAt(&ast.DeclStmt{Decl: decl})
+		at = startValDeclStmtAt(p, decl)
 	}
 	return &valueDefs{pkg: pkg, scope: scope, decl: decl, at: at}
 }
@@ -593,73 +598,6 @@ func callInitExpr(cb *CodeBuilder, fn F) {
 	cb.EndInit(n)
 }
 
-// NewAndInit creates variables with specified `typ` (can be nil) and `names`, and
-// initializes them by `fn` (can be nil). When `fn` is nil (no initialization),
-// `typ` must not be nil. When names is empty, creates an embedded field.
-func (p *ClassDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...string) {
-	pkg := p.pkg
-	pkgTypes := pkg.Types
-	embed := len(names) == 0
-	if fn == nil { // no initialization
-		if embed {
-			p.addFld(0, embedName(typ), typ, true)
-		} else {
-			for i, name := range names {
-				p.addFld(i, name, typ, false)
-			}
-		}
-		return
-	}
-	recv := p.recv
-	cb := p.cb
-	if cb == nil {
-		result := types.NewTuple(types.NewParam(token.NoPos, pkgTypes, "", recv.Type()))
-		cb = pkg.NewFunc(recv, "XGo_Init", nil, result, false).BodyStart(pkg)
-		p.cb = cb
-	}
-	scope := cb.current.scope
-	recvName := ident(recv.Name())
-	if embed {
-		names = []string{embedName(typ)}
-	}
-	if typ == nil {
-		cb.DefineVarStart(pos, names...)
-		decl := cb.valDecl
-		stmt := cb.current.stmts[decl.at].(*ast.AssignStmt)
-		callInitExpr(cb, fn)
-
-		for i, name := range names {
-			o := scope.Lookup(name)
-			p.addFld(i, name, o.Type(), embed)
-			stmt.Lhs[i] = &ast.SelectorExpr{
-				X:   recvName,
-				Sel: stmt.Lhs[i].(*ast.Ident),
-			}
-		}
-		stmt.Tok = token.ASSIGN
-	} else {
-		cb.NewVarStart(typ, names...)
-		decl := cb.valDecl
-		pstmt := &cb.current.stmts[decl.at]
-		spec := (*pstmt).(*ast.DeclStmt).Decl.(*ast.GenDecl).Specs[0].(*ast.ValueSpec)
-		callInitExpr(cb, fn)
-
-		lhs := make([]ast.Expr, len(names))
-		for i, name := range names {
-			p.addFld(i, name, typ, embed)
-			lhs[i] = &ast.SelectorExpr{
-				X:   recvName,
-				Sel: spec.Names[i],
-			}
-		}
-		*pstmt = &ast.AssignStmt{
-			Lhs: lhs,
-			Tok: token.ASSIGN,
-			Rhs: spec.Values,
-		}
-	}
-}
-
 // End ends a classfile fields declaration block.
 func (p *ClassDefs) End(src ...ast.Node) {
 	if cb := p.cb; cb != nil {
@@ -696,12 +634,12 @@ func (p *Package) ClassDefsStart(
 // ----------------------------------------------------------------------------
 
 type ValueAt struct {
-	*ast.ValueSpec
+	*valueSpec
 	at int
 }
 
 type valueDefs struct {
-	decl  *ast.GenDecl
+	decl  *valDecl
 	scope *types.Scope
 	pkg   *Package
 	at    int
@@ -709,7 +647,7 @@ type valueDefs struct {
 
 func (p *valueDefs) NewPos() ValueAt {
 	decl := p.decl
-	spec := &ast.ValueSpec{}
+	spec := &valueSpec{}
 	decl.Specs = append(decl.Specs, spec)
 	return ValueAt{spec, p.at}
 }
@@ -756,7 +694,7 @@ func (p *VarDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...strin
 // If the variable is not found, it returns `syscall.ENOENT`.
 func (p *VarDefs) Delete(name string) error {
 	for i, spec := range p.decl.Specs {
-		vspec := spec.(*ast.ValueSpec)
+		vspec := asValueSpec(spec)
 		for j, ident := range vspec.Names {
 			if ident.Name == name {
 				if vspec.Values != nil { // can't remove an initialized variable
@@ -857,7 +795,7 @@ func (p *ConstDefs) NextAt(at ValueAt, fn F, iotav int, pos token.Pos, names ...
 					pos, pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
 			}
 		}
-		idents[i] = ident(name)
+		idents[i] = &ast.Ident{Name: name}
 	}
 	at.Names = idents
 	return p

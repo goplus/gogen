@@ -21,6 +21,7 @@ import (
 	"log"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/target"
 )
 
 // ----------------------------------------------------------------------------
@@ -57,7 +58,7 @@ func (p *Package) NewParamEx(pos token.Pos, name string, typ types.Type, optiona
 // Func type
 type Func struct {
 	*types.Func
-	decl   *ast.FuncDecl
+	decl   *funcDecl
 	old    funcBodyCtx
 	arity1 int // 0 for normal, (arity+1) for inlineClosure
 }
@@ -114,7 +115,7 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	}
 	pkg := cb.pkg
 	checker := termChecker{cb.current.panicCalls}
-	body := &ast.BlockStmt{List: cb.endFuncBody(p.old)}
+	body := &target.BlockStmt{List: cb.endFuncBody(p.old)}
 	t, _ := toNormalizeSignature(nil, p.Type().(*types.Signature))
 
 	// Check for missing return at the closing brace position.
@@ -129,10 +130,10 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	}
 
 	if fn := p.decl; fn == nil { // is closure
-		expr := &ast.FuncLit{Type: toFuncType(pkg, t), Body: body}
+		expr := newFuncLit(pkg, t, body)
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t, Src: src})
 	} else {
-		fn.Name, fn.Type, fn.Body = ident(p.Name()), toFuncType(pkg, t), body
+		fn.Name, fn.Type, fn.Body = &ast.Ident{Name: p.Name()}, toFuncType(pkg, t), body
 		if recv := t.Recv(); IsMethodRecv(recv) {
 			fn.Recv = toRecv(pkg, recv)
 		}
@@ -146,7 +147,7 @@ func (p *Package) NewFuncDecl(pos token.Pos, name string, sig *types.Signature) 
 		panic(err)
 	}
 	fn := f.decl
-	fn.Name, fn.Type = ident(name), toFuncType(p, sig)
+	fn.Name, fn.Type = &ast.Ident{Name: name}, toFuncType(p, sig)
 	return f
 }
 
@@ -261,8 +262,8 @@ func (p *Package) NewFuncWith(
 		p.expObjTypes = append(p.expObjTypes, sig)
 	}
 
-	fn.decl = &ast.FuncDecl{}
-	p.file.decls = append(p.file.decls, fn.decl)
+	fn.decl = &funcDecl{}
+	p.file.appendFuncDecl(fn.decl, sig)
 	return fn, nil
 }
 

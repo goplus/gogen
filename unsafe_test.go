@@ -1,5 +1,5 @@
-//go:build go1.20
-// +build go1.20
+//go:build !genjs
+// +build !genjs
 
 /*
  Copyright 2025 The XGo Authors (xgo.dev)

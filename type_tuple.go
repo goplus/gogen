@@ -18,6 +18,8 @@ import (
 	"go/token"
 	"go/types"
 	"strconv"
+
+	"github.com/goplus/gogen/internal/target"
 )
 
 // ----------------------------------------------------------------------------
@@ -36,7 +38,7 @@ type vFieldsMgr struct {
 	vfts map[*types.Struct]vFields
 }
 
-func (p *CodeBuilder) refVField(t *types.Struct, name string, x ast.Expr, src ast.Node) bool {
+func (p *CodeBuilder) refVField(t *types.Struct, name string, x target.Expr, src ast.Node) bool {
 	if vft, ok := p.vfts[t]; ok {
 		return vft.FieldRef(p, t, name, x, src)
 	}
@@ -87,7 +89,7 @@ func (p *tupleFields) FindField(cb *CodeBuilder, t *types.Struct, name string, a
 	return false
 }
 
-func (p *tupleFields) FieldRef(cb *CodeBuilder, t *types.Struct, name string, x ast.Expr, src ast.Node) bool {
+func (p *tupleFields) FieldRef(cb *CodeBuilder, t *types.Struct, name string, x target.Expr, src ast.Node) bool {
 	for i, fld := range p.fields {
 		if fld.Name() == name {
 			if cb.rec != nil {
@@ -95,7 +97,7 @@ func (p *tupleFields) FieldRef(cb *CodeBuilder, t *types.Struct, name string, x 
 			}
 			ordName := tupleFieldName(i)
 			cb.stk.Ret(1, &Element{
-				Val:  &ast.SelectorExpr{X: x, Sel: ident(ordName)},
+				Val:  &target.SelectorExpr{X: x, Sel: ident(ordName)},
 				Type: &refType{typ: fld.Type()},
 			})
 			return true

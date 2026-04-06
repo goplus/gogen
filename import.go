@@ -414,10 +414,10 @@ func checkXGoPkg(pkg *Package) (val ast.Expr, ok bool) {
 		}
 	}
 	if len(deps) > 0 {
-		return stringLit(strings.Join(deps, ",")), true
+		return astStringLit(strings.Join(deps, ",")), true
 	}
 	if ok = pkg.isXGoPkg; ok {
-		return identTrue, true
+		return &ast.Ident{Name: "true"}, true
 	}
 	return
 }

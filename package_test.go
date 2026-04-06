@@ -1,3 +1,6 @@
+//go:build !genjs
+// +build !genjs
+
 /*
 Copyright 2021 The XGo Authors (xgo.dev)
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +19,6 @@ limitations under the License.
 package gogen_test
 
 import (
-	"bytes"
 	"go/ast"
 	"go/constant"
 	"go/parser"
@@ -32,70 +34,6 @@ import (
 	"github.com/goplus/gogen"
 	"github.com/goplus/gogen/packages"
 )
-
-var (
-	gblFset   *token.FileSet
-	gblImp    types.Importer
-	handleErr func(err error)
-)
-
-func init() {
-	gogen.SetDebug(gogen.DbgFlagAll)
-	gblFset = token.NewFileSet()
-	gblImp = packages.NewImporter(gblFset)
-}
-
-func ctxRef(pkg *gogen.Package, name string) gogen.Ref {
-	_, o := pkg.CB().Scope().LookupParent(name, token.NoPos)
-	return o
-}
-
-type eventRecorder struct{}
-
-func (p eventRecorder) Member(id ast.Node, obj types.Object) {}
-func (p eventRecorder) Call(fn ast.Node, obj types.Object)   {}
-
-func newMainPackage(
-	implicitCast ...func(pkg *gogen.Package, V, T types.Type, pv *gogen.Element) bool) *gogen.Package {
-	return newPackage("main", implicitCast...)
-}
-
-func newPackage(
-	name string, implicitCast ...func(pkg *gogen.Package, V, T types.Type, pv *gogen.Element) bool) *gogen.Package {
-	conf := &gogen.Config{
-		Fset:            gblFset,
-		Importer:        gblImp,
-		Recorder:        eventRecorder{},
-		NodeInterpreter: nodeInterp{},
-		DbgPositioner:   nodeInterp{},
-	}
-	if len(implicitCast) > 0 {
-		conf.CanImplicitCast = implicitCast[0]
-	}
-	if handleErr != nil {
-		conf.HandleErr = handleErr
-		handleErr = nil
-	}
-	return gogen.NewPackage("", name, conf)
-}
-
-func domTest(t *testing.T, pkg *gogen.Package, expected string) {
-	domTestEx(t, pkg, expected, "")
-}
-
-func domTestEx(t *testing.T, pkg *gogen.Package, expected string, fname string) {
-	var b bytes.Buffer
-	t.Helper()
-	err := gogen.WriteTo(&b, pkg, fname)
-	if err != nil {
-		t.Fatal("gogen.WriteTo failed:", err)
-	}
-	result := b.String()
-	if result != expected {
-		t.Fatalf("\nResult:\n%s\nExpected:\n%s\n", result, expected)
-	}
-	log.Printf("====================== %s End =========================\n", t.Name())
-}
 
 type importer struct {
 	packages map[string]*types.Package
