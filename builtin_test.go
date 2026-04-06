@@ -1,5 +1,5 @@
-//go:build gengo
-// +build gengo
+//go:build !genjs
+// +build !genjs
 
 /*
  Copyright 2021 The XGo Authors (xgo.dev)
@@ -693,7 +693,12 @@ func TestWriteFile(t *testing.T) {
 			&ast.ValueSpec{Type: &ast.Ident{}},
 		}},
 	}
-	pkg.files[""] = file
+	pkg.files[""] = &File{fileDecls: fileDecls{goDecls: []ast.Decl{
+		&ast.GenDecl{Specs: []ast.Spec{
+			&ast.ValueSpec{Type: &ast.Ident{}},
+		}},
+		nil,
+	}}}
 	defer func() {
 		if e := recover(); e == nil {
 			t.Fatal("WriteFile: no error?")

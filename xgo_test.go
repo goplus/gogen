@@ -1,5 +1,5 @@
-//go:build gengo
-// +build gengo
+//go:build !genjs
+// +build !genjs
 
 /*
  Copyright 2021 The XGo Authors (xgo.dev)
