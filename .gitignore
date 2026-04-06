@@ -1,6 +1,7 @@
 go.json
 .gop/
 *.txt
+_unknown.go
 
 # Binaries for programs and plugins
 *.exe

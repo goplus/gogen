@@ -769,11 +769,10 @@ type makeInstr struct {
 
 // func [N ninteger] make(Type makable, size ...N) Type
 func (p makeInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	n := len(args)
-	if n == 0 {
+	if n := len(args); n == 0 {
 		panic("TODO: make without args")
 	} else if n > 3 {
-		n, args = 3, args[:3]
+		args = args[:3]
 	}
 	ttyp, ok := args[0].Type.(*TypeType)
 	if !ok {

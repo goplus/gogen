@@ -151,7 +151,7 @@ func TestCheckXGoDepsWithNilFuncType(t *testing.T) {
 	file := pkg.CurFile()
 	file.forceImport("github.com/qiniu/x/errors")
 	// Simulate a FuncDecl with nil Type (as created by NewFuncWith before End() is called)
-	file.decls = append(file.decls, &ast.FuncDecl{})
+	file.goDecls = append(file.goDecls, &ast.FuncDecl{})
 	file.dirty = true
 	// Should not panic
 	_ = file.CheckXGoDeps(pkg)
@@ -687,12 +687,13 @@ func TestWriteFile(t *testing.T) {
 	if WriteFile("/", pkg, "") == nil {
 		t.Fatal("WriteFile: no error?")
 	}
-	pkg.files[""] = &File{decls: []ast.Decl{
+	file := &File{}
+	file.goDecls = []ast.Decl{
 		&ast.GenDecl{Specs: []ast.Spec{
 			&ast.ValueSpec{Type: &ast.Ident{}},
 		}},
-		nil,
-	}}
+	}
+	pkg.files[""] = file
 	defer func() {
 		if e := recover(); e == nil {
 			t.Fatal("WriteFile: no error?")

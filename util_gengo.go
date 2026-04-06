@@ -27,6 +27,7 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/go/printer"
+	"github.com/goplus/gogen/internal/goxdbg"
 	"github.com/goplus/gogen/internal/target"
 )
 
@@ -1003,7 +1004,7 @@ func newNewExpr(args []*internal.Elem) *ast.CallExpr {
 }
 
 func newMakeExpr(args []*internal.Elem) *ast.CallExpr {
-	argsExpr := make([]target.Expr, n)
+	argsExpr := make([]target.Expr, len(args))
 	for i, arg := range args {
 		argsExpr[i] = arg.Val
 	}
@@ -1054,7 +1055,7 @@ func newAddrExpr(args []*internal.Elem) *ast.UnaryExpr {
 	return &ast.UnaryExpr{Op: token.AND, X: args[0].Val}
 }
 
-func zeroCompositeLit(p *Package, typ types.Type) *ast.CompositeLit {
+func zeroCompositeLit(p *Package, typ types.Type, typ0 *types.Type) *ast.CompositeLit {
 	ret := &ast.CompositeLit{}
 	switch t := typ.(type) {
 	case *unboundType:
@@ -1062,7 +1063,7 @@ func zeroCompositeLit(p *Package, typ types.Type) *ast.CompositeLit {
 			t.ptypes = append(t.ptypes, &ret.Type)
 		} else {
 			typ = t.tBound
-			typ0 = typ
+			*typ0 = typ
 			ret.Type = toType(p, typ)
 		}
 	default:
@@ -1108,11 +1109,11 @@ func emitTypeDeclStmt(cb *CodeBuilder, decl *ast.GenDecl) {
 	cb.emitStmt(&ast.DeclStmt{Decl: decl})
 }
 
-func emitGoStmt(cb *CodeBuilder, call ast.Expr) {
+func emitGoStmt(cb *CodeBuilder, call *ast.CallExpr) {
 	cb.emitStmt(&ast.GoStmt{Call: call})
 }
 
-func emitDeferStmt(cb *CodeBuilder, call ast.Expr) {
+func emitDeferStmt(cb *CodeBuilder, call *ast.CallExpr) {
 	cb.emitStmt(&ast.DeferStmt{Call: call})
 }
 
@@ -1173,7 +1174,7 @@ func emitTypeCaseClause(cb *CodeBuilder, p *typeCaseStmt, body []ast.Stmt) {
 	cb.emitStmt(&ast.CaseClause{List: p.list, Body: body})
 }
 
-func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []ast.Stmt) {
+func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []ast.Stmt, flows int) {
 	if n := p.udt; n == 0 {
 		if p.enumName != "" {
 			p.stmt.X = &ast.CallExpr{
@@ -1272,6 +1273,10 @@ func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []ast.Stmt) {
 		cb.emitStmt(stmt)
 	}
 }
+
+const (
+	cantUseFlows = "can't use return/continue/break/goto in for range of udt.XGo_Enum(callback)"
+)
 
 var (
 	identXgoOk = ident("_xgo_ok")

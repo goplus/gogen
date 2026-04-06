@@ -769,10 +769,6 @@ var (
 	nameXGoEnum2 = "Gop_Enum"
 )
 
-const (
-	cantUseFlows = "can't use return/continue/break/goto in for range of udt.XGo_Enum(callback)"
-)
-
 func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 	if p.stmt == nil {
 		if cb != nil {
@@ -787,7 +783,7 @@ func (p *forRangeStmt) End(cb *CodeBuilder, src ast.Node) {
 	for _, s := range p.preStmts {
 		cb.emitStmt(s)
 	}
-	emitForRangeStmt(cb, p, stmts)
+	emitForRangeStmt(cb, p, stmts, flows)
 }
 
 // ----------------------------------------------------------------------------

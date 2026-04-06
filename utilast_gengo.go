@@ -234,7 +234,7 @@ func (p astVisitor) markUsed(decls []ast.Decl) {
 }
 
 func markUsed(this *Package, p *File) {
-	astVisitor{this, p}.markUsed(p.decls)
+	astVisitor{this, p}.markUsed(p.goDecls)
 }
 
 // ----------------------------------------------------------------------------

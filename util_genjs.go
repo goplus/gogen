@@ -1,3 +1,6 @@
+//go:build !gengo
+// +build !gengo
+
 /*
 Copyright 2026 The XGo Authors (xgo.dev)
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -254,7 +257,7 @@ func newAddrExpr(args []*internal.Elem) js.Expr {
 	panic("todo")
 }
 
-func zeroCompositeLit(p *Package, typ types.Type) js.Expr {
+func zeroCompositeLit(p *Package, typ types.Type, typ0 *types.Type) js.Expr {
 	panic("todo")
 }
 
@@ -290,11 +293,11 @@ func emitTypeDeclStmt(cb *CodeBuilder, decl *typeDecl) {
 	panic("todo")
 }
 
-func emitGoStmt(cb *CodeBuilder, call js.Expr) {
+func emitGoStmt(cb *CodeBuilder, call *js.CallExpr) {
 	panic("todo")
 }
 
-func emitDeferStmt(cb *CodeBuilder, call js.Expr) {
+func emitDeferStmt(cb *CodeBuilder, call *js.CallExpr) {
 	panic("todo")
 }
 
@@ -343,7 +346,7 @@ func emitTypeCaseClause(cb *CodeBuilder, p *typeCaseStmt, body []js.Stmt) {
 	panic("todo")
 }
 
-func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []js.Stmt) {
+func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []js.Stmt, flows int) {
 	panic("todo")
 }
 
