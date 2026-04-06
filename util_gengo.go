@@ -865,9 +865,16 @@ type fileDecls struct {
 	goDecls []ast.Decl
 }
 
-type funcDecl = ast.FuncDecl
+type (
+	funcDecl = ast.FuncDecl
+	typeDecl = ast.GenDecl
+)
 
 func (p *fileDecls) appendFuncDecl(decl *funcDecl) {
+	p.goDecls = append(p.goDecls, decl)
+}
+
+func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
 	p.goDecls = append(p.goDecls, decl)
 }
 
@@ -909,6 +916,10 @@ func newAssignOpStmt(tok token.Token, args []*internal.Elem) *ast.AssignStmt {
 
 func emitAssignStmt(cb *CodeBuilder, stmt *ast.AssignStmt) {
 	cb.emitStmt(stmt)
+}
+
+func emitTypeDeclStmt(cb *CodeBuilder, decl *ast.GenDecl) {
+	cb.emitStmt(&ast.DeclStmt{Decl: decl})
 }
 
 func emitGoStmt(cb *CodeBuilder, call ast.Expr) {

@@ -21,7 +21,6 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/internal"
-	"github.com/goplus/gogen/internal/target"
 )
 
 // ----------------------------------------------------------------------------
@@ -131,7 +130,7 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam)
 
 // TypeDefs represents a type declaration block.
 type TypeDefs struct {
-	decl  *target.TypeDecl
+	decl  *typeDecl
 	scope *types.Scope
 	pkg   *Package
 }
@@ -206,8 +205,9 @@ func (p *Package) NewType(name string, src ...ast.Node) *TypeDecl {
 
 // NewTypeDefs starts a type declaration block.
 func (p *Package) NewTypeDefs() *TypeDefs {
-	decl := target.NewTypeDecl()
-	p.file.decls = append(p.file.decls, decl)
+	decl := &typeDecl{}
+	decl.Tok = token.TYPE
+	p.file.appendTypeDecl(decl)
 	return &TypeDefs{decl: decl, scope: p.Types.Scope(), pkg: p}
 }
 
@@ -221,12 +221,13 @@ func (p *CodeBuilder) NewTypeDefs() *TypeDefs {
 // NewTypeDecls starts a type declaration block but delay to define it.
 func (p *CodeBuilder) NewTypeDecls() (ret *TypeDefs, defineHere func()) {
 	pkg, scope := p.pkg, p.current.scope
-	decl := &ast.GenDecl{Tok: token.TYPE}
+	decl := &typeDecl{}
+	decl.Tok = token.TYPE
 	return &TypeDefs{decl: decl, scope: scope, pkg: pkg}, func() {
 		if scope == pkg.Types.Scope() {
-			pkg.file.decls = append(pkg.file.decls, decl)
+			pkg.file.appendTypeDecl(decl)
 		} else {
-			p.emitStmt(&ast.DeclStmt{Decl: decl})
+			emitTypeDeclStmt(p, decl)
 		}
 	}
 }
@@ -240,7 +241,7 @@ func (p *Package) doNewAlias(tdecl *TypeDefs, pos, end token.Pos, name string, t
 			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
 	}
 	decl := tdecl.decl
-	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
+	spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}, Assign: alias}
 	decl.Specs = append(decl.Specs, spec)
 	spec.Type = toType(p, typ)
 	p.useName(name)
@@ -256,7 +257,7 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, ty
 			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
 	}
 	decl := tdecl.decl
-	spec := &ast.TypeSpec{Name: ident(name), Assign: alias}
+	spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}, Assign: alias}
 	decl.Specs = append(decl.Specs, spec)
 	var methods []*types.Func
 	if alias != 0 { // alias don't need to call InitType

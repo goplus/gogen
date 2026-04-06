@@ -143,6 +143,12 @@ type funcDecl struct {
 
 func (*funcDecl) declNode() {}
 
+type typeDecl struct {
+	ast.GenDecl
+}
+
+func (*typeDecl) declNode() {}
+
 type fileDecls struct {
 	goDecls []ast.Decl
 	jsDecls []jsDecl
@@ -150,6 +156,11 @@ type fileDecls struct {
 
 func (p *fileDecls) appendFuncDecl(decl *funcDecl) {
 	p.goDecls = append(p.goDecls, &decl.FuncDecl)
+	p.jsDecls = append(p.jsDecls, decl)
+}
+
+func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
+	p.goDecls = append(p.goDecls, &decl.GenDecl)
 	p.jsDecls = append(p.jsDecls, decl)
 }
 
@@ -172,6 +183,10 @@ func newAssignOpStmt(tok token.Token, args []*internal.Elem) js.Stmt {
 }
 
 func emitAssignStmt(cb *CodeBuilder, stmt *target.AssignStmt) {
+	panic("todo")
+}
+
+func emitTypeDeclStmt(cb *CodeBuilder, decl *typeDecl) {
 	panic("todo")
 }
 
