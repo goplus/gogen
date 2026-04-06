@@ -104,6 +104,26 @@ func (p *CodeBuilder) methodSigOf(typ types.Type, flag MemberFlag, arg, ret *Ele
 	panic("todo")
 }
 
+func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Element, flags InstrFlags) (*Element, *types.Signature, []*Element, error) {
+	panic("todo")
+}
+
+func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
+	panic("todo")
+}
+
+func instanceInferFunc(pkg *Package, arg *internal.Elem, tsig *inferFuncType, sig *types.Signature) error {
+	panic("todo")
+}
+
+func instanceFunc(pkg *Package, arg *internal.Elem, tsig *types.Signature, sig *types.Signature) error {
+	panic("todo")
+}
+
+func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem, flags InstrFlags) ([]*internal.Elem, error) {
+	panic("todo")
+}
+
 func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
 	panic("todo")
 }

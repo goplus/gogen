@@ -19,6 +19,7 @@ limitations under the License.
 package gogen
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -650,6 +651,197 @@ func (p *CodeBuilder) methodSigOf(typ types.Type, flag MemberFlag, arg, ret *Ele
 	sel.X = &ast.ParenExpr{X: sel.X}
 
 	return toFuncSig(sig, types.NewVar(token.NoPos, nil, "", at)), true
+}
+
+func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Element, flags InstrFlags) (*Element, *types.Signature, []*Element, error) {
+	if debugMatch {
+		log.Println("boundTypeParams:", goxdbg.Format(p.Fset, fn.Val), "sig:", sig, "args:", len(args), "flags:", flags)
+	}
+	params := sig.TypeParams()
+	if n := params.Len(); n > 0 {
+		from := 0
+		if (flags & instrFlagXGotFunc) != 0 {
+			from = 1
+		}
+		targs := make([]types.Type, n)
+		for i := 0; i < n; i++ {
+			arg := args[from+i]
+			t, ok := arg.Type.(*TypeType)
+			if !ok {
+				src, pos, end := p.cb.loadExpr(arg.Src)
+				err := p.cb.newCodeErrorf(pos, end, "%s (type %v) is not a type", src, arg.Type)
+				return fn, sig, args, err
+			}
+			targs[i] = t.typ
+		}
+		ret, err := types.Instantiate(p.cb.ctxt, sig, targs, true)
+		if err != nil {
+			return fn, sig, args, err
+		}
+		indices := make([]ast.Expr, n)
+		for i := 0; i < n; i++ {
+			indices[i] = args[from+i].Val
+		}
+		fn = &Element{Val: &ast.IndexListExpr{X: fn.Val, Indices: indices}, Type: ret, Src: fn.Src}
+		sig = ret.(*types.Signature)
+		if from > 0 {
+			args = append([]*Element{args[0]}, args[n+1:]...)
+		} else {
+			args = args[n:]
+		}
+	}
+	return fn, sig, args, nil
+}
+
+func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
+	typ := args[0].Type
+	var tt bool
+	if t, ok := typ.(*TypeType); ok {
+		typ = t.Type()
+		tt = true
+	}
+	p.ensureLoaded(typ)
+	srcExpr := getSrc(src)
+	if !isGenericType(typ) {
+		pos := getSrcPos(srcExpr)
+		end := getSrcEnd(srcExpr)
+		if tt {
+			p.panicCodeErrorf(pos, end, "%v is not a generic type", typ)
+		} else {
+			p.panicCodeErrorf(pos, end, "invalid operation: cannot index %v (value of type %v)", types.ExprString(args[0].Val), typ)
+		}
+	}
+	targs := make([]types.Type, nidx)
+	indices := make([]ast.Expr, nidx)
+	for i := 0; i < nidx; i++ {
+		targs[i] = args[i+1].Type.(*TypeType).Type()
+		p.ensureLoaded(targs[i])
+		indices[i] = args[i+1].Val
+	}
+	var tyRet types.Type
+	var err error
+	if tt {
+		tyRet, err = types.Instantiate(p.ctxt, typ, targs, true)
+		if err == nil {
+			tyRet = NewTypeType(tyRet)
+		}
+	} else {
+		sig := typ.(*types.Signature)
+		if nidx >= sig.TypeParams().Len() {
+			tyRet, err = types.Instantiate(p.ctxt, typ, targs, true)
+		} else {
+			tyRet = newInferFuncType(p.pkg, args[0], sig, targs, srcExpr)
+		}
+	}
+	if err != nil {
+		pos := getSrcPos(srcExpr)
+		end := getSrcEnd(srcExpr)
+		p.panicCodeErrorf(pos, end, "%v", err)
+	}
+	if debugMatch {
+		log.Println("==> InferType", tyRet)
+	}
+	elem := &internal.Elem{
+		Type: tyRet, Src: srcExpr,
+	}
+	x := args[0].Val
+	if nidx == 1 {
+		elem.Val = &ast.IndexExpr{X: x, Index: indices[0]}
+	} else {
+		elem.Val = &ast.IndexListExpr{X: x, Indices: indices}
+	}
+	p.stk.Ret(nidx+1, elem)
+	return p
+}
+
+func instanceInferFunc(pkg *Package, arg *internal.Elem, tsig *inferFuncType, sig *types.Signature) error {
+	args := paramsToArgs(sig)
+	targs, _, err := inferFunc(tsig.pkg, tsig.fn, tsig.typ, tsig.targs, args, 0)
+	if err != nil {
+		return err
+	}
+	arg.Type = sig
+	index := make([]ast.Expr, len(targs))
+	for i, a := range targs {
+		index[i] = toType(pkg, a)
+	}
+	var x ast.Expr
+	switch v := arg.Val.(type) {
+	case *ast.IndexExpr:
+		x = v.X
+	case *ast.IndexListExpr:
+		x = v.X
+	}
+	arg.Val = &ast.IndexListExpr{
+		Indices: index,
+		X:       x,
+	}
+	return nil
+}
+
+func instanceFunc(pkg *Package, arg *internal.Elem, tsig *types.Signature, sig *types.Signature) error {
+	args := paramsToArgs(sig)
+	targs, _, err := inferFunc(pkg, &internal.Elem{Val: arg.Val}, tsig, nil, args, 0)
+	if err != nil {
+		return err
+	}
+	arg.Type = sig
+	if len(targs) == 1 {
+		arg.Val = &ast.IndexExpr{
+			Index: toType(pkg, targs[0]),
+			X:     arg.Val,
+		}
+	} else {
+		index := make([]ast.Expr, len(targs))
+		for i, a := range targs {
+			index[i] = toType(pkg, a)
+		}
+		arg.Val = &ast.IndexListExpr{
+			Indices: index,
+			X:       arg.Val,
+		}
+	}
+	return nil
+}
+
+func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem, flags InstrFlags) ([]*internal.Elem, error) {
+	nargs := len(args)
+	nreq := sig.Params().Len()
+	if sig.Variadic() {
+		if nargs < nreq-1 {
+			caller := types.ExprString(fn.Val)
+			return nil, fmt.Errorf(
+				"not enough arguments in call to %s\n\thave (%v)\n\twant (%v)", caller, getTypes(args), getParamsTypes(sig.Params(), true))
+		}
+		if flags&InstrFlagEllipsis != 0 {
+			return args, nil
+		}
+		var typ types.Type
+		if nargs < nreq {
+			typ = sig.Params().At(nreq - 1).Type()
+			elem := typ.(*types.Slice).Elem()
+			if t, ok := elem.(*types.TypeParam); ok {
+				return nil, fmt.Errorf("cannot infer %v (%v)", elem, pkg.cb.fset.Position(t.Obj().Pos()))
+			}
+		} else {
+			typ = types.NewSlice(types.Default(args[nreq-1].Type))
+		}
+		res := make([]*internal.Elem, nreq)
+		for i := 0; i < nreq-1; i++ {
+			res[i] = args[i]
+		}
+		res[nreq-1] = &internal.Elem{Type: typ}
+		return res, nil
+	} else if nreq != nargs {
+		fewOrMany := "not enough"
+		if nargs > nreq {
+			fewOrMany = "too many"
+		}
+		caller := types.ExprString(fn.Val)
+		return nil, fmt.Errorf(
+			"%s arguments in call to %s\n\thave (%v)\n\twant (%v)", fewOrMany, caller, getTypes(args), getParamsTypes(sig.Params(), false))
+	}
+	return args, nil
 }
 
 func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
