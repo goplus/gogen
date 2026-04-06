@@ -1,3 +1,6 @@
+//go:build !genjs
+// +build !genjs
+
 /*
  Copyright 2021 The XGo Authors (xgo.dev)
  Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,78 +25,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
-	"sync"
 	"testing"
 
 	"github.com/goplus/gogen"
 	xtoken "github.com/goplus/gogen/token"
 )
-
-type txtNode struct {
-	Msg string
-	pos token.Pos
-}
-
-func (p *txtNode) Pos() token.Pos {
-	return p.pos
-}
-
-func (p *txtNode) End() token.Pos {
-	return p.pos + token.Pos(len(p.Msg))
-}
-
-var (
-	mutex         sync.Mutex
-	pos2Positions = map[token.Pos]token.Position{}
-)
-
-// text, line, column
-func source(text string, args ...interface{}) ast.Node {
-	if len(args) < 2 {
-		return &txtNode{Msg: text}
-	}
-	pos := position(args[0].(int), args[1].(int))
-	return &txtNode{Msg: text, pos: pos}
-}
-
-const (
-	posBits = 16
-	posMask = (1 << posBits) - 1
-)
-
-func position(line, column int) token.Pos {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	pos := token.Pos(len(pos2Positions)+1) << posBits
-	pos2Positions[pos] = token.Position{Filename: "./foo.gop", Line: line, Column: column}
-	return pos
-}
-
-type nodeInterp struct{}
-
-func (p nodeInterp) Position(pos token.Pos) (ret token.Position) {
-	mutex.Lock()
-	defer mutex.Unlock()
-	ret = pos2Positions[(pos &^ posMask)]
-	ret.Column += int(pos & posMask)
-	return
-}
-
-func (p nodeInterp) Caller(node ast.Node) string {
-	t := node.(*txtNode)
-	idx := strings.Index(t.Msg, "(")
-	if idx > 0 {
-		return t.Msg[:idx]
-	}
-	return t.Msg
-}
-
-func (p nodeInterp) LoadExpr(node ast.Node) string {
-	t := node.(*txtNode)
-	return t.Msg
-}
 
 func codeErrorTest(t *testing.T, msg string, source func(pkg *gogen.Package), disableRecover ...bool) {
 	t.Run(msg, func(t *testing.T) {
