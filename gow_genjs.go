@@ -48,7 +48,7 @@ func (p *Package) JSFile(fname ...string) *js.File {
 // CommentedJSFile returns commented AST of a JavaScript file by its fname.
 // If fname is not provided, it returns AST of the default (NOT current) file.
 func (p *Package) CommentedJSFile(fname ...string) *printer.CommentedNodes {
-	f := p.ASTFile(fname...)
+	f := p.JSFile(fname...)
 	if f == nil {
 		return nil
 	}

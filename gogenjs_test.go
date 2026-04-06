@@ -19,10 +19,29 @@ limitations under the License.
 package gogen_test
 
 import (
+	"bytes"
 	"go/token"
 	"go/types"
+	"log"
 	"testing"
+
+	"github.com/goplus/gogen"
 )
+
+func domTestJs(t *testing.T, pkg *gogen.Package, expectedGo, expectedJs string) {
+	doDomTest(t, pkg, expectedGo, "")
+	var b bytes.Buffer
+	t.Helper()
+	err := pkg.WriteJSTo(&b, "")
+	if err != nil {
+		t.Fatal("pkg.WriteJSTo failed:", err)
+	}
+	result := b.String()
+	if result != expectedJs {
+		t.Fatalf("\nWriteJSTo Result:\n%s\nExpected:\n%s\n", result, expectedJs)
+	}
+	log.Printf("====================== %s End =========================\n", t.Name())
+}
 
 func TestBasic(t *testing.T) {
 	pkg := newMainPackage()
@@ -30,9 +49,11 @@ func TestBasic(t *testing.T) {
 	if pkg.Ref("main") == nil {
 		t.Fatal("main not found")
 	}
-	domTest(t, pkg, `package main
+	domTestJs(t, pkg, `package main
 
 func main()
+`, `function main() {
+}
 `)
 }
 
@@ -42,10 +63,13 @@ func TestZeroLitAlias(t *testing.T) {
 	results := types.NewTuple(types.NewVar(token.NoPos, pkg.Types, "", bar))
 	pkg.NewFunc(nil, "foo", nil, results, false).BodyStart(pkg).
 		ZeroLit(bar).Return(1).End()
-	domTest(t, pkg, `package main
+	domTestJs(t, pkg, `package main
 
 type bar = float64
 
 func foo() bar
+`, `function foo() {
+	return 0
+}
 `)
 }

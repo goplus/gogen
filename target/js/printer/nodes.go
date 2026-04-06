@@ -1928,11 +1928,11 @@ func (p *printer) distanceFrom(startPos token.Pos, startOutCol int) int {
 func (p *printer) funcDecl(d *js.FuncDecl) {
 	p.setComment(d.Doc)
 	p.setPos(d.Pos())
-	p.print(token.FUNC, blank)
+	p.print("function", blank)
 	// We have to save startCol only after emitting FUNC; otherwise it can be on a
 	// different line (all whitespace preceding the FUNC is emitted only when the
 	// FUNC is emitted).
-	startCol := p.out.Column - len("func ")
+	startCol := p.out.Column - len("function ")
 	if d.Recv != nil {
 		/* TODO(xsw):
 		p.parameters(d.Recv, funcParam) // method: print receiver

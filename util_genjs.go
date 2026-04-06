@@ -207,7 +207,7 @@ func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
 
 func (p *File) getJSFile(_ *Package) *js.File {
 	decls := make([]js.Stmt, 0, len(p.jsDecls))
-	for i, decl := range p.jsDecls {
+	for _, decl := range p.jsDecls {
 		switch d := decl.(type) {
 		case *funcDecl:
 			sig := d.sig
@@ -221,7 +221,7 @@ func (p *File) getJSFile(_ *Package) *js.File {
 				params[i] = &js.Ident{Name: in.At(i).Name()}
 			}
 			decls = append(decls, &js.FuncDecl{
-				Recv:   recv,
+				Recv:   nil,
 				Name:   &js.Ident{Name: d.Name.Name},
 				Params: params,
 				Body:   d.Body,

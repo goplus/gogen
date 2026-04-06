@@ -145,6 +145,11 @@ func domTest(t *testing.T, pkg *gogen.Package, expected string) {
 }
 
 func domTestEx(t *testing.T, pkg *gogen.Package, expected string, fname string) {
+	doDomTest(t, pkg, expected, fname)
+	log.Printf("====================== %s End =========================\n", t.Name())
+}
+
+func doDomTest(t *testing.T, pkg *gogen.Package, expected string, fname string) {
 	var b bytes.Buffer
 	t.Helper()
 	err := gogen.WriteTo(&b, pkg, fname)
@@ -153,7 +158,6 @@ func domTestEx(t *testing.T, pkg *gogen.Package, expected string, fname string) 
 	}
 	result := b.String()
 	if result != expected {
-		t.Fatalf("\nResult:\n%s\nExpected:\n%s\n", result, expected)
+		t.Fatalf("\ngogen.WriteTo Result:\n%s\nExpected:\n%s\n", result, expected)
 	}
-	log.Printf("====================== %s End =========================\n", t.Name())
 }
