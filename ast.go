@@ -38,7 +38,7 @@ var (
 // ----------------------------------------------------------------------------
 
 var (
-	underscore = &target.Ident{Name: "_"}
+	underscore = &ast.Ident{Name: "_"}
 )
 
 var (
@@ -66,6 +66,10 @@ func boolean(v bool) *target.Ident {
 
 func stringLit(val string) *target.BasicLit {
 	return &target.BasicLit{Kind: token.STRING, Value: strconv.Quote(val)}
+}
+
+func astStringLit(val string) *ast.BasicLit {
+	return &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(val)}
 }
 
 func toRecv(pkg *Package, recv *types.Var) *ast.FieldList {

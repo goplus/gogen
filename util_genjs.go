@@ -16,8 +16,41 @@ limitations under the License.
 package gogen
 
 import (
-	"github.com/goplus/gogen/internal/target/js"
+	"go/ast"
+	"go/token"
+	"go/types"
+
+	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/go/printer"
+	"github.com/goplus/gogen/internal/target"
+	"github.com/goplus/gogen/target/js"
 )
+
+func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
+	panic("todo")
+}
+
+func getCaller(expr *internal.Elem) string {
+	panic("todo")
+}
+
+func toDecls(decls []target.Decl) []ast.Decl {
+	panic("todo")
+}
+
+func appendDecls(to []ast.Decl, decls []target.Decl) []ast.Decl {
+	panic("todo")
+}
+
+func newFuncLit(pkg *Package, t *types.Signature, body *js.BlockStmt) *js.FuncLit {
+	panic("todo")
+}
+
+func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
+	return &printer.CommentedNodes{
+		Node: f,
+	}
+}
 
 func emitGoStmt(cb *CodeBuilder, call js.Expr) {
 	panic("todo")

@@ -122,7 +122,7 @@ type funcBodyCtx struct {
 	codeBlockCtx
 	fn         *Func
 	labels     map[string]*Label
-	panicCalls map[*ast.CallExpr]none // calls to builtin panic
+	panicCalls map[*target.CallExpr]none // calls to builtin panic
 }
 
 func (p *funcBodyCtx) checkLabels(cb *CodeBuilder) {
@@ -206,23 +206,6 @@ func (p nodeInterp) LoadExpr(expr ast.Node) string {
 	return ""
 }
 
-func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
-	if fn == nil {
-		return "the closure call", token.NoPos, token.NoPos
-	}
-	caller = types.ExprString(fn.Val)
-	pos = getSrcPos(fn.Src)
-	end = getSrcEnd(fn.Src)
-	return
-}
-
-func getCaller(expr *internal.Elem) string {
-	if ce, ok := expr.Val.(*ast.CallExpr); ok {
-		return types.ExprString(ce.Fun)
-	}
-	return "the function call"
-}
-
 func (p *CodeBuilder) loadExpr(expr ast.Node) (string, token.Pos, token.Pos) {
 	if expr == nil {
 		return "", token.NoPos, token.NoPos
@@ -293,7 +276,7 @@ func insertParams(scope *types.Scope, params *types.Tuple) {
 	}
 }
 
-func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []ast.Stmt {
+func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []target.Stmt {
 	p.current.checkLabels(p)
 	p.current.fn = old.fn
 	p.current.labels = old.labels
@@ -340,7 +323,7 @@ func (p *CodeBuilder) endVBlockStmt(old *vblockCtx) {
 	p.current.codeBlock, p.current.scope = old.codeBlock, old.scope
 }
 
-func (p *CodeBuilder) popStmt() ast.Stmt {
+func (p *CodeBuilder) popStmt() target.Stmt {
 	stmts := p.current.stmts
 	n := len(stmts) - 1
 	stmt := stmts[n]
@@ -348,7 +331,7 @@ func (p *CodeBuilder) popStmt() ast.Stmt {
 	return stmt
 }
 
-func (p *CodeBuilder) startStmtAt(stmt ast.Stmt) int {
+func (p *CodeBuilder) startStmtAt(stmt target.Stmt) int {
 	idx := len(p.current.stmts)
 	p.emitStmt(stmt)
 	return idx

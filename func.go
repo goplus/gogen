@@ -21,6 +21,7 @@ import (
 	"log"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/target"
 )
 
 // ----------------------------------------------------------------------------
@@ -114,7 +115,7 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	}
 	pkg := cb.pkg
 	checker := termChecker{cb.current.panicCalls}
-	body := &ast.BlockStmt{List: cb.endFuncBody(p.old)}
+	body := &target.BlockStmt{List: cb.endFuncBody(p.old)}
 	t, _ := toNormalizeSignature(nil, p.Type().(*types.Signature))
 
 	// Check for missing return at the closing brace position.
@@ -129,10 +130,10 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	}
 
 	if fn := p.decl; fn == nil { // is closure
-		expr := &ast.FuncLit{Type: toFuncType(pkg, t), Body: body}
+		expr := newFuncLit(pkg, t, body)
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t, Src: src})
 	} else {
-		fn.Name, fn.Type, fn.Body = ident(p.Name()), toFuncType(pkg, t), body
+		fn.Name, fn.Type, fn.Body = &ast.Ident{Name: p.Name()}, toFuncType(pkg, t), body
 		if recv := t.Recv(); IsMethodRecv(recv) {
 			fn.Recv = toRecv(pkg, recv)
 		}

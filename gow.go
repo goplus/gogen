@@ -44,7 +44,7 @@ func (p *Package) ASTFile(fname ...string) *ast.File {
 		log.Println("==> ASTFile", f.Name())
 	}
 	decls := f.getDecls(p)
-	file := &ast.File{Name: ident(p.Types.Name()), Decls: decls, Imports: getImports(decls)}
+	file := &ast.File{Name: &ast.Ident{Name: p.Types.Name()}, Decls: decls, Imports: getImports(decls)}
 	return file
 }
 
@@ -69,10 +69,7 @@ func (p *Package) CommentedASTFile(fname ...string) *printer.CommentedNodes {
 	if f == nil {
 		return nil
 	}
-	return &printer.CommentedNodes{
-		Node:           f,
-		CommentedStmts: p.commentedStmts,
-	}
+	return newCommentedNodes(p, f)
 }
 
 // WriteTo writes a file named fname to dst.

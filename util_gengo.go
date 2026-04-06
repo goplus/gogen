@@ -21,7 +21,47 @@ package gogen
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
+
+	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/go/printer"
 )
+
+func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
+	if fn == nil {
+		return "the closure call", token.NoPos, token.NoPos
+	}
+	caller = types.ExprString(fn.Val)
+	pos = getSrcPos(fn.Src)
+	end = getSrcEnd(fn.Src)
+	return
+}
+
+func getCaller(expr *internal.Elem) string {
+	if ce, ok := expr.Val.(*ast.CallExpr); ok {
+		return types.ExprString(ce.Fun)
+	}
+	return "the function call"
+}
+
+func toDecls(decls []ast.Decl) []ast.Decl {
+	return decls
+}
+
+func appendDecls(to []ast.Decl, decls []ast.Decl) []ast.Decl {
+	return append(to, decls...)
+}
+
+func newFuncLit(pkg *Package, t *types.Signature, body *ast.BlockStmt) *ast.FuncLit {
+	return &ast.FuncLit{Type: toFuncType(pkg, t), Body: body}
+}
+
+func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
+	return &printer.CommentedNodes{
+		Node:           f,
+		CommentedStmts: p.commentedStmts,
+	}
+}
 
 func emitGoStmt(cb *CodeBuilder, call ast.Expr) {
 	cb.emitStmt(&ast.GoStmt{Call: call})

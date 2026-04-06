@@ -22,7 +22,7 @@ import (
 	"go/ast"
 
 	"github.com/goplus/gogen/internal"
-	"github.com/goplus/gogen/internal/target/js"
+	"github.com/goplus/gogen/target/js"
 )
 
 // -----------------------------------------------------------------------------

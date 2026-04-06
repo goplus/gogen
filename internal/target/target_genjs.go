@@ -21,7 +21,7 @@ package target
 import (
 	"go/token"
 
-	"github.com/goplus/gogen/internal/target/js"
+	"github.com/goplus/gogen/target/js"
 )
 
 type (
@@ -54,4 +54,9 @@ type RangeStmt struct {
 	Range      token.Pos   // position of "range" keyword
 	X          Expr        // value to range over
 	Body       *BlockStmt
+}
+
+// All declaration nodes implement the Decl interface.
+type Decl interface {
+	declNode()
 }

@@ -139,7 +139,7 @@ type Config struct {
 type importUsed bool
 
 type File struct {
-	decls []ast.Decl
+	decls []target.Decl
 	fname string
 	imps  map[string]*target.PkgRef // importPath => impRef (nil means force-import)
 	dirty bool
@@ -176,61 +176,6 @@ func (p *File) markUsed(this *Package) {
 // Name returns the name of this file.
 func (p *File) Name() string {
 	return p.fname
-}
-
-type astVisitor struct {
-	pkg  *Package
-	file *File
-}
-
-func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
-	if node == nil {
-		return nil
-	}
-	switch v := node.(type) {
-	case *ast.CommentGroup, *ast.Ident, *ast.BasicLit:
-	case *ast.SelectorExpr:
-		x := v.X
-		if id, ok := x.(*ast.Ident); ok && id.Obj != nil {
-			if used, ok := id.Obj.Data.(importUsed); ok && bool(!used) {
-				id.Obj.Data = importUsed(true)
-				if name, renamed := p.pkg.importName(p.file.Name(), id.Name); renamed {
-					id.Name = name
-					id.Obj.Name = name
-				}
-			}
-		} else {
-			ast.Walk(p, x)
-		}
-	case *ast.FuncDecl:
-		if v.Type != nil {
-			ast.Walk(p, v.Type)
-		}
-		if v.Body != nil {
-			ast.Walk(p, v.Body)
-		}
-	case *ast.ValueSpec:
-		if v.Type != nil {
-			ast.Walk(p, v.Type)
-		}
-		for _, val := range v.Values {
-			ast.Walk(p, val)
-		}
-	case *ast.TypeSpec:
-		ast.Walk(p, v.Type)
-	case *ast.BranchStmt:
-	case *ast.LabeledStmt:
-		ast.Walk(p, v.Stmt)
-	default:
-		return p
-	}
-	return nil
-}
-
-func (p astVisitor) markUsed(decls []ast.Decl) {
-	for _, decl := range decls {
-		ast.Walk(p, decl)
-	}
 }
 
 func isPkgInMod(pkgPath, modPath string) bool {
@@ -270,16 +215,16 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 		if id == nil { // force-used
 			specs = append(specs, &ast.ImportSpec{
 				Name: underscore, // _
-				Path: stringLit(pkgPath),
+				Path: astStringLit(pkgPath),
 			})
 		} else if id.Obj.Data.(importUsed) {
 			var name *ast.Ident
 			if id.Obj.Name != "" {
-				name = ident(id.Obj.Name)
+				name = &ast.Ident{Name: id.Obj.Name}
 			}
 			specs = append(specs, &ast.ImportSpec{
 				Name: name,
-				Path: stringLit(pkgPath),
+				Path: astStringLit(pkgPath),
 			})
 		}
 	}
@@ -293,7 +238,7 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 		valXGoPkg, addXGoPkg = checkXGoPkg(this)
 	}
 	if len(specs) == 0 && !addXGoPkg {
-		return p.decls
+		return toDecls(p.decls)
 	}
 
 	decls = make([]ast.Decl, 0, len(p.decls)+2)
@@ -308,7 +253,7 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			},
 		}})
 	}
-	return append(decls, p.decls...)
+	return appendDecls(decls, p.decls)
 }
 
 // ----------------------------------------------------------------------------
@@ -336,7 +281,7 @@ type Package struct {
 	utBigInt       *types.Named
 	utBigRat       *types.Named
 	utBigFlt       *types.Named
-	commentedStmts map[ast.Stmt]*ast.CommentGroup
+	commentedStmts map[target.Stmt]*ast.CommentGroup
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
 
 	expObjTypes []types.Type // types of export objects
@@ -393,9 +338,9 @@ func (p *Package) setDoc(o types.Object, doc *ast.CommentGroup) {
 	p.Docs[o] = doc
 }
 
-func (p *Package) setStmtComments(stmt ast.Stmt, comments *ast.CommentGroup) {
+func (p *Package) setStmtComments(stmt target.Stmt, comments *ast.CommentGroup) {
 	if p.commentedStmts == nil {
-		p.commentedStmts = make(map[ast.Stmt]*ast.CommentGroup)
+		p.commentedStmts = make(map[target.Stmt]*ast.CommentGroup)
 	}
 	p.commentedStmts[stmt] = comments
 }

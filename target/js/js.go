@@ -27,7 +27,8 @@ type Node interface {
 }
 
 type Object struct {
-	Data any // object-specific data; or nil
+	Name string // declared name
+	Data any    // object-specific data; or nil
 }
 
 type PkgRef struct {
@@ -45,6 +46,9 @@ type Expr interface {
 type Stmt interface {
 	Node
 	stmtNode()
+}
+
+type File struct {
 }
 
 // ----------------------------------------------------------------------------
@@ -137,61 +141,25 @@ func (x *ParenExpr) Pos() token.Pos { return x.Lparen }
 func (x *ParenExpr) End() token.Pos { return x.Rparen + 1 }
 func (p *ParenExpr) exprNode()      {}
 
-/*
-func (x *BadExpr) Pos() token.Pos  { return x.From }
-func (x *Ellipsis) Pos() token.Pos { return x.Ellipsis }
-func (x *FuncLit) Pos() token.Pos  { return x.Type.Pos() }
-func (x *CompositeLit) Pos() token.Pos {
-	if x.Type != nil {
-		return x.Type.Pos()
-	}
-	return x.Lbrace
+// A FuncLit node represents a function literal.
+type FuncLit struct {
+	Type *FuncType  // function type
+	Body *BlockStmt // function body
 }
-func (x *IndexExpr) Pos() token.Pos      { return x.X.Pos() }
-func (x *IndexListExpr) Pos() token.Pos  { return x.X.Pos() }
-func (x *SliceExpr) Pos() token.Pos      { return x.X.Pos() }
-func (x *TypeAssertExpr) Pos() token.Pos { return x.X.Pos() }
-func (x *StarExpr) Pos() token.Pos       { return x.Star }
-func (x *KeyValueExpr) Pos() token.Pos   { return x.Key.Pos() }
-func (x *ArrayType) Pos() token.Pos      { return x.Lbrack }
-func (x *StructType) Pos() token.Pos     { return x.Struct }
-func (x *FuncType) Pos() token.Pos {
-	if x.Func.IsValid() || x.Params == nil { // see issue 3870
-		return x.Func
-	}
-	return x.Params.Pos() // interface method declarations have no "func" keyword
-}
-func (x *InterfaceType) Pos() token.Pos { return x.Interface }
-func (x *MapType) Pos() token.Pos       { return x.Map }
-func (x *ChanType) Pos() token.Pos      { return x.Begin }
 
-func (x *BadExpr) End() token.Pos { return x.To }
-func (x *Ellipsis) End() token.Pos {
-	if x.Elt != nil {
-		return x.Elt.End()
-	}
-	return x.Ellipsis + 3 // len("...")
+func (x *FuncLit) Pos() token.Pos { return x.Type.Pos() }
+func (x *FuncLit) End() token.Pos { return x.Body.End() }
+func (*FuncLit) exprNode()        {}
+
+// A FuncType node represents a function type.
+type FuncType struct {
+	Func   token.Pos // position of "function" keyword
+	Params []*Ident  // parameters
 }
-func (x *FuncLit) End() token.Pos        { return x.Body.End() }
-func (x *CompositeLit) End() token.Pos   { return x.Rbrace + 1 }
-func (x *IndexExpr) End() token.Pos      { return x.Rbrack + 1 }
-func (x *IndexListExpr) End() token.Pos  { return x.Rbrack + 1 }
-func (x *SliceExpr) End() token.Pos      { return x.Rbrack + 1 }
-func (x *TypeAssertExpr) End() token.Pos { return x.Rparen + 1 }
-func (x *StarExpr) End() token.Pos       { return x.X.End() }
-func (x *KeyValueExpr) End() token.Pos   { return x.Value.End() }
-func (x *ArrayType) End() token.Pos      { return x.Elt.End() }
-func (x *StructType) End() token.Pos     { return x.Fields.End() }
-func (x *FuncType) End() token.Pos {
-	if x.Results != nil {
-		return x.Results.End()
-	}
-	return x.Params.End()
+
+func (x *FuncType) Pos() token.Pos {
+	return x.Func
 }
-func (x *InterfaceType) End() token.Pos { return x.Methods.End() }
-func (x *MapType) End() token.Pos       { return x.Value.End() }
-func (x *ChanType) End() token.Pos      { return x.Value.End() }
-*/
 
 // ----------------------------------------------------------------------------
 

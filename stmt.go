@@ -258,7 +258,7 @@ func (p *selectStmt) End(cb *CodeBuilder, src ast.Node) {
 
 type commCase struct {
 	old  codeBlockCtx
-	comm ast.Stmt
+	comm target.Stmt
 }
 
 func (p *commCase) Then(cb *CodeBuilder, src ...ast.Node) {

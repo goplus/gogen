@@ -43,4 +43,6 @@ type (
 	ForStmt     = ast.ForStmt
 	RangeStmt   = ast.RangeStmt
 	BranchStmt  = ast.BranchStmt
+
+	Decl = ast.Decl
 )
