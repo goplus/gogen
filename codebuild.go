@@ -1296,7 +1296,7 @@ func selector(arg *Element, name string) *target.SelectorExpr {
 	return &target.SelectorExpr{X: arg.Val, Sel: &target.Ident{Name: name, Obj: denoted}}
 }
 
-func denoteRecv(v *ast.SelectorExpr) *Element {
+func denoteRecv(v *target.SelectorExpr) *Element {
 	if o := v.Sel.Obj; o != nil {
 		if e, ok := o.Data.(*Element); ok {
 			return e

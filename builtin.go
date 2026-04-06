@@ -24,6 +24,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/goplus/gogen/internal/target"
 	"github.com/goplus/gogen/typeutil"
 )
 
@@ -472,7 +473,7 @@ var (
 // If canfail is false and fn is an identifier but not a known builtin, it panics.
 // If canfail is true, it returns nil for unknown or non-identifier functions.
 func tryBuiltinCall(fn *Element, args []*Element, canfail bool) constant.Value {
-	ident, ok := fn.Val.(*ast.Ident)
+	ident, ok := fn.Val.(*target.Ident)
 	if !ok {
 		return nil
 	}
@@ -562,11 +563,7 @@ func (p appendStringInstr) Call(pkg *Package, args []*Element, lhs int, flags In
 				if v, ok := args[1].Type.(*types.Basic); ok {
 					if v.Kind() == types.String || v.Kind() == types.UntypedString {
 						return &Element{
-							Val: &ast.CallExpr{
-								Fun:      identAppend,
-								Args:     []ast.Expr{args[0].Val, args[1].Val},
-								Ellipsis: 1,
-							},
+							Val:  newAppendStringExpr(args),
 							Type: t,
 						}, nil
 					}
@@ -614,7 +611,7 @@ func (p lenInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 		}
 	}
 	ret = &Element{
-		Val:  &ast.CallExpr{Fun: identLen, Args: []ast.Expr{args[0].Val}},
+		Val:  newLenExpr(args),
 		Type: types.Typ[types.Int],
 		CVal: cval,
 	}
@@ -642,7 +639,7 @@ func (p capInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 		}
 	}
 	ret = &Element{
-		Val:  &ast.CallExpr{Fun: identCap, Args: []ast.Expr{args[0].Val}},
+		Val:  newCapExpr(args),
 		Type: types.Typ[types.Int],
 		CVal: cval,
 	}
@@ -678,7 +675,7 @@ func callIncDec(pkg *Package, args []*Element, tok token.Token) (ret *Element, e
 		text, pos, end := cb.loadExpr(args[0].Src)
 		cb.panicCodeErrorf(pos, end, "invalid operation: %s%v (non-numeric type %v)", text, tok, t.typ)
 	}
-	cb.emitStmt(&ast.IncDecStmt{X: args[0].Val, Tok: tok})
+	cb.emitStmt(newIncDecStmt(args[0].Val, tok))
 	return
 }
 
@@ -719,7 +716,7 @@ retry:
 					pkg.NewParam(token.NoPos, "", typ),
 					pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
 			}
-			ret = &Element{Val: &ast.UnaryExpr{Op: token.ARROW, X: args[0].Val}, Type: typ}
+			ret = &Element{Val: newRecvExpr(args), Type: typ}
 			return
 		}
 		panic("TODO: <-ch is a send only chan")
@@ -743,7 +740,7 @@ func (p addrInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags
 	}
 	// TODO: can't take addr(&) to a non-reference type
 	t, _ := DerefType(args[0].Type)
-	ret = &Element{Val: &ast.UnaryExpr{Op: token.AND, X: args[0].Val}, Type: types.NewPointer(t)}
+	ret = &Element{Val: newAddrExpr(args), Type: types.NewPointer(t)}
 	return
 }
 
@@ -761,10 +758,7 @@ func (p newInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 	}
 	typ := ttyp.Type()
 	ret = &Element{
-		Val: &ast.CallExpr{
-			Fun:  identNew,
-			Args: []ast.Expr{args[0].Val},
-		},
+		Val:  newNewExpr(args),
 		Type: types.NewPointer(typ),
 	}
 	return
@@ -789,15 +783,8 @@ func (p makeInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags
 	if !makable.Match(pkg, typ) {
 		log.Panicln("TODO: can't make this type -", typ)
 	}
-	argsExpr := make([]ast.Expr, n)
-	for i, arg := range args {
-		argsExpr[i] = arg.Val
-	}
 	ret = &Element{
-		Val: &ast.CallExpr{
-			Fun:  identMake,
-			Args: argsExpr,
-		},
+		Val:  newMakeExpr(args),
 		Type: typ,
 	}
 	return
@@ -842,9 +829,8 @@ func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, lhs int, flags In
 	checkArgsCount(pkg, "unsafe.Sizeof", 1, len(args), src)
 
 	typ := types.Default(realType(args[0].Type))
-	fn := toObjectExpr(pkg, unsafeRef("Sizeof"))
 	ret = &Element{
-		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
+		Val:  newSizeofExpr(pkg, args),
 		Type: types.Typ[types.Uintptr],
 		CVal: constant.MakeInt64(std.Sizeof(typ)),
 		Src:  src,
@@ -859,9 +845,8 @@ func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, lhs int, flags I
 	checkArgsCount(pkg, "unsafe.Alignof", 1, len(args), src)
 
 	typ := types.Default(realType(args[0].Type))
-	fn := toObjectExpr(pkg, unsafeRef("Alignof"))
 	ret = &Element{
-		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
+		Val:  newAlignofExpr(pkg, args),
 		Type: types.Typ[types.Uintptr],
 		CVal: constant.MakeInt64(std.Alignof(typ)),
 		Src:  src,
@@ -875,9 +860,9 @@ type unsafeOffsetofInstr struct{}
 func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Offsetof", 1, len(args), src)
 
-	var sel *ast.SelectorExpr
+	var sel *target.SelectorExpr
 	var ok bool
-	if sel, ok = args[0].Val.(*ast.SelectorExpr); !ok {
+	if sel, ok = args[0].Val.(*target.SelectorExpr); !ok {
 		s, pos, end := pkg.cb.loadExpr(src)
 		if pos != token.NoPos {
 			pos += token.Pos(len("unsafe.Offsetof"))
@@ -906,9 +891,8 @@ func (p unsafeOffsetofInstr) Call(pkg *Package, args []*Element, lhs int, flags 
 		pkg.cb.panicCodeErrorf(pos, end, "%v", err)
 	}
 	//var offset int64
-	fn := toObjectExpr(pkg, unsafeRef("Offsetof"))
 	ret = &Element{
-		Val:  &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}},
+		Val:  newOffsetofExpr(pkg, args),
 		Type: types.Typ[types.Uintptr],
 		CVal: constant.MakeInt64(offset),
 		Src:  src,

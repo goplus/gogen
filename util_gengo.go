@@ -27,7 +27,10 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/go/printer"
+	"github.com/goplus/gogen/internal/target"
 )
+
+// ----------------------------------------------------------------------------
 
 // emitMapStringAnyAssert generates a type assertion statement for empty interface (any) values.
 // It emits: `tmpVar, _ := argVal.(map[string]any)` and returns the tmpVar identifier.
@@ -928,6 +931,8 @@ func (p *ClassDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...str
 	}
 }
 
+// ----------------------------------------------------------------------------
+
 type fileDecls struct {
 	goDecls []ast.Decl
 }
@@ -959,6 +964,78 @@ func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
 	p.goDecls = append(p.goDecls, decl)
 }
 
+// ----------------------------------------------------------------------------
+
+var (
+	identAppend = ident("append")
+	identLen    = ident("len")
+	identCap    = ident("cap")
+	identNew    = ident("new")
+	identMake   = ident("make")
+	identIota   = ident("iota")
+)
+
+func newIotaExpr(_ int) *ast.Ident {
+	return identIota
+}
+
+func newAppendStringExpr(args []*internal.Elem) *ast.CallExpr {
+	return &ast.CallExpr{
+		Fun:      identAppend,
+		Args:     []ast.Expr{args[0].Val, args[1].Val},
+		Ellipsis: 1,
+	}
+}
+
+func newLenExpr(args []*internal.Elem) *ast.CallExpr {
+	return &ast.CallExpr{Fun: identLen, Args: []ast.Expr{args[0].Val}}
+}
+
+func newCapExpr(args []*internal.Elem) *ast.CallExpr {
+	return &ast.CallExpr{Fun: identCap, Args: []ast.Expr{args[0].Val}}
+}
+
+func newNewExpr(args []*internal.Elem) *ast.CallExpr {
+	return &ast.CallExpr{
+		Fun:  identNew,
+		Args: []ast.Expr{args[0].Val},
+	}
+}
+
+func newMakeExpr(args []*internal.Elem) *ast.CallExpr {
+	argsExpr := make([]target.Expr, n)
+	for i, arg := range args {
+		argsExpr[i] = arg.Val
+	}
+	return &ast.CallExpr{
+		Fun:  identMake,
+		Args: argsExpr,
+	}
+}
+
+func newSizeofExpr(pkg *Package, args []*internal.Elem) *ast.CallExpr {
+	fn := toObjectExpr(pkg, unsafeRef("Sizeof"))
+	return &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}}
+}
+
+func newAlignofExpr(pkg *Package, args []*internal.Elem) *ast.CallExpr {
+	fn := toObjectExpr(pkg, unsafeRef("Alignof"))
+	return &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}}
+}
+
+func newOffsetofExpr(pkg *Package, args []*internal.Elem) *ast.CallExpr {
+	fn := toObjectExpr(pkg, unsafeRef("Offsetof"))
+	return &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}}
+}
+
+func newRecvExpr(args []*internal.Elem) *ast.UnaryExpr {
+	return &ast.UnaryExpr{Op: token.ARROW, X: args[0].Val}
+}
+
+func newAddrExpr(args []*internal.Elem) *ast.UnaryExpr {
+	return &ast.UnaryExpr{Op: token.AND, X: args[0].Val}
+}
+
 func zeroCompositeLit(p *Package, typ types.Type) *ast.CompositeLit {
 	ret := &ast.CompositeLit{}
 	switch t := typ.(type) {
@@ -985,6 +1062,12 @@ func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
 		Node:           f,
 		CommentedStmts: p.commentedStmts,
 	}
+}
+
+// ----------------------------------------------------------------------------
+
+func newIncDecStmt(x ast.Expr, tok token.Token) *ast.IncDecStmt {
+	return &ast.IncDecStmt{X: x, Tok: tok}
 }
 
 func newAssignOpStmt(tok token.Token, args []*internal.Elem) *ast.AssignStmt {
@@ -1196,3 +1279,5 @@ var (
 		},
 	}
 )
+
+// ----------------------------------------------------------------------------

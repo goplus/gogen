@@ -42,15 +42,9 @@ var (
 )
 
 var (
-	identTrue   = ident("true")
-	identFalse  = ident("false")
-	identNil    = ident("nil")
-	identAppend = ident("append")
-	identLen    = ident("len")
-	identCap    = ident("cap")
-	identNew    = ident("new")
-	identMake   = ident("make")
-	identIota   = ident("iota")
+	identTrue  = ident("true")
+	identFalse = ident("false")
+	identNil   = ident("nil")
 )
 
 func ident(name string) *target.Ident {
@@ -317,7 +311,7 @@ func toExpr(pkg *Package, val any, src ast.Node) *internal.Elem {
 		if v == iotaObj {
 			v := pkg.cb.iotav
 			return &internal.Elem{
-				Val:  identIota,
+				Val:  newIotaExpr(v),
 				Type: types.Typ[types.UntypedInt],
 				CVal: constant.MakeInt64(int64(v)),
 				Src:  src,

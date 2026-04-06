@@ -26,6 +26,8 @@ import (
 	"github.com/goplus/gogen/target/js"
 )
 
+// ----------------------------------------------------------------------------
+
 func (p *CodeBuilder) emitMapStringAnyAssert(argVal js.Expr) js.Expr {
 	panic("todo")
 }
@@ -139,6 +141,8 @@ func (p *ClassDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...str
 	panic("todo")
 }
 
+// ----------------------------------------------------------------------------
+
 type jsDecl interface {
 	declNode()
 }
@@ -196,6 +200,52 @@ func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
 	p.jsDecls = append(p.jsDecls, decl)
 }
 
+// ----------------------------------------------------------------------------
+
+func newIotaExpr(v int) js.Expr {
+	panic("todo")
+}
+
+func newAppendStringExpr(args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
+func newLenExpr(args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
+func newCapExpr(args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
+func newNewExpr(args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
+func newMakeExpr(args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
+func newSizeofExpr(pkg *Package, args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
+func newAlignofExpr(pkg *Package, args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
+func newOffsetofExpr(pkg *Package, args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
+func newRecvExpr(args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
+func newAddrExpr(args []*internal.Elem) js.Expr {
+	panic("todo")
+}
+
 func zeroCompositeLit(p *Package, typ types.Type) js.Expr {
 	panic("todo")
 }
@@ -208,6 +258,12 @@ func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
 	return &printer.CommentedNodes{
 		Node: f,
 	}
+}
+
+// ----------------------------------------------------------------------------
+
+func newIncDecStmt(x js.Expr, tok token.Token) js.Stmt {
+	panic("todo")
 }
 
 func newAssignOpStmt(tok token.Token, args []*internal.Elem) js.Stmt {
@@ -282,3 +338,5 @@ func emitTypeCaseClause(cb *CodeBuilder, p *typeCaseStmt, body []js.Stmt) {
 func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []js.Stmt) {
 	panic("todo")
 }
+
+// ----------------------------------------------------------------------------
