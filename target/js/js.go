@@ -143,23 +143,15 @@ func (p *ParenExpr) exprNode()      {}
 
 // A FuncLit node represents a function literal.
 type FuncLit struct {
-	Type *FuncType  // function type
-	Body *BlockStmt // function body
+	Opening token.Pos  // position of (
+	Params  []*Ident   // parameters
+	Closing token.Pos  // position of )
+	Body    *BlockStmt // function body
 }
 
-func (x *FuncLit) Pos() token.Pos { return x.Type.Pos() }
+func (x *FuncLit) Pos() token.Pos { return x.Opening }
 func (x *FuncLit) End() token.Pos { return x.Body.End() }
 func (*FuncLit) exprNode()        {}
-
-// A FuncType node represents a function type.
-type FuncType struct {
-	Func   token.Pos // position of "function" keyword
-	Params []*Ident  // parameters
-}
-
-func (x *FuncType) Pos() token.Pos {
-	return x.Func
-}
 
 // ----------------------------------------------------------------------------
 
@@ -255,5 +247,31 @@ func (s *BranchStmt) End() token.Pos {
 	return token.Pos(int(s.TokPos) + len(s.Tok.String()))
 }
 func (*BranchStmt) stmtNode() {}
+
+// ----------------------------------------------------------------------------
+
+// A FuncDecl node represents a function declaration.
+//
+// function Name(params) { body }
+// Recv.prototype.Name = function(params) { body }
+type FuncDecl struct {
+	//Doc *CommentGroup // associated documentation; or nil
+	Recv   *Ident     // receiver (methods); or nil (functions)
+	Func   token.Pos  // position of "function" keyword
+	Name   *Ident     // function/method name
+	Params []*Ident   // parameters
+	Body   *BlockStmt // function body
+}
+
+func (f *FuncDecl) Pos() token.Pos {
+	if f.Recv != nil {
+		return f.Recv.Pos()
+	}
+	return f.Func
+}
+func (f *FuncDecl) End() token.Pos {
+	return f.Body.End()
+}
+func (*FuncDecl) stmtNode() {}
 
 // ----------------------------------------------------------------------------
