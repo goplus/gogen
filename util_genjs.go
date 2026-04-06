@@ -132,6 +132,13 @@ func getCaller(expr *internal.Elem) string {
 	panic("todo")
 }
 
+// NewAndInit creates variables with specified `typ` (can be nil) and `names`, and
+// initializes them by `fn` (can be nil). When `fn` is nil (no initialization),
+// `typ` must not be nil. When names is empty, creates an embedded field.
+func (p *ClassDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...string) {
+	panic("todo")
+}
+
 type jsDecl interface {
 	declNode()
 }
@@ -142,6 +149,22 @@ type funcDecl struct {
 }
 
 func (*funcDecl) declNode() {}
+
+type valueSpec struct {
+	ast.ValueSpec
+	Values []js.Expr
+}
+
+func asValueSpec(spec *valueSpec) *valueSpec {
+	return spec
+}
+
+type valDecl struct {
+	ast.GenDecl
+	Specs []*valueSpec
+}
+
+func (*valDecl) declNode() {}
 
 type typeDecl struct {
 	ast.GenDecl
@@ -157,6 +180,15 @@ type fileDecls struct {
 func (p *fileDecls) appendFuncDecl(decl *funcDecl) {
 	p.goDecls = append(p.goDecls, &decl.FuncDecl)
 	p.jsDecls = append(p.jsDecls, decl)
+}
+
+func (p *fileDecls) appendValDecl(decl *valDecl) {
+	p.goDecls = append(p.goDecls, &decl.GenDecl)
+	p.jsDecls = append(p.jsDecls, decl)
+}
+
+func startValDeclStmtAt(cb *CodeBuilder, decl *valDecl) int {
+	panic("todo")
 }
 
 func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
@@ -183,6 +215,10 @@ func newAssignOpStmt(tok token.Token, args []*internal.Elem) js.Stmt {
 }
 
 func emitAssignStmt(cb *CodeBuilder, stmt *target.AssignStmt) {
+	panic("todo")
+}
+
+func commitAssignStmt(cb *CodeBuilder, p *ValueDecl) {
 	panic("todo")
 }
 

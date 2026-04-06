@@ -62,6 +62,7 @@ type RangeStmt struct {
 // An AssignStmt node represents an assignment or
 // a short variable declaration.
 type AssignStmt struct {
+	js.Stmt
 	Lhs    []Expr
 	TokPos token.Pos   // position of Tok
 	Tok    token.Token // assignment token, DEFINE

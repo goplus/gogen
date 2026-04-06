@@ -861,17 +861,98 @@ func getCaller(expr *internal.Elem) string {
 	return "the function call"
 }
 
+// NewAndInit creates variables with specified `typ` (can be nil) and `names`, and
+// initializes them by `fn` (can be nil). When `fn` is nil (no initialization),
+// `typ` must not be nil. When names is empty, creates an embedded field.
+func (p *ClassDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...string) {
+	pkg := p.pkg
+	pkgTypes := pkg.Types
+	embed := len(names) == 0
+	if fn == nil { // no initialization
+		if embed {
+			p.addFld(0, embedName(typ), typ, true)
+		} else {
+			for i, name := range names {
+				p.addFld(i, name, typ, false)
+			}
+		}
+		return
+	}
+	recv := p.recv
+	cb := p.cb
+	if cb == nil {
+		result := types.NewTuple(types.NewParam(token.NoPos, pkgTypes, "", recv.Type()))
+		cb = pkg.NewFunc(recv, "XGo_Init", nil, result, false).BodyStart(pkg)
+		p.cb = cb
+	}
+	scope := cb.current.scope
+	recvName := ident(recv.Name())
+	if embed {
+		names = []string{embedName(typ)}
+	}
+	if typ == nil {
+		cb.DefineVarStart(pos, names...)
+		decl := cb.valDecl
+		stmt := cb.current.stmts[decl.at].(*ast.AssignStmt)
+		callInitExpr(cb, fn)
+
+		for i, name := range names {
+			o := scope.Lookup(name)
+			p.addFld(i, name, o.Type(), embed)
+			stmt.Lhs[i] = &ast.SelectorExpr{
+				X:   recvName,
+				Sel: stmt.Lhs[i].(*ast.Ident),
+			}
+		}
+		stmt.Tok = token.ASSIGN
+	} else {
+		cb.NewVarStart(typ, names...)
+		decl := cb.valDecl
+		pstmt := &cb.current.stmts[decl.at]
+		spec := (*pstmt).(*ast.DeclStmt).Decl.(*ast.GenDecl).Specs[0].(*ast.ValueSpec)
+		callInitExpr(cb, fn)
+
+		lhs := make([]ast.Expr, len(names))
+		for i, name := range names {
+			p.addFld(i, name, typ, embed)
+			lhs[i] = &ast.SelectorExpr{
+				X:   recvName,
+				Sel: spec.Names[i],
+			}
+		}
+		*pstmt = &ast.AssignStmt{
+			Lhs: lhs,
+			Tok: token.ASSIGN,
+			Rhs: spec.Values,
+		}
+	}
+}
+
 type fileDecls struct {
 	goDecls []ast.Decl
 }
 
 type (
-	funcDecl = ast.FuncDecl
-	typeDecl = ast.GenDecl
+	funcDecl  = ast.FuncDecl
+	typeDecl  = ast.GenDecl
+	valDecl   = ast.GenDecl
+	valueSpec = ast.ValueSpec
 )
+
+func asValueSpec(spec ast.Spec) *valueSpec {
+	return spec.(*valueSpec)
+}
 
 func (p *fileDecls) appendFuncDecl(decl *funcDecl) {
 	p.goDecls = append(p.goDecls, decl)
+}
+
+func (p *fileDecls) appendValDecl(decl *valDecl) {
+	p.goDecls = append(p.goDecls, decl)
+}
+
+func startValDeclStmtAt(cb *CodeBuilder, decl *valDecl) int {
+	return cb.startStmtAt(&ast.DeclStmt{Decl: decl})
 }
 
 func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
@@ -916,6 +997,10 @@ func newAssignOpStmt(tok token.Token, args []*internal.Elem) *ast.AssignStmt {
 
 func emitAssignStmt(cb *CodeBuilder, stmt *ast.AssignStmt) {
 	cb.emitStmt(stmt)
+}
+
+func commitAssignStmt(cb *CodeBuilder, p *ValueDecl) {
+	cb.commitStmt(p.at)
 }
 
 func emitTypeDeclStmt(cb *CodeBuilder, decl *ast.GenDecl) {
