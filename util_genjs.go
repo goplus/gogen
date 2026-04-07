@@ -204,6 +204,8 @@ func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
 	p.jsDecls = append(p.jsDecls, decl)
 }
 
+// ----------------------------------------------------------------------------
+
 func (p *File) getJSFile(_ *Package) *js.File {
 	decls := make([]js.Stmt, 0, len(p.jsDecls))
 	for _, decl := range p.jsDecls {

@@ -29,7 +29,7 @@ const (
 
 type (
 	Object = js.Object
-	PkgRef = js.PkgRef
+	PkgRef = js.Ident
 
 	Expr         = js.Expr
 	BasicLit     = js.BasicLit

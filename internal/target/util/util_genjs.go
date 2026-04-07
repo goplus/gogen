@@ -56,14 +56,6 @@ func CheckParenExpr(x js.Expr) js.Expr {
 
 // -----------------------------------------------------------------------------
 
-func Ref(x *js.PkgRef, name string) js.Expr {
-	panic("todo")
-}
-
-func RefType(x *js.PkgRef, name string) ast.Expr {
-	panic("todo")
-}
-
 func AddrOf(v js.Expr) js.Expr {
 	panic("todo")
 }

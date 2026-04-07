@@ -404,7 +404,10 @@ func toObjectExpr(pkg *Package, v types.Object) target.Expr {
 		return ident(name)
 	}
 	x := pkg.file.newImport(atPkg.Name(), atPkg.Path())
-	return util.Ref(x, v.Name())
+	return &target.SelectorExpr{
+		X:   x,
+		Sel: &target.Ident{Name: name},
+	}
 }
 
 func toObjectTypeExpr(pkg *Package, v types.Object) ast.Expr {
@@ -413,7 +416,10 @@ func toObjectTypeExpr(pkg *Package, v types.Object) ast.Expr {
 		return &ast.Ident{Name: name}
 	}
 	x := pkg.file.newImport(atPkg.Name(), atPkg.Path())
-	return util.RefType(x, v.Name())
+	return &target.SelectorExpr{
+		X:   x,
+		Sel: &target.Ident{Name: name},
+	}
 }
 
 type operator struct {

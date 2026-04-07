@@ -31,11 +31,6 @@ type Object struct {
 	Data any    // object-specific data; or nil
 }
 
-type PkgRef struct {
-	Name string  // package name
-	Obj  *Object // denoted object, or nil.
-}
-
 // All expression nodes implement the Expr interface.
 type Expr interface {
 	Node
