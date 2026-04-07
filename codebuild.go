@@ -907,7 +907,7 @@ func (p *CodeBuilder) Typ(typ types.Type, src ...ast.Node) *CodeBuilder {
 		log.Println("Typ", typ)
 	}
 	p.stk.Push(&internal.Elem{
-		Val:  util.FakeExpr(toType(p.pkg, typ)),
+		Val:  util.FakeExprOf(toType(p.pkg, typ)),
 		Type: NewTypeType(typ),
 		Src:  getSrc(src),
 	})

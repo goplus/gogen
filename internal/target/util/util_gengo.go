@@ -93,7 +93,7 @@ func AddrOf(v ast.Expr) ast.Expr {
 	return &ast.UnaryExpr{Op: token.AND, X: v}
 }
 
-func FakeExpr(typ ast.Expr) ast.Expr {
+func FakeExprOf(typ ast.Expr) ast.Expr {
 	return typ
 }
 

@@ -19,6 +19,7 @@ package util
 
 import (
 	"go/ast"
+	"go/token"
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/target/js"
@@ -60,8 +61,18 @@ func AddrOf(v js.Expr) js.Expr {
 	panic("todo")
 }
 
-func FakeExpr(typ ast.Expr) js.Expr {
-	panic("todo")
+// -----------------------------------------------------------------------------
+
+type FakeExpr struct {
+	js.Expr
+	Real ast.Expr
+}
+
+func (e *FakeExpr) Pos() token.Pos { return e.Real.Pos() }
+func (e *FakeExpr) End() token.Pos { return e.Real.End() }
+
+func FakeExprOf(real ast.Expr) js.Expr {
+	return &FakeExpr{Real: real}
 }
 
 // -----------------------------------------------------------------------------

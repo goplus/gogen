@@ -297,7 +297,7 @@ func toExpr(pkg *Package, val any, src ast.Node) *internal.Elem {
 				log.Printf("Val %v => Typ %v", v, typ)
 			}
 			return &internal.Elem{
-				Val: util.FakeExpr(toType(pkg, typ)), Type: NewTypeType(typ), Src: src,
+				Val: util.FakeExprOf(toType(pkg, typ)), Type: NewTypeType(typ), Src: src,
 			}
 		}
 	case *types.Builtin:
@@ -405,7 +405,7 @@ func toObjectExpr(pkg *Package, v types.Object) target.Expr {
 	}
 	x := pkg.file.newImport(atPkg.Name(), atPkg.Path())
 	return &target.SelectorExpr{
-		X:   util.FakeExpr(x),
+		X:   util.FakeExprOf(x),
 		Sel: &target.Ident{Name: name},
 	}
 }

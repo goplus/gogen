@@ -37,6 +37,52 @@ func (c *termChecker) isTerminating(s js.Stmt, label string) bool {
 
 // ----------------------------------------------------------------------------
 
+type jsVisitor struct {
+}
+
+func (p *jsVisitor) Visit(node js.Node) (w js.Visitor) {
+	if node == nil {
+		return nil
+	}
+	switch v := node.(type) {
+	case *js.CommentGroup, *js.Ident, *js.BasicLit:
+	case *js.SelectorExpr:
+		x := v.X
+		if id, ok := x.(*js.Ident); ok && id.Obj != nil {
+			if used, ok := id.Obj.Data.(importUsed); ok && bool(!used) {
+				id.Obj.Data = importUsed(true)
+				if name, renamed := p.pkg.importName(p.file.Name(), id.Name); renamed {
+					id.Name = name
+					id.Obj.Name = name
+				}
+			}
+		} else {
+			js.Walk(p, x)
+		}
+	case *js.FuncDecl:
+		if v.Type != nil {
+			ast.Walk(p, v.Type)
+		}
+		if v.Body != nil {
+			ast.Walk(p, v.Body)
+		}
+	case *js.BranchStmt:
+	case *js.LabeledStmt:
+		js.Walk(p, v.Stmt)
+	default:
+		return p
+	}
+	return nil
+}
+
+func (p *jsVisitor) markUsed(decls []ast.Decl) {
+	for _, decl := range decls {
+		js.Walk(p, decl)
+	}
+}
+
+// ----------------------------------------------------------------------------
+
 type jsDecl interface {
 	declNode()
 }

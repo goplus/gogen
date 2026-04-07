@@ -141,7 +141,7 @@ type astVisitor struct {
 	file *File
 }
 
-func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
+func (p *astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 	if node == nil {
 		return nil
 	}
@@ -185,14 +185,14 @@ func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 	return nil
 }
 
-func (p astVisitor) markUsed(decls []ast.Decl) {
+func (p *astVisitor) markUsed(decls []ast.Decl) {
 	for _, decl := range decls {
 		ast.Walk(p, decl)
 	}
 }
 
 func markUsed(this *Package, p *File) {
-	astVisitor{this, p}.markUsed(p.goDecls)
+	(&astVisitor{this, p}).markUsed(p.goDecls)
 }
 
 // ----------------------------------------------------------------------------
