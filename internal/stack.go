@@ -18,7 +18,7 @@ import (
 	"go/constant"
 	"go/types"
 
-	"github.com/goplus/gogen/internal/target"
+	"github.com/goplus/gogen/target"
 )
 
 // -----------------------------------------------------------------------------

@@ -21,7 +21,7 @@ import (
 	"log"
 
 	"github.com/goplus/gogen/internal"
-	"github.com/goplus/gogen/internal/target"
+	"github.com/goplus/gogen/target"
 )
 
 // ----------------------------------------------------------------------------

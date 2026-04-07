@@ -28,7 +28,7 @@ import (
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/go/printer"
 	"github.com/goplus/gogen/internal/goxdbg"
-	"github.com/goplus/gogen/internal/target"
+	"github.com/goplus/gogen/target"
 )
 
 // ----------------------------------------------------------------------------

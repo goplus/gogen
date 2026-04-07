@@ -19,7 +19,7 @@ import (
 	"go/types"
 	"strconv"
 
-	"github.com/goplus/gogen/internal/target"
+	"github.com/goplus/gogen/target"
 )
 
 // ----------------------------------------------------------------------------

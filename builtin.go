@@ -24,7 +24,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/goplus/gogen/internal/target"
+	"github.com/goplus/gogen/target"
 	"github.com/goplus/gogen/typeutil"
 )
 
