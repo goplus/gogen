@@ -220,7 +220,6 @@ func (p *File) getJSFile(_ *Package) *js.File {
 				params[i] = &js.Ident{Name: in.At(i).Name()}
 			}
 			decls = append(decls, &js.FuncDecl{
-				Recv:   nil,
 				Name:   &js.Ident{Name: d.Name.Name},
 				Params: params,
 				Body:   d.Body,

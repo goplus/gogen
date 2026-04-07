@@ -301,13 +301,33 @@ func (*ReturnStmt) stmtNode() {}
 
 // ----------------------------------------------------------------------------
 
+// An ImportSpec represents an import specification.
+type ImportSpec struct {
+	Type  token.Pos // position of "type"; or token.NoPos
+	Name  *Ident    // symbol name or type name to import
+	Alias *Ident    // alias name; or nil
+}
+
+// An ImportDecl represents an import declaration.
+//
+// import { Name1, Name2 as AliasName2, type Name3 } from "path"
+type ImportDecl struct {
+	Import token.Pos     // position of "import" keyword
+	Specs  []*ImportSpec // import specifications
+	Path   *BasicLit     // import path
+}
+
+func (i *ImportDecl) Pos() token.Pos { return i.Import }
+func (i *ImportDecl) End() token.Pos { return i.Path.End() }
+func (*ImportDecl) stmtNode()        {}
+
+// ----------------------------------------------------------------------------
+
 // A FuncDecl node represents a function declaration.
 //
 // function Name(params) { body }
-// Recv.prototype.Name = function(params) { body }
 type FuncDecl struct {
 	Doc     *CommentGroup // associated documentation; or nil
-	Recv    *Ident        // receiver (methods); or nil (functions)
 	Func    token.Pos     // position of "function" keyword
 	Name    *Ident        // function/method name
 	Opening token.Pos     // position of (
@@ -316,15 +336,8 @@ type FuncDecl struct {
 	Body    *BlockStmt    // function body
 }
 
-func (f *FuncDecl) Pos() token.Pos {
-	if f.Recv != nil {
-		return f.Recv.Pos()
-	}
-	return f.Func
-}
-func (f *FuncDecl) End() token.Pos {
-	return f.Body.End()
-}
-func (*FuncDecl) stmtNode() {}
+func (f *FuncDecl) Pos() token.Pos { return f.Func }
+func (f *FuncDecl) End() token.Pos { return f.Body.End() }
+func (*FuncDecl) stmtNode()        {}
 
 // ----------------------------------------------------------------------------

@@ -1933,13 +1933,12 @@ func (p *printer) funcDecl(d *js.FuncDecl) {
 	// different line (all whitespace preceding the FUNC is emitted only when the
 	// FUNC is emitted).
 	startCol := p.out.Column - len("function ")
+	/* TODO(xsw):
 	if d.Recv != nil {
-		/* TODO(xsw):
 		p.parameters(d.Recv, funcParam) // method: print receiver
 		p.print(blank)
-		*/
-		panic("todo")
 	}
+	*/
 	p.expr(d.Name)
 	p.signature(d)
 	p.funcBody(p.distanceFrom(d.Pos(), startCol), vtab, d.Body)
