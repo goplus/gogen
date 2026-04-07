@@ -2311,9 +2311,9 @@ func (p *CodeBuilder) End(src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-func (p *CodeBuilder) SetBodyHandler(handle func(body *ast.BlockStmt, kind int)) *CodeBuilder {
+func (p *CodeBuilder) SetBodyHandler(handle func(body *target.BlockStmt, kind int)) *CodeBuilder {
 	if ini, ok := p.current.codeBlock.(interface {
-		SetBodyHandler(func(body *ast.BlockStmt, kind int))
+		SetBodyHandler(func(body *target.BlockStmt, kind int))
 	}); ok {
 		ini.SetBodyHandler(handle)
 	}

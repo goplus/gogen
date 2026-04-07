@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/goplus/gogen"
+	"github.com/goplus/gogen/target"
 )
 
 func initXGoBuiltin(big gogen.PkgRef, conf *gogen.Config) {
@@ -961,8 +962,8 @@ func TestForRangeUDT4(t *testing.T) {
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("elem").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "elem")).Call(1).EndStmt().
-		SetBodyHandler(func(body *ast.BlockStmt, kind int) {
-			gogen.InsertStmtFront(body, &ast.ExprStmt{X: ast.NewIdent("__sched__")})
+		SetBodyHandler(func(body *target.BlockStmt, kind int) {
+			gogen.InsertStmtFront(body, &target.ExprStmt{X: ast.NewIdent("__sched__")})
 		}).
 		End().End()
 	domTest(t, pkg, `package main
