@@ -308,6 +308,20 @@ type ImportSpec struct {
 	Alias *Ident    // alias name; or nil
 }
 
+func (i *ImportSpec) Pos() token.Pos {
+	if i.Type.IsValid() {
+		return i.Type
+	}
+	return i.Name.Pos()
+}
+
+func (i *ImportSpec) End() token.Pos {
+	if i.Alias != nil {
+		return i.Alias.End()
+	}
+	return i.Name.End()
+}
+
 // An ImportDecl represents an import declaration.
 //
 // import { Name1, Name2 as AliasName2, type Name3 } from "path"

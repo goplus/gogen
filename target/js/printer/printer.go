@@ -1172,8 +1172,6 @@ func (p *printer) printNode(node any) error {
 		}
 		p.stmt(n, false)
 	/* TODO(xsw):
-	case js.Decl:
-		p.decl(n)
 	case js.Spec:
 		p.spec(n, 1, false)
 	case []js.Stmt:

@@ -1352,6 +1352,12 @@ func (p *printer) stmt(stmt js.Stmt, nextIsRBrace bool) {
 	case *js.DeclStmt:
 		p.decl(s.Decl)
 	*/
+	case *js.FuncDecl:
+		p.funcDecl(s)
+
+	case *js.ImportDecl:
+		p.importDecl(s)
+
 	case *js.EmptyStmt:
 		// nothing to do
 
@@ -1944,6 +1950,28 @@ func (p *printer) funcDecl(d *js.FuncDecl) {
 	p.funcBody(p.distanceFrom(d.Pos(), startCol), vtab, d.Body)
 }
 
+// import { Name1, Name2 as AliasName2, type Name3 } from "path"
+func (p *printer) importDecl(d *js.ImportDecl) {
+	p.setPos(d.Pos())
+	p.print("import", blank, token.LBRACE)
+	for i, spec := range d.Specs {
+		if i > 0 {
+			p.print(token.COMMA)
+		}
+		p.print(blank)
+		if spec.Type.IsValid() {
+			p.print("type", blank)
+		}
+		p.expr(spec.Name)
+		if spec.Alias != nil {
+			p.print(blank, "as", blank)
+			p.expr(spec.Alias)
+		}
+	}
+	p.print(blank, token.RBRACE, blank, "from", blank)
+	p.expr(d.Path)
+}
+
 func (p *printer) decl(decl js.Stmt) {
 	switch d := decl.(type) {
 	/* TODO(xsw):
@@ -1955,6 +1983,8 @@ func (p *printer) decl(decl js.Stmt) {
 	*/
 	case *js.FuncDecl:
 		p.funcDecl(d)
+	case *js.ImportDecl:
+		p.importDecl(d)
 	default:
 		panic("unreachable")
 	}
