@@ -933,39 +933,6 @@ func (p *ClassDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...str
 
 // ----------------------------------------------------------------------------
 
-type fileDecls struct {
-	goDecls []ast.Decl
-}
-
-type (
-	funcDecl  = ast.FuncDecl
-	typeDecl  = ast.GenDecl
-	valDecl   = ast.GenDecl
-	valueSpec = ast.ValueSpec
-)
-
-func asValueSpec(spec ast.Spec) *valueSpec {
-	return spec.(*valueSpec)
-}
-
-func (p *fileDecls) appendFuncDecl(decl *funcDecl, _ *types.Signature) {
-	p.goDecls = append(p.goDecls, decl)
-}
-
-func (p *fileDecls) appendValDecl(decl *valDecl) {
-	p.goDecls = append(p.goDecls, decl)
-}
-
-func startValDeclStmtAt(cb *CodeBuilder, decl *valDecl) int {
-	return cb.startStmtAt(&ast.DeclStmt{Decl: decl})
-}
-
-func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
-	p.goDecls = append(p.goDecls, decl)
-}
-
-// ----------------------------------------------------------------------------
-
 var (
 	identAppend = ident("append")
 	identLen    = ident("len")

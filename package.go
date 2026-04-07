@@ -136,23 +136,84 @@ type Config struct {
 
 // ----------------------------------------------------------------------------
 
+type astVisitor struct {
+	pkg  *Package
+	file *File
+}
+
+func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
+	if node == nil {
+		return nil
+	}
+	switch v := node.(type) {
+	case *ast.CommentGroup, *ast.Ident, *ast.BasicLit:
+	case *ast.SelectorExpr:
+		x := v.X
+		if id, ok := x.(*ast.Ident); ok && id.Obj != nil {
+			if used, ok := id.Obj.Data.(importUsed); ok && bool(!used) {
+				id.Obj.Data = importUsed(true)
+				if name, renamed := p.pkg.importName(p.file.Name(), id.Name); renamed {
+					id.Name = name
+					id.Obj.Name = name
+				}
+			}
+		} else {
+			ast.Walk(p, x)
+		}
+	case *ast.FuncDecl:
+		if v.Type != nil {
+			ast.Walk(p, v.Type)
+		}
+		if v.Body != nil {
+			ast.Walk(p, v.Body)
+		}
+	case *ast.ValueSpec:
+		if v.Type != nil {
+			ast.Walk(p, v.Type)
+		}
+		for _, val := range v.Values {
+			ast.Walk(p, val)
+		}
+	case *ast.TypeSpec:
+		ast.Walk(p, v.Type)
+	case *ast.BranchStmt:
+	case *ast.LabeledStmt:
+		ast.Walk(p, v.Stmt)
+	default:
+		return p
+	}
+	return nil
+}
+
+func (p astVisitor) markUsed(decls []ast.Decl) {
+	for _, decl := range decls {
+		ast.Walk(p, decl)
+	}
+}
+
+func markUsed(this *Package, p *File) {
+	astVisitor{this, p}.markUsed(p.goDecls)
+}
+
+// ----------------------------------------------------------------------------
+
 type importUsed bool
 
 type File struct {
 	fileDecls
 	fname string
-	imps  map[string]*target.PkgRef // importPath => impRef (nil means force-import)
+	imps  map[string]*ast.Ident // importPath => impRef (nil means force-import)
 	dirty bool
 }
 
 func newFile(fname string) *File {
-	return &File{fname: fname, imps: make(map[string]*target.PkgRef)}
+	return &File{fname: fname, imps: make(map[string]*ast.Ident)}
 }
 
-func (p *File) newImport(name, pkgPath string) *target.PkgRef {
+func (p *File) newImport(name, pkgPath string) *ast.Ident {
 	id := p.imps[pkgPath]
 	if id == nil {
-		id = &target.PkgRef{Name: name, Obj: &target.Object{Data: importUsed(false)}}
+		id = &ast.Ident{Name: name, Obj: &ast.Object{Data: importUsed(false)}}
 		p.imps[pkgPath] = id
 		p.dirty = true
 	}

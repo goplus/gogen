@@ -60,7 +60,7 @@ func AddrOf(v js.Expr) js.Expr {
 	panic("todo")
 }
 
-func TypeExpr(typ ast.Expr) js.Expr {
+func FakeExpr(typ ast.Expr) js.Expr {
 	panic("todo")
 }
 

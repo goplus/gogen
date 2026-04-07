@@ -18,6 +18,9 @@ limitations under the License.
 package gogen
 
 import (
+	"go/ast"
+	"go/types"
+
 	"github.com/goplus/gogen/target/js"
 )
 
@@ -34,13 +37,90 @@ func (c *termChecker) isTerminating(s js.Stmt, label string) bool {
 
 // ----------------------------------------------------------------------------
 
-type astVisitor struct {
-	pkg  *Package
-	file *File
+type jsDecl interface {
+	declNode()
 }
 
-func markUsed(this *Package, p *File) {
+type funcDecl struct {
+	ast.FuncDecl
+	sig  *types.Signature
+	Body *js.BlockStmt
+}
+
+func (*funcDecl) declNode() {}
+
+type valueSpec struct {
+	ast.ValueSpec
+	Values []js.Expr
+}
+
+func asValueSpec(spec *valueSpec) *valueSpec {
+	return spec
+}
+
+type valDecl struct {
+	ast.GenDecl
+	Specs []*valueSpec
+}
+
+func (*valDecl) declNode() {}
+
+type typeDecl struct {
+	ast.GenDecl
+}
+
+func (*typeDecl) declNode() {}
+
+type fileDecls struct {
+	goDecls []ast.Decl
+	jsDecls []jsDecl
+}
+
+func (p *fileDecls) appendFuncDecl(decl *funcDecl, sig *types.Signature) {
+	decl.sig = sig
+	p.goDecls = append(p.goDecls, &decl.FuncDecl)
+	p.jsDecls = append(p.jsDecls, decl)
+}
+
+func (p *fileDecls) appendValDecl(decl *valDecl) {
+	p.goDecls = append(p.goDecls, &decl.GenDecl)
+	p.jsDecls = append(p.jsDecls, decl)
+}
+
+func startValDeclStmtAt(cb *CodeBuilder, decl *valDecl) int {
 	panic("todo")
+}
+
+func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
+	p.goDecls = append(p.goDecls, &decl.GenDecl)
+	p.jsDecls = append(p.jsDecls, decl)
+}
+
+// ----------------------------------------------------------------------------
+
+func (p *File) getJSFile(_ *Package) *js.File {
+	decls := make([]js.Stmt, 0, len(p.jsDecls))
+	for _, decl := range p.jsDecls {
+		switch d := decl.(type) {
+		case *funcDecl:
+			sig := d.sig
+			if sig.Recv() != nil {
+				panic("todo")
+			}
+			in := sig.Params()
+			n := in.Len()
+			params := make([]*js.Ident, n)
+			for i := range n {
+				params[i] = &js.Ident{Name: in.At(i).Name()}
+			}
+			decls = append(decls, &js.FuncDecl{
+				Name:   &js.Ident{Name: d.Name.Name},
+				Params: params,
+				Body:   d.Body,
+			})
+		}
+	}
+	return &js.File{Stmts: decls}
 }
 
 // ----------------------------------------------------------------------------

@@ -20,6 +20,7 @@ package gogen
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 )
 
 // ----------------------------------------------------------------------------
@@ -177,63 +178,35 @@ func unparen(x ast.Expr) ast.Expr {
 
 // ----------------------------------------------------------------------------
 
-type astVisitor struct {
-	pkg  *Package
-	file *File
+type fileDecls struct {
+	goDecls []ast.Decl
 }
 
-func (p astVisitor) Visit(node ast.Node) (w ast.Visitor) {
-	if node == nil {
-		return nil
-	}
-	switch v := node.(type) {
-	case *ast.CommentGroup, *ast.Ident, *ast.BasicLit:
-	case *ast.SelectorExpr:
-		x := v.X
-		if id, ok := x.(*ast.Ident); ok && id.Obj != nil {
-			if used, ok := id.Obj.Data.(importUsed); ok && bool(!used) {
-				id.Obj.Data = importUsed(true)
-				if name, renamed := p.pkg.importName(p.file.Name(), id.Name); renamed {
-					id.Name = name
-					id.Obj.Name = name
-				}
-			}
-		} else {
-			ast.Walk(p, x)
-		}
-	case *ast.FuncDecl:
-		if v.Type != nil {
-			ast.Walk(p, v.Type)
-		}
-		if v.Body != nil {
-			ast.Walk(p, v.Body)
-		}
-	case *ast.ValueSpec:
-		if v.Type != nil {
-			ast.Walk(p, v.Type)
-		}
-		for _, val := range v.Values {
-			ast.Walk(p, val)
-		}
-	case *ast.TypeSpec:
-		ast.Walk(p, v.Type)
-	case *ast.BranchStmt:
-	case *ast.LabeledStmt:
-		ast.Walk(p, v.Stmt)
-	default:
-		return p
-	}
-	return nil
+type (
+	funcDecl  = ast.FuncDecl
+	typeDecl  = ast.GenDecl
+	valDecl   = ast.GenDecl
+	valueSpec = ast.ValueSpec
+)
+
+func asValueSpec(spec ast.Spec) *valueSpec {
+	return spec.(*valueSpec)
 }
 
-func (p astVisitor) markUsed(decls []ast.Decl) {
-	for _, decl := range decls {
-		ast.Walk(p, decl)
-	}
+func (p *fileDecls) appendFuncDecl(decl *funcDecl, _ *types.Signature) {
+	p.goDecls = append(p.goDecls, decl)
 }
 
-func markUsed(this *Package, p *File) {
-	astVisitor{this, p}.markUsed(p.goDecls)
+func (p *fileDecls) appendValDecl(decl *valDecl) {
+	p.goDecls = append(p.goDecls, decl)
+}
+
+func startValDeclStmtAt(cb *CodeBuilder, decl *valDecl) int {
+	return cb.startStmtAt(&ast.DeclStmt{Decl: decl})
+}
+
+func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
+	p.goDecls = append(p.goDecls, decl)
 }
 
 // ----------------------------------------------------------------------------
