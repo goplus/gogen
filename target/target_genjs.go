@@ -23,6 +23,10 @@ import (
 	"github.com/goplus/gogen/target/js"
 )
 
+const (
+	Kind = JS
+)
+
 type (
 	Object = js.Object
 	PkgRef = js.PkgRef
