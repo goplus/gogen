@@ -21,6 +21,10 @@ import (
 	"go/ast"
 )
 
+const (
+	Kind = Go
+)
+
 type (
 	Object = ast.Object
 	PkgRef = ast.Ident
