@@ -22,8 +22,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/goplus/gogen/internal/target"
 	"github.com/goplus/gogen/packages"
+	"github.com/goplus/gogen/target"
 )
 
 type LoadNamedFunc = func(at *Package, typ *types.Named)

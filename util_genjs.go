@@ -1,5 +1,4 @@
 //go:build genjs
-// +build genjs
 
 /*
 Copyright 2026 The XGo Authors (xgo.dev)
@@ -25,7 +24,7 @@ import (
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/go/printer"
-	"github.com/goplus/gogen/internal/target"
+	"github.com/goplus/gogen/target"
 	"github.com/goplus/gogen/target/js"
 )
 

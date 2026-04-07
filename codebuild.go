@@ -28,8 +28,8 @@ import (
 	"syscall"
 
 	"github.com/goplus/gogen/internal"
-	"github.com/goplus/gogen/internal/target"
 	"github.com/goplus/gogen/internal/target/util"
+	"github.com/goplus/gogen/target"
 	xtoken "github.com/goplus/gogen/token"
 	"github.com/goplus/gogen/typeutil"
 )

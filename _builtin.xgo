@@ -11,8 +11,6 @@
  limitations under the License.
 */
 
-// +build ignore
-
 // -----------------------------------------------------------------------------
 
 type ninteger interface {
