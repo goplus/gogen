@@ -1267,39 +1267,28 @@ func stripParensAlways(x js.Expr) js.Expr {
 }
 */
 
-func (p *printer) controlClause(isForStmt bool, init js.Stmt, expr js.Expr, post js.Stmt) {
+func (p *printer) forClause(init js.Stmt, expr js.Expr, post js.Stmt) {
 	p.print(blank, token.LPAREN)
-	needsBlank := false
-	if init == nil && post == nil {
-		// no semicolons required
-		if expr != nil {
-			p.expr(stripParens(expr))
-			needsBlank = true
-		}
-	} else {
-		// all semicolons required
-		// (they are not separators, print them explicitly)
-		if init != nil {
-			p.stmt(init, false)
-		}
-		p.print(token.SEMICOLON, blank)
-		if expr != nil {
-			p.expr(stripParens(expr))
-			needsBlank = true
-		}
-		if isForStmt {
-			p.print(token.SEMICOLON, blank)
-			needsBlank = false
-			if post != nil {
-				p.stmt(post, false)
-				needsBlank = true
-			}
-		}
+	if init != nil {
+		p.stmt(init, false)
 	}
-	if needsBlank {
+	p.print(token.SEMICOLON)
+	if expr != nil {
 		p.print(blank)
+		p.expr(stripParens(expr))
 	}
-	p.print(token.RPAREN)
+	p.print(token.SEMICOLON)
+	if post != nil {
+		p.print(blank)
+		p.stmt(post, false)
+	}
+	p.print(token.RPAREN, blank)
+}
+
+func (p *printer) controlClause(expr js.Expr) {
+	p.print(blank, token.LPAREN)
+	p.expr(stripParens(expr))
+	p.print(token.RPAREN, blank)
 }
 
 /* TODO(xsw):
@@ -1452,7 +1441,7 @@ func (p *printer) stmt(stmt js.Stmt, nextIsRBrace bool) {
 
 	case *js.IfStmt:
 		p.print(token.IF)
-		p.controlClause(false, nil, s.Cond, nil)
+		p.controlClause(s.Cond)
 		p.block(s.Body, 1)
 		if s.Else != nil {
 			p.print(blank, token.ELSE, blank)
@@ -1519,7 +1508,7 @@ func (p *printer) stmt(stmt js.Stmt, nextIsRBrace bool) {
 	*/
 	case *js.ForStmt:
 		p.print(token.FOR)
-		p.controlClause(true, s.Init, s.Cond, s.Post)
+		p.forClause(s.Init, s.Cond, s.Post)
 		p.block(s.Body, 1)
 
 	/* TODO(xsw):
