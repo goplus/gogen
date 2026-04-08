@@ -111,9 +111,16 @@ type SelectorExpr struct {
 	Sel *Ident // field selector
 }
 
-func (x *SelectorExpr) Pos() token.Pos { return x.X.Pos() }
-func (x *SelectorExpr) End() token.Pos { return x.Sel.End() }
-func (p *SelectorExpr) exprNode()      {}
+func (x *SelectorExpr) Pos() token.Pos {
+	if x.X != nil {
+		return x.X.Pos()
+	}
+	return x.Sel.Pos()
+}
+func (x *SelectorExpr) End() token.Pos {
+	return x.Sel.End()
+}
+func (p *SelectorExpr) exprNode() {}
 
 // A CallExpr node represents an expression followed by an argument list.
 type CallExpr struct {

@@ -20,6 +20,8 @@ package util
 import (
 	"go/ast"
 	"go/token"
+	"strconv"
+	"strings"
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/target/js"
@@ -32,7 +34,7 @@ func IntLit(v int) *js.BasicLit {
 }
 
 func StringLit(v string) *js.BasicLit {
-	panic("todo")
+	return &js.BasicLit{Kind: token.STRING, Value: strconv.Quote(v)}
 }
 
 func RuneLit(v rune) *js.BasicLit {
@@ -40,7 +42,11 @@ func RuneLit(v rune) *js.BasicLit {
 }
 
 func FloatLit(v float64) *js.BasicLit {
-	panic("todo")
+	val := strconv.FormatFloat(v, 'g', -1, 64)
+	if !strings.ContainsAny(val, ".e") {
+		val += ".0"
+	}
+	return &js.BasicLit{Kind: token.FLOAT, Value: val}
 }
 
 // -----------------------------------------------------------------------------

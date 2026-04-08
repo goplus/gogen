@@ -73,7 +73,6 @@ func foo() bar
 `)
 }
 
-/*
 func TestFuncCall(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
@@ -82,11 +81,11 @@ func TestFuncCall(t *testing.T) {
 		End()
 	domTestJS(t, pkg, `package main
 
-import "fmt"
+func main()
+`, `import { Println } from "fmt"
 
-func main() {
-	fmt.Println("Hello")
+function main() {
+	Println("Hello")
 }
-`, ``)
+`)
 }
-*/

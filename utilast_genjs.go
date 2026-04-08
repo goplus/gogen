@@ -51,7 +51,7 @@ type jsImportPkg struct {
 }
 
 type jsVisitor struct {
-	decls []*js.ImportDecl
+	decls []js.Stmt
 	imps  map[*ast.Ident]*jsImportPkg
 	syms  map[pkgSymbol]string
 	file  *File
@@ -69,8 +69,9 @@ func (p *jsVisitor) Visit(node js.Node) (w js.Visitor) {
 		if fake, ok := x.(*util.FakeExpr); ok {
 			if id, ok := fake.Real.(*ast.Ident); ok && id.Obj != nil {
 				if pkg, ok := p.imps[id]; ok {
-					if pkg.decl == nil {
-						decl := &js.ImportDecl{
+					decl := pkg.decl
+					if decl == nil {
+						decl = &js.ImportDecl{
 							Path: &js.BasicLit{
 								Kind:  token.STRING,
 								Value: strconv.Quote(pkg.pkgPath),
@@ -84,10 +85,15 @@ func (p *jsVisitor) Visit(node js.Node) (w js.Visitor) {
 					if newName, ok := p.syms[symKey]; ok {
 						v.Sel.Name = newName
 					} else {
+						spec := &js.ImportSpec{
+							Name: &js.Ident{Name: symName},
+						}
 						newName, renamed := p.this.importName(p.file.Name(), symName)
 						if renamed {
 							v.Sel.Name = newName
+							spec.Alias = v.Sel
 						}
+						decl.Specs = append(decl.Specs, spec)
 						p.syms[symKey] = newName
 					}
 					v.X = nil // remove the package qualifier
@@ -105,7 +111,7 @@ func (p *jsVisitor) Visit(node js.Node) (w js.Visitor) {
 	return nil
 }
 
-func jsImportDecls(this *Package, file *File) []*js.ImportDecl {
+func jsImportDecls(this *Package, file *File) []js.Stmt {
 	imps := make(map[*ast.Ident]*jsImportPkg)
 	for pkgPath, id := range file.imps {
 		imps[id] = &jsImportPkg{pkgPath: pkgPath}
@@ -188,8 +194,8 @@ func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
 
 // ----------------------------------------------------------------------------
 
-func (p *File) getJSFile(_ *Package) *js.File {
-	decls := make([]js.Stmt, 0, len(p.jsDecls))
+func (p *File) getJSFile(this *Package) *js.File {
+	decls := jsImportDecls(this, p)
 	for _, decl := range p.jsDecls {
 		switch d := decl.(type) {
 		case *funcDecl:
