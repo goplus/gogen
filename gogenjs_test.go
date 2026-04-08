@@ -27,7 +27,7 @@ import (
 	"github.com/goplus/gogen"
 )
 
-func domTestJs(t *testing.T, pkg *gogen.Package, expectedGo, expectedJs string) {
+func domTestJS(t *testing.T, pkg *gogen.Package, expectedGo, expectedJs string) {
 	doDomTest(t, pkg, expectedGo, "")
 	var b bytes.Buffer
 	t.Helper()
@@ -48,7 +48,7 @@ func TestBasic(t *testing.T) {
 	if pkg.Ref("main") == nil {
 		t.Fatal("main not found")
 	}
-	domTestJs(t, pkg, `package main
+	domTestJS(t, pkg, `package main
 
 func main()
 `, `function main() {
@@ -62,13 +62,30 @@ func TestZeroLitAlias(t *testing.T) {
 	results := types.NewTuple(types.NewVar(token.NoPos, pkg.Types, "", bar))
 	pkg.NewFunc(nil, "foo", nil, results, false).BodyStart(pkg).
 		ZeroLit(bar).Return(1).End()
-	domTestJs(t, pkg, `package main
+	domTestJS(t, pkg, `package main
 
 type bar = float64
 
 func foo() bar
 `, `function foo() {
 	return 0
+}
+`)
+}
+
+func TestFuncCall(t *testing.T) {
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1, false).EndStmt().
+		End()
+	domTestJS(t, pkg, `package main
+
+func main()
+`, `import { Println } from "fmt"
+
+function main() {
+	Println("Hello")
 }
 `)
 }

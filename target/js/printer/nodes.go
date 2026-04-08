@@ -1140,16 +1140,18 @@ func (p *printer) possibleSelectorExpr(expr js.Expr, prec1, depth int) bool {
 // selectorExpr handles an *js.SelectorExpr node and reports whether x spans
 // multiple lines.
 func (p *printer) selectorExpr(x *js.SelectorExpr, depth int, isMethod bool) bool {
-	p.expr1(x.X, token.HighestPrec, depth)
-	p.print(token.PERIOD)
-	if line := p.lineFor(x.Sel.Pos()); p.pos.IsValid() && p.pos.Line < line {
-		p.print(indent, newline)
-		p.setPos(x.Sel.Pos())
-		p.print(x.Sel)
-		if !isMethod {
-			p.print(unindent)
+	if x.X != nil {
+		p.expr1(x.X, token.HighestPrec, depth)
+		p.print(token.PERIOD)
+		if line := p.lineFor(x.Sel.Pos()); p.pos.IsValid() && p.pos.Line < line {
+			p.print(indent, newline)
+			p.setPos(x.Sel.Pos())
+			p.print(x.Sel)
+			if !isMethod {
+				p.print(unindent)
+			}
+			return true
 		}
-		return true
 	}
 	p.setPos(x.Sel.Pos())
 	p.print(x.Sel)
@@ -1352,6 +1354,12 @@ func (p *printer) stmt(stmt js.Stmt, nextIsRBrace bool) {
 	case *js.DeclStmt:
 		p.decl(s.Decl)
 	*/
+	case *js.FuncDecl:
+		p.funcDecl(s)
+
+	case *js.ImportDecl:
+		p.importDecl(s)
+
 	case *js.EmptyStmt:
 		// nothing to do
 
@@ -1933,16 +1941,37 @@ func (p *printer) funcDecl(d *js.FuncDecl) {
 	// different line (all whitespace preceding the FUNC is emitted only when the
 	// FUNC is emitted).
 	startCol := p.out.Column - len("function ")
+	/* TODO(xsw):
 	if d.Recv != nil {
-		/* TODO(xsw):
 		p.parameters(d.Recv, funcParam) // method: print receiver
 		p.print(blank)
-		*/
-		panic("todo")
 	}
+	*/
 	p.expr(d.Name)
 	p.signature(d)
 	p.funcBody(p.distanceFrom(d.Pos(), startCol), vtab, d.Body)
+}
+
+// import { Name1, Name2 as AliasName2, type Name3 } from "path"
+func (p *printer) importDecl(d *js.ImportDecl) {
+	p.setPos(d.Pos())
+	p.print("import", blank, token.LBRACE)
+	for i, spec := range d.Specs {
+		if i > 0 {
+			p.print(token.COMMA)
+		}
+		p.print(blank)
+		if spec.Type.IsValid() {
+			p.print("type", blank)
+		}
+		p.expr(spec.Name)
+		if spec.Alias != nil {
+			p.print(blank, "as", blank)
+			p.expr(spec.Alias)
+		}
+	}
+	p.print(blank, token.RBRACE, blank, "from", blank)
+	p.expr(d.Path)
 }
 
 func (p *printer) decl(decl js.Stmt) {
@@ -1956,6 +1985,8 @@ func (p *printer) decl(decl js.Stmt) {
 	*/
 	case *js.FuncDecl:
 		p.funcDecl(d)
+	case *js.ImportDecl:
+		p.importDecl(d)
 	default:
 		panic("unreachable")
 	}

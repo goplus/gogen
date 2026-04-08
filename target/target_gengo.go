@@ -27,7 +27,6 @@ const (
 
 type (
 	Object = ast.Object
-	PkgRef = ast.Ident
 
 	Expr         = ast.Expr
 	BasicLit     = ast.BasicLit

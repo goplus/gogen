@@ -31,11 +31,6 @@ type Object struct {
 	Data any    // object-specific data; or nil
 }
 
-type PkgRef struct {
-	Name string  // package name
-	Obj  *Object // denoted object, or nil.
-}
-
 // All expression nodes implement the Expr interface.
 type Expr interface {
 	Node
@@ -112,13 +107,20 @@ func (p *BinaryExpr) exprNode()      {}
 
 // A SelectorExpr node represents an expression followed by a selector.
 type SelectorExpr struct {
-	X   Expr   // expression
+	X   Expr   // expression; or nil (for an implicit package name)
 	Sel *Ident // field selector
 }
 
-func (x *SelectorExpr) Pos() token.Pos { return x.X.Pos() }
-func (x *SelectorExpr) End() token.Pos { return x.Sel.End() }
-func (p *SelectorExpr) exprNode()      {}
+func (x *SelectorExpr) Pos() token.Pos {
+	if x.X != nil {
+		return x.X.Pos()
+	}
+	return x.Sel.Pos()
+}
+func (x *SelectorExpr) End() token.Pos {
+	return x.Sel.End()
+}
+func (p *SelectorExpr) exprNode() {}
 
 // A CallExpr node represents an expression followed by an argument list.
 type CallExpr struct {
@@ -301,13 +303,47 @@ func (*ReturnStmt) stmtNode() {}
 
 // ----------------------------------------------------------------------------
 
+// An ImportSpec represents an import specification.
+type ImportSpec struct {
+	Type  token.Pos // position of "type"; or token.NoPos
+	Name  *Ident    // symbol name or type name to import
+	Alias *Ident    // alias name; or nil
+}
+
+func (i *ImportSpec) Pos() token.Pos {
+	if i.Type.IsValid() {
+		return i.Type
+	}
+	return i.Name.Pos()
+}
+
+func (i *ImportSpec) End() token.Pos {
+	if i.Alias != nil {
+		return i.Alias.End()
+	}
+	return i.Name.End()
+}
+
+// An ImportDecl represents an import declaration.
+//
+// import { Name1, Name2 as AliasName2, type Name3 } from "path"
+type ImportDecl struct {
+	Import token.Pos     // position of "import" keyword
+	Specs  []*ImportSpec // import specifications
+	Path   *BasicLit     // import path
+}
+
+func (i *ImportDecl) Pos() token.Pos { return i.Import }
+func (i *ImportDecl) End() token.Pos { return i.Path.End() }
+func (*ImportDecl) stmtNode()        {}
+
+// ----------------------------------------------------------------------------
+
 // A FuncDecl node represents a function declaration.
 //
 // function Name(params) { body }
-// Recv.prototype.Name = function(params) { body }
 type FuncDecl struct {
 	Doc     *CommentGroup // associated documentation; or nil
-	Recv    *Ident        // receiver (methods); or nil (functions)
 	Func    token.Pos     // position of "function" keyword
 	Name    *Ident        // function/method name
 	Opening token.Pos     // position of (
@@ -316,15 +352,8 @@ type FuncDecl struct {
 	Body    *BlockStmt    // function body
 }
 
-func (f *FuncDecl) Pos() token.Pos {
-	if f.Recv != nil {
-		return f.Recv.Pos()
-	}
-	return f.Func
-}
-func (f *FuncDecl) End() token.Pos {
-	return f.Body.End()
-}
-func (*FuncDecl) stmtNode() {}
+func (f *FuncDecl) Pos() token.Pos { return f.Func }
+func (f *FuncDecl) End() token.Pos { return f.Body.End() }
+func (*FuncDecl) stmtNode()        {}
 
 // ----------------------------------------------------------------------------

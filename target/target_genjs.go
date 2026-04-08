@@ -29,7 +29,6 @@ const (
 
 type (
 	Object = js.Object
-	PkgRef = js.PkgRef
 
 	Expr         = js.Expr
 	BasicLit     = js.BasicLit

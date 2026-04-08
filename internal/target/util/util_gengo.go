@@ -89,22 +89,11 @@ func CheckParenExpr(x ast.Expr) ast.Expr {
 
 // -----------------------------------------------------------------------------
 
-func Ref(x *ast.Ident, name string) ast.Expr {
-	return &ast.SelectorExpr{
-		X:   x,
-		Sel: &ast.Ident{Name: name},
-	}
-}
-
-func RefType(x *ast.Ident, name string) ast.Expr {
-	return Ref(x, name)
-}
-
 func AddrOf(v ast.Expr) ast.Expr {
 	return &ast.UnaryExpr{Op: token.AND, X: v}
 }
 
-func TypeExpr(typ ast.Expr) ast.Expr {
+func FakeExprOf(typ ast.Expr) ast.Expr {
 	return typ
 }
 
