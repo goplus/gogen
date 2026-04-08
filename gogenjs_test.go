@@ -89,3 +89,23 @@ function main() {
 }
 `)
 }
+
+func TestLoopFor(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		/**/ For().None().Then(). // for {
+		/******/ Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
+		/**/ End().
+		End()
+	domTestJS(t, pkg, `package main
+
+func main()
+`, `import { Println } from "fmt";
+
+function main() {
+	for (;;) {
+		Println("Hi");
+	}
+}
+`)
+}
