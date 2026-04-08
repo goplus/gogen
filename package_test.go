@@ -4597,4 +4597,25 @@ func main() {
 `)
 }
 
+func TestFuncVarKind(t *testing.T) {
+	pkg := newMainPackage()
+	x := pkg.NewParam(token.NoPos, "x", types.Typ[types.Int])
+	pkg.SetVarKind(x, gogen.ParamVar)
+	pkg.VarKind(x)
+	y := pkg.NewParam(token.NoPos, "y", types.Typ[types.Int])
+	r := pkg.NewResult(token.NoPos, "r", types.Typ[types.Int])
+	typ := pkg.NewType("T").InitType(pkg, types.Typ[types.Int])
+	recv := pkg.NewRecv(token.NoPos, "this", typ)
+	pkg.NewFunc(recv, "add", types.NewTuple(x, y), types.NewTuple(r), false).
+		BodyStart(pkg).Val(1).Return(1).End()
+	domTest(t, pkg, `package main
+
+type T int
+
+func (this T) add(x int, y int) (r int) {
+	return 1
+}
+`)
+}
+
 // ----------------------------------------------------------------------------
