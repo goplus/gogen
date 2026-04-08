@@ -107,7 +107,7 @@ func (p *BinaryExpr) exprNode()      {}
 
 // A SelectorExpr node represents an expression followed by a selector.
 type SelectorExpr struct {
-	X   Expr   // expression
+	X   Expr   // expression; or nil (for an implicit package name)
 	Sel *Ident // field selector
 }
 

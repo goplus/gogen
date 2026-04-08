@@ -19,8 +19,11 @@ package gogen
 
 import (
 	"go/ast"
+	"go/token"
 	"go/types"
+	"strconv"
 
+	"github.com/goplus/gogen/internal/target/util"
 	"github.com/goplus/gogen/target/js"
 )
 
@@ -37,7 +40,22 @@ func (c *termChecker) isTerminating(s js.Stmt, label string) bool {
 
 // ----------------------------------------------------------------------------
 
+type pkgSymbol struct {
+	pkg  *ast.Ident
+	name string
+}
+
+type jsImportPkg struct {
+	pkgPath string
+	decl    *js.ImportDecl
+}
+
 type jsVisitor struct {
+	decls []*js.ImportDecl
+	imps  map[*ast.Ident]*jsImportPkg
+	syms  map[pkgSymbol]string
+	file  *File
+	this  *Package
 }
 
 func (p *jsVisitor) Visit(node js.Node) (w js.Visitor) {
@@ -48,23 +66,35 @@ func (p *jsVisitor) Visit(node js.Node) (w js.Visitor) {
 	case *js.CommentGroup, *js.Ident, *js.BasicLit:
 	case *js.SelectorExpr:
 		x := v.X
-		if id, ok := x.(*js.Ident); ok && id.Obj != nil {
-			if used, ok := id.Obj.Data.(importUsed); ok && bool(!used) {
-				id.Obj.Data = importUsed(true)
-				if name, renamed := p.pkg.importName(p.file.Name(), id.Name); renamed {
-					id.Name = name
-					id.Obj.Name = name
+		if fake, ok := x.(*util.FakeExpr); ok {
+			if id, ok := fake.Real.(*ast.Ident); ok && id.Obj != nil {
+				if pkg, ok := p.imps[id]; ok {
+					if pkg.decl == nil {
+						decl := &js.ImportDecl{
+							Path: &js.BasicLit{
+								Kind:  token.STRING,
+								Value: strconv.Quote(pkg.pkgPath),
+							},
+						}
+						p.decls = append(p.decls, decl)
+						pkg.decl = decl
+					}
+					symName := v.Sel.Name
+					symKey := pkgSymbol{id, symName}
+					if newName, ok := p.syms[symKey]; ok {
+						v.Sel.Name = newName
+					} else {
+						newName, renamed := p.this.importName(p.file.Name(), symName)
+						if renamed {
+							v.Sel.Name = newName
+						}
+						p.syms[symKey] = newName
+					}
+					v.X = nil // remove the package qualifier
 				}
 			}
 		} else {
 			js.Walk(p, x)
-		}
-	case *js.FuncDecl:
-		if v.Type != nil {
-			ast.Walk(p, v.Type)
-		}
-		if v.Body != nil {
-			ast.Walk(p, v.Body)
 		}
 	case *js.BranchStmt:
 	case *js.LabeledStmt:
@@ -75,10 +105,24 @@ func (p *jsVisitor) Visit(node js.Node) (w js.Visitor) {
 	return nil
 }
 
-func (p *jsVisitor) markUsed(decls []ast.Decl) {
-	for _, decl := range decls {
-		js.Walk(p, decl)
+func jsImportDecls(this *Package, file *File) []*js.ImportDecl {
+	imps := make(map[*ast.Ident]*jsImportPkg)
+	for pkgPath, id := range file.imps {
+		imps[id] = &jsImportPkg{pkgPath: pkgPath}
 	}
+	p := &jsVisitor{
+		imps: imps,
+		syms: make(map[pkgSymbol]string),
+		file: file,
+		this: this,
+	}
+	for _, decl := range file.jsDecls {
+		switch d := decl.(type) {
+		case *funcDecl:
+			js.Walk(p, d.Body)
+		}
+	}
+	return p.decls
 }
 
 // ----------------------------------------------------------------------------

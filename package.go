@@ -185,14 +185,11 @@ func (p *astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 	return nil
 }
 
-func (p *astVisitor) markUsed(decls []ast.Decl) {
-	for _, decl := range decls {
+func markUsed(this *Package, file *File) {
+	p := &astVisitor{pkg: this, file: file}
+	for _, decl := range file.goDecls {
 		ast.Walk(p, decl)
 	}
-}
-
-func markUsed(this *Package, p *File) {
-	(&astVisitor{this, p}).markUsed(p.goDecls)
 }
 
 // ----------------------------------------------------------------------------

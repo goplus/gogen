@@ -1140,16 +1140,18 @@ func (p *printer) possibleSelectorExpr(expr js.Expr, prec1, depth int) bool {
 // selectorExpr handles an *js.SelectorExpr node and reports whether x spans
 // multiple lines.
 func (p *printer) selectorExpr(x *js.SelectorExpr, depth int, isMethod bool) bool {
-	p.expr1(x.X, token.HighestPrec, depth)
-	p.print(token.PERIOD)
-	if line := p.lineFor(x.Sel.Pos()); p.pos.IsValid() && p.pos.Line < line {
-		p.print(indent, newline)
-		p.setPos(x.Sel.Pos())
-		p.print(x.Sel)
-		if !isMethod {
-			p.print(unindent)
+	if x.X != nil {
+		p.expr1(x.X, token.HighestPrec, depth)
+		p.print(token.PERIOD)
+		if line := p.lineFor(x.Sel.Pos()); p.pos.IsValid() && p.pos.Line < line {
+			p.print(indent, newline)
+			p.setPos(x.Sel.Pos())
+			p.print(x.Sel)
+			if !isMethod {
+				p.print(unindent)
+			}
+			return true
 		}
-		return true
 	}
 	p.setPos(x.Sel.Pos())
 	p.print(x.Sel)
