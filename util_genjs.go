@@ -31,41 +31,41 @@ import (
 // ----------------------------------------------------------------------------
 
 func (p *CodeBuilder) emitMapStringAnyAssert(argVal js.Expr) js.Expr {
-	panic("todo")
+	panic("todo emitMapStringAnyAssert")
 }
 
 // TypeAssert func
 func (p *CodeBuilder) TypeAssert(typ types.Type, lhs int, src ...ast.Node) *CodeBuilder {
-	panic("todo")
+	panic("todo TypeAssert")
 }
 
 func (p *CodeBuilder) mapIndexExpr(o *types.Map, name string, lhs int, argVal js.Expr, src ast.Node) MemberKind {
-	panic("todo")
+	panic("todo mapIndexExpr")
 }
 
 // MapLitEx func
 func (p *CodeBuilder) MapLitEx(typ types.Type, arity int, src ...ast.Node) error {
-	panic("todo")
+	panic("todo MapLitEx")
 }
 
 // SliceLitEx func
 func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
-	panic("todo")
+	panic("todo SliceLitEx")
 }
 
 // ArrayLitEx func
 func (p *CodeBuilder) ArrayLitEx(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
-	panic("todo")
+	panic("todo ArrayLitEx")
 }
 
 // StructLit func
 func (p *CodeBuilder) StructLit(typ types.Type, arity int, keyVal bool, src ...ast.Node) *CodeBuilder {
-	panic("todo")
+	panic("todo StructLit")
 }
 
 // Slice func
 func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:j:k]
-	panic("todo")
+	panic("todo Slice")
 }
 
 // Index func:
@@ -73,136 +73,136 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 //   - fn[T1, T2, ..., Tn]
 //   - G[T1, T2, ..., Tn]
 func (p *CodeBuilder) Index(nidx int, lhs int, src ...ast.Node) *CodeBuilder {
-	panic("todo")
+	panic("todo Index")
 }
 
 // Star func
 func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
-	panic("todo")
+	panic("todo Star")
 }
 
 // Elem func
 func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
-	panic("todo")
+	panic("todo Elem")
 }
 
 // ElemRef func
 func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
-	panic("todo")
+	panic("todo ElemRef")
 }
 
 func (p *CodeBuilder) doVarRef(ref any, src ast.Node, allowDebug bool) *CodeBuilder {
-	panic("todo")
+	panic("todo doVarRef")
 }
 
 // NewAutoVar func
 func (p *CodeBuilder) NewAutoVar(pos, end token.Pos, name string, pv **types.Var) *CodeBuilder {
-	panic("todo")
+	panic("todo NewAutoVar")
 }
 
 func methodToFuncSig(pkg *Package, o types.Object, fn *Element) *types.Signature {
-	panic("todo")
+	panic("todo methodToFuncSig")
 }
 
 func (p *CodeBuilder) methodSigOf(typ types.Type, flag MemberFlag, arg, ret *Element) (types.Type, bool) {
-	panic("todo")
+	panic("todo methodSigOf")
 }
 
 func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Element, flags InstrFlags) (*Element, *types.Signature, []*Element, error) {
-	panic("todo")
+	panic("todo boundTypeParams")
 }
 
 func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.Node) *CodeBuilder {
-	panic("todo")
+	panic("todo instantiate")
 }
 
 func instanceInferFunc(pkg *Package, arg *internal.Elem, tsig *inferFuncType, sig *types.Signature) error {
-	panic("todo")
+	panic("todo instanceInferFunc")
 }
 
 func instanceFunc(pkg *Package, arg *internal.Elem, tsig *types.Signature, sig *types.Signature) error {
-	panic("todo")
+	panic("todo instanceFunc")
 }
 
 func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem, flags InstrFlags) ([]*internal.Elem, error) {
-	panic("todo")
+	panic("todo checkInferArgs")
 }
 
 func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
-	panic("todo")
+	panic("todo getFunExpr")
 }
 
 func getCaller(expr *internal.Elem) string {
-	panic("todo")
+	panic("todo getCaller")
 }
 
 // NewAndInit creates variables with specified `typ` (can be nil) and `names`, and
 // initializes them by `fn` (can be nil). When `fn` is nil (no initialization),
 // `typ` must not be nil. When names is empty, creates an embedded field.
 func (p *ClassDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...string) {
-	panic("todo")
+	panic("todo NewAndInit")
 }
 
 // ----------------------------------------------------------------------------
 
 func newIotaExpr(v int) js.Expr {
-	panic("todo")
+	panic("todo newIotaExpr")
 }
 
 func newAppendStringExpr(args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newAppendStringExpr")
 }
 
 func newLenExpr(args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newLenExpr")
 }
 
 func newCapExpr(args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newCapExpr")
 }
 
 func newNewExpr(args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newNewExpr")
 }
 
 func newMakeExpr(args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newMakeExpr")
 }
 
 func newSizeofExpr(pkg *Package, args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newSizeofExpr")
 }
 
 func newAlignofExpr(pkg *Package, args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newAlignofExpr")
 }
 
 func newOffsetofExpr(pkg *Package, args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newOffsetofExpr")
 }
 
 func newUnsafeAddExpr(pkg *Package, args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newUnsafeAddExpr")
 }
 
 func newUnsafeDataExpr(p unsafeDataInstr, pkg *Package, args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newUnsafeDataExpr")
 }
 
 func newRecvExpr(args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newRecvExpr")
 }
 
 func newAddrExpr(args []*internal.Elem) js.Expr {
-	panic("todo")
+	panic("todo newAddrExpr")
 }
 
 func zeroCompositeLit(p *Package, typ types.Type, typ0 *types.Type) js.Expr {
-	panic("todo")
+	panic("todo zeroCompositeLit")
 }
 
 func newFuncLit(pkg *Package, t *types.Signature, body *js.BlockStmt) *js.FuncLit {
-	panic("todo")
+	panic("todo newFuncLit")
 }
 
 func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
@@ -214,39 +214,39 @@ func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
 // ----------------------------------------------------------------------------
 
 func newIncDecStmt(x js.Expr, tok token.Token) js.Stmt {
-	panic("todo")
+	panic("todo newIncDecStmt")
 }
 
 func newAssignOpStmt(tok token.Token, args []*internal.Elem) js.Stmt {
-	panic("todo")
+	panic("todo newAssignOpStmt")
 }
 
 func emitAssignStmt(cb *CodeBuilder, stmt *target.AssignStmt) {
-	panic("todo")
+	panic("todo emitAssignStmt")
 }
 
 func commitAssignStmt(cb *CodeBuilder, p *ValueDecl) {
-	panic("todo")
+	panic("todo commitAssignStmt")
 }
 
 func emitTypeDeclStmt(cb *CodeBuilder, decl *typeDecl) {
-	panic("todo")
+	panic("todo emitTypeDeclStmt")
 }
 
 func emitGoStmt(cb *CodeBuilder, call *js.CallExpr) {
-	panic("todo")
+	panic("todo emitGoStmt")
 }
 
 func emitDeferStmt(cb *CodeBuilder, call *js.CallExpr) {
-	panic("todo")
+	panic("todo emitDeferStmt")
 }
 
 func emitSendStmt(cb *CodeBuilder, ch, val js.Expr) {
-	panic("todo")
+	panic("todo emitSendStmt")
 }
 
 func emitGotoStmt(cb *CodeBuilder, name string) {
-	panic("todo")
+	panic("todo emitGotoStmt")
 }
 
 func emitReturnStmt(cb *CodeBuilder, pos token.Pos, rets ...js.Expr) {
@@ -269,35 +269,35 @@ func emitIfStmt(cb *CodeBuilder, p *ifStmt, el js.Stmt) {
 }
 
 func emitSWitchStmt(cb *CodeBuilder, p *switchStmt, stmts []js.Stmt) {
-	panic("todo")
+	panic("todo emitSWitchStmt")
 }
 
 func emitFullthrough(cb *CodeBuilder) {
-	panic("todo")
+	panic("todo emitFullthrough")
 }
 
 func emitCaseClause(cb *CodeBuilder, p *caseStmt, body []js.Stmt) {
-	panic("todo")
+	panic("todo emitCaseClause")
 }
 
 func emitSelectStmt(cb *CodeBuilder, stmts []js.Stmt) {
-	panic("todo")
+	panic("todo emitSelectStmt")
 }
 
 func emitCommClause(cb *CodeBuilder, p *commCase, body []js.Stmt) {
-	panic("todo")
+	panic("todo emitCommClause")
 }
 
 func emitTypeSwitchStmt(cb *CodeBuilder, p *typeSwitchStmt, stmts []js.Stmt) {
-	panic("todo")
+	panic("todo emitTypeSwitchStmt")
 }
 
 func emitTypeCaseClause(cb *CodeBuilder, p *typeCaseStmt, body []js.Stmt) {
-	panic("todo")
+	panic("todo emitTypeCaseClause")
 }
 
 func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []js.Stmt, flows int) {
-	panic("todo")
+	panic("todo emitForRangeStmt")
 }
 
 // ----------------------------------------------------------------------------

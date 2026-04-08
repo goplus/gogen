@@ -184,7 +184,7 @@ func (p *fileDecls) appendValDecl(decl *valDecl) {
 }
 
 func startValDeclStmtAt(cb *CodeBuilder, decl *valDecl) int {
-	panic("todo")
+	panic("todo startValDeclStmtAt")
 }
 
 func (p *fileDecls) appendTypeDecl(decl *typeDecl) {
@@ -201,7 +201,7 @@ func (p *File) getJSFile(this *Package) *js.File {
 		case *funcDecl:
 			sig := d.sig
 			if sig.Recv() != nil {
-				panic("todo")
+				panic("todo: getJSFile sig.Recv")
 			}
 			in := sig.Params()
 			n := in.Len()
