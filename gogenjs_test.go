@@ -90,6 +90,30 @@ function main() {
 `)
 }
 
+func TestImport(t *testing.T) {
+	pkg := newMainPackage()
+	fmt := pkg.Import("fmt")
+
+	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(gogen.TyByte))
+	pkg.NewFunc(nil, "Println", types.NewTuple(v), nil, false).BodyStart(pkg).End()
+
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
+		End()
+	domTestJS(t, pkg, `package main
+
+func Println(v []byte)
+func main()
+`, `import { Println as Println1 } from "fmt";
+
+function Println(v) {
+}
+function main() {
+	Println1("Hello");
+}
+`)
+}
+
 func TestLoopFor(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).

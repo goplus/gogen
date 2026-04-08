@@ -19,7 +19,9 @@ package util
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/token"
+	"go/types"
 	"strconv"
 	"strings"
 
@@ -30,7 +32,7 @@ import (
 // -----------------------------------------------------------------------------
 
 func IntLit(v int) *js.BasicLit {
-	panic("todo")
+	panic("todo IntLit")
 }
 
 func StringLit(v string) *js.BasicLit {
@@ -38,7 +40,7 @@ func StringLit(v string) *js.BasicLit {
 }
 
 func RuneLit(v rune) *js.BasicLit {
-	panic("todo")
+	panic("todo RuneLit")
 }
 
 func FloatLit(v float64) *js.BasicLit {
@@ -51,20 +53,48 @@ func FloatLit(v float64) *js.BasicLit {
 
 // -----------------------------------------------------------------------------
 
+func toBasicKind(tok token.Token) types.BasicKind {
+	return tok2BasicKinds[tok]
+}
+
+var (
+	tok2BasicKinds = [...]types.BasicKind{
+		token.INT:    types.UntypedInt,
+		token.STRING: types.UntypedString,
+		token.CHAR:   types.UntypedRune,
+		token.FLOAT:  types.UntypedFloat,
+		token.IMAG:   types.UntypedComplex,
+	}
+)
+
 func ElemFromBasicLit(v *ast.BasicLit, src ast.Node) *internal.Elem {
-	panic("todo")
+	var lit *js.BasicLit
+	switch v.Kind {
+	case token.STRING:
+		lit = &js.BasicLit{Kind: token.STRING, Value: v.Value}
+	case token.INT, token.FLOAT:
+		lit = &js.BasicLit{Kind: token.FLOAT, Value: v.Value}
+	default:
+		panic("todo: ElemFromBasicLit: " + v.Value)
+	}
+	return &internal.Elem{
+		Val:  lit,
+		Type: types.Typ[toBasicKind(v.Kind)],
+		CVal: constant.MakeFromLiteral(v.Value, v.Kind, 0),
+		Src:  src,
+	}
 }
 
 // -----------------------------------------------------------------------------
 
 func CheckParenExpr(x js.Expr) js.Expr {
-	panic("todo")
+	panic("todo CheckParenExpr")
 }
 
 // -----------------------------------------------------------------------------
 
 func AddrOf(v js.Expr) js.Expr {
-	panic("todo")
+	panic("todo AddrOf")
 }
 
 // -----------------------------------------------------------------------------
