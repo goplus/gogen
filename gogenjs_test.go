@@ -68,7 +68,7 @@ type bar = float64
 
 func foo() bar
 `, `function foo() {
-	return 0
+	return 0;
 }
 `)
 }
@@ -82,10 +82,10 @@ func TestFuncCall(t *testing.T) {
 	domTestJS(t, pkg, `package main
 
 func main()
-`, `import { Println } from "fmt"
+`, `import { Println } from "fmt";
 
 function main() {
-	Println("Hello")
+	Println("Hello");
 }
 `)
 }
