@@ -1268,7 +1268,7 @@ func stripParensAlways(x js.Expr) js.Expr {
 */
 
 func (p *printer) controlClause(isForStmt bool, init js.Stmt, expr js.Expr, post js.Stmt) {
-	p.print(blank)
+	p.print(blank, token.LPAREN)
 	needsBlank := false
 	if init == nil && post == nil {
 		// no semicolons required
@@ -1299,6 +1299,7 @@ func (p *printer) controlClause(isForStmt bool, init js.Stmt, expr js.Expr, post
 	if needsBlank {
 		p.print(blank)
 	}
+	p.print(token.RPAREN)
 }
 
 /* TODO(xsw):
@@ -1383,6 +1384,7 @@ func (p *printer) stmt(stmt js.Stmt, nextIsRBrace bool) {
 	case *js.ExprStmt:
 		const depth = 1
 		p.expr0(s.X, depth)
+		p.print(token.SEMICOLON)
 
 	/* TODO(xsw):
 	case *js.SendStmt:
@@ -1435,6 +1437,7 @@ func (p *printer) stmt(stmt js.Stmt, nextIsRBrace bool) {
 			}
 			*/
 		}
+		p.print(token.SEMICOLON)
 
 	case *js.BranchStmt:
 		p.print(s.Tok)
@@ -1442,6 +1445,7 @@ func (p *printer) stmt(stmt js.Stmt, nextIsRBrace bool) {
 			p.print(blank)
 			p.expr(s.Label)
 		}
+		p.print(token.SEMICOLON)
 
 	case *js.BlockStmt:
 		p.block(s, 1)
@@ -1972,6 +1976,7 @@ func (p *printer) importDecl(d *js.ImportDecl) {
 	}
 	p.print(blank, token.RBRACE, blank, "from", blank)
 	p.expr(d.Path)
+	p.print(token.SEMICOLON)
 }
 
 func (p *printer) decl(decl js.Stmt) {
