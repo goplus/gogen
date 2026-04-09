@@ -22,6 +22,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"syscall"
 	"testing"
 
 	"github.com/goplus/gogen"
@@ -55,6 +56,65 @@ func main()
 }
 `)
 }
+
+func TestDeleteVarDecl(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.SetRedeclarable(true)
+	scope := pkg.CB().Scope()
+	defs := pkg.NewVarDefs(scope).SetComments(nil)
+	decl := defs.New(token.NoPos, types.Typ[types.String], "a", "b")
+	defs.New(token.NoPos, types.Typ[types.String], "c")
+	if decl.Inited() {
+		t.Fatal("TestDeleteVarDecl: inited?")
+	}
+	defs.Delete("b")
+	defs.Delete("c")
+	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
+		cb.Val("10")
+		return 1
+	}, token.NoPos, types.Typ[types.String], "b")
+	if err := defs.Delete("b"); err != syscall.EACCES {
+		t.Fatal("defs.Delete b failed:", err)
+	}
+	if err := defs.Delete("unknown"); err != syscall.ENOENT {
+		t.Fatal("defs.Delete unknown failed:", err)
+	}
+	domTestJS(t, pkg, `package main
+
+var (
+	a string
+	b string
+)
+`, ``)
+}
+
+/*
+func TestVarDecl(t *testing.T) {
+	pkg := newMainPackage()
+	scope := pkg.CB().Scope()
+	decl := pkg.NewVarDefs(scope)
+	decl.NewAndInit(func(cb *gogen.CodeBuilder) int {
+		cb.Val(1).Val(2).BinaryOp(token.ADD).
+			Val("1").Val("2").BinaryOp(token.ADD)
+		return 2
+	}, token.NoPos, nil, "n", "s")
+	pkg.CB().NewVarStart(types.Typ[types.String], "x").
+		Val("Hello, ").Val("XGo").BinaryOp(token.ADD).
+		EndInit(1)
+	if decl.New(token.NoPos, types.Typ[types.String], "y").Ref("y") == nil {
+		t.Fatal("TestVarDecl failed: var y not found")
+	}
+	pkg.NewVarDefs(scope) // no variables, ignore
+	domTestJS(t, pkg, `package main
+
+var (
+	n, s = 1 + 2, "1" + "2"
+	y    string
+)
+var x string = "Hello, " + "XGo"
+`, ``)
+}
+*/
 
 func TestZeroLitAlias(t *testing.T) {
 	pkg := newPackage("main")

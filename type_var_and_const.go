@@ -18,7 +18,6 @@ import (
 	"go/token"
 	"go/types"
 	"log"
-	"syscall"
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/target"
@@ -646,10 +645,7 @@ type valueDefs struct {
 }
 
 func (p *valueDefs) NewPos() ValueAt {
-	decl := p.decl
-	spec := &valueSpec{}
-	decl.Specs = append(decl.Specs, spec)
-	return ValueAt{spec, p.at}
+	return ValueAt{newValueSpec(p.decl), p.at}
 }
 
 // VarDefs represents a var declaration block.
@@ -693,23 +689,7 @@ func (p *VarDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...strin
 // If the variable is initialized, it fails to delete and returns `syscall.EACCES`.
 // If the variable is not found, it returns `syscall.ENOENT`.
 func (p *VarDefs) Delete(name string) error {
-	for i, spec := range p.decl.Specs {
-		vspec := asValueSpec(spec)
-		for j, ident := range vspec.Names {
-			if ident.Name == name {
-				if vspec.Values != nil { // can't remove an initialized variable
-					return syscall.EACCES
-				}
-				if len(vspec.Names) == 1 {
-					p.decl.Specs = append(p.decl.Specs[:i], p.decl.Specs[i+1:]...)
-					return nil
-				}
-				vspec.Names = append(vspec.Names[:j], vspec.Names[j+1:]...)
-				return nil
-			}
-		}
-	}
-	return syscall.ENOENT
+	return deleteValueSpec(p.decl, name)
 }
 
 // ----------------------------------------------------------------------------

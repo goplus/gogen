@@ -21,6 +21,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"syscall"
 )
 
 // ----------------------------------------------------------------------------
@@ -189,8 +190,33 @@ type (
 	valueSpec = ast.ValueSpec
 )
 
-func asValueSpec(spec ast.Spec) *valueSpec {
-	return spec.(*valueSpec)
+func newValueSpec(decl *valDecl) *valueSpec {
+	spec := &valueSpec{}
+	decl.Specs = append(decl.Specs, spec)
+	return spec
+}
+
+// deleteValueSpec deletes an uninitialized variable.
+// If the variable is initialized, it fails to delete and returns `syscall.EACCES`.
+// If the variable is not found, it returns `syscall.ENOENT`.
+func deleteValueSpec(decl *valDecl, name string) error {
+	for i, spec := range decl.Specs {
+		vspec := spec.(*valueSpec)
+		for j, ident := range vspec.Names {
+			if ident.Name == name {
+				if vspec.Values != nil { // can't remove an initialized variable
+					return syscall.EACCES
+				}
+				if len(vspec.Names) == 1 {
+					decl.Specs = append(decl.Specs[:i], decl.Specs[i+1:]...)
+					return nil
+				}
+				vspec.Names = append(vspec.Names[:j], vspec.Names[j+1:]...)
+				return nil
+			}
+		}
+	}
+	return syscall.ENOENT
 }
 
 func (p *fileDecls) appendFuncDecl(decl *funcDecl, _ *types.Signature) {
