@@ -741,12 +741,12 @@ var (
 	capable    = capableT{}
 	lenable    = lenableT{}
 	makable    = makableT{}
-	cbool      = &basicContract{kindsBool, "bool"}
+	_bool      = &basicContract{kindsBool, "bool"}
+	_string    = &basicContract{kindsString, "string"}
 	ninteger   = &basicContract{kindsInteger, "ninteger"}
-	tstring    = &basicContract{kindsString, "tstring"}
-	orderable  = orderableT{}
 	integer    = integerT{}
 	number     = numberT{}
+	orderable  = orderableT{}
 	addable    = addableT{}
 	comparable = comparableT{}
 	clearable  = clearableT{}

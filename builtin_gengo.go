@@ -112,10 +112,10 @@ var _builtinOps = [...]struct {
 	{"NE", []typeTParam{{"T", comparable}}, []typeParam{{"a", 0}, {"b", 0}}, -1},
 	// func XGo_NE[T comparable](a, b T) untyped_bool
 
-	{"LAnd", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	{"LAnd", []typeTParam{{"T", _bool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 	// func XGo_LAnd[T bool](a, b T) T
 
-	{"LOr", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
+	{"LOr", []typeTParam{{"T", _bool}}, []typeParam{{"a", 0}, {"b", 0}}, 0},
 	// func XGo_LOr[T bool](a, b T) T
 
 	{"Neg", []typeTParam{{"T", number}}, []typeParam{{"a", 0}}, 0},
@@ -127,7 +127,7 @@ var _builtinOps = [...]struct {
 	{"Not", []typeTParam{{"T", integer}}, []typeParam{{"a", 0}}, 0},
 	// func XGo_Not[T integer](a T) T
 
-	{"LNot", []typeTParam{{"T", cbool}}, []typeParam{{"a", 0}}, 0},
+	{"LNot", []typeTParam{{"T", _bool}}, []typeParam{{"a", 0}}, 0},
 	// func XGo_LNot[T bool](a T) T
 }
 
@@ -366,7 +366,7 @@ func initBuiltinFuncs(builtin *types.Package) {
 			appendString := NewInstruction(token.NoPos, builtin, "append", appendStringInstr{})
 			tfn = NewOverloadFunc(token.NoPos, builtin, "append", appendString, tfn)
 		case "copy": // func [S string] copy(dst []byte, src S) int
-			tparams := newTParams([]typeTParam{{"S", tstring}})
+			tparams := newTParams([]typeTParam{{"S", _string}})
 			dst := types.NewParam(token.NoPos, builtin, "dst", types.NewSlice(types.Typ[types.Byte]))
 			src := types.NewParam(token.NoPos, builtin, "src", tparams[0])
 			ret := types.NewParam(token.NoPos, builtin, "", types.Typ[types.Int])
