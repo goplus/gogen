@@ -16,6 +16,8 @@ limitations under the License.
 package math
 
 import (
+	_ "unsafe"
+
 	"github.com/goplus/gogen/internal/js/primitive/math"
 )
 
@@ -39,6 +41,7 @@ const (
 
 const (
 	XGoLink = `
+Abs		github.com/goplus/gogen/internal/js/primitive/math.Abs
 Acos	github.com/goplus/gogen/internal/js/primitive/math.Acos
 Acosh	github.com/goplus/gogen/internal/js/primitive/math.Acosh
 Asin	github.com/goplus/gogen/internal/js/primitive/math.Asin
@@ -71,16 +74,40 @@ Trunc 	github.com/goplus/gogen/internal/js/primitive/math.Trunc
 `
 )
 
+//go:linkname Abs _
+func Abs(x float64) float64
+
+//go:linkname Acos _
 func Acos(x float64) float64
+
+//go:linkname Acosh _
 func Acosh(x float64) float64
+
+//go:linkname Asin _
 func Asin(x float64) float64
+
+//go:linkname Asinh _
 func Asinh(x float64) float64
+
+//go:linkname Atan _
 func Atan(x float64) float64
+
+//go:linkname Atan2 _
 func Atan2(y, x float64) float64
+
+//go:linkname Atanh _
 func Atanh(x float64) float64
+
+//go:linkname Cbrt _
 func Cbrt(x float64) float64
+
+//go:linkname Ceil _
 func Ceil(x float64) float64
+
+//go:linkname Cos _
 func Cos(x float64) float64
+
+//go:linkname Cosh _
 func Cosh(x float64) float64
 
 //func Copysign(x, y float64) float64
@@ -88,22 +115,30 @@ func Cosh(x float64) float64
 //func Erf(x float64) float64
 //func Erfc(x float64) float64
 
+//go:linkname Exp _
 func Exp(x float64) float64
 
 //func Exp2(x float64) float64
 
+//go:linkname Expm1 _
 func Expm1(x float64) float64
+
+//go:linkname Floor _
 func Floor(x float64) float64
 
 //func FMA(x, y, z float64) float64
 
+//go:linkname Max _
 func Max(x, y float64) float64
+
+//go:linkname Min _
 func Min(x, y float64) float64
 
 //func Mod(x, y float64) float64
 //func Frexp(f float64) (float64, int)
 //func Gamma(x float64) float64
 
+//go:linkname Hypot _
 func Hypot(x, y float64) float64
 
 //func Ilogb(x float64) int
@@ -113,25 +148,46 @@ func Hypot(x, y float64) float64
 //func Ldexp(x float64, exp int) float64
 //func Lgamma(x float64) (lgamma float64, sign int)
 
+//go:linkname Log _
 func Log(x float64) float64
+
+//go:linkname Log10 _
 func Log10(x float64) float64
+
+//go:linkname Log1p _
 func Log1p(x float64) float64
+
+//go:linkname Log2 _
 func Log2(x float64) float64
 
 //func Logb(x float64) float64
 //func Modf(f float64) (float64, float64)
 //func Nextafter(x, y float64) float64
 
+//go:linkname Pow _
 func Pow(x, y float64) float64
 
 //func Remainder(x, y float64) float64
 
+//go:linkname Round _
 func Round(x float64) float64
+
+//go:linkname Sin _
 func Sin(x float64) float64
+
+//go:linkname Sinh _
 func Sinh(x float64) float64
+
+//go:linkname Sqrt _
 func Sqrt(x float64) float64
+
+//go:linkname Tan _
 func Tan(x float64) float64
+
+//go:linkname Tanh _
 func Tanh(x float64) float64
+
+//go:linkname Trunc _
 func Trunc(x float64) float64
 
 //func Tgamma(x float64) float64
