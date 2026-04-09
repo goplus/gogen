@@ -290,6 +290,7 @@ type ValueDecl struct {
 	tok   token.Token
 	pos   token.Pos
 	at    int // commitStmt(at)
+	setTyper
 }
 
 // Inited checkes if `InitStart` is called or not.
@@ -411,6 +412,7 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			if values != nil {
 				values[i] = parg.Val
 			}
+			p.setType(i, name, retType)
 			if old := p.scope.Insert(types.NewVar(p.pos, pkg.Types, name, retType)); old != nil {
 				if p.tok != token.DEFINE {
 					oldpos := cb.fset.Position(old.Pos())
@@ -478,7 +480,7 @@ func (p *Package) newValueDecl(
 		}
 	}
 	return &ValueDecl{
-		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: spec.at}
+		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: spec.at, setTyper: spec.setTyper}
 }
 
 func (p *Package) newValueDefs(scope *types.Scope, tok token.Token) *valueDefs {
@@ -634,6 +636,7 @@ func (p *Package) ClassDefsStart(
 
 type ValueAt struct {
 	*valueSpec
+	setTyper
 	at int
 }
 
@@ -645,7 +648,8 @@ type valueDefs struct {
 }
 
 func (p *valueDefs) NewPos() ValueAt {
-	return ValueAt{newValueSpec(p.decl), p.at}
+	spec, setter := newValueSpec(p.pkg, p.decl)
+	return ValueAt{spec, setter, p.at}
 }
 
 // VarDefs represents a var declaration block.

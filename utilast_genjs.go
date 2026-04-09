@@ -21,6 +21,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"slices"
 	"strconv"
 	"syscall"
 
@@ -134,6 +135,16 @@ func jsImportDecls(this *Package, file *File) []js.Stmt {
 
 // ----------------------------------------------------------------------------
 
+type setTyper struct {
+	setter func(i int, name string, typ types.Type)
+}
+
+func (s setTyper) setType(i int, name string, typ types.Type) {
+	if s.setter != nil {
+		s.setter(i, name, typ)
+	}
+}
+
 type jsDecl interface {
 	declNode()
 }
@@ -158,12 +169,23 @@ type valueSpec struct {
 	Values []js.Expr
 }
 
-func newValueSpec(decl *valDecl) *valueSpec {
+func newValueSpec(pkg *Package, decl *valDecl) (*valueSpec, setTyper) {
 	goSpec := &ast.ValueSpec{}
 	spec := &valueSpec{ValueSpec: goSpec}
 	decl.GenDecl.Specs = append(decl.GenDecl.Specs, goSpec)
 	decl.Specs = append(decl.Specs, spec)
-	return spec
+	return spec, setTyper{
+		setter: func(i int, name string, typ types.Type) {
+			if i == 0 {
+				idx := slices.Index(decl.Specs, spec)
+				decl.GenDecl.Specs = slices.Delete(decl.GenDecl.Specs, idx, idx+1)
+			}
+			decl.GenDecl.Specs = append(decl.GenDecl.Specs, &ast.ValueSpec{
+				Names: []*ast.Ident{{Name: name}},
+				Type:  toType(pkg, typ),
+			})
+		},
+	}
 }
 
 // deleteValueSpec deletes an uninitialized variable.

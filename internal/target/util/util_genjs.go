@@ -88,7 +88,15 @@ func ElemFromBasicLit(v *ast.BasicLit, src ast.Node) *internal.Elem {
 // -----------------------------------------------------------------------------
 
 func CheckParenExpr(x js.Expr) js.Expr {
-	panic("todo CheckParenExpr")
+	/* TODO(xsw):
+	switch v := x.(type) {
+	case *js.CompositeLit:
+		return &js.ParenExpr{X: x}
+	case *js.SelectorExpr:
+		v.X = CheckParenExpr(v.X)
+	}
+	*/
+	return x
 }
 
 // -----------------------------------------------------------------------------

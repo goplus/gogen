@@ -179,6 +179,13 @@ func unparen(x ast.Expr) ast.Expr {
 
 // ----------------------------------------------------------------------------
 
+type setTyper struct {
+}
+
+func (setTyper) setType(i int, name string, typ types.Type) {
+	// no-op
+}
+
 type fileDecls struct {
 	goDecls []ast.Decl
 }
@@ -190,10 +197,10 @@ type (
 	valueSpec = ast.ValueSpec
 )
 
-func newValueSpec(decl *valDecl) *valueSpec {
+func newValueSpec(pkg *Package, decl *valDecl) (*valueSpec, setTyper) {
 	spec := &valueSpec{}
 	decl.Specs = append(decl.Specs, spec)
-	return spec
+	return spec, setTyper{}
 }
 
 // deleteValueSpec deletes an uninitialized variable.
