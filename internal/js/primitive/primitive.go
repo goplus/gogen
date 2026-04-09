@@ -21,10 +21,11 @@ const (
 
 // ----------------------------------------------------------------------------
 
-type (
-	String  = string
-	Boolean = bool
-)
+type String = string
+
+// ----------------------------------------------------------------------------
+
+type Boolean = bool
 
 // ----------------------------------------------------------------------------
 
@@ -32,13 +33,36 @@ type Number float64
 
 // Go native: a+b a-b a*b a/b -a
 
-func (a Number) JS_Or(b Number) Number   // a | b
-func (a Number) JS_And(b Number) Number  // a & b
-func (a Number) JS_Xor(b Number) Number  // a ^ b
-func (a Number) JS_Lsh(b Number) Number  // a << b
-func (a Number) JS_Rsh(b Number) Number  // a >> b
-func (a Number) JS_RshU(b Number) Number // a >>> b
-func (a Number) JS_Rem(b Number) Number  // a % b
-func (a Number) JS_Not() Number          // ~a
+func (a Number) JS_Or(b Number) Number { // a | b
+	panic("unreachable")
+}
+
+func (a Number) JS_And(b Number) Number { // a & b
+	panic("unreachable")
+}
+
+func (a Number) JS_Xor(b Number) Number { // a ^ b
+	panic("unreachable")
+}
+
+func (a Number) JS_Lsh(b Number) Number { // a << b
+	panic("unreachable")
+}
+
+func (a Number) JS_Rsh(b Number) Number { // a >> b
+	panic("unreachable")
+}
+
+func (a Number) JS_RshU(b Number) Number { // a >>> b
+	panic("unreachable")
+}
+
+func (a Number) JS_Rem(b Number) Number { // a % b
+	panic("unreachable")
+}
+
+func (a Number) JS_Not() Number { // ~a
+	panic("unreachable")
+}
 
 // ----------------------------------------------------------------------------

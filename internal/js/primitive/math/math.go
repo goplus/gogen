@@ -16,6 +16,8 @@ limitations under the License.
 package math
 
 import (
+	_ "unsafe"
+
 	"github.com/goplus/gogen/internal/js/primitive"
 )
 
@@ -39,42 +41,115 @@ const (
 
 // ----------------------------------------------------------------------------
 
+//go:linkname Abs _
 func Abs(primitive.Number) primitive.Number
+
+//go:linkname Acos _
 func Acos(primitive.Number) primitive.Number
+
+//go:linkname Acosh _
 func Acosh(primitive.Number) primitive.Number
+
+//go:linkname Asin _
 func Asin(primitive.Number) primitive.Number
+
+//go:linkname Asinh _
 func Asinh(primitive.Number) primitive.Number
+
+//go:linkname Atan _
 func Atan(primitive.Number) primitive.Number
+
+//go:linkname Atan2 _
 func Atan2(y, x primitive.Number) primitive.Number
+
+//go:linkname Atanh _
 func Atanh(primitive.Number) primitive.Number
+
+//go:linkname Cbrt _
 func Cbrt(primitive.Number) primitive.Number
+
+//go:linkname Ceil _
 func Ceil(primitive.Number) primitive.Number
+
+//go:linkname Clz32 _
 func Clz32(primitive.Number) primitive.Number
+
+//go:linkname Cos _
 func Cos(primitive.Number) primitive.Number
+
+//go:linkname Cosh _
 func Cosh(primitive.Number) primitive.Number
+
+//go:linkname Exp _
 func Exp(primitive.Number) primitive.Number
+
+//go:linkname Expm1 _
 func Expm1(primitive.Number) primitive.Number
+
+//go:linkname Floor _
 func Floor(primitive.Number) primitive.Number
+
+//go:linkname F16round _
 func F16round(primitive.Number) primitive.Number
+
+//go:linkname Fround _
 func Fround(primitive.Number) primitive.Number
+
+//go:linkname Hypot _
 func Hypot(p, q primitive.Number) primitive.Number
+
+//go:linkname Imul _
 func Imul(primitive.Number, primitive.Number) primitive.Number
+
+//go:linkname Log _
 func Log(primitive.Number) primitive.Number
+
+//go:linkname Log10 _
 func Log10(primitive.Number) primitive.Number
+
+//go:linkname Log1p _
 func Log1p(primitive.Number) primitive.Number
+
+//go:linkname Log2 _
 func Log2(primitive.Number) primitive.Number
+
+//go:linkname Max _
 func Max(...primitive.Number) primitive.Number
+
+//go:linkname Min _
 func Min(...primitive.Number) primitive.Number
+
+//go:linkname Pow _
 func Pow(x, y primitive.Number) primitive.Number
+
+//go:linkname Random _
 func Random() primitive.Number
+
+//go:linkname Round _
 func Round(primitive.Number) primitive.Number
+
+//go:linkname Sign _
 func Sign(x primitive.Number) primitive.Number
+
+//go:linkname Sin _
 func Sin(primitive.Number) primitive.Number
+
+//go:linkname Sinh _
 func Sinh(primitive.Number) primitive.Number
+
+//go:linkname Sqrt _
 func Sqrt(primitive.Number) primitive.Number
+
+//go:linkname SumPrecise _
 func SumPrecise([]primitive.Number) primitive.Number
+
+//go:linkname Tan _
 func Tan(primitive.Number) primitive.Number
+
+//go:linkname Tanh _
 func Tanh(primitive.Number) primitive.Number
+
+//go:linkname Trunc _
 func Trunc(primitive.Number) primitive.Number
 
 // ----------------------------------------------------------------------------
