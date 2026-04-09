@@ -1518,7 +1518,7 @@ func indirect(typ types.Type) types.Type {
 
 // IncDec func
 func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
-	name := goxPrefix + incdecOps[op]
+	name := xgoPrefix + incdecOps[op]
 	if debugInstr {
 		log.Println("IncDec", op)
 	}
@@ -1590,7 +1590,7 @@ func checkDivisionByZero(cb *CodeBuilder, a, b *internal.Elem) {
 }
 
 func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []ast.Node) target.Stmt {
-	name := goxPrefix + assignOps[tok]
+	name := xgoPrefix + assignOps[tok]
 	if debugInstr {
 		log.Println("AssignOp", tok, name)
 	}
@@ -1732,7 +1732,7 @@ func lookupMethod(t *types.Named, name string) types.Object {
 }
 
 func doUnaryOp(cb *CodeBuilder, op token.Token, args []*internal.Elem, lhs int) (ret *internal.Elem, err error) {
-	name := goxPrefix + unaryOps[op]
+	name := xgoPrefix + unaryOps[op]
 	pkg := cb.pkg
 	typ := args[0].Type
 retry:
@@ -1782,7 +1782,7 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 		log.Println("BinaryOp", xtoken.String(op))
 	}
 	pkg := p.pkg
-	name := goxPrefix + binaryOps[op]
+	name := xgoPrefix + binaryOps[op]
 	args := p.stk.GetArgs(2)
 
 	var ret *internal.Elem

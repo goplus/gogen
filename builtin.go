@@ -436,34 +436,6 @@ func (p *basicContract) String() string {
 	return p.desc
 }
 
-const (
-	// int, int64, int32, int16, int8, uint, uintptr, uint64, uint32, uint16, uint8
-	kindsInteger = (1 << types.Int) | (1 << types.Int64) | (1 << types.Int32) | (1 << types.Int16) | (1 << types.Int8) |
-		(1 << types.Uint) | (1 << types.Uintptr) | (1 << types.Uint64) | (1 << types.Uint32) | (1 << types.Uint16) | (1 << types.Uint8) |
-		(1 << types.UntypedInt) | (1 << types.UntypedRune)
-
-	// float32, float64
-	kindsFloat = (1 << types.Float32) | (1 << types.Float64) | (1 << types.UntypedFloat)
-
-	// complex64, complex128
-	kindsComplex = (1 << types.Complex64) | (1 << types.Complex128) | (1 << types.UntypedComplex)
-
-	// string
-	kindsString = (1 << types.String) | (1 << types.UntypedString)
-
-	// bool
-	kindsBool = (1 << types.Bool) | (1 << types.UntypedBool)
-
-	// integer, float, complex
-	kindsNumber = kindsInteger | kindsFloat | kindsComplex
-
-	// number, string
-	kindsAddable = kindsNumber | kindsString
-
-	// integer, float, string
-	kindsOrderable = kindsInteger | kindsFloat | kindsString
-)
-
 // ----------------------------------------------------------------------------
 
 type comparableT struct {
@@ -752,6 +724,59 @@ var (
 	clearable  = clearableT{}
 	borderable = &basicContract{kindsOrderable, "orderable"}
 )
+
+// ----------------------------------------------------------------------------
+
+type incInstr struct {
+}
+
+type decInstr struct {
+}
+
+// val++
+func (p incInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error) {
+	return callIncDec(pkg, args, token.INC)
+}
+
+// val--
+func (p decInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error) {
+	return callIncDec(pkg, args, token.DEC)
+}
+
+func callIncDec(pkg *Package, args []*Element, tok token.Token) (ret *Element, err error) {
+	if len(args) != 1 {
+		panic("TODO: please use val" + tok.String())
+	}
+	t, ok := args[0].Type.(*refType)
+	if !ok {
+		panic("TODO: not addressable")
+	}
+	cb := &pkg.cb
+	if !isNumeric(cb, t.typ) {
+		text, pos, end := cb.loadExpr(args[0].Src)
+		cb.panicCodeErrorf(pos, end, "invalid operation: %s%v (non-numeric type %v)", text, tok, t.typ)
+	}
+	cb.emitStmt(newIncDecStmt(args[0].Val, tok))
+	return
+}
+
+func isNumeric(cb *CodeBuilder, typ types.Type) bool {
+	const (
+		numericFlags = types.IsInteger | types.IsFloat | types.IsComplex
+	)
+retry:
+	switch t := typ.(type) {
+	case *types.Basic:
+		return (t.Info() & numericFlags) != 0
+	case *types.Named:
+		typ = cb.getUnderlying(t)
+		goto retry
+	case *types.Alias:
+		typ = types.Unalias(t)
+		goto retry
+	}
+	return false
+}
 
 // ----------------------------------------------------------------------------
 

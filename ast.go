@@ -390,8 +390,8 @@ func toObjectExpr(pkg *Package, v types.Object) target.Expr {
 		return ident(name)
 	}
 	if atPkg == pkg.builtin.Types { // at builtin package
-		if strings.HasPrefix(name, goxPrefix) {
-			opName := name[len(goxPrefix):]
+		if strings.HasPrefix(name, xgoPrefix) {
+			opName := name[len(xgoPrefix):]
 			if op, ok := nameToOps[opName]; ok {
 				switch op.Arity {
 				case 2:

@@ -284,7 +284,7 @@ const (
 	commonPrefix1 = "XGo"
 	commonPrefix2 = "Gop"
 
-	goxPrefix = "XGo_"
+	xgoPrefix = "XGo_"
 
 	xgotCh = 't' // template method
 	xgosCh = 's' // static method
