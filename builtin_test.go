@@ -397,7 +397,7 @@ func TestContractName(t *testing.T) {
 		{capable, "capable"},
 		{lenable, "lenable"},
 		{makable, "makable"},
-		{cbool, "bool"},
+		{_bool, "bool"},
 		{ninteger, "ninteger"},
 		{orderable, "orderable"},
 		{integer, "integer"},

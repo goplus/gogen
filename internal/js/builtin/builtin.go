@@ -16,86 +16,56 @@ limitations under the License.
 package builtin
 
 import (
-	"github.com/goplus/gogen/internal/target/js/universe"
+	"github.com/goplus/gogen/internal/js/primitive"
 )
 
 // ----------------------------------------------------------------------------
 
 // bool is the set of boolean values, true and false.
-type Bool = universe.Boolean
+type Bool = primitive.Boolean
 
 // uint8 is the set of all unsigned 8-bit integers.
 // Range: 0 through 255.
-type Uint8 universe.Number
+type Uint8 primitive.Number
 
 // uint16 is the set of all unsigned 16-bit integers.
 // Range: 0 through 65535.
-type Uint16 universe.Number
-
-// uint32 is the set of all unsigned 32-bit integers.
-// Range: 0 through 4294967295.
-type Uint32 universe.Number
+type Uint16 primitive.Number
 
 // uint64 is the set of all unsigned 64-bit integers.
 // Range: 0 through 18446744073709551615.
-type Uint64 universe.Number
+type Uint64 primitive.Number
 
 // int8 is the set of all signed 8-bit integers.
 // Range: -128 through 127.
-type Int8 universe.Number
+type Int8 primitive.Number
 
 // int16 is the set of all signed 16-bit integers.
 // Range: -32768 through 32767.
-type Int16 universe.Number
-
-// int32 is the set of all signed 32-bit integers.
-// Range: -2147483648 through 2147483647.
-type Int32 universe.Number
+type Int16 primitive.Number
 
 // int64 is the set of all signed 64-bit integers.
 // Range: -9223372036854775808 through 9223372036854775807.
-type Int64 universe.Number
+type Int64 primitive.Number
 
 // float32 is the set of all IEEE-754 32-bit floating-point numbers.
-type Float32 universe.Number
+type Float32 primitive.Number
 
 // float64 is the set of all IEEE-754 64-bit floating-point numbers.
-type Float64 universe.Number
-
-/* TODO(xsw):
-// complex64 is the set of all complex numbers with float32 real and
-// imaginary parts.
-type complex64 complex64
-
-// complex128 is the set of all complex numbers with float64 real and
-// imaginary parts.
-type complex128 complex128
-*/
+type Float64 = primitive.Number
 
 // string is the set of all strings of 8-bit bytes, conventionally but not
 // necessarily representing UTF-8-encoded text. A string may be empty, but
 // not nil. Values of string type are immutable.
-type String = universe.String
-
-// int is a signed integer type that is at least 32 bits in size. It is a
-// distinct type, however, and not an alias for, say, int32.
-type Int universe.Number
-
-// uint is an unsigned integer type that is at least 32 bits in size. It is a
-// distinct type, however, and not an alias for, say, uint32.
-type Uint universe.Number
+type String = primitive.String
 
 // uintptr is an integer type that is large enough to hold the bit pattern of
 // any pointer.
-type Uintptr universe.Number
+type Uintptr primitive.Number
 
 // byte is an alias for uint8 and is equivalent to uint8 in all ways. It is
 // used, by convention, to distinguish byte values from 8-bit unsigned
 // integer values.
 type Byte = Uint8
-
-// rune is an alias for int32 and is equivalent to int32 in all ways. It is
-// used, by convention, to distinguish character values from integer values.
-type Rune = Int32
 
 // ----------------------------------------------------------------------------
