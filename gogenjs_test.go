@@ -85,7 +85,9 @@ var (
 	a string
 	b string
 )
-`, ``)
+`, `let a
+let b = "10"
+`)
 }
 
 /*

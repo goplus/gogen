@@ -242,6 +242,20 @@ func (p *File) getJSFile(this *Package) *js.File {
 				Params: params,
 				Body:   d.Body,
 			})
+		case *valDecl:
+			for _, spec := range d.Specs {
+				for i, name := range spec.Names {
+					var value js.Expr
+					if i < len(spec.Values) {
+						value = spec.Values[i]
+					}
+					decls = append(decls, &js.ValueDecl{
+						Tok:   d.Tok,
+						Name:  &js.Ident{Name: name.Name},
+						Value: value,
+					})
+				}
+			}
 		}
 	}
 	return &js.File{Stmts: decls}

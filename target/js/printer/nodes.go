@@ -1347,6 +1347,9 @@ func (p *printer) stmt(stmt js.Stmt, nextIsRBrace bool) {
 	case *js.FuncDecl:
 		p.funcDecl(s)
 
+	case *js.ValueDecl:
+		p.valueDecl(s)
+
 	case *js.ImportDecl:
 		p.importDecl(s)
 
@@ -1945,6 +1948,25 @@ func (p *printer) funcDecl(d *js.FuncDecl) {
 	p.funcBody(p.distanceFrom(d.Pos(), startCol), vtab, d.Body)
 }
 
+// let Name = Value
+// const Name = Value
+func (p *printer) valueDecl(d *js.ValueDecl) {
+	p.setComment(d.Doc)
+	p.setPos(d.Pos())
+	var tok string
+	if d.Tok == token.VAR {
+		tok = "let"
+	} else {
+		tok = "const"
+	}
+	p.print(tok, blank)
+	p.expr(d.Name)
+	if d.Value != nil {
+		p.print(blank, token.ASSIGN, blank)
+		p.expr(d.Value)
+	}
+}
+
 // import { Name1, Name2 as AliasName2, type Name3 } from "path"
 func (p *printer) importDecl(d *js.ImportDecl) {
 	p.setPos(d.Pos())
@@ -1979,6 +2001,8 @@ func (p *printer) decl(decl js.Stmt) {
 	*/
 	case *js.FuncDecl:
 		p.funcDecl(d)
+	case *js.ValueDecl:
+		p.valueDecl(d)
 	case *js.ImportDecl:
 		p.importDecl(d)
 	default:
