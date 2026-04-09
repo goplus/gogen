@@ -90,13 +90,12 @@ let b = "10"
 `)
 }
 
-/*
 func TestVarDecl(t *testing.T) {
 	pkg := newMainPackage()
 	scope := pkg.CB().Scope()
 	decl := pkg.NewVarDefs(scope)
 	decl.NewAndInit(func(cb *gogen.CodeBuilder) int {
-		cb.Val(1).Val(2).BinaryOp(token.ADD).
+		cb.Val(1.2).Val(3.4).BinaryOp(token.ADD).
 			Val("1").Val("2").BinaryOp(token.ADD)
 		return 2
 	}, token.NoPos, nil, "n", "s")
@@ -110,13 +109,17 @@ func TestVarDecl(t *testing.T) {
 	domTestJS(t, pkg, `package main
 
 var (
-	n, s = 1 + 2, "1" + "2"
-	y    string
+	n float64
+	s string
+	y string
 )
-var x string = "Hello, " + "XGo"
-`, ``)
+var x string
+`, `let n = 1.2 + 3.4
+let s = "1" + "2"
+let y
+let x = "Hello, " + "XGo"
+`)
 }
-*/
 
 func TestZeroLitAlias(t *testing.T) {
 	pkg := newPackage("main")
