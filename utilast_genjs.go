@@ -22,6 +22,7 @@ import (
 	"go/token"
 	"go/types"
 	"strconv"
+	"syscall"
 
 	"github.com/goplus/gogen/internal/target/util"
 	"github.com/goplus/gogen/target/js"
@@ -145,21 +146,48 @@ type funcDecl struct {
 
 func (*funcDecl) declNode() {}
 
-type valueSpec struct {
-	ast.ValueSpec
-	Values []js.Expr
-}
-
-func asValueSpec(spec *valueSpec) *valueSpec {
-	return spec
-}
-
 type valDecl struct {
 	ast.GenDecl
 	Specs []*valueSpec
 }
 
 func (*valDecl) declNode() {}
+
+type valueSpec struct {
+	*ast.ValueSpec
+	Values []js.Expr
+}
+
+func newValueSpec(decl *valDecl) *valueSpec {
+	goSpec := &ast.ValueSpec{}
+	spec := &valueSpec{ValueSpec: goSpec}
+	decl.GenDecl.Specs = append(decl.GenDecl.Specs, goSpec)
+	decl.Specs = append(decl.Specs, spec)
+	return spec
+}
+
+// deleteValueSpec deletes an uninitialized variable.
+// If the variable is initialized, it fails to delete and returns `syscall.EACCES`.
+// If the variable is not found, it returns `syscall.ENOENT`.
+func deleteValueSpec(decl *valDecl, name string) error {
+	for i, vspec := range decl.Specs {
+		for j, ident := range vspec.Names {
+			if ident.Name == name {
+				if vspec.Values != nil { // can't remove an initialized variable
+					return syscall.EACCES
+				}
+				if len(vspec.Names) == 1 {
+					decl.Specs = append(decl.Specs[:i], decl.Specs[i+1:]...)
+					decl.GenDecl.Specs = append(decl.GenDecl.Specs[:i], decl.GenDecl.Specs[i+1:]...)
+					return nil
+				}
+				vspec.Names = append(vspec.Names[:j], vspec.Names[j+1:]...)
+				return nil
+			}
+		}
+	}
+	return syscall.ENOENT
+}
 
 type typeDecl struct {
 	ast.GenDecl
@@ -214,6 +242,20 @@ func (p *File) getJSFile(this *Package) *js.File {
 				Params: params,
 				Body:   d.Body,
 			})
+		case *valDecl:
+			for _, spec := range d.Specs {
+				for i, name := range spec.Names {
+					var value js.Expr
+					if i < len(spec.Values) {
+						value = spec.Values[i]
+					}
+					decls = append(decls, &js.ValueDecl{
+						Tok:   d.Tok,
+						Name:  &js.Ident{Name: name.Name},
+						Value: value,
+					})
+				}
+			}
 		}
 	}
 	return &js.File{Stmts: decls}

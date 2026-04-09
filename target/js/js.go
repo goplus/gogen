@@ -339,9 +339,32 @@ func (*ImportDecl) stmtNode()        {}
 
 // ----------------------------------------------------------------------------
 
+// A ValueDecl node represents a variable or constant declaration.
+//
+// let Name = Value
+// const Name = Value
+type ValueDecl struct {
+	Doc    *CommentGroup // associated documentation; or nil
+	TokPos token.Pos     // position of Tok
+	Tok    token.Token   // VAR (let) or CONST (const)
+	Name   *Ident        // name
+	Value  Expr          // value; or nil
+}
+
+func (d *ValueDecl) Pos() token.Pos { return d.TokPos }
+func (d *ValueDecl) End() token.Pos {
+	if d.Value != nil {
+		return d.Value.End()
+	}
+	return d.Name.End()
+}
+func (*ValueDecl) stmtNode() {}
+
+// ----------------------------------------------------------------------------
+
 // A FuncDecl node represents a function declaration.
 //
-// function Name(params) { body }
+// function Name(Params) { Body }
 type FuncDecl struct {
 	Doc     *CommentGroup // associated documentation; or nil
 	Func    token.Pos     // position of "function" keyword
