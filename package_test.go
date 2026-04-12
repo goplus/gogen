@@ -2759,6 +2759,88 @@ func main() {
 `)
 }
 
+func TestForRangeInt(t *testing.T) {
+	// Test range over integer: for i := range 10
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		ForRange("i").Val(10).RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		End().
+		End()
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+func main() {
+	for i := range 10 {
+		fmt.Println(i)
+	}
+}
+`)
+}
+
+func TestForRangeIntNoVar(t *testing.T) {
+	// Test range over integer with no variable: for range 10
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		ForRange().Val(10).RangeAssignThen(token.NoPos).End().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	for range 10 {
+	}
+}
+`)
+}
+
+func TestForRangeIntTyped(t *testing.T) {
+	// Test range over typed integer: for i := range uint8(n)
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(0, "n").Val(10, source("10", 1, 1)).EndInit(1).
+		ForRange("i").VarVal("n").RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		End().
+		End()
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+func main() {
+	n := 10
+	for i := range n {
+		fmt.Println(i)
+	}
+}
+`)
+}
+
+func TestForRangeIntAssign(t *testing.T) {
+	// Test range over integer with assignment: for i = range 10
+	pkg := newMainPackage()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVar(types.Typ[types.Int], "i").
+		ForRange().
+		VarRef(ctxRef(pkg, "i")).
+		Val(10).
+		RangeAssignThen(token.NoPos).
+		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "i")).Call(1).EndStmt().
+		End().
+		End()
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+func main() {
+	var i int
+	for i = range 10 {
+		fmt.Println(i)
+	}
+}
+`)
+}
+
 func TestReturn(t *testing.T) {
 	pkg := newMainPackage()
 	format := pkg.NewParam(token.NoPos, "format", types.Typ[types.String])
