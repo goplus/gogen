@@ -411,6 +411,36 @@ func main() {
 `)
 }
 
+func TestNewExpr(t *testing.T) {
+	pkg := newMainPackage()
+	tyInt := types.Typ[types.Int]
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(types.NewPointer(tyInt), "a").Val(pkg.Builtin().Ref("new")).
+		Val(42).Call(1).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a *int = new(42)
+}
+`)
+}
+
+func TestNewExprString(t *testing.T) {
+	pkg := newMainPackage()
+	tyStr := types.Typ[types.String]
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewVarStart(types.NewPointer(tyStr), "a").Val(pkg.Builtin().Ref("new")).
+		Val("hello").Call(1).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	var a *string = new("hello")
+}
+`)
+}
+
 func TestTypeConv(t *testing.T) { // TypeCast
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint32]

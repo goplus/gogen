@@ -627,15 +627,19 @@ type newInstr struct {
 }
 
 // func [] new(T any) *T
+// func [] new(expr T) *T  (Go 1.26+)
 func (p newInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) != 1 {
 		panic("TODO: use new(T) please")
 	}
-	ttyp, ok := args[0].Type.(*TypeType)
-	if !ok {
-		panic("TODO: new arg isn't a type")
+	var typ types.Type
+	if ttyp, ok := args[0].Type.(*TypeType); ok {
+		typ = ttyp.Type()
+	} else {
+		// new(expr) - Go 1.26: allocate and initialize with expression value
+		typ = DefaultConv(pkg, args[0].Type, args[0])
+		args[0].Type = typ
 	}
-	typ := ttyp.Type()
 	ret = &Element{
 		Val:  newNewExpr(args),
 		Type: types.NewPointer(typ),
