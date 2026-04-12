@@ -638,7 +638,6 @@ func (p newInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 	} else {
 		// new(expr) - Go 1.26: allocate and initialize with expression value
 		typ = DefaultConv(pkg, args[0].Type, args[0])
-		args[0].Type = typ
 	}
 	ret = &Element{
 		Val:  newNewExpr(args),
