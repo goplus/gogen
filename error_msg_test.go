@@ -431,21 +431,10 @@ func TestErrForRange(t *testing.T) {
 				End().
 				End()
 		})
-	codeErrorTest(t, `./foo.gop:1:17: cannot range over 13 (type untyped int)`,
+	codeErrorTest(t, `./foo.gop:1:17: range over 13 permits only one iteration variable`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				ForRange("a", "b").
-				Val(13, source("13", 1, 9)).
-				RangeAssignThen(position(1, 17)).
-				End().
-				End()
-		})
-	codeErrorTest(t, `./foo.gop:1:17: cannot range over 13 (type untyped int)`,
-		func(pkg *gogen.Package) {
-			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				NewVar(types.Typ[types.Int], "a").
-				ForRange().
-				VarRef(ctxRef(pkg, "a")).
 				Val(13, source("13", 1, 9)).
 				RangeAssignThen(position(1, 17)).
 				End().

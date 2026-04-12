@@ -514,10 +514,13 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 			src, _, _ := cb.loadExpr(x.Src)
 			cb.panicCodeErrorf(pos, pos, "cannot range over %v (type %v)", src, x.Type)
 		}
-		if typs[1] == nil { // chan
+		if typs[1] == nil { // chan or integer
 			if names[0] == "_" && len(names) > 1 {
 				names[0], val = names[1], nil
 				names = names[:1]
+			} else if len(names) > 1 && names[1] != "_" {
+				src, _, _ := cb.loadExpr(x.Src)
+				cb.panicCodeErrorf(pos, pos, "range over %v permits only one iteration variable", src)
 			}
 		}
 		for i, name := range names {
@@ -599,6 +602,14 @@ retry:
 	case *types.Basic:
 		if (t.Info() & types.IsString) != 0 {
 			return []types.Type{types.Typ[types.Int], types.Typ[types.Rune]}
+		}
+		// Go 1.22+ range over integer types:
+		// for i := range n { ... } iterates from 0 to n-1
+		if (t.Info() & types.IsInteger) != 0 {
+			if (t.Info() & types.IsUntyped) != 0 {
+				return []types.Type{types.Typ[types.Int], nil}
+			}
+			return []types.Type{t, nil}
 		}
 	case *types.Signature:
 		// Go 1.23 range over function types:
