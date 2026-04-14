@@ -191,13 +191,11 @@ func lookupFunc(scope *types.Scope, name, tname string) types.Object {
 		tobj := scope.Lookup(tname)
 		if tobj != nil {
 			if tn, ok := tobj.(*types.TypeName); ok {
-				if o, ok := tn.Type().(*types.Named); ok { // TODO(xsw): interface support
-					for i, n := 0, o.NumMethods(); i < n; i++ {
-						method := o.Method(i)
-						if method.Name() == name {
-							return method
-						}
+				if o, ok := tn.Type().(*types.Named); ok {
+					if t, ok := o.Underlying().(*types.Interface); ok {
+						return lookupMethod(t, name)
 					}
+					return lookupMethod(o, name)
 				}
 			}
 		}

@@ -1291,6 +1291,16 @@ type methodList interface {
 	Method(i int) *types.Func
 }
 
+func lookupMethod[T methodList](t T, name string) *types.Func {
+	for i, n := 0, t.NumMethods(); i < n; i++ {
+		m := t.Method(i)
+		if m.Name() == name {
+			return m
+		}
+	}
+	return nil
+}
+
 func selector(arg *Element, name string) *target.SelectorExpr {
 	denoted := &target.Object{Data: arg}
 	return &target.SelectorExpr{X: arg.Val, Sel: &target.Ident{Name: name, Obj: denoted}}
@@ -1719,16 +1729,6 @@ done:
 		p.stk.PopN(lhs + rhs)
 	}
 	return p
-}
-
-func lookupMethod(t *types.Named, name string) types.Object {
-	for i, n := 0, t.NumMethods(); i < n; i++ {
-		m := t.Method(i)
-		if m.Name() == name {
-			return m
-		}
-	}
-	return nil
 }
 
 func doUnaryOp(cb *CodeBuilder, op token.Token, args []*internal.Elem, lhs int) (ret *internal.Elem, err error) {
