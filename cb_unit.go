@@ -119,16 +119,16 @@ func (p *CodeBuilder) ValWithUnit(v *ast.BasicLit, t types.Type, unit string) *C
 	if !found {
 		named, ok := t.(*types.Named)
 		if !ok {
-			log.Panicf("TODO: ValWithUnit: `%v` isn't a named type", t)
+			panicUnitErr(p, v, unit, "literal with unit cannot be used: `%v` is not a named type", t)
 		}
 		id, units, found = getUnits(pkg, named.Obj())
 		if !found {
-			log.Panicf("TODO: ValWithUnit: no units of `%s.%s` found", id.pkg, id.name)
+			panicUnitErr(p, v, unit, "literal with unit cannot be used: no units of `%s.%s` found", id.pkg, id.name)
 		}
 	}
 	u, ok := units[unit]
 	if !ok {
-		log.Panicf("TODO: ValWithUnit: unknown unit `%s` for `%s.%s`", unit, id.pkg, id.name)
+		panicUnitErr(p, v, unit, "literal with unit: unknown unit `%s` for `%s.%s`", unit, id.pkg, id.name)
 	}
 	e := toExpr(pkg, v, v)
 	val := constant.BinaryOp(e.CVal, token.MUL, u)
@@ -141,6 +141,10 @@ func (p *CodeBuilder) ValWithUnit(v *ast.BasicLit, t types.Type, unit string) *C
 	e.Type = t
 	p.Val(e, v)
 	return p
+}
+
+func panicUnitErr(cb *CodeBuilder, v *ast.BasicLit, unit, format string, args ...any) {
+	cb.panicCodeErrorf(v.Pos(), v.End()+token.Pos(len(unit)), format, args...)
 }
 
 func isFloat(t types.Type) bool {

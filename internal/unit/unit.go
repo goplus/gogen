@@ -17,6 +17,8 @@ package unit
 
 type NoUnit = struct{}
 
+type NoUnitF int
+
 type Distance int
 
 const XGou_Distance = "mm=1,cm=10,dm=100,m=1000"
