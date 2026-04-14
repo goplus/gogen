@@ -1390,6 +1390,22 @@ func TestUnsafe(t *testing.T) {
 	}
 }
 
+func TestLookupFunc(t *testing.T) {
+	pkg := types.NewPackage("", "")
+	scope := pkg.Scope()
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+	methods := []*types.Func{
+		types.NewFunc(token.NoPos, pkg, "f", sig),
+	}
+	intf := types.NewInterfaceType(methods, nil)
+	obj := types.NewTypeName(token.NoPos, pkg, "foo", nil)
+	types.NewNamed(obj, intf, nil)
+	scope.Insert(obj)
+	if o := lookupFunc(scope, ".f", "foo"); o == nil {
+		t.Fatal("lookupFunc failed: not found?")
+	}
+}
+
 func TestTryImport(t *testing.T) {
 	defer func() {
 		if e := recover(); e != nil {
