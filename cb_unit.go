@@ -19,6 +19,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/goplus/gogen/target"
@@ -93,6 +94,12 @@ func (p *Package) getUnits(id objectID, tok token.Token) (units typeUnits, ok bo
 	return
 }
 
+func getUnits(pkg *Package, ot *types.TypeName) (id objectID, units typeUnits, ok bool) {
+	id = objectID{ot.Pkg().Path(), ot.Name()}
+	units, ok = pkg.getUnits(id, token.FLOAT)
+	return
+}
+
 // ----------------------------------------------------------------------------
 
 // ValWithUnit func
@@ -100,28 +107,53 @@ func (p *CodeBuilder) ValWithUnit(v *ast.BasicLit, t types.Type, unit string) *C
 	if debugInstr {
 		log.Println("ValWithUnit", v.Value, t, unit)
 	}
-	named, ok := t.(*types.Named)
-	if !ok {
-		log.Panicf("TODO: ValWithUnit: `%v` isn't a named type", t)
-	}
+	var id objectID
+	var units typeUnits
+	var found bool
 	pkg := p.pkg
-	e := toExpr(pkg, v, v)
-	ot := named.Obj()
-	id := objectID{ot.Pkg().Path(), ot.Name()}
-	units, ok := pkg.getUnits(id, token.INT) // TODO(xsw): INT or FLOAT
-	if !ok {
-		log.Panicf("TODO: ValWithUnit: no units of `%s.%s` found", id.pkg, id.name)
+	if alias, ok := t.(*types.Alias); ok {
+		if id, units, found = getUnits(pkg, alias.Obj()); !found {
+			t = types.Unalias(t)
+		}
+	}
+	if !found {
+		named, ok := t.(*types.Named)
+		if !ok {
+			log.Panicf("TODO: ValWithUnit: `%v` isn't a named type", t)
+		}
+		id, units, found = getUnits(pkg, named.Obj())
+		if !found {
+			log.Panicf("TODO: ValWithUnit: no units of `%s.%s` found", id.pkg, id.name)
+		}
 	}
 	u, ok := units[unit]
 	if !ok {
 		log.Panicf("TODO: ValWithUnit: unknown unit `%s` for `%s.%s`", unit, id.pkg, id.name)
 	}
+	e := toExpr(pkg, v, v)
 	val := constant.BinaryOp(e.CVal, token.MUL, u)
 	e.CVal = val
-	e.Val = &target.BasicLit{Kind: token.INT, Value: val.ExactString()}
+	if isFloat(t) {
+		e.Val = &target.BasicLit{Kind: token.FLOAT, Value: floatVal(val)}
+	} else {
+		e.Val = &target.BasicLit{Kind: token.INT, Value: val.ExactString()}
+	}
 	e.Type = t
 	p.Val(e, v)
 	return p
+}
+
+func isFloat(t types.Type) bool {
+	switch t := t.Underlying().(type) {
+	case *types.Basic:
+		return t.Info()&types.IsFloat != 0
+	}
+	return false
+}
+
+func floatVal(val constant.Value) string {
+	f, _ := constant.Float64Val(val)
+	return strconv.FormatFloat(f, 'g', -1, 64)
 }
 
 // ----------------------------------------------------------------------------
