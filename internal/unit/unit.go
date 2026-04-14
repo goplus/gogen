@@ -15,13 +15,13 @@ package unit
 
 // -----------------------------------------------------------------------------
 
-type NoUnit struct{}
+type NoUnit = struct{}
 
 type Distance int
 
 const XGou_Distance = "mm=1,cm=10,dm=100,m=1000"
 
-type Seconds float64
+type Seconds = float64
 
 const XGou_Seconds = "s=1,ms=0.001"
 

@@ -58,7 +58,7 @@ func TestUserDefinedTypeUnits(t *testing.T) {
 	}
 	cb := pkg.CB()
 	cb.ValWithUnit(&ast.BasicLit{Value: "1", Kind: token.INT}, ut, "m")
-	cb.ValWithUnit(&ast.BasicLit{Value: "2", Kind: token.INT}, ut1, "ms")
+	cb.ValWithUnit(&ast.BasicLit{Value: "0", Kind: token.INT}, ut1, "ms")
 	testValWithUnitPanic(t, "no unit for unit.NoUnit", cb, ut2, "m")
 }
 
