@@ -53,6 +53,7 @@ func TestUserDefinedTypeUnits(t *testing.T) {
 	ut := u.Ref("Distance").Type()
 	ut1 := u.Ref("Seconds").Type()
 	ut2 := u.Ref("NoUnit").Type()
+	ut3 := u.Ref("NoUnitF").Type()
 	if isFloat(ut2) {
 		t.Fatal("isFloat?", ut2)
 	}
@@ -60,6 +61,7 @@ func TestUserDefinedTypeUnits(t *testing.T) {
 	cb.ValWithUnit(&ast.BasicLit{Value: "1", Kind: token.INT}, ut, "m")
 	cb.ValWithUnit(&ast.BasicLit{Value: "0", Kind: token.INT}, ut1, "ms")
 	testValWithUnitPanic(t, "no unit for unit.NoUnit", cb, ut2, "m")
+	testValWithUnitPanic(t, "no unit for unit.NoUnitF", cb, ut3, "m")
 }
 
 func TestValWithUnit(t *testing.T) {
