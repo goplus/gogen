@@ -41,7 +41,7 @@ func (p *Package) NewAutoParamEx(pos token.Pos, name string) *Param {
 
 // NewParam returns a new variable representing a function parameter.
 //
-// Deprecated: Use go/types.NewParam instead.
+// Deprecated: Use types.NewParam(pos, pkg.Types, name, typ) directly.
 func (p *Package) NewParam(pos token.Pos, name string, typ types.Type) *Param {
 	return types.NewParam(pos, p.Types, name, typ)
 }
