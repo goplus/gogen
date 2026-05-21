@@ -21,6 +21,14 @@ import (
 	"testing"
 )
 
+func TestMoveLastStmtTo(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.NewFunc(nil, "bar", nil, nil, false).BodyStart(pkg)
+	cb.Return(0)
+	cb.MoveLastStmtTo(0)
+	cb.End()
+}
+
 func TestCircularEmbeddedFieldLookup(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	cb := pkg.CB()
