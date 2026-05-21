@@ -95,6 +95,10 @@ func (p *goxTest) NewPackageEx(pkgPath string, name string, conf *gogen.Config) 
 
 type goxVar = types.Var
 
+func newParam(pkg *gogen.Package, pos token.Pos, name string, typ types.Type) *types.Var {
+	return types.NewParam(pos, pkg.Types, name, typ)
+}
+
 // ----------------------------------------------------------------------------
 
 func TestRedupPkgIssue796(t *testing.T) {
@@ -585,17 +589,18 @@ func main() {
 `)
 }
 
+/* TODO(xsw): to be removed
 func TestZeroLit(t *testing.T) {
 	pkg := newMainPackage()
 	tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
 	ret := pkg.NewAutoParam("ret")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tyMap, "a").
-		/**/ NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
-		/******/ VarRef(ctxRef(pkg, "ret")).ZeroLit(ret.Type()).Assign(1).
-		/******/ Val(ctxRef(pkg, "ret")).Val("Hi").IndexRef(1).Val(1).Assign(1).
-		/******/ Return(0).
-		/**/ End().Call(0).EndInit(1).
+			NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
+				VarRef(ctxRef(pkg, "ret")).ZeroLit(ret.Type()).Assign(1).
+				Val(ctxRef(pkg, "ret")).Val("Hi").IndexRef(1).Val(1).Assign(1).
+				Return(0).
+			End().Call(0).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -608,6 +613,7 @@ func main() {
 }
 `)
 }
+*/
 
 func TestZeroLitAlias(t *testing.T) {
 	pkg := newPackage("main")
@@ -786,8 +792,8 @@ func TestTypeMethods(t *testing.T) {
 	}
 	typ := types.NewStruct(fields, nil)
 	foo := pkg.NewType("foo").InitType(pkg, typ)
-	recv := pkg.NewParam(token.NoPos, "a", foo)
-	precv := pkg.NewParam(token.NoPos, "p", types.NewPointer(foo))
+	recv := newParam(pkg, token.NoPos, "a", foo)
+	precv := newParam(pkg, token.NoPos, "p", types.NewPointer(foo))
 	pkg.NewFunc(recv, "Bar", nil, nil, false).SetComments(pkg, comment("\n// abc")).BodyStart(pkg).End()
 	pkg.NewFunc(precv, "Print", nil, nil, false).BodyStart(pkg).End()
 	if foo.NumMethods() != 2 {
@@ -811,8 +817,8 @@ func (p *foo) Print() {
 func TestAssignInterface(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.NewType("foo").InitType(pkg, types.Typ[types.Int])
-	recv := pkg.NewParam(token.NoPos, "a", foo)
-	ret := pkg.NewParam(token.NoPos, "ret", types.Typ[types.String])
+	recv := newParam(pkg, token.NoPos, "a", foo)
+	ret := newParam(pkg, token.NoPos, "ret", types.Typ[types.String])
 	pkg.NewFunc(recv, "Error", nil, types.NewTuple(ret), false).BodyStart(pkg).
 		Return(0).
 		End()
@@ -841,8 +847,8 @@ func TestAssignUserInterface(t *testing.T) {
 	foo := pkg.NewType("foo").InitType(pkg, tyInterf)
 	bar := pkg.NewType("bar").InitType(pkg, typStruc)
 	pbar := types.NewPointer(bar)
-	recv := pkg.NewParam(token.NoPos, "p", pbar)
-	vfoo := types.NewTuple(pkg.NewParam(token.NoPos, "v", types.NewSlice(foo)))
+	recv := newParam(pkg, token.NoPos, "p", pbar)
+	vfoo := types.NewTuple(newParam(pkg, token.NoPos, "v", types.NewSlice(foo)))
 	pkg.NewFunc(recv, "Bar", nil, nil, false).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "f", vfoo, nil, true).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -871,7 +877,7 @@ func main() {
 
 func TestTypeAssert(t *testing.T) {
 	pkg := newMainPackage()
-	params := types.NewTuple(pkg.NewParam(token.NoPos, "v", gogen.TyEmptyInterface))
+	params := types.NewTuple(newParam(pkg, token.NoPos, "v", gogen.TyEmptyInterface))
 	pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg, source("{}", 1, 5)).
 		DefineVarStart(0, "x").VarVal("v").TypeAssert(types.Typ[types.Int], 0).EndInit(1).
 		DefineVarStart(0, "y", "ok").VarVal("v").TypeAssert(types.Typ[types.String], 2).EndInit(1).
@@ -892,8 +898,8 @@ func newFuncDecl(pkg *gogen.Package, name string, params, results *types.Tuple) 
 
 func TestTypeSwitch(t *testing.T) {
 	pkg := newMainPackage()
-	p := pkg.NewParam(token.NoPos, "p", types.NewPointer(gogen.TyEmptyInterface))
-	v := pkg.NewParam(token.NoPos, "v", gogen.TyEmptyInterface)
+	p := newParam(pkg, token.NoPos, "p", types.NewPointer(gogen.TyEmptyInterface))
+	v := newParam(pkg, token.NoPos, "v", gogen.TyEmptyInterface)
 	newFuncDecl(pkg, "bar", types.NewTuple(p), nil)
 	newFuncDecl(pkg, "foo", types.NewTuple(v), nil).BodyStart(pkg).
 		/**/ TypeSwitch("t").Val(v).TypeAssertThen().
@@ -926,8 +932,8 @@ func foo(v interface{}) {
 
 func TestTypeSwitch2(t *testing.T) {
 	pkg := newMainPackage()
-	p := pkg.NewParam(token.NoPos, "p", types.NewPointer(gogen.TyEmptyInterface))
-	v := pkg.NewParam(token.NoPos, "v", gogen.TyEmptyInterface)
+	p := newParam(pkg, token.NoPos, "p", types.NewPointer(gogen.TyEmptyInterface))
+	v := newParam(pkg, token.NoPos, "v", gogen.TyEmptyInterface)
 	pkg.NewFunc(nil, "bar", types.NewTuple(p), nil, false).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
 		/**/ TypeSwitch("").Val(ctxRef(pkg, "bar")).Val(nil).Call(1).EndStmt().Val(v).TypeAssertThen().
@@ -1656,7 +1662,7 @@ func main() {
 
 func TestFuncBasic(t *testing.T) {
 	pkg := newMainPackage()
-	v := pkg.NewParam(token.NoPos, "v", gogen.TyByte)
+	v := newParam(pkg, token.NoPos, "v", gogen.TyByte)
 	pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).End().Pkg().
 		NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -1670,7 +1676,7 @@ func main() {
 
 func TestFuncVariadic(t *testing.T) {
 	pkg := newMainPackage()
-	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(gogen.TyByte))
+	v := newParam(pkg, token.NoPos, "v", types.NewSlice(gogen.TyByte))
 	pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, true).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -1697,10 +1703,10 @@ func init() {
 
 func TestFuncAsParam(t *testing.T) {
 	pkg := newMainPackage()
-	v := pkg.NewParam(token.NoPos, "v", types.NewSignatureType(nil, nil, nil, nil, nil, false))
-	x := pkg.NewParam(token.NoPos, "x", types.NewPointer(types.Typ[types.Bool]))
-	y := pkg.NewParam(token.NoPos, "y", types.NewChan(types.SendOnly, types.Typ[types.Bool]))
-	z := pkg.NewParam(token.NoPos, "z", types.Typ[types.UnsafePointer])
+	v := newParam(pkg, token.NoPos, "v", types.NewSignatureType(nil, nil, nil, nil, nil, false))
+	x := newParam(pkg, token.NoPos, "x", types.NewPointer(types.Typ[types.Bool]))
+	y := newParam(pkg, token.NoPos, "y", types.NewChan(types.SendOnly, types.Typ[types.Bool]))
+	z := newParam(pkg, token.NoPos, "z", types.Typ[types.UnsafePointer])
 	pkg.NewFunc(nil, "foo", types.NewTuple(v, x, y, z), nil, false).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -1717,7 +1723,7 @@ func main() {
 func TestNamedFuncAsParam(t *testing.T) {
 	pkg := newMainPackage()
 	typ := pkg.NewType("foo").InitType(pkg, types.NewSignatureType(nil, nil, nil, nil, nil, false))
-	v := pkg.NewParam(token.NoPos, "v", typ)
+	v := newParam(pkg, token.NoPos, "v", typ)
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		VarVal("v").Call(0).EndStmt().
 		End()
@@ -1757,8 +1763,8 @@ func TestBuiltinFunc(t *testing.T) {
 	var a, n *goxVar
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()
-	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(types.Typ[types.Int]))
-	array := pkg.NewParam(token.NoPos, "array", types.NewArray(types.Typ[types.Int], 10))
+	v := newParam(pkg, token.NoPos, "v", types.NewSlice(types.Typ[types.Int]))
+	array := newParam(pkg, token.NoPos, "array", types.NewArray(types.Typ[types.Int], 10))
 	pkg.NewFunc(nil, "foo", types.NewTuple(v, array), nil, false).BodyStart(pkg).
 		NewAutoVar(token.NoPos, token.NoPos, "a", &a).NewAutoVar(token.NoPos, token.NoPos, "n", &n).
 		VarRef(a).
@@ -1894,7 +1900,7 @@ func main() {
 func TestClose(t *testing.T) {
 	pkg := newMainPackage()
 	tyChan := types.NewChan(types.SendOnly, types.Typ[types.Int])
-	pkg.NewFunc(nil, "foo", types.NewTuple(pkg.NewParam(token.NoPos, "c", tyChan)), nil, false).BodyStart(pkg).
+	pkg.NewFunc(nil, "foo", types.NewTuple(newParam(pkg, token.NoPos, "c", tyChan)), nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "close")).VarVal("c").Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -1909,7 +1915,7 @@ func TestAppend(t *testing.T) {
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()
 	tySlice := types.NewSlice(types.Typ[types.Int])
-	pkg.NewFunc(nil, "foo", types.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
+	pkg.NewFunc(nil, "foo", types.NewTuple(newParam(pkg, token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
 		NewVar(tySlice, "b").VarRef(ctxRef(pkg, "b")).Val(builtin.Ref("append")).
 		VarVal("b").VarVal("a").Call(2, true).Assign(1).EndStmt().
 		End()
@@ -1929,7 +1935,7 @@ func TestAppend2(t *testing.T) {
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()
 	tySlice := pkg.NewType("T").InitType(pkg, types.NewSlice(types.Typ[types.Int]))
-	pkg.NewFunc(nil, "foo", types.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
+	pkg.NewFunc(nil, "foo", types.NewTuple(newParam(pkg, token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
 		NewVar(tySlice, "b").VarRef(ctxRef(pkg, "b")).Val(builtin.Ref("append")).
 		VarVal("b").VarVal("a").Call(2, true).Assign(1).EndStmt().
 		End()
@@ -1948,7 +1954,7 @@ func TestAppendString(t *testing.T) {
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()
 	tySlice := types.NewSlice(types.Typ[types.Byte])
-	pkg.NewFunc(nil, "foo", types.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
+	pkg.NewFunc(nil, "foo", types.NewTuple(newParam(pkg, token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
 		VarRef(ctxRef(pkg, "a")).Val(builtin.Ref("append")).
 		VarVal("a").Val("Hi").Call(2, true).Assign(1).EndStmt().
 		End()
@@ -1964,7 +1970,7 @@ func TestCopyString(t *testing.T) {
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()
 	tySlice := types.NewSlice(types.Typ[types.Byte])
-	pkg.NewFunc(nil, "foo", types.NewTuple(pkg.NewParam(token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
+	pkg.NewFunc(nil, "foo", types.NewTuple(newParam(pkg, token.NoPos, "a", tySlice)), nil, false).BodyStart(pkg).
 		NewVarStart(types.Typ[types.Int], "n").Val(builtin.Ref("copy")).
 		VarVal("a").Val("Hi").Call(2).EndInit(1).
 		End()
@@ -2118,7 +2124,7 @@ const c6 = unsafe.Offsetof(t.n)
 
 func TestEmptyInterface(t *testing.T) {
 	pkg := newMainPackage()
-	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(gogen.TyEmptyInterface))
+	v := newParam(pkg, token.NoPos, "v", types.NewSlice(gogen.TyEmptyInterface))
 	pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, true).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
@@ -2137,8 +2143,8 @@ func TestInterfaceMethods(t *testing.T) {
 	}
 	tyInterf := types.NewInterfaceType(methods, nil).Complete()
 	bar := pkg.NewType("bar").InitType(pkg, tyInterf)
-	b := pkg.NewParam(token.NoPos, "b", bar)
-	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(tyInterf))
+	b := newParam(pkg, token.NoPos, "b", bar)
+	v := newParam(pkg, token.NoPos, "v", types.NewSlice(tyInterf))
 	pkg.NewFunc(nil, "foo", types.NewTuple(b, v), nil, true).BodyStart(pkg).
 		Val(b).MemberVal("Bar", 0).Call(0).EndStmt().
 		Val(v).Val(0).Index(1, 0).MemberVal("Bar", 0).Call(0).EndStmt().
@@ -2180,7 +2186,7 @@ func main() {
 func TestFuncCallEllipsis(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
-	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(types.NewInterfaceType(nil, nil).Complete()))
+	v := newParam(pkg, token.NoPos, "v", types.NewSlice(types.NewInterfaceType(nil, nil).Complete()))
 	pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, true).BodyStart(pkg).
 		Val(fmt.Ref("Println")).Val(v).Call(1, true).EndStmt().
 		End()
@@ -2201,10 +2207,10 @@ func TestDelayedLoadUnused(t *testing.T) {
 	pkg := newMainPackage()
 	println := gogen.NewOverloadFunc(token.NoPos, pkg.Types, "println", pkg.Import("fmt").Ref("Println"))
 	pkg.Types.Scope().Insert(println)
-	format := pkg.NewParam(token.NoPos, "format", types.Typ[types.String])
-	args := pkg.NewParam(token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
-	n := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
-	err := pkg.NewParam(token.NoPos, "", types.Universe.Lookup("error").Type())
+	format := newParam(pkg, token.NoPos, "format", types.Typ[types.String])
+	args := newParam(pkg, token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
+	n := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
+	err := newParam(pkg, token.NoPos, "", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", types.NewTuple(format, args), types.NewTuple(n, err), true).BodyStart(pkg).
 		ZeroLit(types.Typ[types.Int]).ZeroLit(types.Universe.Lookup("error").Type()).Return(2).
 		End()
@@ -2220,10 +2226,10 @@ func TestDelayedLoadUsed(t *testing.T) {
 	pkg := newMainPackage()
 	printf := gogen.NewOverloadFunc(token.NoPos, pkg.Types, "printf", pkg.Import("fmt").Ref("Printf"))
 	pkg.Types.Scope().Insert(printf)
-	format := pkg.NewParam(token.NoPos, "format", types.Typ[types.String])
-	args := pkg.NewParam(token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
-	n := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
-	err := pkg.NewParam(token.NoPos, "", types.Universe.Lookup("error").Type())
+	format := newParam(pkg, token.NoPos, "format", types.Typ[types.String])
+	args := newParam(pkg, token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
+	n := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
+	err := newParam(pkg, token.NoPos, "", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", types.NewTuple(format, args), types.NewTuple(n, err), true).BodyStart(pkg).
 		Val(printf).Val(format).Val(args).Call(2, true).Return(1).
 		End()
@@ -2599,7 +2605,7 @@ func main() {
 
 func TestForRangeArrayPointer(t *testing.T) {
 	pkg := newMainPackage()
-	v := pkg.NewParam(token.NoPos, "a", types.NewPointer(types.NewArray(types.Typ[types.Float64], 3)))
+	v := newParam(pkg, token.NoPos, "a", types.NewPointer(types.NewArray(types.Typ[types.Float64], 3)))
 	pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
 		/**/ ForRange("_", "x").VarVal("a").RangeAssignThen(token.NoPos).
 		/******/ Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "x")).Call(1).EndStmt().
@@ -2696,7 +2702,7 @@ func TestForRangeFunc0(t *testing.T) {
 	pkg := newMainPackage()
 	// Define iterator function type: func(yield func() bool)
 	yieldSig := types.NewSignatureType(nil, nil, nil, nil, types.NewTuple(types.NewVar(token.NoPos, nil, "", types.Typ[types.Bool])), false)
-	yieldParam := pkg.NewParam(token.NoPos, "yield", yieldSig)
+	yieldParam := newParam(pkg, token.NoPos, "yield", yieldSig)
 	iterSig := types.NewTuple(yieldParam)
 
 	// Define foo function
@@ -2729,7 +2735,7 @@ func TestForRangeFunc1(t *testing.T) {
 	yieldParamV := types.NewVar(token.NoPos, nil, "v", types.Typ[types.String])
 	yieldRet := types.NewVar(token.NoPos, nil, "", types.Typ[types.Bool])
 	yieldSig := types.NewSignatureType(nil, nil, nil, types.NewTuple(yieldParamV), types.NewTuple(yieldRet), false)
-	iterParam := pkg.NewParam(token.NoPos, "yield", yieldSig)
+	iterParam := newParam(pkg, token.NoPos, "yield", yieldSig)
 	iterSig := types.NewTuple(iterParam)
 
 	// Define bar function
@@ -2763,7 +2769,7 @@ func TestForRangeFunc2(t *testing.T) {
 	yieldParamV := types.NewVar(token.NoPos, nil, "v", types.Typ[types.Int])
 	yieldRet := types.NewVar(token.NoPos, nil, "", types.Typ[types.Bool])
 	yieldSig := types.NewSignatureType(nil, nil, nil, types.NewTuple(yieldParamK, yieldParamV), types.NewTuple(yieldRet), false)
-	iterParam := pkg.NewParam(token.NoPos, "yield", yieldSig)
+	iterParam := newParam(pkg, token.NoPos, "yield", yieldSig)
 	iterSig := types.NewTuple(iterParam)
 
 	// Define weekdays function
@@ -2873,10 +2879,10 @@ func main() {
 
 func TestReturn(t *testing.T) {
 	pkg := newMainPackage()
-	format := pkg.NewParam(token.NoPos, "format", types.Typ[types.String])
-	args := pkg.NewParam(token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
-	n := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
-	err := pkg.NewParam(token.NoPos, "", types.Universe.Lookup("error").Type())
+	format := newParam(pkg, token.NoPos, "format", types.Typ[types.String])
+	args := newParam(pkg, token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
+	n := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
+	err := newParam(pkg, token.NoPos, "", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", types.NewTuple(format, args), types.NewTuple(n, err), true).BodyStart(pkg).
 		Val(pkg.Import("fmt").Ref("Printf")).Val(format).Val(args).Call(2, true).Return(1).
 		End()
@@ -2895,10 +2901,10 @@ func main() {
 
 func TestReturnExpr(t *testing.T) {
 	pkg := newMainPackage()
-	format := pkg.NewParam(token.NoPos, "format", types.Typ[types.String])
-	args := pkg.NewParam(token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
-	n := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
-	err := pkg.NewParam(token.NoPos, "", types.Universe.Lookup("error").Type())
+	format := newParam(pkg, token.NoPos, "format", types.Typ[types.String])
+	args := newParam(pkg, token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
+	n := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
+	err := newParam(pkg, token.NoPos, "", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", types.NewTuple(format, args), types.NewTuple(n, err), true).BodyStart(pkg).
 		Val(0).Val(types.Universe.Lookup("nil")).Return(2).
 		End()
@@ -2915,10 +2921,10 @@ func main() {
 
 func TestReturnNamedResults(t *testing.T) {
 	pkg := newMainPackage()
-	format := pkg.NewParam(token.NoPos, "format", types.Typ[types.String])
-	args := pkg.NewParam(token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
-	n := pkg.NewParam(token.NoPos, "n", types.Typ[types.Int])
-	err := pkg.NewParam(token.NoPos, "err", types.Universe.Lookup("error").Type())
+	format := newParam(pkg, token.NoPos, "format", types.Typ[types.String])
+	args := newParam(pkg, token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
+	n := newParam(pkg, token.NoPos, "n", types.Typ[types.Int])
+	err := newParam(pkg, token.NoPos, "err", types.Universe.Lookup("error").Type())
 	pkg.NewFunc(nil, "foo", types.NewTuple(format, args), types.NewTuple(n, err), true).BodyStart(pkg).
 		VarRef(pkg.CB().Scope().Lookup("n")).VarRef(err).Val(1).Val(nil).Assign(2).
 		Return(0).
@@ -2939,7 +2945,7 @@ func TestImport(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 
-	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(gogen.TyByte))
+	v := newParam(pkg, token.NoPos, "v", types.NewSlice(gogen.TyByte))
 	pkg.NewFunc(nil, "fmt", types.NewTuple(v), nil, false).BodyStart(pkg).End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -3071,7 +3077,7 @@ func TestImportMultiFiles(t *testing.T) {
 		t.Fatal("pkg.SetCurFile failed:", err)
 	}
 	fmt := pkg.Import("fmt")
-	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(gogen.TyByte))
+	v := newParam(pkg, token.NoPos, "v", types.NewSlice(gogen.TyByte))
 	pkg.NewFunc(nil, "fmt", types.NewTuple(v), nil, false).BodyStart(pkg).End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).Val("Hello").Call(1).EndStmt().
@@ -3146,7 +3152,7 @@ func main() {
 func TestImportAnyWhere(t *testing.T) {
 	pkg := newMainPackage()
 
-	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(gogen.TyByte))
+	v := newParam(pkg, token.NoPos, "v", types.NewSlice(gogen.TyByte))
 	pkg.NewFunc(nil, "fmt", types.NewTuple(v), nil, false).BodyStart(pkg).End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
@@ -3190,8 +3196,8 @@ func TestOverloadFunc(t *testing.T) {
 	var f, g, x, y *goxVar
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()
-	c64 := pkg.NewParam(token.NoPos, "c64", types.Typ[types.Complex64])
-	c128 := pkg.NewParam(token.NoPos, "c128", types.Typ[types.Complex128])
+	c64 := newParam(pkg, token.NoPos, "c64", types.Typ[types.Complex64])
+	c128 := newParam(pkg, token.NoPos, "c128", types.Typ[types.Complex128])
 	pkg.NewFunc(nil, "foo", types.NewTuple(c64, c128), nil, false).BodyStart(pkg).
 		NewAutoVar(token.NoPos, token.NoPos, "f", &f).NewAutoVar(token.NoPos, token.NoPos, "g", &g).
 		NewAutoVar(token.NoPos, token.NoPos, "x", &x).NewAutoVar(token.NoPos, token.NoPos, "y", &y).
@@ -3261,7 +3267,7 @@ func TestOverloadMethod2(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	nodeSet := foo.Ref("NodeSet").Type()
-	v := pkg.NewParam(token.NoPos, "v", nodeSet)
+	v := newParam(pkg, token.NoPos, "v", nodeSet)
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "val", "err").Val(v).
 		Debug(func(cb *gogen.CodeBuilder) {
@@ -3293,7 +3299,7 @@ func TestOverloadInterfaceMethod(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	nodeSet := foo.Ref("NodeSeter").Type()
-	v := pkg.NewParam(token.NoPos, "v", nodeSet)
+	v := newParam(pkg, token.NoPos, "v", nodeSet)
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "val", "err").Val(v).
 		Debug(func(cb *gogen.CodeBuilder) {
@@ -3340,7 +3346,7 @@ func main() {
 func TestEmbbedMember(t *testing.T) {
 	pkg := newMainPackage()
 	test := pkg.Import("testing")
-	typ := pkg.NewParam(token.NoPos, "t", types.NewPointer(test.Ref("T").Type()))
+	typ := newParam(pkg, token.NoPos, "t", types.NewPointer(test.Ref("T").Type()))
 	pkg.NewFunc(nil, "foo", types.NewTuple(typ), nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "t")).
 		MemberVal("Fatal", 0).
@@ -3365,7 +3371,7 @@ func TestEmbbedField(t *testing.T) {
 		types.NewField(token.NoPos, pkg.Types, "id", types.Typ[types.String], false),
 	}
 	st := types.NewStruct(fields, nil)
-	typ := pkg.NewParam(token.NoPos, "t", types.NewPointer(st))
+	typ := newParam(pkg, token.NoPos, "t", types.NewPointer(st))
 	pkg.NewFunc(nil, "foo", types.NewTuple(typ), nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "t")).
 		MemberRef("id").Val("0").Assign(1).
@@ -3386,7 +3392,7 @@ func foo(t *struct {
 func TestMemberAutoProperty(t *testing.T) {
 	pkg := newMainPackage()
 	test := pkg.Import("testing")
-	typ := pkg.NewParam(token.NoPos, "t", types.NewPointer(test.Ref("T").Type()))
+	typ := newParam(pkg, token.NoPos, "t", types.NewPointer(test.Ref("T").Type()))
 	pkg.NewFunc(nil, "foo", types.NewTuple(typ), nil, false).BodyStart(pkg).
 		Val(ctxRef(pkg, "t")).
 		Debug(func(cb *gogen.CodeBuilder) {
@@ -3478,10 +3484,10 @@ func TestSlice(t *testing.T) {
 	tyArray := types.NewArray(types.Typ[types.Int], 10)
 	tyPArray := types.NewPointer(tyArray)
 	tyString := types.Typ[types.String]
-	p := pkg.NewParam(token.NoPos, "p", tyPArray)
-	x := pkg.NewParam(token.NoPos, "x", tySlice)
-	y := pkg.NewParam(token.NoPos, "y", tyString)
-	z := pkg.NewParam(token.NoPos, "z", tyArray)
+	p := newParam(pkg, token.NoPos, "p", tyPArray)
+	x := newParam(pkg, token.NoPos, "x", tySlice)
+	y := newParam(pkg, token.NoPos, "y", tyString)
+	z := newParam(pkg, token.NoPos, "z", tyArray)
 	pkg.NewFunc(nil, "foo", types.NewTuple(p, x, y, z), nil, false).BodyStart(pkg).
 		NewVarStart(tySlice, "a").Val(x).None().Val(2).Slice(false).EndInit(1).
 		NewVarStart(tySlice, "b").Val(x).None().None().Slice(false).EndInit(1).
@@ -3510,10 +3516,10 @@ func main() {
 func TestIndex(t *testing.T) {
 	pkg := newMainPackage()
 
-	x := pkg.NewParam(token.NoPos, "x", types.NewSlice(types.Typ[types.Int]))
-	y := pkg.NewParam(token.NoPos, "y", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
-	z := pkg.NewParam(token.NoPos, "z", gogen.TyEmptyInterface)
-	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	x := newParam(pkg, token.NoPos, "x", types.NewSlice(types.Typ[types.Int]))
+	y := newParam(pkg, token.NoPos, "y", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
+	z := newParam(pkg, token.NoPos, "z", gogen.TyEmptyInterface)
+	ret := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
 	pkg.NewFunc(nil, "foo", types.NewTuple(x, y, z), types.NewTuple(ret), false).BodyStart(pkg).
 		DefineVarStart(0, "v", "ok").Val(y).Val("a").Index(1, 2).EndInit(1).
 		DefineVarStart(0, "v1", "ok").Val(z).Val("a").Index(1, 2).EndInit(1).
@@ -3548,9 +3554,9 @@ func TestIndexRef(t *testing.T) {
 	pkg := newMainPackage()
 
 	tyArray := types.NewArray(types.Typ[types.Int], 10)
-	x := pkg.NewParam(token.NoPos, "x", tyArray)
-	y := pkg.NewParam(token.NoPos, "y", types.NewPointer(tyArray))
-	z := pkg.NewParam(token.NoPos, "z", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
+	x := newParam(pkg, token.NoPos, "x", tyArray)
+	y := newParam(pkg, token.NoPos, "y", types.NewPointer(tyArray))
+	z := newParam(pkg, token.NoPos, "z", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
 	pkg.NewFunc(nil, "foo", types.NewTuple(x, y, z), nil, false).BodyStart(pkg).
 		Val(x).Val(0).IndexRef(1).Val(1).Assign(1).
 		Val(y).Val(1).IndexRef(1).Val(2).Assign(1).
@@ -3798,7 +3804,7 @@ func main() {
 func TestClosure(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
-	paramV := pkg.NewParam(token.NoPos, "v", types.Typ[types.String]) // v string
+	paramV := newParam(pkg, token.NoPos, "v", types.Typ[types.String]) // v string
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewClosure(types.NewTuple(paramV), nil, false).BodyStart(pkg).
 		/**/ Debug(func(cb *gogen.CodeBuilder) {
@@ -3822,15 +3828,16 @@ func main() {
 `)
 }
 
+/* TODO(xsw): to be removed
 func TestClosureAutoParamRet(t *testing.T) {
 	pkg := newMainPackage()
 	ret := pkg.NewAutoParam("ret")
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(types.NewSlice(types.Typ[types.Int]), "a").
-		/**/ NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
-		/******/ VarRef(ctxRef(pkg, "ret")).Val(pkg.Builtin().Ref("append")).Val(ctxRef(pkg, "ret")).Val(1).Call(2).Assign(1).
-		/******/ Return(0).
-		/**/ End().Call(0).EndInit(1).
+			NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
+				VarRef(ctxRef(pkg, "ret")).Val(pkg.Builtin().Ref("append")).Val(ctxRef(pkg, "ret")).Val(1).Call(2).Assign(1).
+				Return(0).
+			End().Call(0).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
@@ -3842,14 +3849,15 @@ func main() {
 }
 `)
 }
+*/
 
 func TestReturnErr(t *testing.T) {
 	pkg := newMainPackage()
 	tyErr := types.Universe.Lookup("error").Type()
-	format := pkg.NewParam(token.NoPos, "format", types.Typ[types.String])
-	args := pkg.NewParam(token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
-	n := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
-	err := pkg.NewParam(token.NoPos, "", tyErr)
+	format := newParam(pkg, token.NoPos, "format", types.Typ[types.String])
+	args := newParam(pkg, token.NoPos, "args", types.NewSlice(gogen.TyEmptyInterface))
+	n := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
+	err := newParam(pkg, token.NoPos, "", tyErr)
 	pkg.NewFunc(nil, "foo", types.NewTuple(format, args), types.NewTuple(n, err), true).BodyStart(pkg).
 		NewVar(tyErr, "_xgo_err").
 		Val(ctxRef(pkg, "_xgo_err")).ReturnErr(false).
@@ -3863,21 +3871,22 @@ func foo(format string, args ...interface{}) (int, error) {
 `)
 }
 
+/* TODO(xsw): to be removed
 func TestCallInlineClosure(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 	ret := pkg.NewAutoParam("ret")
-	err := pkg.NewParam(token.NoPos, "", gogen.TyError)
+	err := newParam(pkg, token.NoPos, "", gogen.TyError)
 	sig := gogen.NewSignature(nil, nil, types.NewTuple(ret), false)
 	pkg.NewFunc(nil, "foo", nil, types.NewTuple(err), false).BodyStart(pkg).
 		DefineVarStart(0, "n").
 		CallInlineClosureStart(sig, 0, false).
-		/**/ DefineVarStart(0, "n", "err").Val(fmt.Ref("Println")).Val("Hi").Call(1).EndInit(1).
-		/**/ If().Val(ctxRef(pkg, "err")).CompareNil(token.NEQ).Then().
-		/******/ Val(ctxRef(pkg, "err")).ReturnErr(true).
-		/******/ End().
-		/**/ Val(ctxRef(pkg, "n")).Return(1).
-		/**/ End().
+			DefineVarStart(0, "n", "err").Val(fmt.Ref("Println")).Val("Hi").Call(1).EndInit(1).
+			If().Val(ctxRef(pkg, "err")).CompareNil(token.NEQ).Then().
+				Val(ctxRef(pkg, "err")).ReturnErr(true).
+				End().
+			Val(ctxRef(pkg, "n")).Return(1).
+			End().
 		EndInit(1).
 		ZeroLit(gogen.TyError).Return(1).
 		End()
@@ -3901,7 +3910,9 @@ func foo() error {
 }
 `)
 }
+*/
 
+/* TODO(xsw): to be removed
 func TestCallInlineClosureAssign(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
@@ -3910,10 +3921,10 @@ func TestCallInlineClosureAssign(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).
 		CallInlineClosureStart(sig, 0, false).
-		/**/ NewVar(types.Universe.Lookup("error").Type(), "err").
-		/**/ VarRef(ret).VarRef(ctxRef(pkg, "err")).Val(fmt.Ref("Println")).Val("Hi").Call(1).Assign(2, 1).
-		/**/ Return(0).
-		/**/ End().
+			NewVar(types.Universe.Lookup("error").Type(), "err").
+			VarRef(ret).VarRef(ctxRef(pkg, "err")).Val(fmt.Ref("Println")).Val("Hi").Call(1).Assign(2, 1).
+			Return(0).
+			End().
 		Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -3932,20 +3943,22 @@ func main() {
 }
 `)
 }
+*/
 
+/* TODO(xsw): to be removed
 func TestCallInlineClosureEllipsis(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
-	x := pkg.NewParam(token.NoPos, "x", types.NewSlice(gogen.TyEmptyInterface))
+	x := newParam(pkg, token.NoPos, "x", types.NewSlice(gogen.TyEmptyInterface))
 	ret := pkg.NewAutoParam("ret")
 	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(x), types.NewTuple(ret), true)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(fmt.Ref("Println")).
 		Val(1).SliceLit(types.NewSlice(gogen.TyEmptyInterface), 1).
 		CallInlineClosureStart(sig, 1, true).
-		/**/ DefineVarStart(0, "n", "err").Val(fmt.Ref("Println")).Val(x).Call(1, true).EndInit(1).
-		/**/ Val(ctxRef(pkg, "n")).Return(1).
-		/**/ End().
+		 	DefineVarStart(0, "n", "err").Val(fmt.Ref("Println")).Val(x).Call(1, true).EndInit(1).
+			Val(ctxRef(pkg, "n")).Return(1).
+			End().
 		Call(1).EndStmt().
 		End()
 	domTest(t, pkg, `package main
@@ -3965,6 +3978,7 @@ func main() {
 }
 `)
 }
+*/
 
 // ----------------------------------------------------------------------------
 
@@ -3973,7 +3987,7 @@ func TestExample(t *testing.T) {
 
 	fmt := pkg.Import("fmt")
 
-	v := pkg.NewParam(token.NoPos, "v", types.Typ[types.String]) // v string
+	v := newParam(pkg, token.NoPos, "v", types.Typ[types.String]) // v string
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "a", "b").Val("Hi").Val(3).EndInit(2). // a, b := "Hi", 3
@@ -4018,9 +4032,9 @@ func TestInterfaceMethodVarCall(t *testing.T) {
 	foo := pkg.NewType("foo").InitType(pkg, tyInterf)
 	_ = foo
 	tt := pkg.NewType("t").InitType(pkg, tyInt)
-	recv := pkg.NewParam(token.NoPos, "tt", tt)
+	recv := newParam(pkg, token.NoPos, "tt", tt)
 	pkg.NewFunc(recv, "bar", types.NewTuple(types.NewVar(token.NoPos, nil, "info", tyString)), nil, false).BodyStart(pkg).
-		Val(fmt.Ref("Println")).Val(recv).Val(pkg.NewParam(token.NoPos, "info", tyString)).Call(2).EndStmt(). // fmt.Println(v)
+		Val(fmt.Ref("Println")).Val(recv).Val(newParam(pkg, token.NoPos, "info", tyString)).Call(2).EndStmt(). // fmt.Println(v)
 		End()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(0, "v").Val(ctxRef(pkg, "foo")).MemberVal("bar", 0).EndInit(1).
@@ -4055,10 +4069,10 @@ func TestTypeNamed(t *testing.T) {
 	}
 	typ := types.NewStruct(fields, nil)
 	t1 := pkg.NewType("T").InitType(pkg, typ)
-	recv := pkg.NewParam(token.NoPos, "a", t1)
+	recv := newParam(pkg, token.NoPos, "a", t1)
 	pkg.NewFunc(recv, "Bar", nil, nil, false).BodyStart(pkg).End()
 	t2 := pkg.NewType("T1").InitType(pkg, types.NewNamed(types.NewTypeName(token.NoPos, nil, "T", t1), t1.Underlying(), nil))
-	recv2 := pkg.NewParam(token.NoPos, "a", t2)
+	recv2 := newParam(pkg, token.NoPos, "a", t2)
 	pkg.NewFunc(recv2, "Foo", nil, nil, false).BodyStart(pkg).End()
 	pkg.CB().NewType("X").InitType(pkg, gogen.TyByte)
 	domTest(t, pkg, `package main
@@ -4158,7 +4172,7 @@ func TestMethodAlias(t *testing.T) {
 
 	typ := types.NewStruct(nil, nil)
 	tyM := pkg.NewType("M").InitType(pkg, typ)
-	recv := pkg.NewParam(token.NoPos, "p", types.NewPointer(tyM))
+	recv := newParam(pkg, token.NoPos, "p", types.NewPointer(tyM))
 	pkg.NewFunc(recv, "SetValue", nil, nil, false).BodyStart(pkg).End()
 	pkg.NewFunc(recv, "setValue", nil, nil, false).BodyStart(pkg).End()
 	pkg.NewFunc(recv, "Value", nil, nil, false).BodyStart(pkg).End()
@@ -4414,9 +4428,9 @@ func Example() {
 func TestNewParamEx(t *testing.T) {
 	pkg := newMainPackage()
 
-	regularParam := pkg.NewParam(token.NoPos, "regular", types.Typ[types.String])
-	nonOptionalParam := pkg.NewParamEx(token.NoPos, "nonOptional", types.Typ[types.Bool], false)
-	optionalParam := pkg.NewParamEx(token.NoPos, "optional", types.Typ[types.Int], true)
+	regularParam := newParam(pkg, token.NoPos, "regular", types.Typ[types.String])
+	nonOptionalParam := pkg.NewParam(token.NoPos, "nonOptional", types.Typ[types.Bool], false)
+	optionalParam := pkg.NewParam(token.NoPos, "optional", types.Typ[types.Int], true)
 
 	params := types.NewTuple(regularParam, nonOptionalParam, optionalParam)
 	pkg.NewFunc(nil, "testFunc", params, nil, false).BodyStart(pkg).End()
@@ -4431,8 +4445,8 @@ func testFunc(regular string, nonOptional bool, __xgo_optional_optional int) {
 func TestNewParamExWithBodyRef(t *testing.T) {
 	pkg := newMainPackage()
 
-	bar := pkg.NewParamEx(token.NoPos, "bar", types.Typ[types.Int], true)
-	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	bar := pkg.NewParam(token.NoPos, "bar", types.Typ[types.Int], true)
+	ret := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
 
 	pkg.NewFunc(nil, "foo", types.NewTuple(bar), types.NewTuple(ret), false).BodyStart(pkg).
 		Val(bar).Val(1).BinaryOp(token.ADD).Return(1).
@@ -4449,10 +4463,10 @@ func foo(__xgo_optional_bar int) int {
 func TestValidateParamOrderValid(t *testing.T) {
 	pkg := newMainPackage()
 
-	positional1 := pkg.NewParam(token.NoPos, "a", types.Typ[types.String])
-	positional2 := pkg.NewParam(token.NoPos, "b", types.Typ[types.Int])
-	optional1 := pkg.NewParamEx(token.NoPos, "c", types.Typ[types.Bool], true)
-	optional2 := pkg.NewParamEx(token.NoPos, "d", types.Typ[types.Float64], true)
+	positional1 := newParam(pkg, token.NoPos, "a", types.Typ[types.String])
+	positional2 := newParam(pkg, token.NoPos, "b", types.Typ[types.Int])
+	optional1 := pkg.NewParam(token.NoPos, "c", types.Typ[types.Bool], true)
+	optional2 := pkg.NewParam(token.NoPos, "d", types.Typ[types.Float64], true)
 
 	params := types.NewTuple(positional1, positional2, optional1, optional2)
 	pkg.NewFunc(nil, "validFunc", params, nil, false).BodyStart(pkg).End()
@@ -4467,9 +4481,9 @@ func validFunc(a string, b int, __xgo_optional_c bool, __xgo_optional_d float64)
 func TestValidateParamOrderValidWithVariadic(t *testing.T) {
 	pkg := newMainPackage()
 
-	positional := pkg.NewParam(token.NoPos, "a", types.Typ[types.String])
-	optional := pkg.NewParamEx(token.NoPos, "b", types.Typ[types.Int], true)
-	variadic := pkg.NewParam(token.NoPos, "args", types.NewSlice(types.Typ[types.String]))
+	positional := newParam(pkg, token.NoPos, "a", types.Typ[types.String])
+	optional := pkg.NewParam(token.NoPos, "b", types.Typ[types.Int], true)
+	variadic := newParam(pkg, token.NoPos, "args", types.NewSlice(types.Typ[types.String]))
 
 	params := types.NewTuple(positional, optional, variadic)
 	pkg.NewFunc(nil, "variadicFunc", params, nil, true).BodyStart(pkg).End()
@@ -4484,9 +4498,9 @@ func variadicFunc(a string, __xgo_optional_b int, args ...string) {
 func TestValidateParamOrderInvalidPositionalAfterOptional(t *testing.T) {
 	pkg := newMainPackage()
 
-	positional1 := pkg.NewParam(token.NoPos, "a", types.Typ[types.String])
-	optional := pkg.NewParamEx(token.NoPos, "b", types.Typ[types.Int], true)
-	positional2 := pkg.NewParam(token.NoPos, "c", types.Typ[types.Bool])
+	positional1 := newParam(pkg, token.NoPos, "a", types.Typ[types.String])
+	optional := pkg.NewParam(token.NoPos, "b", types.Typ[types.Int], true)
+	positional2 := newParam(pkg, token.NoPos, "c", types.Typ[types.Bool])
 
 	params := types.NewTuple(positional1, optional, positional2)
 
@@ -4507,8 +4521,8 @@ func TestValidateParamOrderInvalidPositionalAfterOptional(t *testing.T) {
 func TestValidateParamOrderOnlyOptional(t *testing.T) {
 	pkg := newMainPackage()
 
-	optional1 := pkg.NewParamEx(token.NoPos, "a", types.Typ[types.Int], true)
-	optional2 := pkg.NewParamEx(token.NoPos, "b", types.Typ[types.String], true)
+	optional1 := pkg.NewParam(token.NoPos, "a", types.Typ[types.Int], true)
+	optional2 := pkg.NewParam(token.NoPos, "b", types.Typ[types.String], true)
 
 	params := types.NewTuple(optional1, optional2)
 	pkg.NewFunc(nil, "onlyOptionalFunc", params, nil, false).BodyStart(pkg).End()
@@ -4523,8 +4537,8 @@ func onlyOptionalFunc(__xgo_optional_a int, __xgo_optional_b string) {
 func TestValidateParamOrderOnlyPositional(t *testing.T) {
 	pkg := newMainPackage()
 
-	positional1 := pkg.NewParam(token.NoPos, "a", types.Typ[types.Int])
-	positional2 := pkg.NewParam(token.NoPos, "b", types.Typ[types.String])
+	positional1 := newParam(pkg, token.NoPos, "a", types.Typ[types.Int])
+	positional2 := newParam(pkg, token.NoPos, "b", types.Typ[types.String])
 
 	params := types.NewTuple(positional1, positional2)
 	pkg.NewFunc(nil, "onlyPositionalFunc", params, nil, false).BodyStart(pkg).End()
@@ -4539,8 +4553,8 @@ func onlyPositionalFunc(a int, b string) {
 func TestValidateParamOrderInvalidOptionalAsVariadic(t *testing.T) {
 	pkg := newMainPackage()
 
-	positional := pkg.NewParam(token.NoPos, "a", types.Typ[types.String])
-	optionalVariadic := pkg.NewParamEx(token.NoPos, "args", types.NewSlice(types.Typ[types.String]), true)
+	positional := newParam(pkg, token.NoPos, "a", types.Typ[types.String])
+	optionalVariadic := pkg.NewParam(token.NoPos, "args", types.NewSlice(types.Typ[types.String]), true)
 
 	params := types.NewTuple(positional, optionalVariadic)
 
@@ -4561,9 +4575,9 @@ func TestValidateParamOrderInvalidOptionalAsVariadic(t *testing.T) {
 func TestOptionalParamCallWithAllArgs(t *testing.T) {
 	pkg := newMainPackage()
 
-	x := pkg.NewParam(token.NoPos, "x", types.Typ[types.Int])
-	y := pkg.NewParamEx(token.NoPos, "y", types.Typ[types.Int], true)
-	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	x := newParam(pkg, token.NoPos, "x", types.Typ[types.Int])
+	y := pkg.NewParam(token.NoPos, "y", types.Typ[types.Int], true)
+	ret := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
 
 	params := types.NewTuple(x, y)
 	results := types.NewTuple(ret)
@@ -4589,9 +4603,9 @@ func main() {
 func TestOptionalParamCallWithMissingOptional(t *testing.T) {
 	pkg := newMainPackage()
 
-	x := pkg.NewParam(token.NoPos, "x", types.Typ[types.Int])
-	y := pkg.NewParamEx(token.NoPos, "y", types.Typ[types.Int], true)
-	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.Int])
+	x := newParam(pkg, token.NoPos, "x", types.Typ[types.Int])
+	y := pkg.NewParam(token.NoPos, "y", types.Typ[types.Int], true)
+	ret := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
 
 	params := types.NewTuple(x, y)
 	results := types.NewTuple(ret)
@@ -4617,10 +4631,10 @@ func main() {
 func TestOptionalParamCallMultipleOptional(t *testing.T) {
 	pkg := newMainPackage()
 
-	x := pkg.NewParam(token.NoPos, "x", types.Typ[types.Int])
-	y := pkg.NewParamEx(token.NoPos, "y", types.Typ[types.Int], true)
-	z := pkg.NewParamEx(token.NoPos, "z", types.Typ[types.String], true)
-	ret := pkg.NewParam(token.NoPos, "", types.Typ[types.String])
+	x := newParam(pkg, token.NoPos, "x", types.Typ[types.Int])
+	y := pkg.NewParam(token.NoPos, "y", types.Typ[types.Int], true)
+	z := pkg.NewParam(token.NoPos, "z", types.Typ[types.String], true)
+	ret := newParam(pkg, token.NoPos, "", types.Typ[types.String])
 
 	params := types.NewTuple(x, y, z)
 	results := types.NewTuple(ret)
@@ -4646,9 +4660,9 @@ func main() {
 func TestOptionalParamCallPartialOptional(t *testing.T) {
 	pkg := newMainPackage()
 
-	x := pkg.NewParam(token.NoPos, "x", types.Typ[types.Int])
-	y := pkg.NewParamEx(token.NoPos, "y", types.Typ[types.Int], true)
-	z := pkg.NewParamEx(token.NoPos, "z", types.Typ[types.Bool], true)
+	x := newParam(pkg, token.NoPos, "x", types.Typ[types.Int])
+	y := pkg.NewParam(token.NoPos, "y", types.Typ[types.Int], true)
+	z := pkg.NewParam(token.NoPos, "z", types.Typ[types.Bool], true)
 
 	params := types.NewTuple(x, y, z)
 	pkg.NewFunc(nil, "test", params, nil, false).BodyStart(pkg).End()
@@ -4688,9 +4702,9 @@ func main() {
 func TestOptionalParamWithVariadic(t *testing.T) {
 	pkg := newMainPackage()
 
-	x := pkg.NewParam(token.NoPos, "x", types.Typ[types.Int])
-	y := pkg.NewParamEx(token.NoPos, "y", types.Typ[types.Int], true)
-	z := pkg.NewParam(token.NoPos, "z", types.NewSlice(types.Typ[types.String]))
+	x := newParam(pkg, token.NoPos, "x", types.Typ[types.Int])
+	y := pkg.NewParam(token.NoPos, "y", types.Typ[types.Int], true)
+	z := newParam(pkg, token.NoPos, "z", types.NewSlice(types.Typ[types.String]))
 
 	params := types.NewTuple(x, y, z)
 	pkg.NewFunc(nil, "test", params, nil, true).BodyStart(pkg).End()

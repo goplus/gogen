@@ -26,28 +26,8 @@ import (
 
 // ----------------------------------------------------------------------------
 
-// A Param represents a function parameters and results.
-type Param = types.Var
-
-// NewAutoParam returns a new variable representing a function result parameter with auto type.
-func (p *Package) NewAutoParam(name string) *Param {
-	return p.NewAutoParamEx(token.NoPos, name)
-}
-
-// NewAutoParamEx returns a new variable representing a function result parameter with auto type.
-func (p *Package) NewAutoParamEx(pos token.Pos, name string) *Param {
-	return types.NewParam(pos, p.Types, name, &unboundType{})
-}
-
-// NewParam returns a new variable representing a function parameter.
-//
-// Deprecated: Use types.NewParam(pos, pkg.Types, name, typ) directly.
-func (p *Package) NewParam(pos token.Pos, name string, typ types.Type) *Param {
-	return types.NewParam(pos, p.Types, name, typ)
-}
-
-// NewParamEx returns a new variable representing a function parameter with optional flag.
-func (p *Package) NewParamEx(pos token.Pos, name string, typ types.Type, optional bool) *Param {
+// NewParam returns a new variable representing a function parameter with optional flag.
+func (p *Package) NewParam(pos token.Pos, name string, typ types.Type, optional bool) *types.Var {
 	param := types.NewParam(pos, p.Types, name, typ)
 	if optional {
 		p.setParamOptional(param)
