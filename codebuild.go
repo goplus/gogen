@@ -253,6 +253,16 @@ func (p *CodeBuilder) Pkg() *Package {
 	return p.pkg
 }
 
+// MoveLastStmtTo moves the last statement to the given insertion point, and
+// shifts the statements at and after the insertion point to the right.
+func (p *CodeBuilder) MoveLastStmtTo(ip int) {
+	stmts := p.current.stmts
+	n := len(stmts) - 1
+	last := stmts[n]
+	copy(stmts[ip+1:], stmts[ip:])
+	stmts[ip] = last
+}
+
 func (p *CodeBuilder) startFuncBody(fn *Func, src []ast.Node, old *funcBodyCtx) *CodeBuilder {
 	p.current.fn, old.fn = fn, p.current.fn
 	p.current.labels, old.labels = nil, p.current.labels
