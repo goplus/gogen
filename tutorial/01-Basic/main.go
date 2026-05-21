@@ -11,7 +11,7 @@ import (
 func main() {
 	pkg := gogen.NewPackage("", "main", nil)
 	fmt := pkg.Import("fmt")
-	v := pkg.NewParam(token.NoPos, "v", types.Typ[types.String]) // v string
+	v := pkg.NewParam(token.NoPos, "v", types.Typ[types.String], false) // v string
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		DefineVarStart(token.NoPos, "a", "b").Val("Hi").Val(3).EndInit(2). // a, b := "Hi", 3

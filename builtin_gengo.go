@@ -592,8 +592,8 @@ retry:
 			typ := t.Elem()
 			if lhs == 2 { // twoValue mode
 				typ = types.NewTuple(
-					pkg.NewParam(token.NoPos, "", typ),
-					pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
+					types.NewParam(token.NoPos, pkg.Types, "", typ),
+					types.NewParam(token.NoPos, pkg.Types, "", types.Typ[types.Bool]))
 			}
 			ret = &Element{Val: newRecvExpr(args), Type: typ}
 			return

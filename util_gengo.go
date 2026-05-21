@@ -72,8 +72,8 @@ func (p *CodeBuilder) TypeAssert(typ types.Type, lhs int, src ...ast.Node) *Code
 	ret := &ast.TypeAssertExpr{X: arg.Val, Type: toType(pkg, typ)}
 	if lhs == 2 {
 		tyRet := types.NewTuple(
-			pkg.NewParam(token.NoPos, "", typ),
-			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
+			types.NewParam(token.NoPos, pkg.Types, "", typ),
+			types.NewParam(token.NoPos, pkg.Types, "", types.Typ[types.Bool]))
 		p.stk.Ret(1, &internal.Elem{Type: tyRet, Val: ret, Src: getSrc(src)})
 	} else {
 		p.stk.Ret(1, &internal.Elem{Type: typ, Val: ret, Src: getSrc(src)})
@@ -477,8 +477,8 @@ func (p *CodeBuilder) Index(nidx int, lhs int, src ...ast.Node) *CodeBuilder {
 		}
 		pkg := p.pkg
 		tyRet = types.NewTuple(
-			pkg.NewParam(token.NoPos, "", typs[1]),
-			pkg.NewParam(token.NoPos, "", types.Typ[types.Bool]))
+			types.NewParam(token.NoPos, pkg.Types, "", typs[1]),
+			types.NewParam(token.NoPos, pkg.Types, "", types.Typ[types.Bool]))
 	} else { // elem = a[key]
 		tyRet = typs[1]
 	}

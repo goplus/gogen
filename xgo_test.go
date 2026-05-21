@@ -778,7 +778,7 @@ func TestForRangeUDT(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	nodeSet := foo.Ref("NodeSet").Type()
-	v := pkg.NewParam(token.NoPos, "v", nodeSet)
+	v := newParam(pkg, token.NoPos, "v", nodeSet)
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("_", "val").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
@@ -807,7 +807,7 @@ func TestForRangeUDT2(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	bar := foo.Ref("Bar").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("_", "val").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
@@ -836,7 +836,7 @@ func TestForRangeUDT3_WithAssign(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	bar := foo.Ref("Bar").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		NewVar(types.Typ[types.String], "val").
 		ForRange().VarRef(ctxRef(pkg, "val")).Val(v).RangeAssignThen(token.NoPos).
@@ -868,7 +868,7 @@ func TestForRangeUDT3_NoAssign(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	bar := foo.Ref("Bar").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange().Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
@@ -899,7 +899,7 @@ func TestForRangeUDT_UNDERLINE(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	bar := foo.Ref("Bar").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange().VarRef(ctxRef(pkg, "_")).Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
@@ -929,7 +929,7 @@ func TestForRangeUDT_UNDERLINE2(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	nodeSet := foo.Ref("NodeSet").Type()
-	v := pkg.NewParam(token.NoPos, "v", nodeSet)
+	v := newParam(pkg, token.NoPos, "v", nodeSet)
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("_", "_").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val("Hi").Call(1).EndStmt().
@@ -958,7 +958,7 @@ func TestForRangeUDT4(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	bar := foo.Ref("Foo").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("elem").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "elem")).Call(1).EndStmt().
@@ -986,7 +986,7 @@ func TestForRangeUDT5(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	bar := foo.Ref("Foo2").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("key", "elem").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "key")).Val(ctxRef(pkg, "elem")).
@@ -1011,7 +1011,7 @@ func TestForRangeUDT6(t *testing.T) {
 	pkg := newMainPackage()
 	os := pkg.Import("os")
 	file := os.Ref("File").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(file))
+	v := newParam(pkg, token.NoPos, "v", types.NewPointer(file))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("line").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "line")).
@@ -1042,7 +1042,7 @@ func TestForRangeUDT7(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	bar := foo.Ref("Foo5").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("_", "v").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "v")).Call(1).EndStmt().
@@ -1066,7 +1066,7 @@ func TestForRangeUDT8(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	bar := foo.Ref("Foo6").Type()
-	v := pkg.NewParam(token.NoPos, "v", types.NewPointer(bar))
+	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("_", "v").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "v")).Call(1).EndStmt().
@@ -1091,7 +1091,7 @@ func bar(v *foo.Foo6) {
 func TestForRangePreStmts(t *testing.T) {
 	pkg := newMainPackage()
 	// Create a function that takes an interface{} parameter
-	v := pkg.NewParam(token.NoPos, "data", types.NewInterfaceType(nil, nil).Complete())
+	v := newParam(pkg, token.NoPos, "data", types.NewInterfaceType(nil, nil).Complete())
 
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		// Start for-range and push the block scope

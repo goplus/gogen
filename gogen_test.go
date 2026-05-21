@@ -116,6 +116,10 @@ func (p nodeInterp) LoadExpr(node ast.Node) string {
 	return t.Msg
 }
 
+func newParam(pkg *gogen.Package, pos token.Pos, name string, typ types.Type) *types.Var {
+	return types.NewParam(pos, pkg.Types, name, typ)
+}
+
 func newMainPackage(
 	implicitCast ...func(pkg *gogen.Package, V, T types.Type, pv *gogen.Element) bool) *gogen.Package {
 	return newPackage("main", implicitCast...)

@@ -666,7 +666,7 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 func (p *CodeBuilder) ConvertToClosure() *CodeBuilder {
 	pkg := p.pkg
 	e := p.stk.Pop()
-	ret := pkg.NewParam(token.NoPos, "", types.Default(e.Type))
+	ret := types.NewParam(token.NoPos, pkg.Types, "", types.Default(e.Type))
 	p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg)
 	emitReturnStmt(p, token.NoPos, e.Val)
 	return p.End(e.Src)
@@ -940,7 +940,7 @@ func (p *CodeBuilder) UntypedBigInt(v *big.Int, src ...ast.Node) *CodeBuilder {
 		*/
 		typ := bigPkg.Ref("Int").Type()
 		retTyp := types.NewPointer(typ)
-		ret := pkg.NewParam(token.NoPos, "", retTyp)
+		ret := types.NewParam(token.NoPos, pkg.Types, "", retTyp)
 		p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg).
 			DefineVarStart(token.NoPos, "v", "_").
 			Val(pkg.builtin.Ref("new")).Typ(typ).Call(1).
