@@ -159,7 +159,7 @@ func TestImport(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
 
-	v := pkg.NewParam(token.NoPos, "v", types.NewSlice(gogen.TyByte))
+	v := newParam(pkg, token.NoPos, "v", types.NewSlice(gogen.TyByte))
 	pkg.NewFunc(nil, "Println", types.NewTuple(v), nil, false).BodyStart(pkg).End()
 
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
