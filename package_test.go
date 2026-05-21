@@ -95,10 +95,6 @@ func (p *goxTest) NewPackageEx(pkgPath string, name string, conf *gogen.Config) 
 
 type goxVar = types.Var
 
-func newParam(pkg *gogen.Package, pos token.Pos, name string, typ types.Type) *types.Var {
-	return types.NewParam(pos, pkg.Types, name, typ)
-}
-
 // ----------------------------------------------------------------------------
 
 func TestRedupPkgIssue796(t *testing.T) {
