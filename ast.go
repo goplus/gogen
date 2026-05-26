@@ -395,9 +395,9 @@ func toObjectExpr(pkg *Package, v types.Object) target.Expr {
 			if op, ok := nameToOps[opName]; ok {
 				switch op.Arity {
 				case 2:
-					return &target.BinaryExpr{Op: op.Tok}
+					return &target.BinaryExpr{Op: op.Tok, X: &target.Ident{Name: "x"}, Y: &target.Ident{Name: "y"}}
 				case 1:
-					return &target.UnaryExpr{Op: op.Tok}
+					return &target.UnaryExpr{Op: op.Tok, X: &target.Ident{Name: "x"}}
 				}
 			}
 		}
@@ -723,16 +723,32 @@ retry:
 			sig = t
 		}
 	case *TemplateSignature: // template function
-		sig, it = t.instantiate()
 		if t.isUnaryOp() {
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
 			cval = binaryOp(&pkg.cb, t.tok(), args)
+			if cval != nil {
+				flags |= instrFlagUntyped
+				// fix binary bigint -> rat
+				if args[0].Type == pkg.utBigRat && args[1].Type == pkg.utBigInt {
+					args[1].Type = types.Typ[types.UntypedInt]
+				} else if args[0].Type == pkg.utBigInt && args[1].Type == pkg.utBigRat {
+					args[0].Type = types.Typ[types.UntypedInt]
+				}
+			}
 		} else {
 			cval = tryBuiltinCall(fn, args, true)
 		}
 		if t.hasApproxType() {
 			flags |= instrFlagApproxType
+		}
+		if t.sig.TypeParams() != nil {
+			sig, err = t.instantiateEx(pkg, fn, args, flags)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			sig, it = t.instantiate()
 		}
 	case *TyInstruction:
 		return t.instr.Call(pkg, args, lhs, flags, fn.Src)
@@ -785,6 +801,22 @@ retry:
 		return
 	}
 	tyRet := toRetType(sig.Results(), it)
+	if tyRet != nil && flags&instrFlagUntyped != 0 {
+		switch typ := tyRet.Underlying().(type) {
+		case *types.Basic:
+			if typ.Info()&types.IsBoolean != 0 {
+				tyRet = types.Typ[types.UntypedBool]
+			} else if typ.Info()&types.IsInteger != 0 {
+				tyRet = types.Typ[types.UntypedInt]
+			} else if typ.Info()&types.IsFloat != 0 {
+				tyRet = types.Typ[types.UntypedFloat]
+			} else if typ.Info()&types.IsComplex != 0 {
+				tyRet = types.Typ[types.UntypedComplex]
+			} else if typ.Info()&types.IsString != 0 {
+				tyRet = types.Typ[types.UntypedString]
+			}
+		}
+	}
 	if cval != nil { // untyped bigint/bigrat
 		if ret, ok := untypeBig(pkg, cval, tyRet); ok {
 			return ret, nil
