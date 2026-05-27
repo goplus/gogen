@@ -727,14 +727,8 @@ retry:
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
 			cval = binaryOp(&pkg.cb, t.tok(), args)
-			if cval != nil {
+			if cval != nil || (binaryOpKinds[t.tok()] == binaryOpShift && isUntyped(pkg, args[0].Type)) {
 				flags |= instrFlagUntyped
-				// fix binary bigint -> rat
-				if args[0].Type == pkg.utBigRat && args[1].Type == pkg.utBigInt {
-					args[1].Type = types.Typ[types.UntypedInt]
-				} else if args[0].Type == pkg.utBigInt && args[1].Type == pkg.utBigRat {
-					args[0].Type = types.Typ[types.UntypedInt]
-				}
 			}
 		} else {
 			cval = tryBuiltinCall(fn, args, true)
@@ -743,7 +737,35 @@ retry:
 			flags |= instrFlagApproxType
 		}
 		if t.sig.TypeParams() != nil {
-			sig, err = t.instantiateEx(pkg, fn, args, flags)
+			if debugMatch {
+				log.Println("==> Infer TemplateSignature", t.tok(), t.sig)
+			}
+			nargs := args
+			if t.isOp() {
+				// fix binary bigint -> rat
+				if args[0].Type == pkg.utBigRat && args[1].Type == pkg.utBigInt {
+					nargs = []*internal.Elem{
+						args[0],
+						&internal.Elem{
+							Val:  args[1].Val,
+							Type: types.Typ[types.UntypedInt],
+							CVal: args[1].CVal,
+							Src:  args[1].Src,
+						},
+					}
+				} else if args[0].Type == pkg.utBigInt && args[1].Type == pkg.utBigRat {
+					nargs = []*internal.Elem{
+						&internal.Elem{
+							Val:  args[0].Val,
+							Type: types.Typ[types.UntypedInt],
+							CVal: args[0].CVal,
+							Src:  args[0].Src,
+						},
+						args[1],
+					}
+				}
+			}
+			sig, err = t.instantiateEx(pkg, fn, nargs, flags)
 			if err != nil {
 				return nil, err
 			}

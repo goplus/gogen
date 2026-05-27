@@ -185,7 +185,7 @@ func initBuiltinOps(builtin *types.Package, conf *Config) {
 			tokFlag |= tokUnaryFlag
 		}
 		name := xgoPrefix + op.name
-		tsig := NewTemplateSignatureEx(tparams, types.NewTuple(params...), results, false, tokFlag)
+		tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		if op.name == "Quo" { // func XGo_Quo(a, b untyped_bigint) untyped_bigrat
 			a := types.NewParam(token.NoPos, builtin, "a", conf.UntypedBigInt)
@@ -195,7 +195,6 @@ func initBuiltinOps(builtin *types.Package, conf *Config) {
 			quo := NewTemplateFunc(token.NoPos, builtin, name, sig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, name, tfn, quo)
 		}
-
 		gbl.Insert(tfn)
 	}
 

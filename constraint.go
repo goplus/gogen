@@ -219,13 +219,13 @@ func newTypeParams(pkg *types.Package, conf *Config, params []typeTParam) []*typ
 
 // NewTemplateSignatureEx creates type of a typeparams function.
 func NewTemplateSignatureEx(
-	tparams []*types.TypeParam, params, results *types.Tuple, variadic bool, tok ...token.Token) *TemplateSignature {
+	tparams []*types.TypeParam, recv *types.Var, params, results *types.Tuple, variadic bool, tok ...token.Token) *TemplateSignature {
 	var tokFlag token.Token
 	if tok != nil {
 		tokFlag = tok[0]
 	}
 	tsig := &TemplateSignature{
-		sig:     types.NewSignatureType(nil, nil, tparams, params, results, variadic),
+		sig:     types.NewSignatureType(recv, nil, tparams, params, results, variadic),
 		tokFlag: tokFlag,
 	}
 	return tsig
