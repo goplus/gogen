@@ -35,6 +35,8 @@ var (
 
 func makeConstraint(conf *Config, name string) types.Type {
 	switch name {
+	case "any":
+		return anyConstraint
 	case "bool":
 		return boolConstraint
 	case "string":
@@ -123,6 +125,8 @@ func makeConstraint(conf *Config, name string) types.Type {
 		return newConstraint(terms)
 	case "comparable":
 		return comparableConstraint
+	case "clearable":
+		return anyConstraint
 	}
 	panic("unsupported: " + name)
 }
@@ -145,6 +149,7 @@ var (
 		// termUntypedRune, termUntypedInt, termUntypedFloat, termUntypedString,
 	})
 	comparableConstraint = types.Universe.Lookup("comparable").Type()
+	anyConstraint        = types.Universe.Lookup("any").Type()
 )
 
 // func[T interface{Add[T interface{}](x T) T}](a T, b T) T

@@ -65,7 +65,7 @@ func newBuiltinDefault(pkg *Package, conf *Config) *types.Package {
 func InitBuiltin(pkg *Package, builtin *types.Package, conf *Config) {
 	initBuiltinOps(builtin, conf)
 	initBuiltinAssignOps(builtin, conf)
-	initBuiltinFuncs(builtin)
+	initBuiltinFuncs(builtin, conf)
 	initBuiltinTIs(pkg)
 	initUnsafeFuncs(pkg)
 }
@@ -368,14 +368,14 @@ var _builtinOverloads = [...]struct {
 }
 
 // initBuiltinFuncs initializes builtin functions of the builtin package.
-func initBuiltinFuncs(builtin *types.Package) {
+func initBuiltinFuncs(builtin *types.Package, conf *Config) {
 	gbl := builtin.Scope()
 	for _, fn := range _builtinFns {
-		tparams := newTParams(fn.tparams)
+		tparams := newTypeParams(builtin, conf, fn.tparams)
 		n := len(fn.params)
 		params := make([]*types.Var, n)
 		for i, param := range fn.params {
-			typ := newXParamType(tparams, param.typ)
+			typ := newXTypeParamType(tparams, param.typ)
 			params[i] = types.NewParam(token.NoPos, builtin, param.name, typ)
 		}
 		var ellipsis bool
@@ -384,21 +384,21 @@ func initBuiltinFuncs(builtin *types.Package) {
 		}
 		var results *types.Tuple
 		if fn.result != nil {
-			typ := newXParamType(tparams, fn.result)
+			typ := newXTypeParamType(tparams, fn.result)
 			results = types.NewTuple(types.NewParam(token.NoPos, builtin, "", typ))
 		}
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis, tokFlagApproxType)
+		tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(params...), results, ellipsis, tokFlagApproxType)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, fn.name, tsig)
 		switch fn.name {
 		case "append": // append is a special case
 			appendString := NewInstruction(token.NoPos, builtin, "append", appendStringInstr{})
 			tfn = NewOverloadFunc(token.NoPos, builtin, "append", appendString, tfn)
 		case "copy": // func [S string] copy(dst []byte, src S) int
-			tparams := newTParams([]typeTParam{{"S", _string}})
+			tparams := newTypeParams(builtin, conf, []typeTParam{{"S", _string}})
 			dst := types.NewParam(token.NoPos, builtin, "dst", types.NewSlice(types.Typ[types.Byte]))
 			src := types.NewParam(token.NoPos, builtin, "src", tparams[0])
 			ret := types.NewParam(token.NoPos, builtin, "", types.Typ[types.Int])
-			tsig := NewTemplateSignature(tparams, nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
+			tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
 			copyString := NewTemplateFunc(token.NoPos, builtin, "copy", tsig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, "copy", copyString, tfn)
 		}
@@ -462,6 +462,25 @@ func newBFunc(builtin *types.Package, name string, t typeBFunc) types.Object {
 }
 
 func newXParamType(tparams []*TemplateParamType, x xType) types.Type {
+	if tidx, ok := x.(int); ok {
+		idx := tidx & 0xffff
+		switch tidx &^ 0xffff {
+		case xtNone:
+			return tparams[idx]
+		case xtEllipsis, xtSlice:
+			return NewSlice(tparams[idx])
+		case xtMap:
+			return NewMap(tparams[idx], tparams[idx+1])
+		case xtChanIn:
+			return NewChan(types.SendOnly, tparams[idx])
+		default:
+			panic("TODO: newXParamType - unexpected xType")
+		}
+	}
+	return x.(types.Type)
+}
+
+func newXTypeParamType(tparams []*types.TypeParam, x xType) types.Type {
 	if tidx, ok := x.(int); ok {
 		idx := tidx & 0xffff
 		switch tidx &^ 0xffff {
