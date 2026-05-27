@@ -154,7 +154,7 @@ func TestErrTypeSwitch(t *testing.T) {
 }
 
 func TestErrAssignOp(t *testing.T) {
-	codeErrorTest(t, `boundType untyped int => string failed`,
+	codeErrorTest(t, `-: cannot use  (type untyped int) as type string in argument to `,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				NewVar(types.Typ[types.String], "a").

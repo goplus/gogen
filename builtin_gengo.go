@@ -64,7 +64,7 @@ func newBuiltinDefault(pkg *Package, conf *Config) *types.Package {
 
 func InitBuiltin(pkg *Package, builtin *types.Package, conf *Config) {
 	initBuiltinOps(builtin, conf)
-	initBuiltinAssignOps(builtin)
+	initBuiltinAssignOps(builtin, conf)
 	initBuiltinFuncs(builtin)
 	initBuiltinTIs(pkg)
 	initUnsafeFuncs(pkg)
@@ -254,10 +254,10 @@ var _assignOps = [...]struct {
 }
 
 // initBuiltinAssignOps initializes assign operators of the builtin package.
-func initBuiltinAssignOps(builtin *types.Package) {
+func initBuiltinAssignOps(builtin *types.Package, conf *Config) {
 	gbl := builtin.Scope()
 	for _, op := range _assignOps {
-		tparams := newOpTParams(op.t, op.ninteger)
+		tparams := newOpTypeParams(builtin, conf, op.t, op.ninteger)
 		params := make([]*types.Var, 2)
 		params[0] = types.NewParam(token.NoPos, builtin, "a", NewPointer(tparams[0]))
 		if op.ninteger {
@@ -266,7 +266,7 @@ func initBuiltinAssignOps(builtin *types.Package) {
 			params[1] = types.NewParam(token.NoPos, builtin, "b", tparams[0])
 		}
 		name := xgoPrefix + op.name
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), nil, false, 0)
+		tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(params...), nil, false, 0)
 		tfn := NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		gbl.Insert(tfn)
 	}

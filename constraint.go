@@ -217,6 +217,17 @@ func newTypeParams(pkg *types.Package, conf *Config, params []typeTParam) []*typ
 	return tparams
 }
 
+func newOpTypeParams(pkg *types.Package, conf *Config, t Contract, utinteger bool) []*types.TypeParam {
+	tparams := make([]*types.TypeParam, 1, 2)
+	tparams[0] = types.NewTypeParam(types.NewTypeName(token.NoPos, pkg, "T", nil),
+		makeConstraint(conf, t.String()))
+	if utinteger {
+		tparams = append(tparams, types.NewTypeParam(types.NewTypeName(token.NoPos, pkg, "N", nil),
+			makeConstraint(conf, "ninteger")))
+	}
+	return tparams
+}
+
 // NewTemplateSignatureEx creates type of a typeparams function.
 func NewTemplateSignatureEx(
 	tparams []*types.TypeParam, recv *types.Var, params, results *types.Tuple, variadic bool, tok ...token.Token) *TemplateSignature {
@@ -232,7 +243,37 @@ func NewTemplateSignatureEx(
 }
 
 func (p *TemplateSignature) instantiateEx(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (*types.Signature, error) {
-	sig, err := InferFunc(pkg, fn, p.sig, nil, args, flags)
+	nargs := make([]*internal.Elem, len(args))
+	copy(nargs, args)
+	for i := 0; i < len(nargs); i++ {
+		if ref, ok := nargs[i].Type.(*refType); ok {
+			nargs[i] = &internal.Elem{
+				Val:  args[i].Val,
+				Type: types.NewPointer(ref.typ),
+				CVal: args[i].CVal,
+				Src:  args[i].Src,
+			}
+		}
+	}
+	if p.isOp() {
+		// fix binary bigint -> rat
+		if args[0].Type == pkg.utBigRat && args[1].Type == pkg.utBigInt {
+			nargs[1] = &internal.Elem{
+				Val:  args[1].Val,
+				Type: types.Typ[types.UntypedInt],
+				CVal: args[1].CVal,
+				Src:  args[1].Src,
+			}
+		} else if args[0].Type == pkg.utBigInt && args[1].Type == pkg.utBigRat {
+			nargs[0] = &internal.Elem{
+				Val:  args[0].Val,
+				Type: types.Typ[types.UntypedInt],
+				CVal: args[0].CVal,
+				Src:  args[0].Src,
+			}
+		}
+	}
+	sig, err := InferFunc(pkg, fn, p.sig, nil, nargs, flags)
 	if err != nil {
 		return nil, err
 	}
