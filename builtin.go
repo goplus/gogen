@@ -722,7 +722,7 @@ var (
 	addable    = addableT{}
 	comparable = comparableT{}
 	clearable  = clearableT{}
-	borderable = &basicContract{kindsOrderable, "orderable"}
+	borderable = &basicContract{kindsOrderable, "norderable"}
 )
 
 // ----------------------------------------------------------------------------

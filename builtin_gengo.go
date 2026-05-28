@@ -191,7 +191,7 @@ func initBuiltinOps(builtin *types.Package, conf *Config) {
 			a := types.NewParam(token.NoPos, builtin, "a", conf.UntypedBigInt)
 			b := types.NewParam(token.NoPos, builtin, "b", conf.UntypedBigInt)
 			ret := types.NewParam(token.NoPos, builtin, "", conf.UntypedBigRat)
-			sig := NewTemplateSignature(nil, nil, types.NewTuple(a, b), types.NewTuple(ret), false, tokFlag)
+			sig := NewTemplateSignatureEx(nil, nil, types.NewTuple(a, b), types.NewTuple(ret), false, tokFlag)
 			quo := NewTemplateFunc(token.NoPos, builtin, name, sig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, name, tfn, quo)
 		}
@@ -281,6 +281,17 @@ func newOpTParams(t Contract, utinteger bool) []*TemplateParamType {
 	return tparams
 }
 
+func newOpTypeParams(pkg *types.Package, conf *Config, t Contract, utinteger bool) []*types.TypeParam {
+	tparams := make([]*types.TypeParam, 1, 2)
+	tparams[0] = types.NewTypeParam(types.NewTypeName(token.NoPos, pkg, "T", nil),
+		makeConstraint(conf, t.String()))
+	if utinteger {
+		tparams = append(tparams, types.NewTypeParam(types.NewTypeName(token.NoPos, pkg, "N", nil),
+			makeConstraint(conf, "ninteger")))
+	}
+	return tparams
+}
+
 // ----------------------------------------------------------------------------
 
 type typeBParam struct {
@@ -325,8 +336,13 @@ var _builtinFns = [...]struct {
 	{"delete", []typeTParam{{"Key", comparable}, {"Elem", _any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
 	// func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
 
-	{"clear", []typeTParam{{"Type", clearable}}, []typeXParam{{"t", 0}}, nil},
+	//{"clear", []typeTParam{{"Type", clearable}}, []typeXParam{{"t", 0}}, nil},
 	// func clear[T clearable](t T)
+
+	{"clear", []typeTParam{{"Key", comparable}, {"Elem", _any}}, []typeXParam{{"m", xtMap}}, nil},
+	// func clear[Key comparable, Elem any] clear(m map[Key]Elem)
+	//{"clear", []typeTParam{{"Type", _any}}, []typeXParam{{"slice", xtSlice}}, nil},
+	// func clear[Type any] clear(slice []Type)
 
 	{"max", []typeTParam{{"Type", borderable}}, []typeXParam{{"x", 0}, {"elems", xtEllipsis}}, 0},
 	//func max[T borderable](x T, y ...T) T
@@ -379,7 +395,7 @@ func initBuiltinFuncs(builtin *types.Package, conf *Config) {
 			params[i] = types.NewParam(token.NoPos, builtin, param.name, typ)
 		}
 		var ellipsis bool
-		if tidx, ok := fn.params[n-1].typ.(int); ok && (tidx&xtEllipsis) != 0 {
+		if tidx, ok := fn.params[n-1].typ.(int); ok && ((tidx &^ 0xffff) == xtEllipsis) {
 			ellipsis = true
 		}
 		var results *types.Tuple
@@ -401,6 +417,12 @@ func initBuiltinFuncs(builtin *types.Package, conf *Config) {
 			tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
 			copyString := NewTemplateFunc(token.NoPos, builtin, "copy", tsig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, "copy", copyString, tfn)
+		case "clear":
+			tparams := newTypeParams(builtin, conf, []typeTParam{{"Type", _any}})
+			slice := types.NewParam(token.NoPos, builtin, "slice", types.NewSlice(tparams[0]))
+			tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(slice), nil, false)
+			clearSlice := NewTemplateFunc(token.NoPos, builtin, "clear", tsig)
+			tfn = NewOverloadFunc(token.NoPos, builtin, "clear", clearSlice, tfn)
 		}
 		gbl.Insert(tfn)
 	}

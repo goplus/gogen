@@ -279,7 +279,7 @@ const (
 	instrFlagXGoxFunc   // call XGox_xxx function
 	instrFlagXGotFunc   // call XGot_xxx function
 	instrFlagBinaryOp   // from cb.BinaryOp
-	instrFlagUntyped
+	instrFlagUntyped    // return type should be mapped to the corresponding untyped kind
 )
 
 type Instruction interface {
