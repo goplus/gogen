@@ -663,7 +663,6 @@ const (
 
 // TemplateSignature: type of template function
 type TemplateSignature struct {
-	params  []*TemplateParamType
 	sig     *types.Signature
 	tokFlag token.Token // tok + unary flag, only for builtin operator
 }
@@ -684,121 +683,9 @@ func (p *TemplateSignature) isUnaryOp() bool {
 	return (p.tokFlag & tokUnaryFlag) != 0
 }
 
-func assertValidTemplateSignature(tsig *TemplateSignature) {
-	for i, param := range tsig.params {
-		if param.idx() != i {
-			panic("TODO: invalid TemplateSignature - incorrect index")
-		}
-	}
-}
-
-// NewTemplateSignature creates type of a template function.
-func NewTemplateSignature(
-	templateParams []*TemplateParamType,
-	recv *types.Var, params, results *types.Tuple, variadic bool, tok ...token.Token) *TemplateSignature {
-
-	var tokFlag token.Token
-	if tok != nil {
-		tokFlag = tok[0]
-	}
-	tsig := &TemplateSignature{
-		params:  templateParams,
-		sig:     types.NewSignatureType(recv, nil, nil, params, results, variadic),
-		tokFlag: tokFlag,
-	}
-	if tsig.isOp() {
-		for _, tparam := range templateParams {
-			tparam.idxFlag |= paramAllowUntyped
-		}
-	}
-	assertValidTemplateSignature(tsig)
-	return tsig
-}
-
 func (p *TemplateSignature) Underlying() types.Type { return p }
 func (p *TemplateSignature) String() string {
 	return fmt.Sprintf("TemplateSignature{%v}", p.sig)
-}
-
-// TODO: check name
-func (p *TemplateSignature) instantiate() (*types.Signature, *instantiated) {
-	tparams := make([]*unboundFuncParam, len(p.params))
-	for i, param := range p.params {
-		tparams[i] = &unboundFuncParam{typ: param}
-	}
-	sig, _, instantiatedResults := toInstantiateSignature(tparams, p.sig)
-	return sig, &instantiated{tparams: tparams, results: instantiatedResults}
-}
-
-func toInstantiate(tparams []*unboundFuncParam, typ types.Type) (types.Type, bool) {
-	switch tt := typ.(type) {
-	case *TemplateParamType:
-		return tparams[tt.idx()], true
-	case *unboundProxyParam:
-		switch t := tt.real.(type) {
-		case *types.Pointer:
-			elem, _ := toInstantiate(tparams, t.Elem())
-			return &unboundProxyParam{types.NewPointer(elem)}, true
-		case *types.Array:
-			elem, _ := toInstantiate(tparams, t.Elem())
-			return &unboundProxyParam{types.NewArray(elem, t.Len())}, true
-		case *types.Map:
-			key, _ := toInstantiate(tparams, t.Key())
-			elem, _ := toInstantiate(tparams, t.Elem())
-			return &unboundProxyParam{types.NewMap(key, elem)}, true
-		case *types.Chan:
-			elem, _ := toInstantiate(tparams, t.Elem())
-			return &unboundProxyParam{types.NewChan(t.Dir(), elem)}, true
-		case *types.Struct:
-			panic("TODO: instantiate struct")
-		default:
-			log.Panicln("TODO: toInstantiate - unknown type:", t)
-		}
-	case *types.Slice:
-		if elem, ok := toInstantiate(tparams, tt.Elem()); ok {
-			return types.NewSlice(elem), true
-		}
-	case *types.Signature:
-		t, ok, _ := toInstantiateSignature(tparams, tt)
-		return t, ok
-	}
-	return typ, false
-}
-
-func toInstantiateVar(tparams []*unboundFuncParam, param *types.Var) (*types.Var, bool) {
-	if param == nil {
-		return nil, false
-	}
-	if t, changed := toInstantiate(tparams, param.Type()); changed {
-		return types.NewParam(param.Pos(), param.Pkg(), param.Name(), t), true
-	}
-	return param, false
-}
-
-func toInstantiateTuple(tparams []*unboundFuncParam, params *types.Tuple) (*types.Tuple, bool) {
-	n := params.Len()
-	vars := make([]*types.Var, n)
-	var ok, changed bool
-	for i := 0; i < n; i++ {
-		if vars[i], ok = toInstantiateVar(tparams, params.At(i)); ok {
-			changed = true
-		}
-	}
-	if changed {
-		return types.NewTuple(vars...), true
-	}
-	return params, false
-}
-
-func toInstantiateSignature(
-	tparams []*unboundFuncParam, sig *types.Signature) (*types.Signature, bool, bool) {
-	recv, ok1 := toInstantiateVar(tparams, sig.Recv())
-	params, ok2 := toInstantiateTuple(tparams, sig.Params())
-	results, ok3 := toInstantiateTuple(tparams, sig.Results())
-	if ok1 || ok2 || ok3 {
-		return types.NewSignatureType(recv, nil, nil, params, results, sig.Variadic()), true, ok3
-	}
-	return sig, false, ok3
 }
 
 // ----------------------------------------------------------------------------

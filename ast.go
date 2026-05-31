@@ -736,16 +736,12 @@ retry:
 		if t.hasApproxType() {
 			flags |= instrFlagApproxType
 		}
-		if t.sig.TypeParams() != nil {
-			if debugMatch {
-				log.Println("==> Infer TemplateSignature", t.sig)
-			}
-			sig, err = t.instantiateEx(pkg, fn, args, flags)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			sig, it = t.instantiate()
+		if debugMatch {
+			log.Println("==> Infer TemplateSignature", t.sig)
+		}
+		sig, err = t.instantiateEx(pkg, fn, args, flags)
+		if err != nil {
+			return nil, err
 		}
 	case *TyInstruction:
 		return t.instr.Call(pkg, args, lhs, flags, fn.Src)
