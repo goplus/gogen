@@ -58,7 +58,7 @@ func newBuiltinDefault(pkg *Package, conf *Config) *types.Package {
 
 func InitBuiltin(pkg *Package, builtin *types.Package, conf *Config) {
 	initBuiltinOps(builtin, conf)
-	initBuiltinAssignOps(builtin)
+	initBuiltinAssignOps(builtin, conf)
 }
 
 // ----------------------------------------------------------------------------
@@ -154,7 +154,7 @@ var _builtinOps = [...]struct {
 func initBuiltinOps(builtin *types.Package, conf *Config) {
 	gbl := builtin.Scope()
 	for _, op := range _builtinOps {
-		tparams := newTParams(op.tparams)
+		tparams := newTypeParams(builtin, conf, op.tparams)
 		n := len(op.params)
 		params := make([]*types.Var, n)
 		for i, param := range op.params {
@@ -176,13 +176,13 @@ func initBuiltinOps(builtin *types.Package, conf *Config) {
 			tokFlag |= tokUnaryFlag
 		}
 		name := xgoPrefix + op.name
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
+		tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		if op.name == "Quo" { // func XGo_Quo(a, b untyped_bigint) untyped_bigrat
 			a := types.NewParam(token.NoPos, builtin, "a", conf.UntypedBigInt)
 			b := types.NewParam(token.NoPos, builtin, "b", conf.UntypedBigInt)
 			ret := types.NewParam(token.NoPos, builtin, "", conf.UntypedBigRat)
-			sig := NewTemplateSignature(nil, nil, types.NewTuple(a, b), types.NewTuple(ret), false, tokFlag)
+			sig := NewTemplateSignatureEx(nil, nil, types.NewTuple(a, b), types.NewTuple(ret), false, tokFlag)
 			quo := NewTemplateFunc(token.NoPos, builtin, name, sig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, name, tfn, quo)
 		}
@@ -199,6 +199,17 @@ func newTParams(params []typeTParam) []*TemplateParamType {
 	tparams := make([]*TemplateParamType, n)
 	for i, tparam := range params {
 		tparams[i] = NewTemplateParamType(i, tparam.name, tparam.contract)
+	}
+	return tparams
+}
+
+func newOpTypeParams(pkg *types.Package, conf *Config, t Contract, utinteger bool) []*types.TypeParam {
+	tparams := make([]*types.TypeParam, 1, 2)
+	tparams[0] = types.NewTypeParam(types.NewTypeName(token.NoPos, pkg, "T", nil),
+		makeConstraint(conf, t.String()))
+	if utinteger {
+		tparams = append(tparams, types.NewTypeParam(types.NewTypeName(token.NoPos, pkg, "N", nil),
+			makeConstraint(conf, "ninteger")))
 	}
 	return tparams
 }
@@ -243,10 +254,10 @@ var _assignOps = [...]struct {
 }
 
 // initBuiltinAssignOps initializes assign operators of the builtin package.
-func initBuiltinAssignOps(builtin *types.Package) {
+func initBuiltinAssignOps(builtin *types.Package, conf *Config) {
 	gbl := builtin.Scope()
 	for _, op := range _assignOps {
-		tparams := newOpTParams(op.t, op.ninteger)
+		tparams := newOpTypeParams(builtin, conf, op.t, op.ninteger)
 		params := make([]*types.Var, 2)
 		params[0] = types.NewParam(token.NoPos, builtin, "a", NewPointer(tparams[0]))
 		if op.ninteger {
@@ -255,7 +266,7 @@ func initBuiltinAssignOps(builtin *types.Package) {
 			params[1] = types.NewParam(token.NoPos, builtin, "b", tparams[0])
 		}
 		name := xgoPrefix + op.name
-		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), nil, false, 0)
+		tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(params...), nil, false, 0)
 		tfn := NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		gbl.Insert(tfn)
 	}
