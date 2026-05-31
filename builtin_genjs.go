@@ -194,15 +194,6 @@ func initBuiltinOps(builtin *types.Package, conf *Config) {
 	gbl.Insert(NewInstruction(token.NoPos, builtin, xgoPrefix+"Dec", decInstr{}))
 }
 
-func newTParams(params []typeTParam) []*TemplateParamType {
-	n := len(params)
-	tparams := make([]*TemplateParamType, n)
-	for i, tparam := range params {
-		tparams[i] = NewTemplateParamType(i, tparam.name, tparam.contract)
-	}
-	return tparams
-}
-
 func newOpTypeParams(pkg *types.Package, conf *Config, t Contract, utinteger bool) []*types.TypeParam {
 	tparams := make([]*types.TypeParam, 1, 2)
 	tparams[0] = types.NewTypeParam(types.NewTypeName(token.NoPos, pkg, "T", nil),
@@ -270,15 +261,6 @@ func initBuiltinAssignOps(builtin *types.Package, conf *Config) {
 		tfn := NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		gbl.Insert(tfn)
 	}
-}
-
-func newOpTParams(t Contract, utinteger bool) []*TemplateParamType {
-	tparams := make([]*TemplateParamType, 1, 2)
-	tparams[0] = NewTemplateParamType(0, "T", t)
-	if utinteger {
-		tparams = append(tparams, NewTemplateParamType(1, "N", ninteger))
-	}
-	return tparams
 }
 
 // ----------------------------------------------------------------------------
