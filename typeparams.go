@@ -392,4 +392,44 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []ty
 	return targs, typ, err
 }
 
+func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem, flags InstrFlags) ([]*internal.Elem, error) {
+	nargs := len(args)
+	nreq := sig.Params().Len()
+	if sig.Variadic() {
+		if nargs < nreq-1 {
+			caller := exprString(fn.Val)
+			return nil, fmt.Errorf(
+				"not enough arguments in call to %s\n\thave (%v)\n\twant (%v)", caller, getTypes(args), getParamsTypes(sig.Params(), true))
+		}
+		if flags&InstrFlagEllipsis != 0 {
+			return args, nil
+		}
+		var typ types.Type
+		if nargs < nreq {
+			typ = sig.Params().At(nreq - 1).Type()
+			elem := typ.(*types.Slice).Elem()
+			if t, ok := elem.(*types.TypeParam); ok {
+				return nil, fmt.Errorf("cannot infer %v (%v)", elem, pkg.cb.fset.Position(t.Obj().Pos()))
+			}
+		} else {
+			typ = types.NewSlice(types.Default(args[nreq-1].Type))
+		}
+		res := make([]*internal.Elem, nreq)
+		for i := 0; i < nreq-1; i++ {
+			res[i] = args[i]
+		}
+		res[nreq-1] = &internal.Elem{Type: typ}
+		return res, nil
+	} else if nreq != nargs {
+		fewOrMany := "not enough"
+		if nargs > nreq {
+			fewOrMany = "too many"
+		}
+		caller := exprString(fn.Val)
+		return nil, fmt.Errorf(
+			"%s arguments in call to %s\n\thave (%v)\n\twant (%v)", fewOrMany, caller, getTypes(args), getParamsTypes(sig.Params(), false))
+	}
+	return args, nil
+}
+
 // ----------------------------------------------------------------------------
