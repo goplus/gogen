@@ -621,7 +621,6 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, lhs i
 		}
 		log.Println("==> MatchFuncCall", ft, "args:", len(args), "lhs:", lhs, "flags:", flags)
 	}
-	var it *instantiated
 	var sig *types.Signature
 	var cval constant.Value
 retry:
@@ -793,7 +792,7 @@ retry:
 	if err = matchFuncType(pkg, args, lhs, flags, sig, fn); err != nil {
 		return
 	}
-	tyRet := toRetType(sig.Results(), it)
+	tyRet := toRetType(sig.Results())
 	if tyRet != nil && flags&instrFlagUntyped != 0 {
 		switch typ := tyRet.Underlying().(type) {
 		case *types.Basic:
@@ -1092,13 +1091,13 @@ func untypeBig(pkg *Package, cval constant.Value, tyRet types.Type) (*internal.E
 	return nil, false
 }
 
-func toRetType(t *types.Tuple, it *instantiated) types.Type {
+func toRetType(t *types.Tuple) types.Type {
 	if t == nil {
 		return nil
 	} else if t.Len() == 1 {
-		return it.normalize(t.At(0).Type())
+		return t.At(0).Type()
 	}
-	return it.normalizeTuple(t)
+	return t
 }
 
 func matchFuncType(

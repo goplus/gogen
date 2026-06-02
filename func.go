@@ -98,7 +98,7 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	pkg := cb.pkg
 	checker := termChecker{cb.current.panicCalls}
 	body := &target.BlockStmt{List: cb.endFuncBody(p.old)}
-	t, _ := toNormalizeSignature(nil, p.Type().(*types.Signature))
+	t := p.Type().(*types.Signature)
 
 	// Check for missing return at the closing brace position.
 	// For FuncDecl/FuncLit/BlockStmt, End() returns Rbrace+1, so End()-1 is the Rbrace position.
