@@ -1423,17 +1423,6 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 		mapTy := types.NewMap(Default(pkg, t.key), arg.Type)
 		t.typ.boundTo(pkg, mapTy)
 		return nil
-	default:
-		if isUnboundParam(param) {
-			if t, ok := arg.Type.(*unboundType); ok {
-				if t.tBound == nil {
-					// panic("TODO: don't pass unbound variables as template function params.")
-					return nil
-				}
-				arg.Type = t.tBound
-			}
-			return boundType(pkg, arg.Type, param, arg)
-		}
 	}
 	if AssignableConv(pkg, arg.Type, param, arg) {
 		return nil
