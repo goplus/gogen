@@ -22,6 +22,8 @@ import (
 	"strings"
 	_ "unsafe"
 
+	"github.com/goplus/gogen/internal/typeparams"
+
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/target"
 )
@@ -349,13 +351,28 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []ty
 	if err != nil {
 		return nil, nil, err
 	}
-	xlist := make([]*operand, len(args))
 	tp := sig.TypeParams()
 	n := tp.Len()
 	tparams := make([]*types.TypeParam, n)
 	for i := 0; i < n; i++ {
 		tparams[i] = tp.At(i)
 	}
+	params := sig.Params()
+	// Handle implicit cast with single type param but multiple args:
+	// Keep only the first param/arg that depends on the type param and has a typed value.
+	if pkg.implicitCast != nil && len(tparams) == 1 && len(args) > 1 {
+		var index []int
+		for i := 0; i < sig.Params().Len(); i++ {
+			if typeparams.IsParameterized(tparams, sig.Params().At(i).Type()) && !isUntyped(pkg, args[i].Type) {
+				index = append(index, i)
+			}
+		}
+		if len(index) > 1 {
+			params = types.NewTuple(params.At(index[0]))
+			args = []*Element{args[index[0]]}
+		}
+	}
+	xlist := make([]*operand, len(args))
 	for i, arg := range args {
 		xlist[i] = &operand{
 			mode: value,
@@ -384,7 +401,7 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []ty
 			}
 		}
 	}
-	targs, err = infer(pkg, fn.Val, tparams, targs, sig.Params(), xlist)
+	targs, err = infer(pkg, fn.Val, tparams, targs, params, xlist)
 	if err != nil {
 		return nil, nil, err
 	}

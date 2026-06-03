@@ -3756,7 +3756,7 @@ func main() {
 `)
 }
 
-func _TestImplicitCast(t *testing.T) {
+func TestImplicitCast(t *testing.T) {
 	pkg := newMainPackage(func(pkg *gogen.Package, V, T types.Type, pv *gogen.Element) bool {
 		log.Println("ImplicitCast:", V, T)
 		*pv = *pkg.CB().Typ(T).Val(pv).Call(1).InternalStack().Pop()
