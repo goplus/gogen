@@ -430,7 +430,7 @@ func TestContract(t *testing.T) {
 		{comparable, types.NewMap(tyInt, tyInt), false},
 		{comparable, types.NewChan(0, tyInt), true},
 		{comparable, types.NewSignatureType(nil, nil, nil, nil, nil, false), false},
-		{comparable, NewTemplateSignatureEx(nil, nil, nil, nil, false), false},
+		{comparable, NewTemplateSignature(nil, nil, nil, nil, false), false},
 		{addable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil), false},
 		{addable, tfoo, true},
 		{clearable, types.NewMap(tyInt, tyInt), true},

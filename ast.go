@@ -738,7 +738,7 @@ retry:
 		if debugMatch {
 			log.Println("==> Infer TemplateSignature", t.sig)
 		}
-		sig, err = t.instantiateEx(pkg, fn, args, flags)
+		sig, err = t.instantiate(pkg, fn, args, flags)
 		if err != nil {
 			return nil, err
 		}

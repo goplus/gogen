@@ -176,13 +176,13 @@ func initBuiltinOps(builtin *types.Package, conf *Config) {
 			tokFlag |= tokUnaryFlag
 		}
 		name := xgoPrefix + op.name
-		tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		if op.name == "Quo" { // func XGo_Quo(a, b untyped_bigint) untyped_bigrat
 			a := types.NewParam(token.NoPos, builtin, "a", conf.UntypedBigInt)
 			b := types.NewParam(token.NoPos, builtin, "b", conf.UntypedBigInt)
 			ret := types.NewParam(token.NoPos, builtin, "", conf.UntypedBigRat)
-			sig := NewTemplateSignatureEx(nil, nil, types.NewTuple(a, b), types.NewTuple(ret), false, tokFlag)
+			sig := NewTemplateSignature(nil, nil, types.NewTuple(a, b), types.NewTuple(ret), false, tokFlag)
 			quo := NewTemplateFunc(token.NoPos, builtin, name, sig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, name, tfn, quo)
 		}
@@ -257,7 +257,7 @@ func initBuiltinAssignOps(builtin *types.Package, conf *Config) {
 			params[1] = types.NewParam(token.NoPos, builtin, "b", tparams[0])
 		}
 		name := xgoPrefix + op.name
-		tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(params...), nil, false, 0)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), nil, false, 0)
 		tfn := NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		gbl.Insert(tfn)
 	}

@@ -20,11 +20,9 @@ import (
 	"go/token"
 	"go/types"
 	"strings"
-	_ "unsafe"
-
-	"github.com/goplus/gogen/internal/typeparams"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/typeparams"
 	"github.com/goplus/gogen/target"
 )
 
