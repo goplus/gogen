@@ -395,9 +395,9 @@ func toObjectExpr(pkg *Package, v types.Object) target.Expr {
 			if op, ok := nameToOps[opName]; ok {
 				switch op.Arity {
 				case 2:
-					return &target.BinaryExpr{Op: op.Tok}
+					return &target.BinaryExpr{Op: op.Tok, X: &target.Ident{Name: "x"}, Y: &target.Ident{Name: "y"}}
 				case 1:
-					return &target.UnaryExpr{Op: op.Tok}
+					return &target.UnaryExpr{Op: op.Tok, X: &target.Ident{Name: "x"}}
 				}
 			}
 		}
@@ -621,7 +621,6 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, lhs i
 		}
 		log.Println("==> MatchFuncCall", ft, "args:", len(args), "lhs:", lhs, "flags:", flags)
 	}
-	var it *instantiated
 	var sig *types.Signature
 	var cval constant.Value
 retry:
@@ -723,16 +722,25 @@ retry:
 			sig = t
 		}
 	case *TemplateSignature: // template function
-		sig, it = t.instantiate()
 		if t.isUnaryOp() {
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
 			cval = binaryOp(&pkg.cb, t.tok(), args)
+			if cval != nil || (binaryOpKinds[t.tok()] == binaryOpShift && isUntyped(pkg, args[0].Type)) {
+				flags |= instrFlagUntyped
+			}
 		} else {
 			cval = tryBuiltinCall(fn, args, true)
 		}
 		if t.hasApproxType() {
 			flags |= instrFlagApproxType
+		}
+		if debugMatch {
+			log.Println("==> Infer TemplateSignature", t.sig)
+		}
+		sig, err = t.instantiateEx(pkg, fn, args, flags)
+		if err != nil {
+			return nil, err
 		}
 	case *TyInstruction:
 		return t.instr.Call(pkg, args, lhs, flags, fn.Src)
@@ -784,7 +792,23 @@ retry:
 	if err = matchFuncType(pkg, args, lhs, flags, sig, fn); err != nil {
 		return
 	}
-	tyRet := toRetType(sig.Results(), it)
+	tyRet := toRetType(sig.Results())
+	if tyRet != nil && flags&instrFlagUntyped != 0 {
+		switch typ := tyRet.Underlying().(type) {
+		case *types.Basic:
+			if typ.Info()&types.IsBoolean != 0 {
+				tyRet = types.Typ[types.UntypedBool]
+			} else if typ.Info()&types.IsInteger != 0 {
+				tyRet = types.Typ[types.UntypedInt]
+			} else if typ.Info()&types.IsFloat != 0 {
+				tyRet = types.Typ[types.UntypedFloat]
+			} else if typ.Info()&types.IsComplex != 0 {
+				tyRet = types.Typ[types.UntypedComplex]
+			} else if typ.Info()&types.IsString != 0 {
+				tyRet = types.Typ[types.UntypedString]
+			}
+		}
+	}
 	if cval != nil { // untyped bigint/bigrat
 		if ret, ok := untypeBig(pkg, cval, tyRet); ok {
 			return ret, nil
@@ -1067,13 +1091,13 @@ func untypeBig(pkg *Package, cval constant.Value, tyRet types.Type) (*internal.E
 	return nil, false
 }
 
-func toRetType(t *types.Tuple, it *instantiated) types.Type {
+func toRetType(t *types.Tuple) types.Type {
 	if t == nil {
 		return nil
 	} else if t.Len() == 1 {
-		return it.normalize(t.At(0).Type())
+		return t.At(0).Type()
 	}
-	return it.normalizeTuple(t)
+	return t
 }
 
 func matchFuncType(

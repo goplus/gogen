@@ -40,8 +40,8 @@ func newXGoBuiltinDefault(pkg *gogen.Package, conf *gogen.Config) *types.Package
 	if builtin.Scope().Insert(gogen.NewOverloadFunc(token.NoPos, builtin, "println", fmt.Ref("Println"))) != nil {
 		panic("println exists")
 	}
-	gogen.InitBuiltin(pkg, builtin, conf)
 	initXGoBuiltin(b, conf)
+	gogen.InitBuiltin(pkg, builtin, conf)
 	tiStr := pkg.BuiltinTI(types.Typ[types.String])
 	tiStr.AddMethods(
 		&gogen.BuiltinMethod{Name: "Capitalize", Fn: b.Ref("Capitalize")},

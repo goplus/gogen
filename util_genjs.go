@@ -26,6 +26,7 @@ import (
 	"github.com/goplus/gogen/internal/go/printer"
 	"github.com/goplus/gogen/target"
 	"github.com/goplus/gogen/target/js"
+	"github.com/goplus/gogen/target/js/astutil"
 )
 
 // ----------------------------------------------------------------------------
@@ -124,8 +125,8 @@ func instanceFunc(pkg *Package, arg *internal.Elem, tsig *types.Signature, sig *
 	panic("todo instanceFunc")
 }
 
-func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem, flags InstrFlags) ([]*internal.Elem, error) {
-	panic("todo checkInferArgs")
+func exprString(x js.Expr) string {
+	return astutil.ExprString(x)
 }
 
 func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {

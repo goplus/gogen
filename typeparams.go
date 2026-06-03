@@ -22,6 +22,8 @@ import (
 	"strings"
 	_ "unsafe"
 
+	"github.com/goplus/gogen/internal/typeparams"
+
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/target"
 )
@@ -349,13 +351,28 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []ty
 	if err != nil {
 		return nil, nil, err
 	}
-	xlist := make([]*operand, len(args))
 	tp := sig.TypeParams()
 	n := tp.Len()
 	tparams := make([]*types.TypeParam, n)
 	for i := 0; i < n; i++ {
 		tparams[i] = tp.At(i)
 	}
+	params := sig.Params()
+	// Handle implicit cast with single type param but multiple args:
+	// Keep only the first param/arg that depends on the type param and has a typed value.
+	if pkg.implicitCast != nil && len(tparams) == 1 && len(args) > 1 {
+		var index []int
+		for i := 0; i < sig.Params().Len(); i++ {
+			if typeparams.IsParameterized(tparams, sig.Params().At(i).Type()) && !isUntyped(pkg, args[i].Type) {
+				index = append(index, i)
+			}
+		}
+		if len(index) > 1 {
+			params = types.NewTuple(params.At(index[0]))
+			args = []*Element{args[index[0]]}
+		}
+	}
+	xlist := make([]*operand, len(args))
 	for i, arg := range args {
 		xlist[i] = &operand{
 			mode: value,
@@ -384,12 +401,52 @@ func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []ty
 			}
 		}
 	}
-	targs, err = infer(pkg, fn.Val, tparams, targs, sig.Params(), xlist)
+	targs, err = infer(pkg, fn.Val, tparams, targs, params, xlist)
 	if err != nil {
 		return nil, nil, err
 	}
 	typ, err := types.Instantiate(pkg.cb.ctxt, sig, targs[:n], true)
 	return targs, typ, err
+}
+
+func checkInferArgs(pkg *Package, fn *internal.Elem, sig *types.Signature, args []*internal.Elem, flags InstrFlags) ([]*internal.Elem, error) {
+	nargs := len(args)
+	nreq := sig.Params().Len()
+	if sig.Variadic() {
+		if nargs < nreq-1 {
+			caller := exprString(fn.Val)
+			return nil, fmt.Errorf(
+				"not enough arguments in call to %s\n\thave (%v)\n\twant (%v)", caller, getTypes(args), getParamsTypes(sig.Params(), true))
+		}
+		if flags&InstrFlagEllipsis != 0 {
+			return args, nil
+		}
+		var typ types.Type
+		if nargs < nreq {
+			typ = sig.Params().At(nreq - 1).Type()
+			elem := typ.(*types.Slice).Elem()
+			if t, ok := elem.(*types.TypeParam); ok {
+				return nil, fmt.Errorf("cannot infer %v (%v)", elem, pkg.cb.fset.Position(t.Obj().Pos()))
+			}
+		} else {
+			typ = types.NewSlice(types.Default(args[nreq-1].Type))
+		}
+		res := make([]*internal.Elem, nreq)
+		for i := 0; i < nreq-1; i++ {
+			res[i] = args[i]
+		}
+		res[nreq-1] = &internal.Elem{Type: typ}
+		return res, nil
+	} else if nreq != nargs {
+		fewOrMany := "not enough"
+		if nargs > nreq {
+			fewOrMany = "too many"
+		}
+		caller := exprString(fn.Val)
+		return nil, fmt.Errorf(
+			"%s arguments in call to %s\n\thave (%v)\n\twant (%v)", fewOrMany, caller, getTypes(args), getParamsTypes(sig.Params(), false))
+	}
+	return args, nil
 }
 
 // ----------------------------------------------------------------------------
