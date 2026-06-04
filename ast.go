@@ -726,11 +726,14 @@ retry:
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
 			cval = binaryOp(&pkg.cb, t.tok(), args)
-			if cval != nil || (binaryOpKinds[t.tok()] == binaryOpShift && isUntyped(pkg, args[0].Type)) {
+			if binaryOpKinds[t.tok()] == binaryOpShift && isUntyped(pkg, args[0].Type) {
 				flags |= instrFlagUntyped
 			}
 		} else {
 			cval = tryBuiltinCall(fn, args, true)
+		}
+		if cval != nil {
+			flags |= instrFlagUntyped
 		}
 		if t.hasApproxType() {
 			flags |= instrFlagApproxType

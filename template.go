@@ -416,12 +416,20 @@ func (p *TemplateSignature) instantiate(pkg *Package, fn *internal.Elem, args []
 	nargs := make([]*internal.Elem, len(args))
 	copy(nargs, args)
 	for i := 0; i < len(nargs); i++ {
-		if ref, ok := nargs[i].Type.(*refType); ok {
+		switch t := nargs[i].Type.(type) {
+		case *refType:
 			nargs[i] = &internal.Elem{
 				Val:  args[i].Val,
-				Type: types.NewPointer(ref.typ),
+				Type: types.NewPointer(t.typ),
 				CVal: args[i].CVal,
 				Src:  args[i].Src,
+			}
+		case *types.Basic:
+			if t.Kind() == types.UntypedInt {
+				switch constant.Val(nargs[i].CVal).(type) {
+				case *big.Int:
+					nargs[i].Type = pkg.utBigInt
+				}
 			}
 		}
 	}
