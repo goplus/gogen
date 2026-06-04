@@ -1,10 +1,7 @@
 package gogen
 
 import (
-	"go/token"
 	"go/types"
-
-	"github.com/goplus/gogen/internal"
 )
 
 var (
@@ -143,66 +140,4 @@ func newConstraint(terms []*types.Term) *types.Interface {
 	iface := types.NewInterfaceType(nil, []types.Type{union})
 	iface.Complete()
 	return iface
-}
-
-func newTypeParams(pkg *types.Package, conf *Config, params []typeTParam) []*types.TypeParam {
-	n := len(params)
-	tparams := make([]*types.TypeParam, n)
-	for i, tparam := range params {
-		tparams[i] = types.NewTypeParam(types.NewTypeName(token.NoPos, pkg, tparam.name, nil),
-			makeConstraint(conf, tparam.contract.String()))
-	}
-	return tparams
-}
-
-// NewTemplateSignatureEx creates type of a typeparams function.
-func NewTemplateSignatureEx(
-	tparams []*types.TypeParam, recv *types.Var, params, results *types.Tuple, variadic bool, tok ...token.Token) *TemplateSignature {
-	var tokFlag token.Token
-	if tok != nil {
-		tokFlag = tok[0]
-	}
-	tsig := &TemplateSignature{
-		sig:     types.NewSignatureType(recv, nil, tparams, params, results, variadic),
-		tokFlag: tokFlag,
-	}
-	return tsig
-}
-
-func (p *TemplateSignature) instantiateEx(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (*types.Signature, error) {
-	nargs := make([]*internal.Elem, len(args))
-	copy(nargs, args)
-	for i := 0; i < len(nargs); i++ {
-		if ref, ok := nargs[i].Type.(*refType); ok {
-			nargs[i] = &internal.Elem{
-				Val:  args[i].Val,
-				Type: types.NewPointer(ref.typ),
-				CVal: args[i].CVal,
-				Src:  args[i].Src,
-			}
-		}
-	}
-	if p.isOp() {
-		// fix binary bigint -> rat
-		if args[0].Type == pkg.utBigRat && args[1].Type == pkg.utBigInt {
-			nargs[1] = &internal.Elem{
-				Val:  args[1].Val,
-				Type: types.Typ[types.UntypedInt],
-				CVal: args[1].CVal,
-				Src:  args[1].Src,
-			}
-		} else if args[0].Type == pkg.utBigInt && args[1].Type == pkg.utBigRat {
-			nargs[0] = &internal.Elem{
-				Val:  args[0].Val,
-				Type: types.Typ[types.UntypedInt],
-				CVal: args[0].CVal,
-				Src:  args[0].Src,
-			}
-		}
-	}
-	sig, err := InferFunc(pkg, fn, p.sig, nil, nargs, flags)
-	if err != nil {
-		return nil, err
-	}
-	return sig.(*types.Signature), nil
 }

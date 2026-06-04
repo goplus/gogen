@@ -455,14 +455,10 @@ retry:
 		return false
 	case *TemplateSignature:
 		return false
-	case *TemplateParamType:
-		panic("TODO: unexpected - compare to template param type?")
 	case *types.Tuple:
 		panic("TODO: unexpected - compare to tuple type?")
 	case *unboundType:
 		panic("TODO: unexpected - compare to unboundType?")
-	case *unboundFuncParam:
-		panic("TODO: unexpected - compare to unboundFuncParam?")
 	}
 	return true
 }

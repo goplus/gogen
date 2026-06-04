@@ -31,61 +31,7 @@ type Contract interface {
 	String() string
 }
 
-type TemplateParamType struct {
-	name     string
-	contract Contract
-	idxFlag  int
-}
-
-func NewTemplateParamType(idx int, name string, contract Contract) *TemplateParamType {
-	return &TemplateParamType{idxFlag: idx, name: name, contract: contract}
-}
-
-func (p *TemplateParamType) Underlying() types.Type { return p }
-func (p *TemplateParamType) String() string {
-	return fmt.Sprintf("TemplateParamType{name: %v}", p.name)
-}
-
-func (p *TemplateParamType) idx() int {
-	return p.idxFlag &^ paramAllowUntyped
-}
-
-func (p *TemplateParamType) allowUntyped() bool {
-	return (p.idxFlag & paramAllowUntyped) != 0
-}
-
-const (
-	paramAllowUntyped = 0x10000
-)
-
 // ----------------------------------------------------------------------------
-
-type unboundFuncParam struct {
-	tBound types.Type
-	typ    *TemplateParamType
-	parg   *internal.Elem
-}
-
-func (p *unboundFuncParam) boundTo(pkg *Package, t types.Type, parg *internal.Elem) {
-	if !p.typ.allowUntyped() {
-		t = DefaultConv(pkg, t, parg)
-	}
-	p.tBound, p.parg = t, parg
-}
-
-func (p *unboundFuncParam) Underlying() types.Type { return p }
-func (p *unboundFuncParam) String() string {
-	return fmt.Sprintf("unboundFuncParam{typ: %v}", p.tBound)
-}
-
-type unboundProxyParam struct {
-	real types.Type
-}
-
-func (p *unboundProxyParam) Underlying() types.Type { return p }
-func (p *unboundProxyParam) String() string {
-	return fmt.Sprintf("unboundProxyParam{typ: %v}", p.real)
-}
 
 func getElemTypeIf(t types.Type, parg *internal.Elem) types.Type {
 	if parg != nil && parg.CVal != nil {
@@ -96,89 +42,6 @@ func getElemTypeIf(t types.Type, parg *internal.Elem) types.Type {
 		}
 	}
 	return t
-}
-
-type BoundTypeError struct {
-	Fset     dbgPositioner
-	Pos, End token.Pos
-	a, b     types.Type
-}
-
-func (p *BoundTypeError) Error() string {
-	return fmt.Sprintf("boundType %v => %v failed", p.a, p.b)
-}
-
-func boundType(pkg *Package, arg, param types.Type, parg *internal.Elem) error {
-	var pos, end token.Pos
-	if parg != nil && parg.Src != nil {
-		pos = parg.Src.Pos()
-		end = parg.Src.End()
-	}
-	switch p := param.(type) {
-	case *unboundFuncParam: // template function param
-		if p.tBound == nil {
-			if !p.typ.contract.Match(pkg, arg) {
-				return fmt.Errorf("TODO: contract.Match %v => %v failed", arg, p.typ.contract)
-			}
-			p.boundTo(pkg, arg, parg)
-		} else if !AssignableConv(pkg, getElemTypeIf(arg, parg), p.tBound, parg) {
-			if !(isUntyped(pkg, p.tBound) && AssignableConv(pkg, p.tBound, arg, p.parg)) {
-				return &BoundTypeError{Fset: pkg.cb.fset, Pos: pos, End: end, a: arg, b: p.tBound}
-			}
-			p.tBound = arg
-		}
-		return nil
-	case *unboundProxyParam:
-		switch param := p.real.(type) {
-		case *types.Pointer:
-			switch t := arg.(type) {
-			case *types.Pointer:
-				return boundType(pkg, t.Elem(), param.Elem(), nil) // TODO: expr = nil
-			case *refType:
-				return boundType(pkg, t.typ, param.Elem(), nil)
-			}
-		case *types.Array:
-			if t, ok := arg.(*types.Array); ok && param.Len() == t.Len() {
-				return boundType(pkg, t.Elem(), param.Elem(), nil) // TODO: expr = nil
-			}
-		case *types.Map:
-			if t, ok := arg.(*types.Map); ok {
-				if err1 := boundType(pkg, t.Key(), param.Key(), nil); err1 != nil { // TODO: expr = nil
-					return &BoundTypeError{Fset: pkg.cb.fset, Pos: pos, End: end, a: t.Key(), b: param.Key()}
-				}
-				return boundType(pkg, t.Elem(), param.Elem(), nil) // TODO: expr = nil
-			}
-		case *types.Chan:
-			if t, ok := arg.(*types.Chan); ok {
-				if dir := t.Dir(); dir == param.Dir() || dir == types.SendRecv {
-					return boundType(pkg, t.Elem(), param.Elem(), nil) // TODO: expr = nil
-				}
-			}
-		case *types.Struct:
-			panic("TODO: boundType struct")
-		default:
-			log.Panicln("TODO: boundType - unknown type:", param)
-		}
-		return fmt.Errorf("TODO: bound %v => unboundProxyParam", arg)
-	case *types.Slice:
-		typ := arg
-	retry:
-		switch t := typ.(type) {
-		case *types.Slice:
-			return boundType(pkg, t.Elem(), p.Elem(), nil) // TODO: expr = nil
-		case *types.Named:
-			typ = pkg.cb.getUnderlying(t)
-			goto retry
-		}
-		return fmt.Errorf("TODO: bound slice failed - %v not a slice", arg)
-	case *types.Signature:
-		panic("TODO: boundType function signature")
-	default:
-		if AssignableConv(pkg, arg, param, parg) {
-			return nil
-		}
-	}
-	return fmt.Errorf("TODO: bound %v => %v", arg, param)
 }
 
 // Default returns the default "typed" type for an "untyped" type;
@@ -481,77 +344,23 @@ func NewSlice(elem types.Type) types.Type {
 
 // NewMap returns a new map for the given key and element types.
 func NewMap(key, elem types.Type) types.Type {
-	var t types.Type = types.NewMap(key, elem)
-	if isUnboundParam(key) || isUnboundParam(elem) {
-		t = &unboundProxyParam{real: t}
-	}
-	return t
+	return types.NewMap(key, elem)
 }
 
 // NewChan returns a new channel type for the given direction and element type.
 func NewChan(dir types.ChanDir, elem types.Type) types.Type {
-	var t types.Type = types.NewChan(dir, elem)
-	if isUnboundParam(elem) {
-		t = &unboundProxyParam{real: t}
-	}
-	return t
+	return types.NewChan(dir, elem)
 }
 
 // NewArray returns a new array type for the given element type and length.
 // A negative length indicates an unknown length.
 func NewArray(elem types.Type, len int64) types.Type {
-	var t types.Type = types.NewArray(elem, len)
-	if isUnboundParam(elem) {
-		t = &unboundProxyParam{real: t}
-	}
-	return t
+	return types.NewArray(elem, len)
 }
 
 // NewPointer returns a new pointer type for the given element (base) type.
 func NewPointer(elem types.Type) types.Type {
-	var t types.Type = types.NewPointer(elem)
-	if isUnboundParam(elem) {
-		t = &unboundProxyParam{real: t}
-	}
-	return t
-}
-
-func isUnboundParam(typ types.Type) bool {
-	switch t := typ.(type) {
-	case *unboundFuncParam:
-		return true
-	case *TemplateParamType:
-		return true
-	case *unboundProxyParam:
-		return true
-	case *types.Slice:
-		return isUnboundParam(t.Elem())
-	case *types.Signature:
-		return isUnboundSignature(t)
-	}
-	return false
-}
-
-func isUnboundVar(v *types.Var) bool {
-	if v == nil {
-		return false
-	}
-	return isUnboundParam(v.Type())
-}
-
-func isUnboundTuple(t *types.Tuple) bool {
-	for i, n := 0, t.Len(); i < n; i++ {
-		if isUnboundVar(t.At(i)) {
-			return true
-		}
-	}
-	return false
-}
-
-func isUnboundSignature(sig *types.Signature) bool {
-	return isUnboundVar(sig.Recv()) ||
-		isUnboundTuple(sig.Params()) ||
-		isUnboundTuple(sig.Results())
+	return types.NewPointer(elem)
 }
 
 // ----------------------------------------------------------------------------
@@ -587,6 +396,76 @@ func (p *TemplateSignature) isUnaryOp() bool {
 func (p *TemplateSignature) Underlying() types.Type { return p }
 func (p *TemplateSignature) String() string {
 	return fmt.Sprintf("TemplateSignature{%v}", p.sig)
+}
+
+// NewTemplateSignature creates type of a typeparams function.
+func NewTemplateSignature(
+	tparams []*types.TypeParam, recv *types.Var, params, results *types.Tuple, variadic bool, tok ...token.Token) *TemplateSignature {
+	var tokFlag token.Token
+	if tok != nil {
+		tokFlag = tok[0]
+	}
+	tsig := &TemplateSignature{
+		sig:     types.NewSignatureType(recv, nil, tparams, params, results, variadic),
+		tokFlag: tokFlag,
+	}
+	return tsig
+}
+
+func (p *TemplateSignature) instantiate(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (*types.Signature, error) {
+	nargs := make([]*internal.Elem, len(args))
+	copy(nargs, args)
+	for i := 0; i < len(nargs); i++ {
+		switch t := nargs[i].Type.(type) {
+		case *refType:
+			nargs[i] = &internal.Elem{
+				Val:  args[i].Val,
+				Type: types.NewPointer(t.typ),
+				CVal: args[i].CVal,
+				Src:  args[i].Src,
+			}
+		case *types.Basic:
+			if t.Kind() == types.UntypedInt {
+				switch constant.Val(nargs[i].CVal).(type) {
+				case *big.Int:
+					nargs[i].Type = pkg.utBigInt
+				}
+			}
+		}
+	}
+	if p.isOp() {
+		// fix binary bigint -> rat
+		if args[0].Type == pkg.utBigRat && args[1].Type == pkg.utBigInt {
+			nargs[1] = &internal.Elem{
+				Val:  args[1].Val,
+				Type: types.Typ[types.UntypedInt],
+				CVal: args[1].CVal,
+				Src:  args[1].Src,
+			}
+		} else if args[0].Type == pkg.utBigInt && args[1].Type == pkg.utBigRat {
+			nargs[0] = &internal.Elem{
+				Val:  args[0].Val,
+				Type: types.Typ[types.UntypedInt],
+				CVal: args[0].CVal,
+				Src:  args[0].Src,
+			}
+		}
+	}
+	sig, err := InferFunc(pkg, fn, p.sig, nil, nargs, flags)
+	if err != nil {
+		return nil, err
+	}
+	return sig.(*types.Signature), nil
+}
+
+func newTypeParams(pkg *types.Package, conf *Config, params []typeTParam) []*types.TypeParam {
+	n := len(params)
+	tparams := make([]*types.TypeParam, n)
+	for i, tparam := range params {
+		tparams[i] = types.NewTypeParam(types.NewTypeName(token.NoPos, pkg, tparam.name, nil),
+			makeConstraint(conf, tparam.contract.String()))
+	}
+	return tparams
 }
 
 // ----------------------------------------------------------------------------

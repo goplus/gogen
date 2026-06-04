@@ -184,16 +184,6 @@ func TestCheckXGoPkgNoop(t *testing.T) {
 	if _, ok := checkXGoPkg(pkg); ok {
 		t.Fatal("checkXGoPkg: ok?")
 	}
-	defer func() {
-		if recover() == nil {
-			t.Fatal("expDeps.typ: no panic?")
-		}
-	}()
-	var ed expDeps
-	tyParam := types.NewTypeParam(types.NewTypeName(0, pkg.Types, "T", nil), TyEmptyInterface)
-	ed.typ(tyParam)
-	ed.typ(types.NewUnion([]*types.Term{types.NewTerm(false, tyParam)}))
-	ed.typ(&unboundFuncParam{})
 }
 
 func TestDenoted(t *testing.T) {
@@ -440,7 +430,7 @@ func TestContract(t *testing.T) {
 		{comparable, types.NewMap(tyInt, tyInt), false},
 		{comparable, types.NewChan(0, tyInt), true},
 		{comparable, types.NewSignatureType(nil, nil, nil, nil, nil, false), false},
-		{comparable, NewTemplateSignatureEx(nil, nil, nil, nil, false), false},
+		{comparable, NewTemplateSignature(nil, nil, nil, nil, false), false},
 		{addable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.Bool], nil), false},
 		{addable, tfoo, true},
 		{clearable, types.NewMap(tyInt, tyInt), true},
@@ -792,9 +782,6 @@ func TestTypeEx(t *testing.T) {
 		&TyOverloadNamed{Obj: types.NewTypeName(0, pkg.Types, "bar", tyInt)},
 		&TypeType{},
 		&TyTypeAsParams{},
-		&unboundFuncParam{},
-		&unboundProxyParam{},
-		&TemplateParamType{},
 		&TemplateSignature{},
 	}
 	if v := subst.String(); v != "substType{real: <nil>}" {
@@ -825,10 +812,6 @@ func TestTypeEx(t *testing.T) {
 			}
 			typ.Underlying()
 		}()
-	}
-	bte := &BoundTypeError{Fset: pkg.cb.fset, a: tyInt, b: TyByte}
-	if bte.Error() != "boundType int => byte failed" {
-		t.Fatal("boundTypeError:", bte)
 	}
 	ut := &unboundType{tBound: tyInt}
 	defer func() {
@@ -1455,12 +1438,6 @@ func TestUntypeBig(t *testing.T) {
 		}()
 		pkg.Import("not-found").EnsureImported()
 	}()
-}
-
-func TestIsUnbound(t *testing.T) {
-	if !isUnboundTuple(types.NewTuple(types.NewParam(token.NoPos, nil, "", &unboundFuncParam{}))) {
-		t.Fatal("TestIsUnbound failed")
-	}
 }
 
 func TestErrImport(t *testing.T) {

@@ -185,13 +185,13 @@ func initBuiltinOps(builtin *types.Package, conf *Config) {
 			tokFlag |= tokUnaryFlag
 		}
 		name := xgoPrefix + op.name
-		tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, false, tokFlag)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		if op.name == "Quo" { // func XGo_Quo(a, b untyped_bigint) untyped_bigrat
 			a := types.NewParam(token.NoPos, builtin, "a", conf.UntypedBigInt)
 			b := types.NewParam(token.NoPos, builtin, "b", conf.UntypedBigInt)
 			ret := types.NewParam(token.NoPos, builtin, "", conf.UntypedBigRat)
-			sig := NewTemplateSignatureEx(nil, nil, types.NewTuple(a, b), types.NewTuple(ret), false, tokFlag)
+			sig := NewTemplateSignature(nil, nil, types.NewTuple(a, b), types.NewTuple(ret), false, tokFlag)
 			quo := NewTemplateFunc(token.NoPos, builtin, name, sig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, name, tfn, quo)
 		}
@@ -257,7 +257,7 @@ func initBuiltinAssignOps(builtin *types.Package, conf *Config) {
 			params[1] = types.NewParam(token.NoPos, builtin, "b", tparams[0])
 		}
 		name := xgoPrefix + op.name
-		tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(params...), nil, false, 0)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), nil, false, 0)
 		tfn := NewTemplateFunc(token.NoPos, builtin, name, tsig)
 		gbl.Insert(tfn)
 	}
@@ -385,7 +385,7 @@ func initBuiltinFuncs(builtin *types.Package, conf *Config) {
 			typ := newXTypeParamType(tparams, fn.result)
 			results = types.NewTuple(types.NewParam(token.NoPos, builtin, "", typ))
 		}
-		tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(params...), results, ellipsis, tokFlagApproxType)
+		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis, tokFlagApproxType)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, fn.name, tsig)
 		switch fn.name {
 		case "append": // append is a special case
@@ -396,13 +396,13 @@ func initBuiltinFuncs(builtin *types.Package, conf *Config) {
 			dst := types.NewParam(token.NoPos, builtin, "dst", types.NewSlice(types.Typ[types.Byte]))
 			src := types.NewParam(token.NoPos, builtin, "src", tparams[0])
 			ret := types.NewParam(token.NoPos, builtin, "", types.Typ[types.Int])
-			tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
+			tsig := NewTemplateSignature(tparams, nil, types.NewTuple(dst, src), types.NewTuple(ret), false)
 			copyString := NewTemplateFunc(token.NoPos, builtin, "copy", tsig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, "copy", copyString, tfn)
 		case "clear":
 			tparams := newTypeParams(builtin, conf, []typeTParam{{"Type", _any}})
 			slice := types.NewParam(token.NoPos, builtin, "slice", types.NewSlice(tparams[0]))
-			tsig := NewTemplateSignatureEx(tparams, nil, types.NewTuple(slice), nil, false)
+			tsig := NewTemplateSignature(tparams, nil, types.NewTuple(slice), nil, false)
 			clearSlice := NewTemplateFunc(token.NoPos, builtin, "clear", tsig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, "clear", clearSlice, tfn)
 		}

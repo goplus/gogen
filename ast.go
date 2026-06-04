@@ -726,11 +726,14 @@ retry:
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
 			cval = binaryOp(&pkg.cb, t.tok(), args)
-			if cval != nil || (binaryOpKinds[t.tok()] == binaryOpShift && isUntyped(pkg, args[0].Type)) {
+			if binaryOpKinds[t.tok()] == binaryOpShift && isUntyped(pkg, args[0].Type) {
 				flags |= instrFlagUntyped
 			}
 		} else {
 			cval = tryBuiltinCall(fn, args, true)
+		}
+		if cval != nil {
+			flags |= instrFlagUntyped
 		}
 		if t.hasApproxType() {
 			flags |= instrFlagApproxType
@@ -738,7 +741,7 @@ retry:
 		if debugMatch {
 			log.Println("==> Infer TemplateSignature", t.sig)
 		}
-		sig, err = t.instantiateEx(pkg, fn, args, flags)
+		sig, err = t.instantiate(pkg, fn, args, flags)
 		if err != nil {
 			return nil, err
 		}
@@ -1423,17 +1426,6 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 		mapTy := types.NewMap(Default(pkg, t.key), arg.Type)
 		t.typ.boundTo(pkg, mapTy)
 		return nil
-	default:
-		if isUnboundParam(param) {
-			if t, ok := arg.Type.(*unboundType); ok {
-				if t.tBound == nil {
-					// panic("TODO: don't pass unbound variables as template function params.")
-					return nil
-				}
-				arg.Type = t.tBound
-			}
-			return boundType(pkg, arg.Type, param, arg)
-		}
 	}
 	if AssignableConv(pkg, arg.Type, param, arg) {
 		return nil
