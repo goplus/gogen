@@ -634,8 +634,8 @@ func TestZeroLitAllTypes(t *testing.T) {
 	tyUP := types.Typ[types.UnsafePointer]
 	tyMap := types.NewMap(tyString, types.Typ[types.Int])
 	tySlice := types.NewSlice(types.Typ[types.Int])
-	tyArray := gogen.NewArray(types.Typ[types.Int], 10)
-	tyPointer := gogen.NewPointer(types.Typ[types.Int])
+	tyArray := types.NewArray(types.Typ[types.Int], 10)
+	tyPointer := types.NewPointer(types.Typ[types.Int])
 	tyChan := types.NewChan(types.SendRecv, types.Typ[types.Int])
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tyMap, "a").ZeroLit(tyMap).EndInit(1).
