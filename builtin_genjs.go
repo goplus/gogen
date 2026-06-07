@@ -250,7 +250,7 @@ func initBuiltinAssignOps(builtin *types.Package, conf *Config) {
 	for _, op := range _assignOps {
 		tparams := newOpTypeParams(builtin, conf, op.t, op.ninteger)
 		params := make([]*types.Var, 2)
-		params[0] = types.NewParam(token.NoPos, builtin, "a", NewPointer(tparams[0]))
+		params[0] = types.NewParam(token.NoPos, builtin, "a", types.NewPointer(tparams[0]))
 		if op.ninteger {
 			params[1] = types.NewParam(token.NoPos, builtin, "n", tparams[1])
 		} else {

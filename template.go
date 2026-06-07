@@ -329,40 +329,6 @@ func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type
 	return false
 }
 
-// NewSignature returns a new function type for the given receiver, parameters,
-// and results, either of which may be nil. If variadic is set, the function
-// is variadic, it must have at least one parameter, and the last parameter
-// must be of unnamed slice type.
-func NewSignature(recv *types.Var, params, results *types.Tuple, variadic bool) *types.Signature {
-	return types.NewSignatureType(recv, nil, nil, params, results, variadic)
-}
-
-// NewSlice returns a new slice type for the given element type.
-func NewSlice(elem types.Type) types.Type {
-	return types.NewSlice(elem)
-}
-
-// NewMap returns a new map for the given key and element types.
-func NewMap(key, elem types.Type) types.Type {
-	return types.NewMap(key, elem)
-}
-
-// NewChan returns a new channel type for the given direction and element type.
-func NewChan(dir types.ChanDir, elem types.Type) types.Type {
-	return types.NewChan(dir, elem)
-}
-
-// NewArray returns a new array type for the given element type and length.
-// A negative length indicates an unknown length.
-func NewArray(elem types.Type, len int64) types.Type {
-	return types.NewArray(elem, len)
-}
-
-// NewPointer returns a new pointer type for the given element (base) type.
-func NewPointer(elem types.Type) types.Type {
-	return types.NewPointer(elem)
-}
-
 // ----------------------------------------------------------------------------
 
 const (

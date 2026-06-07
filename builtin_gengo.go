@@ -250,7 +250,7 @@ func initBuiltinAssignOps(builtin *types.Package, conf *Config) {
 	for _, op := range _assignOps {
 		tparams := newOpTypeParams(builtin, conf, op.t, op.ninteger)
 		params := make([]*types.Var, 2)
-		params[0] = types.NewParam(token.NoPos, builtin, "a", NewPointer(tparams[0]))
+		params[0] = types.NewParam(token.NoPos, builtin, "a", types.NewPointer(tparams[0]))
 		if op.ninteger {
 			params[1] = types.NewParam(token.NoPos, builtin, "n", tparams[1])
 		} else {
@@ -472,11 +472,11 @@ func newXTypeParamType(tparams []*types.TypeParam, x xType) types.Type {
 		case xtNone:
 			return tparams[idx]
 		case xtEllipsis, xtSlice:
-			return NewSlice(tparams[idx])
+			return types.NewSlice(tparams[idx])
 		case xtMap:
-			return NewMap(tparams[idx], tparams[idx+1])
+			return types.NewMap(tparams[idx], tparams[idx+1])
 		case xtChanIn:
-			return NewChan(types.SendOnly, tparams[idx])
+			return types.NewChan(types.SendOnly, tparams[idx])
 		default:
 			panic("TODO: newXTypeParamType - unexpected xType")
 		}
