@@ -1494,3 +1494,62 @@ func TestErrUint128(t *testing.T) {
 }
 
 // ----------------------------------------------------------------------------
+
+func TestReflectTypeArg(t *testing.T) {
+	pkg := newMainPackage()
+	reflectPkg := pkg.Import("reflect")
+	reflectType := reflectPkg.Ref("Type").Type()
+
+	// func foo(t reflect.Type) {}
+	fooParams := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "t", reflectType))
+	pkg.NewFunc(nil, "foo", fooParams, nil, false).BodyStart(pkg).End()
+
+	// func main() { foo(int); foo(*int) }
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(pkg.Ref("foo")).Typ(types.Typ[types.Int]).Call(1).EndStmt().
+		Val(pkg.Ref("foo")).Typ(types.NewPointer(types.Typ[types.Int])).Call(1).EndStmt().
+		End()
+
+	domTest(t, pkg, `package main
+
+import "reflect"
+
+func foo(t reflect.Type) {
+}
+func main() {
+	foo(reflect.TypeFor[int]())
+	foo(reflect.TypeFor[*int]())
+}
+`)
+}
+
+func TestReflectTypeArgVariadic(t *testing.T) {
+	pkg := newMainPackage()
+	reflectPkg := pkg.Import("reflect")
+	reflectType := reflectPkg.Ref("Type").Type()
+
+	// func accept(typs ...reflect.Type) {}
+	acceptParams := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "typs", types.NewSlice(reflectType)))
+	pkg.NewFunc(nil, "accept", acceptParams, nil, true).BodyStart(pkg).End()
+
+	// func main() { accept(int, string) }
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(pkg.Ref("accept")).
+		Typ(types.Typ[types.Int]).
+		Typ(types.Typ[types.String]).
+		Call(2).EndStmt().
+		End()
+
+	domTest(t, pkg, `package main
+
+import "reflect"
+
+func accept(typs ...reflect.Type) {
+}
+func main() {
+	accept(reflect.TypeFor[int](), reflect.TypeFor[string]())
+}
+`)
+}
+
+// ----------------------------------------------------------------------------
