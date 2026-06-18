@@ -1185,6 +1185,7 @@ func matchArgType(pkg *Package, arg *internal.Elem, texp types.Type, at any) err
 	if t, ok := arg.Type.(*TypeType); ok && isReflectType(texp) {
 		arg.Val = buildTypeForCallExpr(pkg, t.typ)
 		arg.Type = texp
+		return nil
 	}
 	return matchType(pkg, arg, texp, at)
 }
