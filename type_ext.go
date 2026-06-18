@@ -17,7 +17,6 @@ package gogen
 
 import (
 	"fmt"
-	"go/ast"
 	"go/token"
 	"go/types"
 )
@@ -210,48 +209,12 @@ func DerefType(typ types.Type) (types.Type, bool) {
 	return typ, false
 }
 
-// unboundType: unbound type
-type unboundType struct {
-	tBound types.Type
-	ptypes []*ast.Expr
-}
-
-func (p *unboundType) boundTo(pkg *Package, arg types.Type) {
-	if p.tBound != nil {
-		fatal("TODO: type is already bounded")
-	}
-	p.tBound = arg
-	for _, pt := range p.ptypes {
-		*pt = toType(pkg, arg)
-	}
-	p.ptypes = nil
-}
-
-func (p *unboundType) Underlying() types.Type { return p }
-func (p *unboundType) String() string {
-	return fmt.Sprintf("unboundType{typ: %v}", p.tBound)
-}
-
 func realType(typ types.Type) types.Type {
 	switch t := typ.(type) {
-	case *unboundType:
-		if t.tBound != nil {
-			return t.tBound
-		}
 	case *types.Alias:
 		return types.Unalias(t)
 	}
 	return typ
-}
-
-type unboundMapElemType struct {
-	key types.Type
-	typ *unboundType
-}
-
-func (p *unboundMapElemType) Underlying() types.Type { return p }
-func (p *unboundMapElemType) String() string {
-	return fmt.Sprintf("unboundMapElemType{key: %v}", p.key)
 }
 
 // ----------------------------------------------------------------------------

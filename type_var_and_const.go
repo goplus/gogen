@@ -473,11 +473,7 @@ func (p *Package) newValueDecl(
 	}
 	spec.Names = nameIdents
 	if typ != nil {
-		if ut, ok := typ.(*unboundType); ok && ut.tBound == nil {
-			ut.ptypes = append(ut.ptypes, &spec.Type)
-		} else {
-			spec.Type = toType(p, typ)
-		}
+		spec.Type = toType(p, typ)
 	}
 	return &ValueDecl{
 		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: spec.at, setTyper: spec.setTyper}

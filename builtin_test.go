@@ -772,8 +772,6 @@ func TestTypeEx(t *testing.T) {
 	typs := []types.Type{
 		&refType{},
 		subst,
-		&unboundType{},
-		&unboundMapElemType{},
 		&TyOverloadFunc{},
 		&TyOverloadMethod{},
 		&TyStaticMethod{},
@@ -813,13 +811,6 @@ func TestTypeEx(t *testing.T) {
 			typ.Underlying()
 		}()
 	}
-	ut := &unboundType{tBound: tyInt}
-	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("unboundType.boundTo: no error?")
-		}
-	}()
-	ut.boundTo(pkg, TyByte)
 }
 
 func TestIsNumeric(t *testing.T) {

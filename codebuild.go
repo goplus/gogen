@@ -650,15 +650,6 @@ func (p *CodeBuilder) NewClosure(params, results *types.Tuple, variadic bool) *F
 
 // NewClosureWith func
 func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
-	if debugInstr {
-		t := sig.Params()
-		for i, n := 0, t.Len(); i < n; i++ {
-			v := t.At(i)
-			if _, ok := v.Type().(*unboundType); ok {
-				panic("can't use unbound type in func parameters")
-			}
-		}
-	}
 	return p.pkg.newClosure(sig)
 }
 
@@ -851,14 +842,9 @@ func (p *CodeBuilder) IndexRef(nidx int, src ...ast.Node) *CodeBuilder {
 		Val: &target.IndexExpr{X: args[0].Val, Index: args[1].Val},
 		Src: getSrc(src),
 	}
-	if t, ok := typ.(*unboundType); ok {
-		tyMapElem := &unboundMapElemType{key: args[1].Type, typ: t}
-		elemRef.Type = &refType{typ: tyMapElem}
-	} else {
-		typs, _ := p.getIdxValTypes(typ, true, elemRef.Src)
-		elemRef.Type = &refType{typ: typs[1]}
-		// TODO: check index type
-	}
+	typs, _ := p.getIdxValTypes(typ, true, elemRef.Src)
+	elemRef.Type = &refType{typ: typs[1]}
+	// TODO: check index type
 	p.stk.Ret(2, elemRef)
 	return p
 }
