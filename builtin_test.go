@@ -813,6 +813,12 @@ func TestTypeEx(t *testing.T) {
 	}
 }
 
+func Test_isReflectType(t *testing.T) {
+	if isReflectType(nil) {
+		t.Fatal("nil isReflectType?")
+	}
+}
+
 func TestIsNumeric(t *testing.T) {
 	var cb CodeBuilder
 	if isNumeric(&cb, nil) {
