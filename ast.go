@@ -1189,18 +1189,6 @@ func matchArgType(pkg *Package, arg *internal.Elem, texp types.Type, at any) err
 	return matchType(pkg, arg, texp, at)
 }
 
-func buildTypeForCallExpr(pkg *Package, T types.Type) ast.Expr {
-	reflectPkg := pkg.Import("reflect")
-	typeForObj := reflectPkg.Ref("TypeFor")
-	funExpr := toObjectTypeExpr(pkg, typeForObj)
-	return &ast.CallExpr{
-		Fun: &ast.IndexExpr{
-			X:     funExpr,
-			Index: toType(pkg, T),
-		},
-	}
-}
-
 func isReflectType(t types.Type) bool {
 	if named, ok := t.(*types.Named); ok {
 		obj := named.Obj()

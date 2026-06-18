@@ -980,6 +980,18 @@ func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
 	}
 }
 
+func buildTypeForCallExpr(pkg *Package, T types.Type) ast.Expr {
+	reflectPkg := pkg.Import("reflect")
+	typeForObj := reflectPkg.Ref("TypeFor")
+	funExpr := toObjectTypeExpr(pkg, typeForObj)
+	return &ast.CallExpr{
+		Fun: &ast.IndexExpr{
+			X:     funExpr,
+			Index: toType(pkg, T),
+		},
+	}
+}
+
 // ----------------------------------------------------------------------------
 
 func newIncDecStmt(x ast.Expr, tok token.Token) *ast.IncDecStmt {
