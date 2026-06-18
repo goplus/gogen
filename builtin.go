@@ -457,8 +457,6 @@ retry:
 		return false
 	case *types.Tuple:
 		panic("TODO: unexpected - compare to tuple type?")
-	case *unboundType:
-		panic("TODO: unexpected - compare to unboundType?")
 	}
 	return true
 }

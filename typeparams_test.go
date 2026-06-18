@@ -503,7 +503,6 @@ var MyInts = Int{1,2,3,4}
 	tyString := types.Typ[types.String]
 	tyIntSlice := types.NewSlice(tyInt)
 	tyIntPointer := types.NewPointer(tyInt)
-	var fn1 *types.Var
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		VarRef(nil).Val(fnAt).Typ(tyIntSlice).Index(1, 0).Assign(1, 1).
 		VarRef(nil).Val(fnSum).Typ(tyInt).Index(1, 0).Assign(1, 1).
@@ -523,8 +522,6 @@ var MyInts = Int{1,2,3,4}
 		NewVarStart(tyInt, "n7").Val(fnAdd).Typ(tyString).Typ(tyInt).Index(2, 0).Val("hello").Val(1).Val(2).Val(3).SliceLit(tyIntSlice, 3).CallWith(2, 0, gogen.InstrFlagEllipsis).EndInit(1).
 		NewVarStart(tyIntPointer, "p1").Val(fnLoader).Typ(tyIntPointer).Index(1, 0).Val(nil).Val(1).Call(2).EndInit(1).
 		NewVarStart(tyIntPointer, "p2").Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, 0).Val(nil).Val(1).Call(2).EndInit(1).
-		NewAutoVar(0, 0, "fn1", &fn1).VarRef(fn1).Val(fnLoader).Typ(tyIntPointer).Typ(tyInt).Index(2, 0).Assign(1, 1).EndStmt().
-		Val(fn1).Val(nil).Val(1).Call(2).EndStmt().
 		End()
 	domTest(t, pkg, `package main
 
@@ -549,9 +546,6 @@ func main() {
 	var n7 int = foo.Add[string, int]("hello", []int{1, 2, 3}...)
 	var p1 *int = foo.Loader[*int](nil, 1)
 	var p2 *int = foo.Loader[*int, int](nil, 1)
-	var fn1 func(p1 *int, p2 int) *int
-	fn1 = foo.Loader[*int, int]
-	fn1(nil, 1)
 }
 `)
 }

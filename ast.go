@@ -155,7 +155,6 @@ func embedName(typ types.Type) string {
 }
 
 func toType(pkg *Package, typ types.Type) ast.Expr {
-retry:
 	switch t := typ.(type) {
 	case *types.Basic: // bool, int, etc
 		return toBasicType(pkg, t)
@@ -177,12 +176,6 @@ retry:
 		return toChanType(pkg, t)
 	case *types.Signature:
 		return toFuncType(pkg, t)
-	case *unboundType:
-		if t.tBound == nil {
-			panic("unbound type")
-		}
-		typ = t.tBound
-		goto retry
 	case *TypeParam:
 		return toObjectTypeExpr(pkg, t.Obj())
 	case *Union:
@@ -1400,32 +1393,6 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 				}
 			}
 		}
-	case *unboundType: // variable to bound type
-		if t2, ok := arg.Type.(*unboundType); ok {
-			if t2.tBound == nil {
-				if t == t2 {
-					return nil
-				}
-				return fmt.Errorf("TODO: can't match two unboundTypes")
-			}
-			arg.Type = t2.tBound
-		}
-		if t.tBound == nil {
-			arg.Type = DefaultConv(pkg, arg.Type, arg)
-			t.boundTo(pkg, arg.Type)
-		}
-		param = t.tBound
-	case *unboundMapElemType:
-		if t2, ok := arg.Type.(*unboundType); ok {
-			if t2.tBound == nil {
-				panic("TODO: don't pass unbound variables")
-			}
-			arg.Type = t2.tBound
-		}
-		arg.Type = DefaultConv(pkg, arg.Type, arg)
-		mapTy := types.NewMap(Default(pkg, t.key), arg.Type)
-		t.typ.boundTo(pkg, mapTy)
-		return nil
 	}
 	if AssignableConv(pkg, arg.Type, param, arg) {
 		return nil

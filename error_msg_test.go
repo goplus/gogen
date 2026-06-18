@@ -321,14 +321,6 @@ func TestErrConst(t *testing.T) {
 }
 
 func TestErrNewVar(t *testing.T) {
-	codeErrorTest(t, "./foo.gop:2:6: foo redeclared in this block\n\tprevious declaration at ./foo.gop:1:5",
-		func(pkg *gogen.Package) {
-			var x *types.Var
-			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
-				NewAutoVar(position(1, 5), position(1, 5), "foo", &x).
-				NewAutoVar(position(2, 6), position(2, 6), "foo", &x).
-				End()
-		})
 	codeErrorTest(t, "./foo.gop:2:9: cannot use 1 (type untyped int) as type string in assignment",
 		func(pkg *gogen.Package) {
 			pkg.NewVarStart(position(2, 7), types.Typ[types.String], "a").Val(1, source("1", 2, 9)).EndInit(1)

@@ -584,27 +584,6 @@ func (p *CodeBuilder) doVarRef(ref any, src ast.Node, allowDebug bool) *CodeBuil
 	return p
 }
 
-// NewAutoVar func
-func (p *CodeBuilder) NewAutoVar(pos, end token.Pos, name string, pv **types.Var) *CodeBuilder {
-	spec := &ast.ValueSpec{Names: []*ast.Ident{ident(name)}}
-	decl := &ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{spec}}
-	stmt := &ast.DeclStmt{
-		Decl: decl,
-	}
-	if debugInstr {
-		log.Println("NewAutoVar", name)
-	}
-	p.emitStmt(stmt)
-	typ := &unboundType{ptypes: []*ast.Expr{&spec.Type}}
-	*pv = types.NewVar(pos, p.pkg.Types, name, typ)
-	if old := p.current.scope.Insert(*pv); old != nil {
-		oldPos := p.fset.Position(old.Pos())
-		p.panicCodeErrorf(
-			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
-	}
-	return p
-}
-
 func methodToFuncSig(pkg *Package, o types.Object, fn *Element) *types.Signature {
 	sig := o.Type().(*types.Signature)
 	recv := sig.Recv()
@@ -985,20 +964,9 @@ func newAddrExpr(args []*internal.Elem) *ast.UnaryExpr {
 }
 
 func zeroCompositeLit(p *Package, typ types.Type, typ0 *types.Type) *ast.CompositeLit {
-	ret := &ast.CompositeLit{}
-	switch t := typ.(type) {
-	case *unboundType:
-		if t.tBound == nil {
-			t.ptypes = append(t.ptypes, &ret.Type)
-		} else {
-			typ = t.tBound
-			*typ0 = typ
-			ret.Type = toType(p, typ)
-		}
-	default:
-		ret.Type = toType(p, typ)
+	return &ast.CompositeLit{
+		Type: toType(p, typ),
 	}
-	return ret
 }
 
 func newFuncLit(pkg *Package, t *types.Signature, body *ast.BlockStmt) *ast.FuncLit {

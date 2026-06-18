@@ -31,17 +31,6 @@ func TestToVariadic(t *testing.T) {
 	toVariadic(&ast.Field{Type: &ast.Ident{Name: "int"}})
 }
 
-func TestToType(t *testing.T) {
-	pkg := NewPackage("", "foo", gblConf)
-	toType(pkg, &unboundType{tBound: tyInt})
-	defer func() {
-		if e := recover(); e == nil {
-			t.Fatal("TestToType: no error?")
-		}
-	}()
-	toType(pkg, &unboundType{})
-}
-
 func TestToTypeAlias(t *testing.T) {
 	pkg := NewPackage("", "foo", gblConf)
 	alias := types.NewAlias(types.NewTypeName(token.NoPos, nil, "Int", nil), types.Typ[types.Int])
