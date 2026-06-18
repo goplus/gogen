@@ -212,6 +212,10 @@ func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {
 	}
 }
 
+func buildTypeForCallExpr(pkg *Package, T types.Type) js.Expr {
+	panic("todo buildTypeForCallExpr")
+}
+
 // ----------------------------------------------------------------------------
 
 func newIncDecStmt(x js.Expr, tok token.Token) js.Stmt {

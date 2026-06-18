@@ -1144,7 +1144,7 @@ func matchFuncType(
 			if err := matchFuncArgs(pkg, args[:n1], sig, at); err != nil {
 				return err
 			}
-			return matchElemType(pkg, args[n1:], tyVariadic.Elem(), at)
+			return matchVariadicArgs(pkg, args[n1:], tyVariadic.Elem(), at)
 		}
 	} else if (flags & InstrFlagEllipsis) != 0 {
 		caller, pos, end := getFunExpr(fn)
@@ -1162,14 +1162,39 @@ func matchFuncType(
 	return matchFuncArgs(pkg, args, sig, at)
 }
 
-func matchFuncArgs(
-	pkg *Package, args []*internal.Elem, sig *types.Signature, at any) error {
-	for i, arg := range args {
-		if err := matchType(pkg, arg, getParam(sig, i).Type(), at); err != nil {
+func matchVariadicArgs(pkg *Package, vals []*internal.Elem, elt types.Type, at any) error {
+	for _, val := range vals {
+		if err := matchArgType(pkg, val, elt, at); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func matchFuncArgs(
+	pkg *Package, args []*internal.Elem, sig *types.Signature, at any) error {
+	for i, arg := range args {
+		if err := matchArgType(pkg, arg, getParam(sig, i).Type(), at); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func matchArgType(pkg *Package, arg *internal.Elem, texp types.Type, at any) error {
+	if t, ok := arg.Type.(*TypeType); ok && isReflectType(texp) {
+		arg.Val = buildTypeForCallExpr(pkg, t.typ)
+		arg.Type = texp
+	}
+	return matchType(pkg, arg, texp, at)
+}
+
+func isReflectType(t types.Type) bool {
+	if named, ok := t.(*types.Named); ok {
+		obj := named.Obj()
+		return obj.Name() == "Type" && obj.Pkg() != nil && obj.Pkg().Path() == "reflect"
+	}
+	return false
 }
 
 func checkFuncResults(pkg *Package, rets []*internal.Elem, results *types.Tuple, src ast.Node) {
@@ -1241,15 +1266,6 @@ func isUnnamedParams(t *types.Tuple) bool {
 		}
 	}
 	return false
-}
-
-func matchElemType(pkg *Package, vals []*internal.Elem, elt types.Type, at any) error {
-	for _, val := range vals {
-		if err := matchType(pkg, val, elt, at); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func checkAssignType(pkg *Package, varRef types.Type, val *internal.Elem) {
