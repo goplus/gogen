@@ -1427,12 +1427,42 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 		t.typ.boundTo(pkg, mapTy)
 		return nil
 	}
+	// Type as Arguments: a bare type expression passed where reflect.Type is expected
+	// is automatically rewritten to reflect.TypeFor[T]().
+	if tt, ok := arg.Type.(*TypeType); ok && isReflectType(param) {
+		arg.Val = buildTypeForCallExpr(pkg, tt.typ)
+		arg.Type = param
+		return nil
+	}
 	if AssignableConv(pkg, arg.Type, param, arg) {
 		return nil
 	}
 	return &MatchError{
 		Src: arg.Src, Arg: arg.Type, Param: param, At: at, fstmt: arg.Val == nil,
 		Fset: pkg.cb.fset, intr: pkg.cb.interp,
+	}
+}
+
+// isReflectType reports whether t is the reflect.Type interface from the standard library.
+func isReflectType(t types.Type) bool {
+	if named, ok := t.(*types.Named); ok {
+		obj := named.Obj()
+		return obj.Name() == "Type" && obj.Pkg() != nil && obj.Pkg().Path() == "reflect"
+	}
+	return false
+}
+
+// buildTypeForCallExpr constructs the AST expression reflect.TypeFor[T]() and
+// ensures the reflect package is imported into pkg.
+func buildTypeForCallExpr(pkg *Package, T types.Type) ast.Expr {
+	reflectPkg := pkg.Import("reflect")
+	typeForObj := reflectPkg.Ref("TypeFor")
+	funExpr := toObjectTypeExpr(pkg, typeForObj)
+	return &ast.CallExpr{
+		Fun: &ast.IndexExpr{
+			X:     funExpr,
+			Index: toType(pkg, T),
+		},
 	}
 }
 
