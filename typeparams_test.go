@@ -168,6 +168,66 @@ func Example() {
 `)
 }
 
+// TestTypeAsParamsInferableTail tests that when an XGox_ function has both
+// non-inferable and inferable TypeParams, passing only the non-inferable type
+// arguments (as leading TypeType args) causes the rest to be inferred from
+// the value arguments rather than causing an error.
+func TestTypeAsParamsInferableTail(t *testing.T) {
+	const src = `package conv
+
+const XGoPackage = true
+
+// XGox_As has one non-inferable TypeParam (T, only in return position)
+// and no inferable TypeParams.
+func XGox_As[T any](src any) (T, error) {
+	panic("not implemented")
+}
+
+// XGox_Convert has one non-inferable TypeParam (To, only in return position)
+// and one inferable TypeParam (From, appears in the parameter list).
+func XGox_Convert[To any, From any](src From) To {
+	panic("not implemented")
+}
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("conv", "conv.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	conv := pkg.Import("conv")
+
+	tyInt := types.Typ[types.Int]
+	tyString := types.Typ[types.String]
+	tyAny := types.NewInterfaceType(nil, nil).Complete()
+
+	// conv.As(int, rawValue) => conv.XGox_As[int](rawValue)
+	// One explicit TypeType arg (int), no inferable TypeParams.
+	rawVal := pkg.NewParam(token.NoPos, "rawValue", tyAny, false)
+	pkg.NewFunc(nil, "Example1", types.NewTuple(rawVal), nil, false).BodyStart(pkg).
+		Val(conv.Ref("As")).Typ(tyInt).VarVal("rawValue").Call(2).EndStmt().
+		End()
+
+	// conv.Convert(int, someStr) => conv.XGox_Convert[int, string](someStr)
+	// One explicit TypeType arg (int = To), From is inferred from the string arg.
+	strVal := pkg.NewParam(token.NoPos, "someStr", tyString, false)
+	pkg.NewFunc(nil, "Example2", types.NewTuple(strVal), nil, false).BodyStart(pkg).
+		Val(conv.Ref("Convert")).Typ(tyInt).VarVal("someStr").Call(2).EndStmt().
+		End()
+
+	domTest(t, pkg, `package main
+
+import "conv"
+
+func Example1(rawValue interface{}) {
+	conv.XGox_As[int](rawValue)
+}
+func Example2(someStr string) {
+	conv.XGox_Convert[int, string](someStr)
+}
+`)
+}
+
 func TestCheckXGoPkg(t *testing.T) {
 	const src = `package foo
 
