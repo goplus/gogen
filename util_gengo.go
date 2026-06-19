@@ -679,7 +679,7 @@ func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Elem
 		} else {
 			// Some TypeParams are inferable: infer the remaining ones from the
 			// value arguments, using the explicitly provided type args as seeds.
-			allTargs, ret, err = inferFunc(p, fn, sig, targs, valueArgs, flags&^instrFlagXGoxFunc&^instrFlagXGotFunc)
+			allTargs, ret, err = inferFunc(p, fn, sig, targs, valueArgs, flags&^(instrFlagXGoxFunc|instrFlagXGotFunc))
 		}
 		if err != nil {
 			return fn, sig, args, err
@@ -690,9 +690,7 @@ func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Elem
 			indices[i] = args[from+i].Val
 		}
 		for i := m; i < n; i++ {
-			if allTargs[i] != nil {
-				indices[i] = toType(p, allTargs[i])
-			}
+			indices[i] = toType(p, allTargs[i])
 		}
 		fn = &Element{Val: &ast.IndexListExpr{X: fn.Val, Indices: indices}, Type: ret, Src: fn.Src}
 		sig = ret.(*types.Signature)
