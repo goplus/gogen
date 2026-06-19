@@ -644,31 +644,62 @@ func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Elem
 		if (flags & instrFlagXGotFunc) != 0 {
 			from = 1
 		}
+		// Collect leading explicit type arguments. Stop at the first argument
+		// that is not a TypeType — that argument and all subsequent TypeParams
+		// are treated as inferable from the value arguments.
+		// If the very first argument is not a TypeType, return an error as
+		// before (XGox_ functions require at least the leading explicit types).
 		targs := make([]types.Type, n)
+		m := 0 // number of explicitly provided type arguments
 		for i := 0; i < n; i++ {
 			arg := args[from+i]
 			t, ok := arg.Type.(*TypeType)
 			if !ok {
-				src, pos, end := p.cb.loadExpr(arg.Src)
-				err := p.cb.newCodeErrorf(pos, end, "%s (type %v) is not a type", src, arg.Type)
-				return fn, sig, args, err
+				if i == 0 {
+					// No type arg provided at all: preserve the original error.
+					src, pos, end := p.cb.loadExpr(arg.Src)
+					err := p.cb.newCodeErrorf(pos, end, "%s (type %v) is not a type", src, arg.Type)
+					return fn, sig, args, err
+				}
+				break
 			}
 			targs[i] = t.typ
+			m++
 		}
-		ret, err := types.Instantiate(p.cb.ctxt, sig, targs, true)
+		valueArgs := args[from+m:]
+		var (
+			allTargs []types.Type
+			ret      types.Type
+			err      error
+		)
+		if m == n {
+			// All TypeParams are explicitly provided: use direct instantiation.
+			ret, err = types.Instantiate(p.cb.ctxt, sig, targs, true)
+			allTargs = targs
+		} else {
+			// Some TypeParams are inferable: infer the remaining ones from the
+			// value arguments, using the explicitly provided type args as seeds.
+			allTargs, ret, err = inferFunc(p, fn, sig, targs, valueArgs, flags&^instrFlagXGoxFunc&^instrFlagXGotFunc)
+		}
 		if err != nil {
 			return fn, sig, args, err
 		}
+		// Build ast.IndexListExpr with all resolved type arguments.
 		indices := make([]ast.Expr, n)
-		for i := 0; i < n; i++ {
+		for i := 0; i < m; i++ {
 			indices[i] = args[from+i].Val
+		}
+		for i := m; i < n; i++ {
+			if allTargs[i] != nil {
+				indices[i] = toType(p, allTargs[i])
+			}
 		}
 		fn = &Element{Val: &ast.IndexListExpr{X: fn.Val, Indices: indices}, Type: ret, Src: fn.Src}
 		sig = ret.(*types.Signature)
 		if from > 0 {
-			args = append([]*Element{args[0]}, args[n+1:]...)
+			args = append([]*Element{args[0]}, valueArgs...)
 		} else {
-			args = args[n:]
+			args = valueArgs
 		}
 	}
 	return fn, sig, args, nil
