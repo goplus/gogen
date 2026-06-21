@@ -679,7 +679,13 @@ func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Elem
 		} else {
 			// Some TypeParams are inferable: infer the remaining ones from the
 			// value arguments, using the explicitly provided type args as seeds.
-			allTargs, ret, err = inferFunc(p, fn, sig, targs, valueArgs, flags&^(instrFlagXGoxFunc|instrFlagXGotFunc))
+			// When from > 0 (XGot_ template recv method), prepend the receiver
+			// (args[0]) so that a type param in the receiver position can be inferred.
+			inferArgs := valueArgs
+			if from > 0 {
+				inferArgs = append([]*Element{args[0]}, valueArgs...)
+			}
+			allTargs, ret, err = inferFunc(p, fn, sig, targs, inferArgs, flags&^(instrFlagXGoxFunc|instrFlagXGotFunc))
 		}
 		if err != nil {
 			return fn, sig, args, err
