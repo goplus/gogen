@@ -370,6 +370,17 @@ var a = builtin.XGo_bigint_Init__1(big.NewInt(69))
 `)
 }
 
+func TestUntypedBigIntUint64(t *testing.T) {
+	pkg := newXGoMainPackage()
+	pkg.CB().NewVarStart(nil, "a").
+		Val(1).Val(64).BinaryOp(token.SHL).Val(1).BinaryOp(token.SUB).
+		EndInit(1)
+	domTest(t, pkg, `package main
+
+var a = 1<<64 - 1
+`)
+}
+
 func TestBigRatIncDec(t *testing.T) {
 	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
