@@ -667,6 +667,9 @@ func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Elem
 			m++
 		}
 		valueArgs := args[from+m:]
+		if from > 0 {
+			valueArgs = append([]*Element{args[0]}, valueArgs...)
+		}
 		var (
 			allTargs []types.Type
 			ret      types.Type
@@ -679,6 +682,8 @@ func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Elem
 		} else {
 			// Some TypeParams are inferable: infer the remaining ones from the
 			// value arguments, using the explicitly provided type args as seeds.
+			// When from > 0 (XGot_ template recv method), prepend the receiver
+			// (args[0]) so that a type param in the receiver position can be inferred.
 			allTargs, ret, err = inferFunc(p, fn, sig, targs, valueArgs, flags&^(instrFlagXGoxFunc|instrFlagXGotFunc))
 		}
 		if err != nil {
@@ -694,11 +699,7 @@ func boundTypeParams(p *Package, fn *Element, sig *types.Signature, args []*Elem
 		}
 		fn = &Element{Val: &ast.IndexListExpr{X: fn.Val, Indices: indices}, Type: ret, Src: fn.Src}
 		sig = ret.(*types.Signature)
-		if from > 0 {
-			args = append([]*Element{args[0]}, valueArgs...)
-		} else {
-			args = valueArgs
-		}
+		args = valueArgs
 	}
 	return fn, sig, args, nil
 }
