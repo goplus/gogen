@@ -784,9 +784,10 @@ retry:
 			args = newArgs
 		}
 	}
-
-	if err = matchFuncType(pkg, args, lhs, flags, sig, fn); err != nil {
-		return
+	if flags&instrFlagUntyped == 0 {
+		if err = matchFuncType(pkg, args, lhs, flags, sig, fn); err != nil {
+			return
+		}
 	}
 	tyRet := toRetType(sig.Results())
 	if tyRet != nil && flags&instrFlagUntyped != 0 {
@@ -802,6 +803,12 @@ retry:
 				tyRet = types.Typ[types.UntypedComplex]
 			} else if typ.Info()&types.IsString != 0 {
 				tyRet = types.Typ[types.UntypedString]
+			}
+		default:
+			if tyRet == pkg.utBigInt && cval != nil {
+				if v, ok := constant.Val(cval).(*big.Int); ok && v.IsUint64() {
+					tyRet = types.Typ[types.UntypedInt]
+				}
 			}
 		}
 	}
