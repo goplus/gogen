@@ -22,6 +22,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -31,7 +32,11 @@ import (
 
 // -----------------------------------------------------------------------------
 
-func IntLit(v int) *js.BasicLit {
+func BigIntLit(v *big.Int) *js.BasicLit {
+	panic("todo BigIntLit")
+}
+
+func IntLit(v int64) *js.BasicLit {
 	panic("todo IntLit")
 }
 

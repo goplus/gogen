@@ -315,9 +315,16 @@ func toExpr(pkg *Package, val any, src ast.Node) *internal.Elem {
 		return v
 	case int:
 		return &internal.Elem{
-			Val:  util.IntLit(v),
+			Val:  util.IntLit(int64(v)),
 			Type: types.Typ[types.UntypedInt],
 			CVal: constant.MakeInt64(int64(v)),
+			Src:  src,
+		}
+	case int64:
+		return &internal.Elem{
+			Val:  util.IntLit(v),
+			Type: types.Typ[types.UntypedInt],
+			CVal: constant.MakeInt64(v),
 			Src:  src,
 		}
 	case string:
@@ -346,6 +353,13 @@ func toExpr(pkg *Package, val any, src ast.Node) *internal.Elem {
 			Val:  util.FloatLit(v),
 			Type: types.Typ[types.UntypedFloat],
 			CVal: constant.MakeFloat64(v),
+			Src:  src,
+		}
+	case *big.Int:
+		return &internal.Elem{
+			Val:  util.BigIntLit(v),
+			Type: types.Typ[types.UntypedInt],
+			CVal: constant.Make(v),
 			Src:  src,
 		}
 	}

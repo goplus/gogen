@@ -22,6 +22,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -30,8 +31,12 @@ import (
 
 // -----------------------------------------------------------------------------
 
-func IntLit(v int) *ast.BasicLit {
-	return &ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(v)}
+func BigIntLit(v *big.Int) *ast.BasicLit {
+	return &ast.BasicLit{Kind: token.INT, Value: v.String()}
+}
+
+func IntLit(v int64) *ast.BasicLit {
+	return &ast.BasicLit{Kind: token.INT, Value: strconv.FormatInt(v, 10)}
 }
 
 func StringLit(v string) *ast.BasicLit {
