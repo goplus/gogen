@@ -24,6 +24,7 @@ import (
 	"go/token"
 	"go/types"
 	"log"
+	"math/big"
 	"os"
 	"strings"
 	"syscall"
@@ -133,7 +134,7 @@ func TestBTIMethod(t *testing.T) {
 		Val(fmt.Ref("Println")).Val("Hi").MemberVal("Len", 0).Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val("100").MemberVal("Int", 0).Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val("100").MemberVal("Uint64", 0).Call(0).Call(1).EndStmt().
-		Val(fmt.Ref("Println")).Val(100).MemberVal("String", 0).Call(0).Call(1).EndStmt().
+		Val(fmt.Ref("Println")).Val(int64(100)).MemberVal("String", 0).Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).Val(1.34).MemberVal("String", 0).Call(0).Call(1).EndStmt().
 		Val(fmt.Ref("Println")).VarVal("e").Debug(
 		func(cb *gogen.CodeBuilder) {
@@ -384,7 +385,7 @@ func TestMake(t *testing.T) {
 	tySlice := types.NewSlice(types.Typ[types.Int])
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		NewVarStart(tySlice, "a").Val(pkg.Builtin().Ref("make")).
-		/**/ Typ(tySlice).Val(0).Val(2).Call(3).EndInit(1).
+		/**/ Typ(tySlice).Val(0).Val(big.NewInt(2)).Call(3).EndInit(1).
 		End()
 	domTest(t, pkg, `package main
 
