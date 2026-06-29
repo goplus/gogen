@@ -774,7 +774,7 @@ func TestTypeEx(t *testing.T) {
 		subst,
 		&TyOverloadFunc{},
 		&TyOverloadMethod{},
-		&TyStaticMethod{},
+		&TyStaticMember{},
 		&TyTemplateRecvMethod{},
 		&TyInstruction{},
 		&TyOverloadNamed{Obj: types.NewTypeName(0, pkg.Types, "bar", tyInt)},
