@@ -1128,6 +1128,51 @@ func aliasNameOf(name string, flag MemberFlag) (string, MemberFlag) {
 	return "", flag
 }
 
+func staticMemberRecv(typ types.Type) *types.Named {
+	typ = types.Unalias(typ)
+	if ptr, ok := typ.(*types.Pointer); ok {
+		typ = types.Unalias(ptr.Elem())
+	}
+	if named, ok := typ.(*types.Named); ok {
+		return named.Origin()
+	}
+	return nil
+}
+
+func (p *CodeBuilder) staticMember(typ types.Type, name string, flag MemberFlag, src ast.Node) (MemberKind, error) {
+	named := staticMemberRecv(typ)
+	if named == nil {
+		return MemberInvalid, nil
+	}
+	p.ensureLoaded(named)
+	method, obj := lookupStaticMember(named, name)
+	if obj == nil {
+		return MemberInvalid, nil
+	}
+	if !p.allowAccess(method.Pkg(), method.Name()) {
+		return MemberInvalid, nil
+	}
+	if _, ok := obj.(*types.Func); ok {
+		return MemberInvalid, nil
+	}
+	if flag == MemberFlagRef {
+		if v, ok := obj.(*types.Var); ok {
+			p.stk.Ret(1, &internal.Elem{
+				Val: toObjectExpr(p.pkg, v), Type: &refType{typ: v.Type()}, Src: src,
+			})
+		} else {
+			code, pos, end := p.loadExpr(src)
+			return MemberInvalid, p.newCodeError(pos, end, fmt.Sprintf("%s is not a variable", code))
+		}
+	} else {
+		p.stk.Ret(1, toObject(p.pkg, obj, src))
+	}
+	if p.rec != nil {
+		p.rec.Member(src, obj)
+	}
+	return MemberField, nil
+}
+
 // Member access member by its name.
 // src should point to the full source node `x.sel`
 func (p *CodeBuilder) Member(name string, lhs int, flag MemberFlag, src ...ast.Node) (kind MemberKind, err error) {
@@ -1141,11 +1186,16 @@ func (p *CodeBuilder) Member(name string, lhs int, flag MemberFlag, src ...ast.N
 	case p.pkg.utBigInt, p.pkg.utBigRat, p.pkg.utBigFlt:
 		at = DefaultConv(p.pkg, arg.Type, arg)
 	}
+	var t, isType = at.(*TypeType)
+	if isType {
+		if kind, err = p.staticMember(t.Type(), name, flag, srcExpr); kind != MemberInvalid || err != nil {
+			return
+		}
+	}
 	if flag == MemberFlagRef {
 		kind = p.refMember(at, name, arg.Val, srcExpr, nil)
 	} else {
 		var aliasName string
-		var t, isType = at.(*TypeType)
 		if isType { // (T).method or (*T).method
 			at = t.Type()
 			flag = memberFlagMethodToFunc
@@ -1344,6 +1394,9 @@ func (p *CodeBuilder) method(
 	var exact bool
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
+		if isStaticValueMember(method) {
+			continue
+		}
 		v := method.Name()
 		if !p.allowAccess(method.Pkg(), v) {
 			continue
