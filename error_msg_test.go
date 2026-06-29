@@ -1742,6 +1742,68 @@ func TestErrMemberRef(t *testing.T) {
 		})
 }
 
+func TestErrStaticMember(t *testing.T) {
+	codeErrorTest(t,
+		`./foo.gop:1:5: int.name undefined (type int has no method name)`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Typ(types.Typ[types.Int]).MemberVal("name", 0, source("int.name", 1, 5)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:1:5: T.name is not a variable`,
+		func(pkg *gogen.Package) {
+			scope := pkg.Types.Scope()
+			typ := pkg.NewType("T").InitType(pkg, types.Typ[types.Int])
+			pkg.NewConstStart(scope, token.NoPos, nil, "XGos_T_name").
+				Val("xgo").EndInit(1)
+			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", scope.Lookup("XGos_T_name"))
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Typ(typ).MemberRef("name", source("T.name", 1, 5)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t,
+		`./foo.gop:1:7: v.name undefined (type T has no field or method name)`,
+		func(pkg *gogen.Package) {
+			scope := pkg.Types.Scope()
+			typ := pkg.NewType("T").InitType(pkg, types.Typ[types.Int])
+			pkg.NewConstStart(scope, token.NoPos, nil, "XGos_T_name").
+				Val("xgo").EndInit(1)
+			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", scope.Lookup("XGos_T_name"))
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(typ, "v").
+				VarVal("v").MemberVal("name", 0, source("v.name", 1, 7)).
+				EndStmt().
+				End()
+		})
+	const src = `package foo
+
+const XGoPackage = true
+
+type T int
+
+const XGos_T_name = "xgo"
+`
+	gt := newGoxTest()
+	_, err := gt.LoadGoPackage("foo", "foo.go", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	foo := pkg.Import("foo")
+	typ := foo.Ref("T").Type()
+	codeErrorTestEx(t, pkg,
+		`./foo.gop:1:5: T.name undefined (type foo.T has no method name)`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Typ(typ).MemberVal("name", 0, source("T.name", 1, 5)).
+				EndStmt().
+				End()
+		})
+}
+
 func TestErrUnsafe(t *testing.T) {
 	codeErrorTest(t,
 		`./foo.gop:6:15: missing argument to function call: unsafe.Sizeof()`,
