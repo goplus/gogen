@@ -224,17 +224,48 @@ func (p *TyTypeAsParams) funcEx()                {}
 
 // ----------------------------------------------------------------------------
 
-type TyStaticMethod struct {
-	Func types.Object
+type TyStaticMember struct {
+	Member types.Object
 }
 
-func (p *TyStaticMethod) Obj() types.Object      { return p.Func }
-func (p *TyStaticMethod) Underlying() types.Type { return p }
-func (p *TyStaticMethod) String() string         { return "TyStaticMethod" }
-func (p *TyStaticMethod) funcEx()                {}
+func (p *TyStaticMember) Obj() types.Object      { return p.Member }
+func (p *TyStaticMember) Underlying() types.Type { return p }
+func (p *TyStaticMember) String() string         { return "TyStaticMember" }
+func (p *TyStaticMember) funcEx()                {}
 
-func NewStaticMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, fn types.Object) *types.Func {
-	return newMethodEx(typ, pos, pkg, name, &TyStaticMethod{fn})
+func staticMemberObj(method *types.Func) (types.Object, bool) {
+	if sig, ok := method.Type().(*types.Signature); ok {
+		if ext, ok := CheckFuncEx(sig); ok {
+			if member, ok := ext.(*TyStaticMember); ok {
+				return member.Obj(), true
+			}
+		}
+	}
+	return nil, false
+}
+
+func isStaticValueMember(method *types.Func) bool {
+	if obj, ok := staticMemberObj(method); ok {
+		_, isFunc := obj.(*types.Func)
+		return !isFunc
+	}
+	return false
+}
+
+// NewStaticMember associates a package-level object with a named type.
+// Function objects resolve as static methods; other objects resolve as static fields.
+func NewStaticMember(typ *types.Named, pos token.Pos, pkg *types.Package, name string, obj types.Object) *types.Func {
+	return newMethodEx(typ.Origin(), pos, pkg, name, &TyStaticMember{obj})
+}
+
+func lookupStaticMember(typ *types.Named, name string) (*types.Func, types.Object) {
+	typ = typ.Origin()
+	if method := lookupMethod(typ, name); method != nil {
+		if obj, ok := staticMemberObj(method); ok {
+			return method, obj
+		}
+	}
+	return nil, nil
 }
 
 // ----------------------------------------------------------------------------
