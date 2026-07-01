@@ -1851,6 +1851,23 @@ func TestErrStaticMemberConflict(t *testing.T) {
 		func() {
 			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newMethod(pkg, "XGos_T_name2"))
 		})
+
+	pkg, typ = newType()
+	recv := newParam(pkg, token.NoPos, "t", typ)
+	pkg.NewFunc(recv, "name", nil, nil, false).BodyStart(pkg).End()
+	panicErrorTest(t, "method then static member",
+		fmt.Sprintf("NewStaticMember: %v.%s conflicts with existing method\n", typ, "name"),
+		func() {
+			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newValue(pkg, "XGos_T_name"))
+		})
+	codeErrorTest(t,
+		"./foo.gop:1:5: method name conflicts with existing static value member",
+		func(pkg *gogen.Package) {
+			typ := pkg.NewType("T").InitType(pkg, types.Typ[types.Int])
+			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newValue(pkg, "XGos_T_name"))
+			recv := newParam(pkg, token.NoPos, "t", typ)
+			newFunc(pkg, 1, 5, 1, 10, recv, "name", nil, nil, false).BodyStart(pkg).End()
+		})
 }
 
 func TestErrUnsafe(t *testing.T) {
