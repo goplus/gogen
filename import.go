@@ -262,9 +262,9 @@ func checkXGotsx(pkg *types.Package, scope *types.Scope, name string, o types.Ob
 					NewTemplateRecvMethod(m.typ, token.NoPos, pkg, m.name, o)
 				} else {
 					if debugImport {
-						log.Println("==> NewStaticMethod", tname, m.name)
+						log.Println("==> NewStaticMember", tname, m.name)
 					}
-					NewStaticMethod(m.typ, token.NoPos, pkg, m.name, o)
+					NewStaticMember(m.typ, token.NoPos, pkg, m.name, o)
 				}
 			}
 		case xgoxCh: // XGox_xxx

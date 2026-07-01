@@ -16,6 +16,7 @@
 package gogen
 
 import (
+	"go/constant"
 	"go/token"
 	"go/types"
 	"testing"
@@ -94,5 +95,54 @@ func TestFindMember(t *testing.T) {
 	kind, _ := cb.Member("step", 0, MemberFlagVal)
 	if kind != MemberMethod {
 		t.Fatalf("expected MemberMethod (1), got %v", kind)
+	}
+}
+
+func TestStaticMemberInternalHelpers(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	fn := types.NewFunc(token.NoPos, pkg.Types, "XGos_foo_name", types.NewSignatureType(nil, nil, nil, nil, nil, false))
+	sm := &TyStaticMember{Member: fn}
+	if got := sm.Obj(); got != fn {
+		t.Fatalf("TyStaticMember.Obj() = %v, want %v", got, fn)
+	}
+	if got := sm.Underlying(); got != sm {
+		t.Fatalf("TyStaticMember.Underlying() = %v, want self", got)
+	}
+	if got := sm.String(); got != "TyStaticMember" {
+		t.Fatalf("TyStaticMember.String() = %q, want %q", got, "TyStaticMember")
+	}
+	method := newMethodEx(pkg.NewType("foo").InitType(pkg, types.Typ[types.Int]), token.NoPos, pkg.Types, "name", sm)
+	if got, ok := staticMemberObj(method); !ok || got != fn {
+		t.Fatalf("staticMemberObj(TyStaticMember) = %v, %v, want %v, true", got, ok, fn)
+	}
+	sm.funcEx()
+
+	var trm TyTemplateRecvMethod
+	trm.funcEx()
+}
+
+func TestStaticMemberLoadsDelayedNamedType(t *testing.T) {
+	var loaded bool
+	pkg := NewPackage("", "foo", &Config{
+		LoadNamed: func(at *Package, typ *types.Named) {
+			loaded = true
+			typ.SetUnderlying(types.Typ[types.Int])
+			obj := types.NewConst(
+				token.NoPos, at.Types, "XGos_T_name", types.Typ[types.String], constant.MakeString("xgo"),
+			)
+			NewStaticMember(typ, token.NoPos, at.Types, "name", obj)
+		},
+	})
+	delayed := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), nil, nil)
+	cb := pkg.CB().Typ(delayed)
+	kind, err := cb.Member("name", 0, MemberFlagVal)
+	if err != nil {
+		t.Fatal("Member:", err)
+	}
+	if kind != MemberField {
+		t.Fatalf("Member(name) = %v, want %v", kind, MemberField)
+	}
+	if !loaded {
+		t.Fatal("LoadNamed was not called")
 	}
 }

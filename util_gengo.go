@@ -606,8 +606,8 @@ func (p *CodeBuilder) methodSigOf(typ types.Type, flag MemberFlag, arg, ret *Ele
 	sig := typ.(*types.Signature)
 	if t, ok := CheckFuncEx(sig); ok {
 		switch ext := t.(type) {
-		case *TyStaticMethod:
-			return p.funcExSigOf(ext.Func, ret)
+		case *TyStaticMember:
+			return p.funcExSigOf(ext.Member, ret)
 		case *TyTemplateRecvMethod:
 			return p.funcExSigOf(ext.Func, ret)
 		}

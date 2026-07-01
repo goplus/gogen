@@ -1158,6 +1158,59 @@ func main() {
 `)
 }
 
+func TestStaticMember(t *testing.T) {
+	pkg := newMainPackage()
+	scope := pkg.Types.Scope()
+	foo := pkg.NewType("foo").InitType(pkg, types.Typ[types.Int])
+	pkg.NewConstStart(scope, token.NoPos, nil, "XGos_foo_name").
+		Val("xgo").EndInit(1)
+	pkg.NewVarStart(token.NoPos, types.Typ[types.Int], "XGos_foo_count").
+		Val(100).EndInit(1)
+	gogen.NewStaticMember(foo, token.NoPos, pkg.Types, "name", scope.Lookup("XGos_foo_name"))
+	gogen.NewStaticMember(foo, token.NoPos, pkg.Types, "count", scope.Lookup("XGos_foo_count"))
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "a").Typ(foo).MemberVal("name", 0).EndInit(1).
+		Typ(foo).MemberRef("count").IncDec(token.INC).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+type foo int
+
+const XGos_foo_name = "xgo"
+
+var XGos_foo_count int = 100
+
+func main() {
+	a := XGos_foo_name
+	XGos_foo_count++
+}
+`)
+}
+
+func TestStaticMemberInstantiatedGenericType(t *testing.T) {
+	pkg := newMainPackage()
+	scope := pkg.Types.Scope()
+	tparam := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), types.Universe.Lookup("any").Type())
+	box := pkg.NewType("Box").InitType(pkg, types.Typ[types.Int], tparam)
+	boxInt := pkg.Instantiate(box, []types.Type{types.Typ[types.Int]})
+	pkg.NewConstStart(scope, token.NoPos, nil, "XGos_Box_name").
+		Val("box").EndInit(1)
+	gogen.NewStaticMember(box, token.NoPos, pkg.Types, "name", scope.Lookup("XGos_Box_name"))
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "name").Typ(boxInt).MemberVal("name", 0).EndInit(1).
+		End()
+	domTest(t, pkg, `package main
+
+type Box[T any] int
+
+const XGos_Box_name = "box"
+
+func main() {
+	name := XGos_Box_name
+}
+`)
+}
+
 func TestTemplateRecvMethod(t *testing.T) {
 	pkg := newMainPackage()
 	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
