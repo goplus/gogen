@@ -1145,11 +1145,11 @@ func (p *CodeBuilder) staticMember(typ types.Type, name string, flag MemberFlag,
 		return MemberInvalid, nil
 	}
 	p.ensureLoaded(named)
-	method, obj := lookupStaticMember(named, name)
+	_, obj := lookupStaticMember(named, name)
 	if obj == nil {
 		return MemberInvalid, nil
 	}
-	if !p.allowAccess(method.Pkg(), method.Name()) {
+	if !p.allowAccess(obj.Pkg(), obj.Name()) {
 		return MemberInvalid, nil
 	}
 	if _, ok := obj.(*types.Func); ok {
