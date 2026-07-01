@@ -272,6 +272,7 @@ func NewStaticMember(typ *types.Named, pos token.Pos, pkg *types.Package, name s
 			}
 			log.Panicf("NewStaticMember: %v.%s conflicts with existing %s\n", typ, name, oldKind)
 		}
+		log.Panicf("NewStaticMember: %v.%s conflicts with existing method\n", typ, name)
 	}
 	return newMethodEx(typ, pos, pkg, name, &TyStaticMember{obj})
 }
