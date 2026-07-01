@@ -39,6 +39,10 @@ func XGos_Game_New() *Game {
 	return nil
 }
 
+const XGos_Game_name = "game"
+
+var XGos_Game_count int
+
 type Info struct {
 	id int
 }
