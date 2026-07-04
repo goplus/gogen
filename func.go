@@ -218,6 +218,9 @@ func (p *Package) NewFuncWith(
 			return nil, cb.newCodeErrorf(posErr, posErr, "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		if name != "_" { // skip underscore
+			if _, obj := lookupStaticMember(t, name); obj != nil {
+				return nil, cb.newCodeErrorf(pos, pos, "method %s conflicts with existing %s", name, staticMemberKind(obj))
+			}
 			t.AddMethod(fn.Func)
 		}
 	} else if name == "init" { // init is not a normal func

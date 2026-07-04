@@ -252,10 +252,29 @@ func isStaticValueMember(method *types.Func) bool {
 	return false
 }
 
+func staticMemberKind(obj types.Object) string {
+	if _, ok := obj.(*types.Func); ok {
+		return "static method"
+	}
+	return "static value member"
+}
+
 // NewStaticMember associates a package-level object with a named type.
-// Function objects resolve as static methods; other objects resolve as static fields.
+// Function objects resolve as static methods; other objects resolve as static value members.
+// It panics if the registration conflicts with an existing static member or method.
 func NewStaticMember(typ *types.Named, pos token.Pos, pkg *types.Package, name string, obj types.Object) *types.Func {
-	return newMethodEx(typ.Origin(), pos, pkg, name, &TyStaticMember{obj})
+	typ = typ.Origin()
+	if method := lookupMethod(typ, name); method != nil {
+		if old, ok := staticMemberObj(method); ok {
+			oldKind := staticMemberKind(old)
+			if newKind := staticMemberKind(obj); newKind == oldKind {
+				log.Panicf("NewStaticMember: %v.%s redeclared as %s\n", typ, name, newKind)
+			}
+			log.Panicf("NewStaticMember: %v.%s conflicts with existing %s\n", typ, name, oldKind)
+		}
+		log.Panicf("NewStaticMember: %v.%s conflicts with existing method\n", typ, name)
+	}
+	return newMethodEx(typ, pos, pkg, name, &TyStaticMember{obj})
 }
 
 func lookupStaticMember(typ *types.Named, name string) (*types.Func, types.Object) {

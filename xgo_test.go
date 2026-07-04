@@ -1158,6 +1158,25 @@ func main() {
 `)
 }
 
+func TestImportedStaticMember(t *testing.T) {
+	pkg := newMainPackage()
+	bar := pkg.Import("github.com/goplus/gogen/internal/bar")
+	game := bar.Ref("Game").Type()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "name").Typ(game).MemberVal("name", 0).EndInit(1).
+		Typ(game).MemberRef("count").IncDec(token.INC).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+import "github.com/goplus/gogen/internal/bar"
+
+func main() {
+	name := bar.XGos_Game_name
+	bar.XGos_Game_count++
+}
+`)
+}
+
 func TestStaticMember(t *testing.T) {
 	pkg := newMainPackage()
 	scope := pkg.Types.Scope()

@@ -76,6 +76,21 @@ func codeErrorTestDo(t *testing.T, pkg *gogen.Package, msg string, source func(p
 	gogen.WriteTo(&b, pkg, "")
 }
 
+func panicErrorTest(t *testing.T, name, msg string, source func()) {
+	t.Run(name, func(t *testing.T) {
+		defer func() {
+			if e := recover(); e != nil {
+				if ret := fmt.Sprint(e); ret != msg {
+					t.Fatalf("\nError: \"%s\"\nExpected: \"%s\"\n", ret, msg)
+				}
+			} else {
+				t.Fatal("no error?")
+			}
+		}()
+		source()
+	})
+}
+
 func newFunc(
 	pkg *gogen.Package, line, column int, rline, rcolumn int,
 	recv *types.Var, name string, params, results *types.Tuple, variadic bool) *gogen.Func {
@@ -1778,29 +1793,80 @@ func TestErrStaticMember(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	const src = `package foo
-
-const XGoPackage = true
-
-type T int
-
-const XGos_T_name = "xgo"
-`
-	gt := newGoxTest()
-	_, err := gt.LoadGoPackage("foo", "foo.go", src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pkg := gt.NewPackage("", "main")
-	foo := pkg.Import("foo")
-	typ := foo.Ref("T").Type()
-	codeErrorTestEx(t, pkg,
+	fooPkg := types.NewPackage("foo", "foo")
+	typ := types.NewNamed(types.NewTypeName(token.NoPos, fooPkg, "T", nil), types.Typ[types.Int], nil)
+	gogen.NewStaticMember(typ, token.NoPos, fooPkg, "name",
+		types.NewVar(token.NoPos, fooPkg, "xgos_T_name", types.Typ[types.String]))
+	codeErrorTest(t,
 		`./foo.gop:1:5: T.name undefined (type foo.T has no method name)`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Typ(typ).MemberVal("name", 0, source("T.name", 1, 5)).
 				EndStmt().
 				End()
+		})
+}
+
+func TestErrStaticMemberConflict(t *testing.T) {
+	newType := func() (*gogen.Package, *types.Named) {
+		pkg := newMainPackage()
+		return pkg, pkg.NewType("T").InitType(pkg, types.Typ[types.Int])
+	}
+	newMethod := func(pkg *gogen.Package, name string) *types.Func {
+		return types.NewFunc(token.NoPos, pkg.Types, name,
+			types.NewSignatureType(nil, nil, nil, nil, nil, false))
+	}
+	newValue := func(pkg *gogen.Package, name string) *types.Var {
+		return types.NewVar(token.NoPos, pkg.Types, name, types.Typ[types.String])
+	}
+
+	pkg, typ := newType()
+	gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newMethod(pkg, "XGos_T_name"))
+	panicErrorTest(t, "method then value",
+		fmt.Sprintf("NewStaticMember: %v.%s conflicts with existing static method\n", typ, "name"),
+		func() {
+			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newValue(pkg, "XGos_T_name"))
+		})
+
+	pkg, typ = newType()
+	gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newValue(pkg, "XGos_T_name"))
+	panicErrorTest(t, "value then method",
+		fmt.Sprintf("NewStaticMember: %v.%s conflicts with existing static value member\n", typ, "name"),
+		func() {
+			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newMethod(pkg, "XGos_T_name"))
+		})
+
+	pkg, typ = newType()
+	gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newValue(pkg, "XGos_T_name"))
+	panicErrorTest(t, "duplicate value",
+		fmt.Sprintf("NewStaticMember: %v.%s redeclared as static value member\n", typ, "name"),
+		func() {
+			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newValue(pkg, "XGos_T_name2"))
+		})
+
+	pkg, typ = newType()
+	gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newMethod(pkg, "XGos_T_name"))
+	panicErrorTest(t, "duplicate method",
+		fmt.Sprintf("NewStaticMember: %v.%s redeclared as static method\n", typ, "name"),
+		func() {
+			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newMethod(pkg, "XGos_T_name2"))
+		})
+
+	pkg, typ = newType()
+	recv := newParam(pkg, token.NoPos, "t", typ)
+	pkg.NewFunc(recv, "name", nil, nil, false).BodyStart(pkg).End()
+	panicErrorTest(t, "method then static member",
+		fmt.Sprintf("NewStaticMember: %v.%s conflicts with existing method\n", typ, "name"),
+		func() {
+			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newValue(pkg, "XGos_T_name"))
+		})
+	codeErrorTest(t,
+		"./foo.gop:1:5: method name conflicts with existing static value member",
+		func(pkg *gogen.Package) {
+			typ := pkg.NewType("T").InitType(pkg, types.Typ[types.Int])
+			gogen.NewStaticMember(typ, token.NoPos, pkg.Types, "name", newValue(pkg, "XGos_T_name"))
+			recv := newParam(pkg, token.NoPos, "t", typ)
+			newFunc(pkg, 1, 5, 1, 10, recv, "name", nil, nil, false).BodyStart(pkg).End()
 		})
 }
 
