@@ -2,7 +2,6 @@ gogen - Code generator for the Go language
 ========
 
 [![Build Status](https://github.com/goplus/gogen/actions/workflows/go.yml/badge.svg)](https://github.com/goplus/gogen/actions/workflows/go.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/goplus/gogen)](https://goreportcard.com/report/github.com/goplus/gogen)
 [![GitHub release](https://img.shields.io/github/v/tag/goplus/gogen.svg?label=release)](https://github.com/goplus/gogen/releases)
 [![Coverage Status](https://codecov.io/gh/goplus/gogen/branch/main/graph/badge.svg)](https://codecov.io/gh/goplus/gogen)
 [![GoDoc](https://pkg.go.dev/badge/github.com/goplus/gogen.svg)](https://pkg.go.dev/github.com/goplus/gogen)
