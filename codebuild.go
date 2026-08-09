@@ -657,11 +657,12 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 func (p *CodeBuilder) ConvertToClosure(retType types.Type) error {
 	pkg := p.pkg
 	e := p.stk.Pop()
+	err := matchType(pkg, e, retType, "autoclosure")
 	ret := types.NewParam(token.NoPos, pkg.Types, "", retType)
 	p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg)
 	emitReturnStmt(p, token.NoPos, e.Val)
 	p.End(e.Src)
-	return matchType(pkg, e, retType, "autoclosure")
+	return err
 }
 
 // NewType func
