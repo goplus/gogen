@@ -35,6 +35,24 @@ func (p *Package) NewParam(pos token.Pos, name string, typ types.Type, optional 
 	return param
 }
 
+// NewResult returns a new variable representing a function result.
+func (p *Package) NewResult(pos token.Pos, name string, typ types.Type) *types.Var {
+	param := types.NewParam(pos, p.Types, name, typ)
+	if HasVarKind {
+		p.SetVarKind(param, ResultVar)
+	}
+	return param
+}
+
+// NewRecv returns a new variable representing a method receiver.
+func (p *Package) NewRecv(pos token.Pos, name string, typ types.Type) *types.Var {
+	param := types.NewParam(pos, p.Types, name, typ)
+	if HasVarKind {
+		p.SetVarKind(param, RecvVar)
+	}
+	return param
+}
+
 // ----------------------------------------------------------------------------
 
 // Func type
