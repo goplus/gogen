@@ -654,13 +654,15 @@ func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
 }
 
 // ConvertToClosure converts an expression into a closure.
-func (p *CodeBuilder) ConvertToClosure() *CodeBuilder {
+func (p *CodeBuilder) ConvertToClosure(retType types.Type) error {
 	pkg := p.pkg
 	e := p.stk.Pop()
-	ret := types.NewParam(token.NoPos, pkg.Types, "", types.Default(e.Type))
+	err := matchType(pkg, e, retType, "autoclosure")
+	ret := types.NewParam(token.NoPos, pkg.Types, "", retType)
 	p.NewClosure(nil, types.NewTuple(ret), false).BodyStart(pkg)
 	emitReturnStmt(p, token.NoPos, e.Val)
-	return p.End(e.Src)
+	p.End(e.Src)
+	return err
 }
 
 // NewType func
