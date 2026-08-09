@@ -66,7 +66,8 @@ func TestConvertToClosure(t *testing.T) {
 		DefineVarStart(0, "x").Val(1, &ast.Ident{
 		Name:    "x",
 		NamePos: token.Pos(1),
-	}).ConvertToClosure()
+	})
+	p.ConvertToClosure(types.Typ[types.Int])
 
 	// check the closure has src node
 	arg := pkg.CB().InternalStack().Get(-1)
