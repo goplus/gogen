@@ -1265,7 +1265,7 @@ retry:
 					return kind
 				}
 			}
-			if kind := p.method(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+			if kind := p.method(t, name, aliasName, flag, arg, srcExpr, t.TypeArgs() != nil); kind != MemberInvalid {
 				return kind
 			}
 			if fstruc {
@@ -1278,7 +1278,7 @@ retry:
 		}
 	case *types.Named:
 		named, typ = o, p.getUnderlying(o) // may cause to loadNamed (delay-loaded)
-		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+		if kind := p.method(o, name, aliasName, flag, arg, srcExpr, o.TypeArgs() != nil); kind != MemberInvalid {
 			return kind
 		}
 		goto retry
@@ -1291,13 +1291,12 @@ retry:
 		}
 	case *types.Interface:
 		o.Complete()
-
 		if o.Empty() { // empty interface (https://github.com/goplus/xgo/issues/2571)
 			argVal := p.emitMapStringAnyAssert(arg.Val)
 			return p.mapIndexExpr(tyMapStringAny, name, lhs, argVal, srcExpr)
 		}
 
-		if kind := p.method(o, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+		if kind := p.method(o, name, aliasName, flag, arg, srcExpr, false); kind != MemberInvalid {
 			return kind
 		}
 
@@ -1315,7 +1314,7 @@ retry:
 		// above.
 		for j := 0; j < o.NumEmbeddeds(); j++ {
 			if t, ok := o.EmbeddedType(j).(*types.Named); ok {
-				if kind := p.method(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
+				if kind := p.method(t, name, aliasName, flag, arg, srcExpr, t.TypeArgs() != nil); kind != MemberInvalid {
 					return kind
 				}
 			}
@@ -1335,6 +1334,7 @@ retry:
 }
 
 type methodList interface {
+	types.Type
 	NumMethods() int
 	Method(i int) *types.Func
 }
@@ -1391,7 +1391,7 @@ func (p *CodeBuilder) allowAccess(pkg *types.Package, name string) bool {
 }
 
 func (p *CodeBuilder) method(
-	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node) (kind MemberKind) {
+	o methodList, name, aliasName string, flag MemberFlag, arg *Element, src ast.Node, namedHasTypeArgs bool) (kind MemberKind) {
 	var found *types.Func
 	var exact bool
 	for i, n := 0, o.NumMethods(); i < n; i++ {
@@ -1419,7 +1419,13 @@ func (p *CodeBuilder) method(
 		if autoprop && !methodHasAutoProperty(typ, 0) {
 			return memberBad
 		}
-
+		if namedHasTypeArgs {
+			if t, ok := CheckFuncEx(typ.(*types.Signature)); ok {
+				if m, ok := t.(*TyOverloadMethod); ok && m.IsGeneric() {
+					typ = m.Instantiate(o.(*types.Named))
+				}
+			}
+		}
 		sel := selector(arg, found.Name())
 		ret := &internal.Elem{Val: sel, Src: src}
 		if t, set := p.methodSigOf(typ, flag, arg, ret); set {

@@ -106,6 +106,7 @@ func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 	scope := pkg.Scope()
 	gopos := make([]string, 0, 4)
 	overloads := make(map[omthd][]types.Object)
+	mobjectIndexs := make(map[types.Object]int)
 	onameds := make(map[string][]*types.Named)
 	names := scope.Names()
 	for _, name := range names {
@@ -132,6 +133,7 @@ func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 					mthd := mName[:len(mName)-3]
 					key := omthd{named, mthd}
 					overloads[key] = append(overloads[key], m)
+					mobjectIndexs[m] = i
 				}
 			}
 			if isOverload(name) { // overload named
@@ -162,7 +164,7 @@ func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 				}
 			}
 			if len(fns) > 0 {
-				newOverload(pkg, scope, m, fns, pos)
+				newOverload(pkg, scope, m, fns, pos, nil)
 			}
 			delete(overloads, m)
 		}
@@ -170,7 +172,7 @@ func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 	for key, items := range overloads {
 		off := len(key.name) + 2
 		fns := overloadFuncs(off, items)
-		newOverload(pkg, scope, key, fns, pos)
+		newOverload(pkg, scope, key, fns, pos, mobjectIndexs)
 	}
 	for name, items := range onameds {
 		off := len(name) + 2
@@ -319,7 +321,7 @@ func checkOverloads(scope *types.Scope, gopoName string) (ret []string, exists b
 	return
 }
 
-func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Object, pos map[string]token.Pos) {
+func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Object, pos map[string]token.Pos, mobjectIndexs map[types.Object]int) {
 	if m.typ == nil {
 		if debugImport {
 			log.Println("==> NewOverloadFunc", m.name)
@@ -332,7 +334,7 @@ func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Ob
 		if debugImport {
 			log.Println("==> NewOverloadMethod", typName, m.name)
 		}
-		NewOverloadMethod(m.typ, pos[typName+"."+m.name], pkg, m.name, fns...)
+		NewOverloadMethod(m.typ, pos[typName+"."+m.name], pkg, m.name, mobjectIndexs, fns...)
 	}
 }
 
