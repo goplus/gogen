@@ -2290,7 +2290,7 @@ func (p *CodeBuilder) Fallthrough() *CodeBuilder {
 	panic("please use fallthrough in case statement")
 }
 
-// For func
+// For loop statement: For (..|None) Then [.. Post] .. End
 func (p *CodeBuilder) For(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("For")

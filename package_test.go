@@ -3787,6 +3787,45 @@ func main() {
 `)
 }
 
+func TestAutoLambda1(t *testing.T) {
+	pkg := newMainPackage()
+	results := types.NewTuple(types.NewVar(0, pkg.Types, "", types.Typ[types.Int]))
+	sig := types.NewSignatureType(nil, nil, nil, nil, results, false)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewClosureWith(sig, gogen.AutoLambdaLoop).BodyStart(pkg).
+		End().Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	func() int {
+		return 0
+	}()
+}
+`)
+}
+
+func TestAutoLambda2(t *testing.T) {
+	pkg := newMainPackage()
+	results := types.NewTuple(types.NewVar(0, pkg.Types, "", types.Typ[types.Int]))
+	sig := types.NewSignatureType(nil, nil, nil, nil, results, false)
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		NewClosureWith(sig, gogen.AutoLambdaLoop).BodyStart(pkg).
+		For().None().Then().End().
+		End().Call(0).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+func main() {
+	func() int {
+		for {
+		}
+		return 0
+	}()
+}
+`)
+}
+
 func TestClosure(t *testing.T) {
 	pkg := newMainPackage()
 	fmt := pkg.Import("fmt")
