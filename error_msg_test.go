@@ -133,6 +133,17 @@ func TestErrSwitch(t *testing.T) {
 		})
 }
 
+func TestErrAutoLambda(t *testing.T) {
+	codeErrorTest(t, `./foo.gop:5:1: can't use return/continue/break/goto in auto lambda`, func(pkg *gogen.Package) {
+		cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+		sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+		cb.NewClosureWith(sig, gogen.AutoLambdaLoop).BodyStart(pkg).
+			Return(0).
+			End(source("foo", 5, 1))
+		cb.End()
+	})
+}
+
 func TestErrTypeRedefined(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:5: foo redeclared in this block\n\tprevious declaration at ./foo.gop:1:5", func(pkg *gogen.Package) {
 		typ := pkg.NewType("foo", source("foo", 1, 5))

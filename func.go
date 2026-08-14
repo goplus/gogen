@@ -41,6 +41,7 @@ func (p *Package) NewParam(pos token.Pos, name string, typ types.Type, optional 
 type Func struct {
 	*types.Func
 	decl   *funcDecl
+	cate   AutoLambdaCategory
 	old    funcBodyCtx
 	arity1 int // 0 for normal, (arity+1) for inlineClosure
 }
@@ -89,6 +90,10 @@ func (p *Func) BodyStart(pkg *Package, src ...ast.Node) *CodeBuilder {
 	return pkg.cb.startFuncBody(p, src, &p.old)
 }
 
+const (
+	cantUseFlowsInAutoLambda = "can't use return/continue/break/goto in auto lambda"
+)
+
 // End is for internal use.
 func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	if p.isInline() {
@@ -97,7 +102,11 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	}
 	pkg := cb.pkg
 	checker := termChecker{cb.current.panicCalls}
-	body := &target.BlockStmt{List: cb.endFuncBody(p.old)}
+	fnBody, flows := cb.endFuncBody(p.old)
+	if flows != 0 && p.cate != AutoLambdaNormal {
+		cb.handleCodeError(getSrcPos(src), getSrcEnd(src), cantUseFlowsInAutoLambda)
+	}
+	body := &target.BlockStmt{List: fnBody}
 	t := p.Type().(*types.Signature)
 
 	// Check for missing return at the closing brace position.
@@ -254,7 +263,7 @@ func (p *Package) NewFuncWith(
 
 func (p *Package) newClosure(sig *types.Signature, cate AutoLambdaCategory) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
-	return &Func{Func: fn}
+	return &Func{Func: fn, cate: cate}
 }
 
 func (p *Package) newInlineClosure(sig *types.Signature, arity int) *Func {

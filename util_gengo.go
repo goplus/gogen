@@ -1179,7 +1179,7 @@ func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []ast.Stmt, flows 
 			})
 		*/
 		if flows != 0 {
-			cb.panicCodeError(p.stmt.For, p.stmt.For, cantUseFlows)
+			cb.panicCodeError(p.stmt.For, p.stmt.For, cantUseFlowsInForRange)
 		}
 		n = -n
 		def := p.stmt.Tok == token.DEFINE
@@ -1214,7 +1214,7 @@ func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []ast.Stmt, flows 
 }
 
 const (
-	cantUseFlows = "can't use return/continue/break/goto in for range of udt.XGo_Enum(callback)"
+	cantUseFlowsInForRange = "can't use return/continue/break/goto in for range of udt.XGo_Enum(callback)"
 )
 
 var (

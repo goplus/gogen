@@ -287,13 +287,12 @@ func insertParams(scope *types.Scope, params *types.Tuple) {
 	}
 }
 
-func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []target.Stmt {
+func (p *CodeBuilder) endFuncBody(old funcBodyCtx) ([]target.Stmt, int) {
 	p.current.checkLabels(p)
 	p.current.fn = old.fn
 	p.current.labels = old.labels
 	p.current.panicCalls = old.panicCalls
-	stmts, _ := p.endBlockStmt(&old.codeBlockCtx)
-	return stmts
+	return p.endBlockStmt(&old.codeBlockCtx)
 }
 
 func (p *CodeBuilder) startBlockStmt(current codeBlock, src []ast.Node, comment string, old *codeBlockCtx) *CodeBuilder {
@@ -587,7 +586,8 @@ func (p *Func) inlineClosureEnd(cb *CodeBuilder) {
 		cb.Label(ending)
 	}
 	sig := p.Type().(*types.Signature)
-	cb.emitStmt(&target.BlockStmt{List: cb.endFuncBody(p.old)})
+	fnBody, _ := cb.endFuncBody(p.old)
+	cb.emitStmt(&target.BlockStmt{List: fnBody})
 	cb.stk.PopN(p.getInlineCallArity())
 	results := sig.Results()
 	for i, n := 0, results.Len(); i < n; i++ { // return results & clean env
