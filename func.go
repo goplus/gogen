@@ -252,7 +252,7 @@ func (p *Package) NewFuncWith(
 	return fn, nil
 }
 
-func (p *Package) newClosure(sig *types.Signature) *Func {
+func (p *Package) newClosure(sig *types.Signature, cate AutoLambdaCategory) *Func {
 	fn := types.NewFunc(token.NoPos, p.Types, "", sig)
 	return &Func{Func: fn}
 }

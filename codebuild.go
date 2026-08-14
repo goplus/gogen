@@ -642,15 +642,28 @@ func (p *CodeBuilder) emitVar(pkg *Package, closure *Func, param *types.Var, wit
 	p.paramInsts[key] = p.current.scope.Lookup(name).(*types.Var)
 }
 
-// NewClosure func
+// NewClosure creates a new closure.
 func (p *CodeBuilder) NewClosure(params, results *types.Tuple, variadic bool) *Func {
 	sig := types.NewSignatureType(nil, nil, nil, params, results, variadic)
-	return p.NewClosureWith(sig)
+	return p.NewClosureWith(sig, AutoLambdaNormal)
 }
 
-// NewClosureWith func
-func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
-	return p.pkg.newClosure(sig)
+// AutoLambdaCategory represents the category of an auto-lambda.
+type AutoLambdaCategory int
+
+const (
+	AutoLambdaNormal AutoLambdaCategory = iota
+	AutoLambdaCond
+	AutoLambdaLoop
+)
+
+// NewClosureWith creates a new closure with an optional auto-lambda category.
+func (p *CodeBuilder) NewClosureWith(sig *types.Signature, cate ...AutoLambdaCategory) *Func {
+	var c AutoLambdaCategory
+	if cate != nil {
+		c = cate[0]
+	}
+	return p.pkg.newClosure(sig, c)
 }
 
 // ConvertToClosure converts an expression into a closure.
