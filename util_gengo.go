@@ -1022,6 +1022,21 @@ func buildTypeForCallExpr(pkg *Package, T types.Type) ast.Expr {
 	}
 }
 
+func return0IfNeeded(stmts []ast.Stmt) []ast.Stmt {
+	var hasReturn bool
+	if len(stmts) > 0 {
+		_, hasReturn = stmts[len(stmts)-1].(*ast.ReturnStmt)
+	}
+	if !hasReturn {
+		stmts = append(stmts, &ast.ReturnStmt{
+			Results: []ast.Expr{
+				&ast.BasicLit{Kind: token.INT, Value: "0"},
+			},
+		})
+	}
+	return stmts
+}
+
 // ----------------------------------------------------------------------------
 
 func newIncDecStmt(x ast.Expr, tok token.Token) *ast.IncDecStmt {

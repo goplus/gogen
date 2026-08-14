@@ -454,6 +454,9 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 		log.Println("Return", n)
 	}
 	fn := p.current.fn
+	if fn.cate != AutoLambdaNormal {
+		p.panicCodeErrorf(getPos(src), getEnd(src), cantUseFlowsInAutoLambda)
+	}
 
 	// For non-inline functions, if stack has fewer elements than expected, it
 	// means compilation of return arguments failed. We still mark return to
@@ -2287,7 +2290,7 @@ func (p *CodeBuilder) Fallthrough() *CodeBuilder {
 	panic("please use fallthrough in case statement")
 }
 
-// For func
+// For loop statement: For (..|None) Then [.. Post] .. End
 func (p *CodeBuilder) For(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("For")

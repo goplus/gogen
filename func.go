@@ -100,18 +100,24 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 		p.inlineClosureEnd(cb)
 		return
 	}
+
 	pkg := cb.pkg
 	checker := termChecker{cb.current.panicCalls}
 	fnBody, flows := cb.endFuncBody(p.old)
-	if flows != 0 && p.cate != AutoLambdaNormal {
-		cb.handleCodeError(getSrcPos(src), getSrcEnd(src), cantUseFlowsInAutoLambda)
+	cate := p.cate
+	if cate != AutoLambdaNormal {
+		if flows != 0 {
+			cb.handleCodeError(getSrcPos(src), getSrcEnd(src), cantUseFlowsInAutoLambda)
+		} else {
+			fnBody = return0IfNeeded(fnBody)
+		}
 	}
 	body := &target.BlockStmt{List: fnBody}
 	t := p.Type().(*types.Signature)
 
 	// Check for missing return at the closing brace position.
 	// For FuncDecl/FuncLit/BlockStmt, End() returns Rbrace+1, so End()-1 is the Rbrace position.
-	if t.Results().Len() > 0 && !checker.isTerminating(body, "") {
+	if cate == AutoLambdaNormal && t.Results().Len() > 0 && !checker.isTerminating(body, "") {
 		pos, end := token.NoPos, token.NoPos
 		if src != nil {
 			end = src.End()

@@ -216,6 +216,10 @@ func buildTypeForCallExpr(pkg *Package, T types.Type) js.Expr {
 	panic("todo buildTypeForCallExpr")
 }
 
+func return0IfNeeded(stmts []js.Stmt) []js.Stmt {
+	panic("todo return0IfNeeded")
+}
+
 // ----------------------------------------------------------------------------
 
 func newIncDecStmt(x js.Expr, tok token.Token) js.Stmt {
