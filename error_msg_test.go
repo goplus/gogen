@@ -134,12 +134,20 @@ func TestErrSwitch(t *testing.T) {
 }
 
 func TestErrAutoLambda(t *testing.T) {
-	codeErrorTest(t, `./foo.gop:5:1: can't use return/continue/break/goto in auto lambda`, func(pkg *gogen.Package) {
+	codeErrorTest(t, `./foo.gop:5:2: can't use return/continue/break/goto in auto lambda`, func(pkg *gogen.Package) {
 		cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
 		sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
 		cb.NewClosureWith(sig, gogen.AutoLambdaLoop).BodyStart(pkg).
-			Return(0).
-			End(source("foo", 5, 1))
+			Return(0, source("foo", 5, 2)).
+			End()
+		cb.End()
+	})
+	codeErrorTest(t, `./foo.gop:6:1: can't use return/continue/break/goto in auto lambda`, func(pkg *gogen.Package) {
+		cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
+		sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+		cb.NewClosureWith(sig, gogen.AutoLambdaLoop).BodyStart(pkg).
+			Break(nil).
+			End(source("foo", 6, 1))
 		cb.End()
 	})
 }

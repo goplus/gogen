@@ -103,8 +103,12 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	pkg := cb.pkg
 	checker := termChecker{cb.current.panicCalls}
 	fnBody, flows := cb.endFuncBody(p.old)
-	if flows != 0 && p.cate != AutoLambdaNormal {
-		cb.handleCodeError(getSrcPos(src), getSrcEnd(src), cantUseFlowsInAutoLambda)
+	if p.cate != AutoLambdaNormal {
+		if flows != 0 {
+			cb.handleCodeError(getSrcPos(src), getSrcEnd(src), cantUseFlowsInAutoLambda)
+		} else {
+			fnBody = return0IfNeeded(fnBody)
+		}
 	}
 	body := &target.BlockStmt{List: fnBody}
 	t := p.Type().(*types.Signature)

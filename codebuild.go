@@ -454,6 +454,9 @@ func (p *CodeBuilder) Return(n int, src ...ast.Node) *CodeBuilder {
 		log.Println("Return", n)
 	}
 	fn := p.current.fn
+	if fn.cate != AutoLambdaNormal {
+		p.panicCodeErrorf(getPos(src), getEnd(src), cantUseFlowsInAutoLambda)
+	}
 
 	// For non-inline functions, if stack has fewer elements than expected, it
 	// means compilation of return arguments failed. We still mark return to
