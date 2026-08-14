@@ -287,13 +287,12 @@ func insertParams(scope *types.Scope, params *types.Tuple) {
 	}
 }
 
-func (p *CodeBuilder) endFuncBody(old funcBodyCtx) []target.Stmt {
+func (p *CodeBuilder) endFuncBody(old funcBodyCtx) ([]target.Stmt, int) {
 	p.current.checkLabels(p)
 	p.current.fn = old.fn
 	p.current.labels = old.labels
 	p.current.panicCalls = old.panicCalls
-	stmts, _ := p.endBlockStmt(&old.codeBlockCtx)
-	return stmts
+	return p.endBlockStmt(&old.codeBlockCtx)
 }
 
 func (p *CodeBuilder) startBlockStmt(current codeBlock, src []ast.Node, comment string, old *codeBlockCtx) *CodeBuilder {
@@ -587,7 +586,8 @@ func (p *Func) inlineClosureEnd(cb *CodeBuilder) {
 		cb.Label(ending)
 	}
 	sig := p.Type().(*types.Signature)
-	cb.emitStmt(&target.BlockStmt{List: cb.endFuncBody(p.old)})
+	fnBody, _ := cb.endFuncBody(p.old)
+	cb.emitStmt(&target.BlockStmt{List: fnBody})
 	cb.stk.PopN(p.getInlineCallArity())
 	results := sig.Results()
 	for i, n := 0, results.Len(); i < n; i++ { // return results & clean env
@@ -642,15 +642,28 @@ func (p *CodeBuilder) emitVar(pkg *Package, closure *Func, param *types.Var, wit
 	p.paramInsts[key] = p.current.scope.Lookup(name).(*types.Var)
 }
 
-// NewClosure func
+// NewClosure creates a new closure.
 func (p *CodeBuilder) NewClosure(params, results *types.Tuple, variadic bool) *Func {
 	sig := types.NewSignatureType(nil, nil, nil, params, results, variadic)
-	return p.NewClosureWith(sig)
+	return p.NewClosureWith(sig, AutoLambdaNormal)
 }
 
-// NewClosureWith func
-func (p *CodeBuilder) NewClosureWith(sig *types.Signature) *Func {
-	return p.pkg.newClosure(sig)
+// AutoLambdaCategory represents the category of an auto-lambda.
+type AutoLambdaCategory int
+
+const (
+	AutoLambdaNormal AutoLambdaCategory = iota
+	AutoLambdaCond
+	AutoLambdaLoop
+)
+
+// NewClosureWith creates a new closure with an optional auto-lambda category.
+func (p *CodeBuilder) NewClosureWith(sig *types.Signature, cate ...AutoLambdaCategory) *Func {
+	var c AutoLambdaCategory
+	if cate != nil {
+		c = cate[0]
+	}
+	return p.pkg.newClosure(sig, c)
 }
 
 // ConvertToClosure converts an expression into a closure.
