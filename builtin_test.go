@@ -407,7 +407,7 @@ func TestContract(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	at := types.NewPackage("foo", "foo")
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
-	tfoo := foo.Ref("Foo").Type()
+	tfoo := foo.Ref("Foo5").Type()
 	tarr := types.NewArray(tyInt, 10)
 	testcases := []struct {
 		Contract
@@ -1699,7 +1699,7 @@ func TestAliasTypeMethod(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	at := types.NewPackage("foo", "foo")
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
-	tfoo := foo.Ref("Foo").Type()
+	tfoo := foo.Ref("Foo5").Type()
 	testcases := []struct {
 		Contract
 		typ    types.Type
@@ -1737,7 +1737,7 @@ func TestAliasContract(t *testing.T) {
 	pkg := NewPackage("", "foo", nil)
 	at := types.NewPackage("foo", "foo")
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
-	tfoo := foo.Ref("Foo").Type()
+	tfoo := foo.Ref("Foo5").Type()
 	tarr := types.NewArray(tyInt, 10)
 	testcases := []struct {
 		Contract

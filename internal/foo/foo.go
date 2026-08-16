@@ -103,48 +103,15 @@ func (p *Bar3) XGo_Enum() barIt3 {
 
 // -----------------------------------------------------------------------------
 
-type Foo struct {
-}
-
-func (p *Foo) XGo_Enum(c func(v string)) {
-}
-
-func (a Foo) XGo_Add(b Foo) Foo {
-	return Foo{}
-}
-
-// -----------------------------------------------------------------------------
-
-type Foo2 struct {
-}
-
-func (p Foo2) XGo_Enum(c func(k int, v string)) {
-}
-
-// -----------------------------------------------------------------------------
-
-type Foo3 struct {
-}
-
-func (p Foo3) XGo_Enum(c func(k int, v string)) int {
-	return 0
-}
-
-// -----------------------------------------------------------------------------
-
-type Foo4 struct {
-}
-
-func (p Foo4) XGo_Enum(c func()) {
-}
-
-// -----------------------------------------------------------------------------
-
 type Foo5 struct {
 }
 
 func (p Foo5) XGo_Enum() iter.Seq2[int, string] {
 	return nil
+}
+
+func (p Foo5) XGo_Add(b Foo5) Foo5 {
+	return Foo5{}
 }
 
 // -----------------------------------------------------------------------------

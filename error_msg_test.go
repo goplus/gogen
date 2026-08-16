@@ -396,43 +396,6 @@ func TestErrDefineVar(t *testing.T) {
 }
 
 func TestErrForRange(t *testing.T) {
-	codeErrorTest(t, `./foo.gop:1:17: can't use return/continue/break/goto in for range of udt.XGo_Enum(callback)`,
-		func(pkg *gogen.Package) {
-			foo := pkg.Import("github.com/goplus/gogen/internal/foo")
-			bar := foo.Ref("Foo2").Type()
-			v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
-			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
-				ForRange("a", "b").
-				Val(v, source("v", 1, 9)).
-				RangeAssignThen(position(1, 17)).
-				Return(0).
-				End().
-				End()
-		})
-	codeErrorTest(t, `./foo.gop:1:17: cannot range over v (type *github.com/goplus/gogen/internal/foo.Foo4)`,
-		func(pkg *gogen.Package) {
-			foo := pkg.Import("github.com/goplus/gogen/internal/foo")
-			bar := foo.Ref("Foo4").Type()
-			v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
-			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
-				ForRange().
-				Val(v, source("v", 1, 9)).
-				RangeAssignThen(position(1, 17)).
-				End().
-				End()
-		})
-	codeErrorTest(t, `./foo.gop:1:17: cannot range over v (type *github.com/goplus/gogen/internal/foo.Foo3)`,
-		func(pkg *gogen.Package) {
-			foo := pkg.Import("github.com/goplus/gogen/internal/foo")
-			bar := foo.Ref("Foo3").Type()
-			v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
-			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
-				ForRange("a", "b").
-				Val(v, source("v", 1, 9)).
-				RangeAssignThen(position(1, 17)).
-				End().
-				End()
-		})
 	codeErrorTest(t, `./foo.gop:1:17: cannot range over v (type *github.com/goplus/gogen/internal/foo.Bar2)`,
 		func(pkg *gogen.Package) {
 			foo := pkg.Import("github.com/goplus/gogen/internal/foo")

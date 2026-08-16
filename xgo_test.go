@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/goplus/gogen"
-	"github.com/goplus/gogen/target"
 )
 
 func initXGoBuiltin(big gogen.PkgRef, conf *gogen.Config) {
@@ -962,59 +961,6 @@ func bar(v foo.NodeSet) {
 		}
 		fmt.Println("Hi")
 	}
-}
-`)
-}
-
-func TestForRangeUDT4(t *testing.T) {
-	pkg := newMainPackage()
-	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
-	bar := foo.Ref("Foo").Type()
-	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
-	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		ForRange("elem").Val(v).RangeAssignThen(token.NoPos).
-		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "elem")).Call(1).EndStmt().
-		SetBodyHandler(func(body *target.BlockStmt, kind int) {
-			gogen.InsertStmtFront(body, &target.ExprStmt{X: ast.NewIdent("__sched__")})
-		}).
-		End().End()
-	domTest(t, pkg, `package main
-
-import (
-	"fmt"
-	"github.com/goplus/gogen/internal/foo"
-)
-
-func bar(v *foo.Foo) {
-	v.XGo_Enum(func(elem string) {
-		__sched__
-		fmt.Println(elem)
-	})
-}
-`)
-}
-
-func TestForRangeUDT5(t *testing.T) {
-	pkg := newMainPackage()
-	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
-	bar := foo.Ref("Foo2").Type()
-	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
-	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		ForRange("key", "elem").Val(v).RangeAssignThen(token.NoPos).
-		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "key")).Val(ctxRef(pkg, "elem")).
-		Call(2).EndStmt().
-		End().End()
-	domTest(t, pkg, `package main
-
-import (
-	"fmt"
-	"github.com/goplus/gogen/internal/foo"
-)
-
-func bar(v *foo.Foo2) {
-	v.XGo_Enum(func(key int, elem string) {
-		fmt.Println(key, elem)
-	})
 }
 `)
 }

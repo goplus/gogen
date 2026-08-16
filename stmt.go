@@ -673,28 +673,9 @@ func (p *forRangeStmt) checkUdt(cb *CodeBuilder, o *types.Named) ([]types.Type, 
 		params := sig.Params()
 		switch params.Len() {
 		case 0:
+			// fnIter := obj.XGo_Enum() or
 			// iter := obj.XGo_Enum()
 			// key, val, ok := iter.Next()
-		case 1:
-			// obj.XGo_Enum(func(key K, val V) { ... })
-			if enumRet.Len() != 0 {
-				return nil, false
-			}
-			typ := params.At(0).Type()
-			if t, ok := typ.(*types.Signature); ok && t.Results().Len() == 0 {
-				kv := t.Params()
-				n := kv.Len()
-				if n > 0 {
-					p.kvt = []types.Type{kv.At(0).Type(), nil}
-					if n > 1 {
-						n = 2
-						p.kvt[1] = kv.At(1).Type()
-					}
-					p.udt = -n
-					return p.kvt, true
-				}
-			}
-			fallthrough
 		default:
 			return nil, false
 		}
