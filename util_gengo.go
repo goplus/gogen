@@ -1137,7 +1137,7 @@ func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []ast.Stmt, flows 
 		}
 		p.stmt.Body = p.handleFor(&ast.BlockStmt{List: stmts}, 1)
 		cb.emitStmt(p.stmt)
-	} else if n > 0 {
+	} else {
 		cb.stk.Push(p.x)
 		cb.MemberVal(p.enumName, 0).Call(0)
 		callEnum := cb.stk.Pop().Val
@@ -1185,44 +1185,6 @@ func emitForRangeStmt(cb *CodeBuilder, p *forRangeStmt, stmts []ast.Stmt, flows 
 				Rhs: []ast.Expr{callEnum},
 			},
 			Body: p.handleFor(&ast.BlockStmt{List: body}, 2),
-		}
-		cb.emitStmt(stmt)
-	} else {
-		/*
-			X.XGo_Enum(func(k K, v V) {
-				...
-			})
-		*/
-		if flows != 0 {
-			cb.panicCodeError(p.stmt.For, p.stmt.For, cantUseFlowsInForRange)
-		}
-		n = -n
-		def := p.stmt.Tok == token.DEFINE
-		args := make([]*ast.Field, n)
-		if def {
-			args[0] = &ast.Field{
-				Names: []*ast.Ident{p.stmt.Key.(*ast.Ident)},
-				Type:  toType(cb.pkg, p.kvt[0]),
-			}
-			if n > 1 {
-				args[1] = &ast.Field{
-					Names: []*ast.Ident{p.stmt.Value.(*ast.Ident)},
-					Type:  toType(cb.pkg, p.kvt[1]),
-				}
-			}
-		} else {
-			panic("TODO: for range udt assign")
-		}
-		stmt := &ast.ExprStmt{
-			X: &ast.CallExpr{
-				Fun: &ast.SelectorExpr{X: p.stmt.X, Sel: ident(p.enumName)},
-				Args: []ast.Expr{
-					&ast.FuncLit{
-						Type: &ast.FuncType{Params: &ast.FieldList{List: args}},
-						Body: p.handleFor(&ast.BlockStmt{List: stmts}, -1),
-					},
-				},
-			},
 		}
 		cb.emitStmt(stmt)
 	}

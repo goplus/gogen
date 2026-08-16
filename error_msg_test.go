@@ -396,6 +396,32 @@ func TestErrDefineVar(t *testing.T) {
 }
 
 func TestErrForRange(t *testing.T) {
+	codeErrorTest(t, `./foo.gop:1:17: cannot range over v (type *github.com/goplus/gogen/internal/foo.Foo3)`,
+		func(pkg *gogen.Package) {
+			foo := pkg.Import("github.com/goplus/gogen/internal/foo")
+			bar := foo.Ref("Foo3").Type()
+			v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
+			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+				ForRange("a", "b").
+				Val(v, source("v", 1, 9)).
+				RangeAssignThen(position(1, 17)).
+				End().
+				End()
+		})
+	codeErrorTest(t, `./foo.gop:1:17: cannot range over v (type bool)`,
+		func(pkg *gogen.Package) {
+			bar := types.Typ[types.Bool]
+			v := newParam(pkg, token.NoPos, "v", bar)
+			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+				NewVar(bar, "a", "b").
+				ForRange().
+				VarRef("a").
+				VarRef("b").
+				Val(v, source("v", 1, 9)).
+				RangeAssignThen(position(1, 17)).
+				End().
+				End()
+		})
 	codeErrorTest(t, `./foo.gop:1:17: cannot range over v (type *github.com/goplus/gogen/internal/foo.Bar2)`,
 		func(pkg *gogen.Package) {
 			foo := pkg.Import("github.com/goplus/gogen/internal/foo")
