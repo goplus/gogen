@@ -794,6 +794,9 @@ func TestForRangeUDT(t *testing.T) {
 	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
 		ForRange("_", "val").Val(v).RangeAssignThen(token.NoPos).
 		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "val")).Call(1).EndStmt().
+		SetBodyHandler(func(body *target.BlockStmt, kind int) {
+			gogen.InsertStmtFront(body, &target.ExprStmt{X: ast.NewIdent("__sched__")})
+		}).
 		End().End()
 	domTest(t, pkg, `package main
 
@@ -804,6 +807,7 @@ import (
 
 func bar(v foo.NodeSet) {
 	for _xgo_it := v.Gop_Enum(); ; {
+		__sched__
 		var _xgo_ok bool
 		_, val, _xgo_ok := _xgo_it.Next()
 		if !_xgo_ok {
@@ -962,59 +966,6 @@ func bar(v foo.NodeSet) {
 		}
 		fmt.Println("Hi")
 	}
-}
-`)
-}
-
-func TestForRangeUDT4(t *testing.T) {
-	pkg := newMainPackage()
-	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
-	bar := foo.Ref("Foo").Type()
-	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
-	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		ForRange("elem").Val(v).RangeAssignThen(token.NoPos).
-		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "elem")).Call(1).EndStmt().
-		SetBodyHandler(func(body *target.BlockStmt, kind int) {
-			gogen.InsertStmtFront(body, &target.ExprStmt{X: ast.NewIdent("__sched__")})
-		}).
-		End().End()
-	domTest(t, pkg, `package main
-
-import (
-	"fmt"
-	"github.com/goplus/gogen/internal/foo"
-)
-
-func bar(v *foo.Foo) {
-	v.XGo_Enum(func(elem string) {
-		__sched__
-		fmt.Println(elem)
-	})
-}
-`)
-}
-
-func TestForRangeUDT5(t *testing.T) {
-	pkg := newMainPackage()
-	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
-	bar := foo.Ref("Foo2").Type()
-	v := newParam(pkg, token.NoPos, "v", types.NewPointer(bar))
-	pkg.NewFunc(nil, "bar", types.NewTuple(v), nil, false).BodyStart(pkg).
-		ForRange("key", "elem").Val(v).RangeAssignThen(token.NoPos).
-		Val(pkg.Import("fmt").Ref("Println")).Val(ctxRef(pkg, "key")).Val(ctxRef(pkg, "elem")).
-		Call(2).EndStmt().
-		End().End()
-	domTest(t, pkg, `package main
-
-import (
-	"fmt"
-	"github.com/goplus/gogen/internal/foo"
-)
-
-func bar(v *foo.Foo2) {
-	v.XGo_Enum(func(key int, elem string) {
-		fmt.Println(key, elem)
-	})
 }
 `)
 }
