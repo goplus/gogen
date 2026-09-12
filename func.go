@@ -130,7 +130,7 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 		expr := newFuncLit(pkg, t, body)
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t, Src: src})
 	} else {
-		fn.Name, fn.Type, fn.Body = &ast.Ident{Name: p.Name()}, toFuncType(pkg, t), body
+		fn.Body = body
 		if recv := t.Recv(); IsMethodRecv(recv) {
 			fn.Recv = toRecv(pkg, recv)
 		}
