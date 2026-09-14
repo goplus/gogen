@@ -1682,6 +1682,22 @@ func foo()
 `)
 }
 
+func TestMethodDeclNoBody(t *testing.T) {
+	pkg := newMainPackage()
+	recv := types.NewParam(token.NoPos, pkg.Types, "p", types.NewPointer(types.NewNamed(
+		types.NewTypeName(token.NoPos, pkg.Types, "T", nil), nil, nil,
+	)))
+	sig := types.NewSignatureType(recv, nil, nil, nil, nil, false)
+	_, err := pkg.NewFuncWith(token.NoPos, "foo", sig, nil)
+	if err != nil {
+		t.Fatal("pkg.NewFuncWith failed:", err)
+	}
+	domTest(t, pkg, `package main
+
+func (p *T) foo()
+`)
+}
+
 func TestFuncVariadic(t *testing.T) {
 	pkg := newMainPackage()
 	v := newParam(pkg, token.NoPos, "v", types.NewSlice(gogen.TyByte))

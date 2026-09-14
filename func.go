@@ -265,6 +265,12 @@ func (p *Package) NewFuncWith(
 	// is still a valid declaration when code is generated. Otherwise Type stays
 	// nil and code generation panics while dereferencing it.
 	fn.decl.Name, fn.decl.Type = &ast.Ident{Name: name}, toFuncType(p, sig)
+	// Preserve the receiver so a body-less method (created with a nil body and
+	// never passed through BodyStart/End) is emitted as a method declaration
+	// rather than being silently downgraded to a global function.
+	if recv := sig.Recv(); IsMethodRecv(recv) {
+		fn.decl.Recv = toRecv(p, recv)
+	}
 	p.file.appendFuncDecl(fn.decl, sig)
 	return fn, nil
 }
