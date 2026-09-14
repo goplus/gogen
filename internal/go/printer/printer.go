@@ -607,8 +607,8 @@ func stripCommonPrefix(lines []string) {
 	// lines.
 	last := lines[len(lines)-1]
 	closing := "*/"
-	before, _, _ := strings.Cut(last, closing) // closing always present
-	if isBlank(before) {
+	before, _, found := strings.Cut(last, closing) // closing usually present
+	if found && isBlank(before) {
 		// last line only contains closing */
 		if lineOfStars {
 			closing = " */" // add blank to align final star

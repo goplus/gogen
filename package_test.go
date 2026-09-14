@@ -809,6 +809,20 @@ func (p *foo) Print() {
 `)
 }
 
+func TestBlockCommentFunc(t *testing.T) {
+	pkg := newMainPackage()
+	// A /*-style comment whose text ends with a trailing newline used to
+	// produce a spurious extra "*/" before the declaration (issue #589).
+	pkg.NewFunc(nil, "main", nil, nil, false).
+		SetComments(pkg, comment("/* returns the version of cJSON as a string */\n")).
+		BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+/* returns the version of cJSON as a string */
+func main() {
+}
+`)
+}
+
 func TestAssignInterface(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.NewType("foo").InitType(pkg, types.Typ[types.Int])
