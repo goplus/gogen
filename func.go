@@ -130,10 +130,9 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 		expr := newFuncLit(pkg, t, body)
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t, Src: src})
 	} else {
+		// Recv is already set by NewFuncWith at declaration time (for both
+		// body-less and body-carrying methods), so it needs no recompute here.
 		fn.Body = body
-		if recv := t.Recv(); IsMethodRecv(recv) {
-			fn.Recv = toRecv(pkg, recv)
-		}
 	}
 }
 
@@ -265,6 +264,12 @@ func (p *Package) NewFuncWith(
 	// is still a valid declaration when code is generated. Otherwise Type stays
 	// nil and code generation panics while dereferencing it.
 	fn.decl.Name, fn.decl.Type = &ast.Ident{Name: name}, toFuncType(p, sig)
+	// Preserve the receiver so a body-less method (created with a nil body and
+	// never passed through BodyStart/End) is emitted as a method declaration
+	// rather than being silently downgraded to a global function.
+	if recv := sig.Recv(); IsMethodRecv(recv) {
+		fn.decl.Recv = toRecv(p, recv)
+	}
 	p.file.appendFuncDecl(fn.decl, sig)
 	return fn, nil
 }
