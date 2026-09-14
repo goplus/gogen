@@ -131,8 +131,13 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t, Src: src})
 	} else {
 		fn.Body = body
-		if recv := t.Recv(); IsMethodRecv(recv) {
-			fn.Recv = toRecv(pkg, recv)
+		// Recv is already populated by NewFuncWith at declaration time; only
+		// recompute it here (via toRecv) if it hasn't been set yet, to avoid a
+		// redundant allocation for every method that goes through BodyStart/End.
+		if fn.Recv == nil {
+			if recv := t.Recv(); IsMethodRecv(recv) {
+				fn.Recv = toRecv(pkg, recv)
+			}
 		}
 	}
 }
