@@ -641,6 +641,16 @@ func (p *printer) writeComment(comment *ast.Comment) {
 		p.indent = 0
 	}
 
+	// A synthetic comment produced by gogen may carry leading newlines in its
+	// text to request a blank line before it (a const spec doc comment, or a
+	// statement comment). Emit those newlines as line breaks so the following
+	// content is written at column 1 and picks up the current indentation.
+	if n := len(text) - len(strings.TrimLeft(text, "\n")); n > 0 {
+		p.writeByte('\f', nlimit(n))
+		text = text[n:]
+		pos = p.pos
+	}
+
 	// shortcut common case of //-style comments
 	if text[1] == '/' {
 		if constraint.IsGoBuild(text) {
