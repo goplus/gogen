@@ -98,31 +98,39 @@ func newTypesContext() *typesContext {
 }
 
 func toRecvType(pkg *Package, typ types.Type) ast.Expr {
+	var t *types.Named
+	var tobj *types.TypeName
 	var star bool
 	if t, ok := typ.(*types.Pointer); ok {
 		typ = t.Elem()
 		star = true
 	}
 	t, ok := typ.(*types.Named)
-	if !ok {
-		panic("unexpected: recv type must types.Named")
+	if ok {
+		tobj = t.Obj()
+	} else if t2, ok2 := typ.(*types.Alias); ok2 {
+		tobj = t2.Obj()
+	} else {
+		panic("unexpected: recv type must types.Named or types.Alias")
 	}
-	expr := toObjectTypeExpr(pkg, t.Obj())
-	if tparams := t.TypeParams(); tparams != nil {
-		n := tparams.Len()
-		indices := make([]ast.Expr, n)
-		for i := 0; i < n; i++ {
-			indices[i] = toObjectTypeExpr(pkg, tparams.At(i).Obj())
-		}
-		if n == 1 {
-			expr = &ast.IndexExpr{
-				X:     expr,
-				Index: indices[0],
+	expr := toObjectTypeExpr(pkg, tobj)
+	if t != nil {
+		if tparams := t.TypeParams(); tparams != nil {
+			n := tparams.Len()
+			indices := make([]ast.Expr, n)
+			for i := 0; i < n; i++ {
+				indices[i] = toObjectTypeExpr(pkg, tparams.At(i).Obj())
 			}
-		} else {
-			expr = &ast.IndexListExpr{
-				X:       expr,
-				Indices: indices,
+			if n == 1 {
+				expr = &ast.IndexExpr{
+					X:     expr,
+					Index: indices[0],
+				}
+			} else {
+				expr = &ast.IndexListExpr{
+					X:       expr,
+					Indices: indices,
+				}
 			}
 		}
 	}
