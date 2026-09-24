@@ -1391,6 +1391,42 @@ const (
 `)
 }
 
+func TestConstDeclDoc(t *testing.T) {
+	pkg := newMainPackage()
+	defs := pkg.NewConstDefs(pkg.Types.Scope())
+
+	a := defs.NewPos()
+	a.Doc = &ast.CommentGroup{
+		List: []*ast.Comment{
+			{Text: "\n// a is a constant"},
+			{Text: "// multi-line"},
+		},
+	}
+	defs.NewAt(a, func(cb *gogen.CodeBuilder) int {
+		cb.Val(1).Val(ctxRef(pkg, "iota")).BinaryOp(token.SHL)
+		return 1
+	}, 0, token.NoPos, types.Typ[types.Uint16], "a")
+
+	b := defs.NewPos()
+	b.Doc = &ast.CommentGroup{
+		List: []*ast.Comment{
+			{Text: "\n// b comments"},
+		},
+	}
+	defs.NextAt(b, defs.F, 1, token.NoPos, "b")
+
+	domTest(t, pkg, `package main
+
+const (
+	// a is a constant
+	// multi-line
+	a uint16 = 1 << iota
+	// b comments
+	b
+)
+`)
+}
+
 type fldAdder struct {
 	Fields   []*types.Var
 	pkgTypes *types.Package
