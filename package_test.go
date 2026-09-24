@@ -497,9 +497,9 @@ func TestIncDec(t *testing.T) {
 	domTest(t, pkg, `package main
 
 func main() {
-// new var a
+	// new var a
 	var a uint
-// inc a
+	// inc a
 	a++
 	a--
 }
