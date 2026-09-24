@@ -198,7 +198,7 @@ func newAddrExpr(args []*internal.Elem) js.Expr {
 	panic("todo newAddrExpr")
 }
 
-func zeroCompositeLit(p *Package, typ types.Type, typ0 *types.Type) js.Expr {
+func zeroCompositeLit(p *Package, typ types.Type) js.Expr {
 	panic("todo zeroCompositeLit")
 }
 
