@@ -79,7 +79,7 @@ func (p *Func) BodyStart(pkg *Package, src ...ast.Node) *CodeBuilder {
 		tag := "NewFunc "
 		name := p.Name()
 		sig := p.Type().(*types.Signature)
-		if v := sig.Recv(); IsMethodRecv(v) {
+		if v := sig.Recv(); v != nil {
 			recv = fmt.Sprintf(" (%v)", v.Type())
 		}
 		if name == "" {
@@ -191,10 +191,6 @@ func getRecv(recvTypePos func() token.Pos) token.Pos {
 	return token.NoPos
 }
 
-func IsMethodRecv(recv *types.Var) bool {
-	return recv != nil
-}
-
 // NewFuncWith creates a new function (should have a function body).
 func (p *Package) NewFuncWith(
 	pos token.Pos, name string, sig *types.Signature, recvTypePos func() token.Pos) (*Func, error) {
@@ -205,7 +201,7 @@ func (p *Package) NewFuncWith(
 		return nil, err
 	}
 	fn := &Func{Func: types.NewFunc(pos, p.Types, name, sig)}
-	if recv := sig.Recv(); IsMethodRecv(recv) { // add method to this type
+	if recv := sig.Recv(); recv != nil { // add method to this type
 		var t *types.Named
 		var ok bool
 		var typ = recv.Type()
@@ -215,6 +211,21 @@ func (p *Package) NewFuncWith(
 		case *types.Pointer:
 			typ = tt.Elem()
 			t, ok = typ.(*types.Named)
+			if !ok {
+				if t2, ok2 := typ.(*types.Alias); ok2 { // pointer to alias
+					typ = t2.Underlying()
+					t, ok = typ.(*types.Named)
+				}
+			}
+		case *types.Alias:
+			typ = tt.Underlying()
+			t, ok = typ.(*types.Named)
+			if !ok {
+				if t2, ok2 := typ.(*types.Pointer); ok2 { // alias to pointer
+					typ = t2.Elem()
+					t, ok = typ.(*types.Named)
+				}
+			}
 		}
 		if !ok {
 			posErr := getRecv(recvTypePos)
@@ -267,7 +278,7 @@ func (p *Package) NewFuncWith(
 	// Preserve the receiver so a body-less method (created with a nil body and
 	// never passed through BodyStart/End) is emitted as a method declaration
 	// rather than being silently downgraded to a global function.
-	if recv := sig.Recv(); IsMethodRecv(recv) {
+	if recv := sig.Recv(); recv != nil {
 		fn.decl.Recv = toRecv(p, recv)
 	}
 	p.file.appendFuncDecl(fn.decl, sig)
