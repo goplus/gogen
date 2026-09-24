@@ -28,6 +28,31 @@ import (
 	"github.com/goplus/gogen/internal/goxdbg"
 )
 
+// TestAliasTypeAsRecv covers toRecvType handling a receiver whose type is a
+// types.Alias, for both value and pointer receivers.
+func TestAliasTypeAsRecv(t *testing.T) {
+	pkg := newGoxTest().NewPackage("", "main")
+	baseT := pkg.NewType("Base").InitType(pkg, types.NewStruct(
+		[]*types.Var{types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false)}, nil))
+	aliasT := pkg.AliasType("Alias", baseT)
+	recv := types.NewParam(token.NoPos, pkg.Types, "b", aliasT)
+	pkg.NewFunc(recv, "Foo", nil, nil, false).BodyStart(pkg).End()
+	precv := types.NewParam(token.NoPos, pkg.Types, "p", types.NewPointer(aliasT))
+	pkg.NewFunc(precv, "Bar", nil, nil, false).BodyStart(pkg).End()
+	domTest(t, pkg, `package main
+
+type Base struct {
+	x int
+}
+type Alias = Base
+
+func (b Alias) Foo() {
+}
+func (p *Alias) Bar() {
+}
+`)
+}
+
 func TestMethodToFunc(t *testing.T) {
 	const src = `package hello
 
