@@ -785,7 +785,7 @@ retry:
 		typ = types.Unalias(t)
 		goto retry
 	default:
-		val = zeroCompositeLit(p, typ, &typ0)
+		val = zeroCompositeLit(p, typ0)
 	}
 	return &Element{Val: val, Type: typ0, CVal: cval}
 }

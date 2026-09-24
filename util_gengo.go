@@ -993,7 +993,7 @@ func newAddrExpr(args []*internal.Elem) *ast.UnaryExpr {
 	return &ast.UnaryExpr{Op: token.AND, X: args[0].Val}
 }
 
-func zeroCompositeLit(p *Package, typ types.Type, typ0 *types.Type) *ast.CompositeLit {
+func zeroCompositeLit(p *Package, typ types.Type) *ast.CompositeLit {
 	return &ast.CompositeLit{
 		Type: toType(p, typ),
 	}
