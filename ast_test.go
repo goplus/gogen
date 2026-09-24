@@ -16,11 +16,40 @@
 package gogen
 
 import (
+	"bytes"
 	"go/ast"
 	"go/token"
 	"go/types"
 	"testing"
+
+	"github.com/goplus/gogen/internal/go/format"
 )
+
+// TestToRecvTypeGenericAlias covers toRecvType emitting the type parameters of
+// a generic alias receiver (e.g. Foo[T]) symmetrically to the *types.Named
+// case, for both value and pointer receivers.
+func TestToRecvTypeGenericAlias(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	alias := types.NewAlias(types.NewTypeName(token.NoPos, pkg.Types, "Foo", nil), types.Typ[types.Int])
+	tp := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), nil)
+	tp.SetConstraint(types.NewInterfaceType(nil, nil).Complete())
+	alias.SetTypeParams([]*types.TypeParam{tp})
+
+	fset := token.NewFileSet()
+	for _, tc := range []struct {
+		typ  types.Type
+		want string
+	}{
+		{alias, "Foo[T]"},
+		{types.NewPointer(alias), "*Foo[T]"},
+	} {
+		b := bytes.NewBuffer(nil)
+		format.Node(b, fset, toRecvType(pkg, tc.typ))
+		if b.String() != tc.want {
+			t.Fatalf("toRecvType = %q, want %q", b.String(), tc.want)
+		}
+	}
+}
 
 func TestToVariadic(t *testing.T) {
 	defer func() {

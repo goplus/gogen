@@ -98,17 +98,23 @@ func newTypesContext() *typesContext {
 }
 
 func toRecvType(pkg *Package, typ types.Type) ast.Expr {
+	var tobj *types.TypeName
+	var tparams *types.TypeParamList
 	var star bool
 	if t, ok := typ.(*types.Pointer); ok {
 		typ = t.Elem()
 		star = true
 	}
-	t, ok := typ.(*types.Named)
-	if !ok {
-		panic("unexpected: recv type must types.Named")
+	switch t := typ.(type) {
+	case *types.Named:
+		tobj, tparams = t.Obj(), t.TypeParams()
+	case *types.Alias:
+		tobj, tparams = t.Obj(), t.TypeParams()
+	default:
+		panic("unexpected: recv type must types.Named or types.Alias")
 	}
-	expr := toObjectTypeExpr(pkg, t.Obj())
-	if tparams := t.TypeParams(); tparams != nil {
+	expr := toObjectTypeExpr(pkg, tobj)
+	if tparams != nil {
 		n := tparams.Len()
 		indices := make([]ast.Expr, n)
 		for i := 0; i < n; i++ {
