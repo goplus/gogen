@@ -204,28 +204,13 @@ func (p *Package) NewFuncWith(
 	if recv := sig.Recv(); recv != nil { // add method to this type
 		var t *types.Named
 		var ok bool
-		var typ = recv.Type()
+		var typ = types.Unalias(recv.Type())
 		switch tt := typ.(type) {
 		case *types.Named:
 			t, ok = tt, true
 		case *types.Pointer:
-			typ = tt.Elem()
+			typ = types.Unalias(tt.Elem())
 			t, ok = typ.(*types.Named)
-			if !ok {
-				if t2, ok2 := typ.(*types.Alias); ok2 { // pointer to alias
-					typ = t2.Underlying()
-					t, ok = typ.(*types.Named)
-				}
-			}
-		case *types.Alias:
-			typ = tt.Underlying()
-			t, ok = typ.(*types.Named)
-			if !ok {
-				if t2, ok2 := typ.(*types.Pointer); ok2 { // alias to pointer
-					typ = t2.Elem()
-					t, ok = typ.(*types.Named)
-				}
-			}
 		}
 		if !ok {
 			posErr := getRecv(recvTypePos)
