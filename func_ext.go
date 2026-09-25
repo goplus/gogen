@@ -184,7 +184,9 @@ func CheckOverloadFunc(sig *types.Signature) (funcs []types.Object, ok bool) {
 
 // TyOverloadMethod: overload function type
 type TyOverloadMethod struct {
-	Methods []types.Object
+	Methods  []types.Object
+	indexs   []int                             // func object indexs
+	instance map[*types.Named]*types.Signature // cache type signature for named
 }
 
 func (p *TyOverloadMethod) At(i int) types.Object { return p.Methods[i] }
@@ -194,9 +196,46 @@ func (p *TyOverloadMethod) Underlying() types.Type { return p }
 func (p *TyOverloadMethod) String() string         { return "TyOverloadMethod" }
 func (p *TyOverloadMethod) funcEx()                {}
 
-// NewOverloadMethod creates an overload method.
-func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, methods ...types.Object) *types.Func {
-	return newMethodEx(typ, pos, pkg, name, &TyOverloadMethod{methods})
+func NewOverloadMethod(typ *types.Named, pos token.Pos, pkg *types.Package, name string, objectIndex map[types.Object]int, methods ...types.Object) *types.Func {
+	t := &TyOverloadMethod{Methods: methods}
+	if typ.TypeParams() != nil {
+		t.indexs = make([]int, len(methods))
+		for i, obj := range methods {
+			t.indexs[i] = objectIndex[obj]
+		}
+		t.instance = make(map[*types.Named]*types.Signature)
+	}
+	return newMethodEx(typ, pos, pkg, name, t)
+}
+
+func (m *TyOverloadMethod) IsGeneric() bool {
+	return len(m.indexs) != 0
+}
+
+func (m *TyOverloadMethod) Instantiate(named *types.Named) *types.Signature {
+	sig, ok := m.instance[named]
+	if !ok {
+		sig = newOverloadMethodType(named, m)
+		m.instance[named] = sig
+	}
+	return sig
+}
+
+func newOverloadMethodType(named *types.Named, m *TyOverloadMethod) *types.Signature {
+	var list methodList
+	switch t := named.Underlying().(type) {
+	case *types.Interface:
+		list = t
+	default:
+		list = named
+	}
+	pkg := named.Obj().Pkg()
+	recv := types.NewVar(token.NoPos, pkg, "", named)
+	methods := make([]types.Object, len(m.indexs))
+	for i, index := range m.indexs {
+		methods[i] = list.Method(index)
+	}
+	return sigFuncEx(pkg, recv, &TyOverloadMethod{Methods: methods})
 }
 
 // CheckOverloadMethod checks a func is overload method or not.
