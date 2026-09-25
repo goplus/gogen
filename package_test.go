@@ -350,8 +350,12 @@ func TestTestingFile(t *testing.T) {
 func foo() {
 }
 `, "test")
-	if pkg.CurFile().Name() != "test" {
-		t.Fatal("TestTestingFile: curfile =", pkg.CurFile().Name())
+	file := pkg.CurFile()
+	if file.Name() != "test" {
+		t.Fatal("TestTestingFile: curfile =", file.Name())
+	}
+	if file.Empty() {
+		t.Fatal("TestTestingFile: file is empty")
 	}
 	err = gogen.WriteFile("_xgo_autogen_test.go", pkg, "test")
 	pkg.RestoreCurFile(old)

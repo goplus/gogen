@@ -236,6 +236,11 @@ func (p *File) Name() string {
 	return p.fname
 }
 
+// Empty returns true if this file is empty.
+func (p *File) Empty() bool {
+	return len(p.goDecls) == 0
+}
+
 func isPkgInMod(pkgPath, modPath string) bool {
 	if strings.HasPrefix(pkgPath, modPath) {
 		suffix := pkgPath[len(modPath):]
