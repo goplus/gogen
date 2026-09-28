@@ -171,7 +171,7 @@ func (p *CodeBuilder) init(pkg *Package) {
 	p.pkg = pkg
 	p.fset = conf.DbgPositioner
 	if p.fset == nil {
-		p.fset = conf.Fset
+		p.fset = pkg.Fset
 	}
 	p.noSkipConst = conf.NoSkipConstant
 	p.handleErr = conf.HandleErr
