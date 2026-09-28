@@ -379,6 +379,13 @@ func NewTemplateSignature(
 }
 
 func (p *TemplateSignature) instantiate(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (*types.Signature, error) {
+	// A TemplateSignature is also used for non-generic overloads. Such a
+	// signature must be matched as-is; passing it through InferFunc would call
+	// go/types' generic inference with zero type parameters and panic.
+	if tp := p.sig.TypeParams(); tp == nil || tp.Len() == 0 {
+		return p.sig, nil
+	}
+
 	nargs := make([]*internal.Elem, len(args))
 	copy(nargs, args)
 	for i := 0; i < len(nargs); i++ {
