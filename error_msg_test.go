@@ -198,6 +198,13 @@ func TestErrAssignOp(t *testing.T) {
 }
 
 func TestErrBinaryOp(t *testing.T) {
+	codeErrorTestEx(t, newXGoMainPackage(), `-: invalid operation: / (mismatched types string and untyped int)`,
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.String], "s").
+				VarVal("s").Val(180).BinaryOp(token.QUO).EndStmt().
+				End()
+		})
 	codeErrorTest(t, `-: invalid operation: * (mismatched types int and float64)`,
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
