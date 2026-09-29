@@ -252,20 +252,6 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, ty
 	scope := tdecl.scope
 	typName := types.NewTypeName(pos, p.Types, name, typ)
 	if old := scope.Insert(typName); old != nil {
-		// Allow redeclaring a named type multiple times (only a single definition
-		// is required later via InitType), to support languages like C/C++.
-		// Simply create a new TypeDecl wrapping the existing *types.Named. The
-		// previous (forward) declaration is automatically discarded on save when
-		// it lacks a type definition (see checkTypeDecls), so only the definition
-		// provided via a single InitType call is emitted.
-		if alias == 0 && p.allowRedecl && scope == p.Types.Scope() {
-			if oldTypName, ok := old.(*types.TypeName); ok {
-				decl := tdecl.decl
-				spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}}
-				decl.Specs = append(decl.Specs, spec)
-				return &TypeDecl{typ: oldTypName.Type().(*types.Named), spec: spec}
-			}
-		}
 		oldPos := p.cb.fset.Position(old.Pos())
 		p.cb.panicCodeErrorf(
 			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)

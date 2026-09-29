@@ -1696,9 +1696,9 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 	}
 }
 
-// for gogen.TypeDecl.Delete & SetRedeclarable (goplus/gogen#661)
+// for gogen.TypeDecl.Delete
 func isEmptyTypeSpec(spec *ast.TypeSpec) bool {
-	return spec.Name == nil || spec.Type == nil
+	return spec.Name == nil
 }
 
 func needAdjustSpecs(specs []ast.Spec) bool {
