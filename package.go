@@ -273,6 +273,7 @@ func (p *File) CheckXGoDeps(this *Package) (flags int) {
 
 func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 	p.markUsed(this)
+	goDecls := checkTypeDecls(p.goDecls)
 	specs := make([]ast.Spec, 0, len(p.imps))
 	for pkgPath, id := range p.imps {
 		if id == nil { // force-used
@@ -301,10 +302,10 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 		valXGoPkg, addXGoPkg = checkXGoPkg(this)
 	}
 	if len(specs) == 0 && !addXGoPkg {
-		return p.goDecls
+		return goDecls
 	}
 
-	decls = make([]ast.Decl, 0, len(p.goDecls)+2)
+	decls = make([]ast.Decl, 0, len(goDecls)+2)
 	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
 	if addXGoPkg {
 		decls = append(decls, &ast.GenDecl{Tok: token.CONST, Specs: []ast.Spec{
@@ -316,7 +317,36 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			},
 		}})
 	}
-	return append(decls, p.goDecls...)
+	return append(decls, goDecls...)
+}
+
+// checkTypeDecls drops uninited (forward) type declarations that were later
+// redeclared and defined elsewhere. A redeclarable forward declaration leaves a
+// TypeSpec whose Type is nil; it lacks an associated type definition, so it is
+// discarded here on save, leaving only the single definition provided via
+// InitType. Type GenDecls that become empty as a result are removed as well.
+func checkTypeDecls(in []ast.Decl) []ast.Decl {
+	out := make([]ast.Decl, 0, len(in))
+	for _, decl := range in {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok || genDecl.Tok != token.TYPE {
+			out = append(out, decl)
+			continue
+		}
+		specs := genDecl.Specs[:0]
+		for _, spec := range genDecl.Specs {
+			if ts := spec.(*ast.TypeSpec); ts.Name != nil && ts.Type == nil {
+				continue // uninited forward declaration: discard on save
+			}
+			specs = append(specs, spec)
+		}
+		if len(specs) == 0 {
+			continue // whole type decl became empty: drop it
+		}
+		genDecl.Specs = specs
+		out = append(out, genDecl)
+	}
+	return out
 }
 
 // ----------------------------------------------------------------------------
