@@ -254,16 +254,16 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, ty
 	if old := scope.Insert(typName); old != nil {
 		// Allow redeclaring a named type multiple times (only a single definition
 		// is required later via InitType), to support languages like C/C++.
+		// Simply create a new TypeDecl wrapping the existing *types.Named. The
+		// previous (forward) declaration is automatically discarded on save when
+		// it lacks a type definition (see checkTypeDecls), so only the definition
+		// provided via a single InitType call is emitted.
 		if alias == 0 && p.allowRedecl && scope == p.Types.Scope() {
 			if oldTypName, ok := old.(*types.TypeName); ok {
-				// Find the existing spec in the file's declarations and reuse it.
-				// This follows the var/func pattern: the scope already holds the type,
-				// and we return a new TypeDecl wrapper pointing to the same *types.Named
-				// and the same spec (found in the first TypeDefs that added it).
-				existingSpec := p.findTypeSpec(name)
-				if existingSpec != nil {
-					return &TypeDecl{typ: oldTypName.Type().(*types.Named), spec: existingSpec}
-				}
+				decl := tdecl.decl
+				spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}}
+				decl.Specs = append(decl.Specs, spec)
+				return &TypeDecl{typ: oldTypName.Type().(*types.Named), spec: spec}
 			}
 		}
 		oldPos := p.cb.fset.Position(old.Pos())
@@ -289,22 +289,6 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, ty
 	named := types.NewNamed(typName, typ, methods)
 	p.useName(name)
 	return &TypeDecl{typ: named, spec: spec}
-}
-
-// findTypeSpec searches the file's declarations for an existing TypeSpec with the given name.
-func (p *Package) findTypeSpec(name string) *ast.TypeSpec {
-	for _, decl := range p.file.goDecls {
-		if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.TYPE {
-			for _, spec := range genDecl.Specs {
-				if typeSpec, ok := spec.(*ast.TypeSpec); ok {
-					if typeSpec.Name != nil && typeSpec.Name.Name == name {
-						return typeSpec
-					}
-				}
-			}
-		}
-	}
-	return nil
 }
 
 // ----------------------------------------------------------------------------
