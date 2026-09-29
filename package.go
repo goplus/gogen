@@ -348,6 +348,7 @@ type Package struct {
 	implicitCast   func(pkg *Package, V, T types.Type, pv *Element) bool
 
 	expObjTypes []types.Type // types of export objects
+	redeclTypes map[string]*TypeDecl // redeclarable types by name (for c2go)
 	isXGoPkg    bool
 	allowRedecl bool // for c2go
 }

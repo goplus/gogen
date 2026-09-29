@@ -738,6 +738,49 @@ type t byte
 `)
 }
 
+func TestTypeRedeclarable(t *testing.T) {
+	pkg := newMainPackage()
+	pkg.SetRedeclarable(true)
+
+	// First declaration (forward declaration, uninited)
+	decl1 := pkg.NewTypeDefs().NewType("Rect")
+	if decl1.State() != gogen.TyStateUninited {
+		t.Fatal("First NewType should be uninited")
+	}
+
+	// Second declaration (should reuse the same TypeDecl)
+	decl2 := pkg.NewTypeDefs().NewType("Rect")
+	if decl2 != decl1 {
+		t.Fatal("Second NewType should return the same TypeDecl when redeclarable")
+	}
+	if decl2.State() != gogen.TyStateUninited {
+		t.Fatal("Redeclared type should still be uninited")
+	}
+
+	// Now provide the definition
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.Int], false),
+	}
+	typ := types.NewStruct(fields, nil)
+	decl2.InitType(pkg, typ)
+
+	if decl1.State() != gogen.TyStateInited {
+		t.Fatal("Type should be inited after InitType")
+	}
+	if decl1.Type() != decl2.Type() {
+		t.Fatal("Both decls should share the same underlying type")
+	}
+
+	domTest(t, pkg, `package main
+
+type Rect struct {
+	x int
+	y int
+}
+`)
+}
+
 func TestTypeDecl(t *testing.T) {
 	pkg := newMainPackage()
 	fields := []*types.Var{

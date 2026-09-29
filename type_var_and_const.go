@@ -252,6 +252,11 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, ty
 	scope := tdecl.scope
 	typName := types.NewTypeName(pos, p.Types, name, typ)
 	if old := scope.Insert(typName); old != nil {
+		// Allow redeclaring a named type multiple times (only a single definition
+		// is required later via InitType), to support languages like C/C++.
+		if redecl := p.redeclType(scope, alias, old); redecl != nil {
+			return redecl
+		}
 		oldPos := p.cb.fset.Position(old.Pos())
 		p.cb.panicCodeErrorf(
 			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
@@ -274,7 +279,28 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, ty
 	}
 	named := types.NewNamed(typName, typ, methods)
 	p.useName(name)
-	return &TypeDecl{typ: named, spec: spec}
+	ret := &TypeDecl{typ: named, spec: spec}
+	if alias == 0 && p.allowRedecl && scope == p.Types.Scope() {
+		if p.redeclTypes == nil {
+			p.redeclTypes = make(map[string]*TypeDecl)
+		}
+		p.redeclTypes[name] = ret
+	}
+	return ret
+}
+
+// redeclType returns the existing TypeDecl when redeclaring a named type is
+// allowed, or nil to fall through to the normal "redeclared" error. Only
+// package-scope named types (not aliases) can be redeclared; only a single
+// definition (via InitType) is permitted.
+func (p *Package) redeclType(scope *types.Scope, alias token.Pos, old types.Object) *TypeDecl {
+	if alias != 0 || !p.allowRedecl || scope != p.Types.Scope() {
+		return nil
+	}
+	if _, ok := old.(*types.TypeName); !ok {
+		return nil
+	}
+	return p.redeclTypes[old.Name()]
 }
 
 // ----------------------------------------------------------------------------
