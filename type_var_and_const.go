@@ -254,8 +254,17 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, ty
 	if old := scope.Insert(typName); old != nil {
 		// Allow redeclaring a named type multiple times (only a single definition
 		// is required later via InitType), to support languages like C/C++.
-		if redecl := p.redeclType(scope, alias, old); redecl != nil {
-			return redecl
+		if alias == 0 && p.allowRedecl && scope == p.Types.Scope() {
+			if oldTypName, ok := old.(*types.TypeName); ok {
+				// Find the existing spec in the file's declarations and reuse it.
+				// This follows the var/func pattern: the scope already holds the type,
+				// and we return a new TypeDecl wrapper pointing to the same *types.Named
+				// and the same spec (found in the first TypeDefs that added it).
+				existingSpec := p.findTypeSpec(name)
+				if existingSpec != nil {
+					return &TypeDecl{typ: oldTypName.Type().(*types.Named), spec: existingSpec}
+				}
+			}
 		}
 		oldPos := p.cb.fset.Position(old.Pos())
 		p.cb.panicCodeErrorf(
@@ -279,28 +288,23 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, ty
 	}
 	named := types.NewNamed(typName, typ, methods)
 	p.useName(name)
-	ret := &TypeDecl{typ: named, spec: spec}
-	if alias == 0 && p.allowRedecl && scope == p.Types.Scope() {
-		if p.redeclTypes == nil {
-			p.redeclTypes = make(map[string]*TypeDecl)
-		}
-		p.redeclTypes[name] = ret
-	}
-	return ret
+	return &TypeDecl{typ: named, spec: spec}
 }
 
-// redeclType returns the existing TypeDecl when redeclaring a named type is
-// allowed, or nil to fall through to the normal "redeclared" error. Only
-// package-scope named types (not aliases) can be redeclared; only a single
-// definition (via InitType) is permitted.
-func (p *Package) redeclType(scope *types.Scope, alias token.Pos, old types.Object) *TypeDecl {
-	if alias != 0 || !p.allowRedecl || scope != p.Types.Scope() {
-		return nil
+// findTypeSpec searches the file's declarations for an existing TypeSpec with the given name.
+func (p *Package) findTypeSpec(name string) *ast.TypeSpec {
+	for _, decl := range p.file.goDecls {
+		if genDecl, ok := decl.(*ast.GenDecl); ok && genDecl.Tok == token.TYPE {
+			for _, spec := range genDecl.Specs {
+				if typeSpec, ok := spec.(*ast.TypeSpec); ok {
+					if typeSpec.Name != nil && typeSpec.Name.Name == name {
+						return typeSpec
+					}
+				}
+			}
+		}
 	}
-	if _, ok := old.(*types.TypeName); !ok {
-		return nil
-	}
-	return p.redeclTypes[old.Name()]
+	return nil
 }
 
 // ----------------------------------------------------------------------------

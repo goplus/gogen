@@ -748,16 +748,16 @@ func TestTypeRedeclarable(t *testing.T) {
 		t.Fatal("First NewType should be uninited")
 	}
 
-	// Second declaration (should reuse the same TypeDecl)
+	// Second declaration returns a new TypeDecl wrapping the same *types.Named.
 	decl2 := pkg.NewTypeDefs().NewType("Rect")
-	if decl2 != decl1 {
-		t.Fatal("Second NewType should return the same TypeDecl when redeclarable")
-	}
 	if decl2.State() != gogen.TyStateUninited {
 		t.Fatal("Redeclared type should still be uninited")
 	}
+	if decl1.Type() != decl2.Type() {
+		t.Fatal("Both decls should wrap the same *types.Named")
+	}
 
-	// Now provide the definition
+	// Provide the definition via decl2; decl1's spec (uninited) is filtered out.
 	fields := []*types.Var{
 		types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
 		types.NewField(token.NoPos, pkg.Types, "y", types.Typ[types.Int], false),
@@ -765,11 +765,8 @@ func TestTypeRedeclarable(t *testing.T) {
 	typ := types.NewStruct(fields, nil)
 	decl2.InitType(pkg, typ)
 
-	if decl1.State() != gogen.TyStateInited {
+	if decl2.State() != gogen.TyStateInited {
 		t.Fatal("Type should be inited after InitType")
-	}
-	if decl1.Type() != decl2.Type() {
-		t.Fatal("Both decls should share the same underlying type")
 	}
 
 	domTest(t, pkg, `package main
