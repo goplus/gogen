@@ -1696,21 +1696,44 @@ func (p *printer) spec(spec ast.Spec, n int, doIndent bool) {
 	}
 }
 
-func checkSpecs(d *ast.GenDecl) {
-	if d.Tok == token.TYPE { // for gogen.TypeDecl.Delete
-		for i, spec := range d.Specs {
-			if spec.(*ast.TypeSpec).Name == nil {
-				leftSpecs := d.Specs[i+1:]
-				d.Specs = d.Specs[:i]
-				for _, spec := range leftSpecs {
-					if spec.(*ast.TypeSpec).Name != nil {
-						d.Specs = append(d.Specs, spec)
-					}
-				}
-				return
-			}
+// for gogen.TypeDecl.Delete & SetRedeclarable (goplus/gogen#661)
+func isEmptyTypeSpec(spec *ast.TypeSpec) bool {
+	return spec.Name == nil || spec.Type == nil
+}
+
+func needAdjustSpecs(specs []ast.Spec) bool {
+	for _, spec := range specs {
+		if isEmptyTypeSpec(spec.(*ast.TypeSpec)) {
+			return true
 		}
 	}
+	return false
+}
+
+func checkSpecs(d *ast.GenDecl) {
+	if d.Tok == token.TYPE {
+		if needAdjustSpecs(d.Specs) {
+			newSpecs := d.Specs[:0]
+			for _, spec := range d.Specs {
+				if !isEmptyTypeSpec(spec.(*ast.TypeSpec)) {
+					newSpecs = append(newSpecs, spec)
+				}
+			}
+			d.Specs = newSpecs
+		}
+	}
+}
+
+func isEmptyGenDecl(d *ast.GenDecl) bool {
+	if d.Tok == token.TYPE {
+		for _, spec := range d.Specs {
+			if !isEmptyTypeSpec(spec.(*ast.TypeSpec)) {
+				return false
+			}
+		}
+		return true
+	}
+	return len(d.Specs) == 0
 }
 
 func (p *printer) genDecl(d *ast.GenDecl) {
@@ -1944,8 +1967,8 @@ func declToken(decl ast.Decl) (tok token.Token) {
 func (p *printer) declList(list []ast.Decl) {
 	tok := token.ILLEGAL
 	for _, d := range list {
-		if gd, ok := d.(*ast.GenDecl); ok && len(gd.Specs) == 0 {
-			continue // skip empty genDecl
+		if gd, ok := d.(*ast.GenDecl); ok && isEmptyGenDecl(gd) {
+			continue
 		}
 		prev := tok
 		tok = declToken(d)
