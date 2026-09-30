@@ -1533,7 +1533,8 @@ func TestNewFuncDeclPanic(t *testing.T) {
 }
 
 func TestNewFuncPanic(t *testing.T) {
-	getRecv(nil)
+	getRecv(nil, types.NewParam(1, nil, "", types.Typ[types.Int]))
+	getRecv(nil, types.NewParam(token.NoPos, nil, "", types.Typ[types.Int]))
 	defer func() {
 		if e := recover(); e == nil {
 			t.Fatal("TestNewFuncPanic: not panic")

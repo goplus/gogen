@@ -184,9 +184,12 @@ func (p *Package) NewFunc(recv *types.Var, name string, params, results *types.T
 	return f
 }
 
-func getRecv(recvTypePos func() token.Pos) token.Pos {
+func getRecv(recvTypePos func() token.Pos, recv *types.Var) token.Pos {
 	if recvTypePos != nil {
 		return recvTypePos()
+	}
+	if pos := recv.Pos(); pos != token.NoPos {
+		return pos
 	}
 	return token.NoPos
 }
@@ -213,15 +216,15 @@ func (p *Package) NewFuncWith(
 			t, ok = typ.(*types.Named)
 		}
 		if !ok {
-			posErr := getRecv(recvTypePos)
-			return nil, p.cb.newCodeErrorf(posErr, posErr, "invalid receiver type %v (%v is not a defined type)", typ, typ)
+			posErr := getRecv(recvTypePos, recv)
+			return nil, p.cb.newCodeErrorf(posErr, posErr, "invalid receiver type %v (%T is not a defined type)", typ, typ)
 		}
 		switch getUnderlying(p, t.Obj().Type()).(type) {
 		case *types.Interface:
-			posErr := getRecv(recvTypePos)
+			posErr := getRecv(recvTypePos, recv)
 			return nil, p.cb.newCodeErrorf(posErr, posErr, "invalid receiver type %v (%v is an interface type)", typ, typ)
 		case *types.Pointer:
-			posErr := getRecv(recvTypePos)
+			posErr := getRecv(recvTypePos, recv)
 			return nil, p.cb.newCodeErrorf(posErr, posErr, "invalid receiver type %v (%v is a pointer type)", typ, typ)
 		}
 		if name != "_" { // skip underscore
