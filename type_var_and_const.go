@@ -162,6 +162,15 @@ func (p *TypeDefs) AliasType(name string, typ types.Type, src ...ast.Node) types
 	return p.pkg.doNewAlias(p, getPos(src), getEnd(src), name, typ, 1)
 }
 
+// AliasTypeEx gives a specified type with a new name, and it supports type
+// parameters (e.g. `type Foo[T any] = Bar[T]`).
+func (p *TypeDefs) AliasTypeEx(name string, typ types.Type, tparams []*TypeParam, src ...ast.Node) *types.Alias {
+	if debugInstr {
+		log.Println("AliasTypeEx", name, typ, tparams)
+	}
+	return p.pkg.doNewAliasEx(p, getPos(src), getEnd(src), name, typ, tparams, 1)
+}
+
 // Complete checks type declarations & marks completed.
 func (p *TypeDefs) Complete() {
 	decl := p.decl
@@ -233,6 +242,10 @@ func (p *CodeBuilder) NewTypeDecls() (ret *TypeDefs, defineHere func()) {
 }
 
 func (p *Package) doNewAlias(tdecl *TypeDefs, pos, end token.Pos, name string, typ types.Type, alias token.Pos) types.Type {
+	return p.doNewAliasEx(tdecl, pos, end, name, typ, nil, alias)
+}
+
+func (p *Package) doNewAliasEx(tdecl *TypeDefs, pos, end token.Pos, name string, typ types.Type, tparams []*TypeParam, alias token.Pos) *types.Alias {
 	scope := tdecl.scope
 	typName := types.NewTypeName(pos, p.Types, name, nil)
 	if old := scope.Insert(typName); old != nil {
@@ -244,8 +257,13 @@ func (p *Package) doNewAlias(tdecl *TypeDefs, pos, end token.Pos, name string, t
 	spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}, Assign: alias}
 	decl.Specs = append(decl.Specs, spec)
 	spec.Type = toType(p, typ)
+	ret := types.NewAlias(typName, typ)
+	if len(tparams) != 0 {
+		ret.SetTypeParams(tparams)
+		spec.TypeParams = toTypeParamsFieldList(p, tparams)
+	}
 	p.useName(name)
-	return types.NewAlias(typName, typ)
+	return ret
 }
 
 func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {

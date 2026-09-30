@@ -538,6 +538,28 @@ func main() {
 `)
 }
 
+func TestAliasTypeEx(t *testing.T) {
+	pkg := newMainPackage()
+	tparam := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), types.Universe.Lookup("any").Type())
+	// type Box[T any] int
+	box := pkg.NewType("Box").InitType(pkg, types.Typ[types.Int], tparam)
+	// type BoxAlias[T any] = Box[T]
+	aliasParam := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), types.Universe.Lookup("any").Type())
+	boxT := pkg.Instantiate(box, []types.Type{aliasParam})
+	alias := pkg.NewTypeDefs().AliasTypeEx("BoxAlias", boxT, []*gogen.TypeParam{aliasParam})
+	if alias.TypeParams().Len() != 1 {
+		t.Fatal("AliasTypeEx: type params not set")
+	}
+	// type IntAlias = int (no type params)
+	pkg.NewTypeDefs().AliasTypeEx("IntAlias", types.Typ[types.Int], nil)
+	domTest(t, pkg, `package main
+
+type Box[T any] int
+type BoxAlias[T any] = Box[T]
+type IntAlias = int
+`)
+}
+
 func TestTypeParamsFunc(t *testing.T) {
 	const src = `package foo
 

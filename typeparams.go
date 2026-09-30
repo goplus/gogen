@@ -285,10 +285,13 @@ func toUnionType(pkg *Package, t *types.Union) ast.Expr {
 
 func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams []*TypeParam) {
 	typ.SetTypeParams(tparams)
+	spec.TypeParams = toTypeParamsFieldList(pkg, tparams)
+}
+
+func toTypeParamsFieldList(pkg *Package, tparams []*TypeParam) *ast.FieldList {
 	n := len(tparams)
 	if n == 0 {
-		spec.TypeParams = nil
-		return
+		return nil
 	}
 	flds := make([]*ast.Field, n)
 	for i := 0; i < n; i++ {
@@ -297,7 +300,7 @@ func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams [
 		typ := toType(pkg, item.Constraint())
 		flds[i] = &ast.Field{Names: names, Type: typ}
 	}
-	spec.TypeParams = &ast.FieldList{List: flds}
+	return &ast.FieldList{List: flds}
 }
 
 func interfaceIsImplicit(t *types.Interface) bool {
