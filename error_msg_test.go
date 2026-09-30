@@ -1260,11 +1260,11 @@ func TestMissingReturnShadowedPanic(t *testing.T) {
 
 func TestErrRecv(t *testing.T) {
 	tySlice := types.NewSlice(gogen.TyByte)
-	codeErrorTest(t, "./foo.gop:1:9: invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gogen.Package) {
+	codeErrorTest(t, "./foo.gop:1:9: invalid receiver type []byte (*types.Slice is not a defined type)", func(pkg *gogen.Package) {
 		recv := newParam(pkg, position(1, 7), "p", tySlice)
 		newFunc(pkg, 1, 5, 1, 9, recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
-	codeErrorTest(t, "./foo.gop:2:9: invalid receiver type []byte ([]byte is not a defined type)", func(pkg *gogen.Package) {
+	codeErrorTest(t, "./foo.gop:2:9: invalid receiver type []byte (*types.Slice is not a defined type)", func(pkg *gogen.Package) {
 		recv := newParam(pkg, position(2, 7), "p", types.NewPointer(tySlice))
 		newFunc(pkg, 2, 6, 2, 9, recv, "foo", nil, nil, false).BodyStart(pkg).End()
 	})
