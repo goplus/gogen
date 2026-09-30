@@ -283,7 +283,11 @@ func toUnionType(pkg *Package, t *types.Union) ast.Expr {
 	return v
 }
 
-func setTypeParams(pkg *Package, typ *types.Named, spec *ast.TypeSpec, tparams []*TypeParam) {
+type typeParamsSetter interface {
+	SetTypeParams(tparams []*TypeParam)
+}
+
+func setTypeParams[T typeParamsSetter](pkg *Package, typ T, spec *ast.TypeSpec, tparams []*TypeParam) {
 	typ.SetTypeParams(tparams)
 	spec.TypeParams = toTypeParamsFieldList(pkg, tparams)
 }
