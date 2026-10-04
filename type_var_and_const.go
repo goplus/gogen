@@ -60,29 +60,9 @@ const (
 
 // TypeDecl type
 type TypeDecl struct {
-	typ     *types.Named // created lazily; see typeNamed
 	obj     *types.TypeName
 	spec    *ast.TypeSpec
 	tparams []*TypeParam
-	alias   bool // true once AliasType has turned this into a type alias
-}
-
-// typeNamed lazily creates the named type on first use and binds this
-// declaration's type parameters to it, so a definition can refer back to itself
-// with type arguments before its underlying type is built (see NewType). It
-// must not be called once AliasType has been used.
-func (p *TypeDecl) typeNamed() *types.Named {
-	if p.typ == nil {
-		if p.alias {
-			log.Panicln("TypeDecl: Type/InitType used after AliasType -", p.obj.Name())
-		}
-		named := types.NewNamed(p.obj, nil, nil)
-		if len(p.tparams) != 0 {
-			named.SetTypeParams(p.tparams)
-		}
-		p.typ = named
-	}
-	return p.typ
 }
 
 // SetComments sets associated documentation.
@@ -92,9 +72,18 @@ func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 	return p
 }
 
-// Type returns the type.
+// Type returns the named type of this type declaration. Don't call this method
+// if the type is a type alias.
 func (p *TypeDecl) Type() *types.Named {
-	return p.typeNamed()
+	t := p.obj.Type()
+	if t == nil {
+		named := types.NewNamed(p.obj, nil, nil)
+		if len(p.tparams) != 0 {
+			named.SetTypeParams(p.tparams)
+		}
+		return named
+	}
+	return t.(*types.Named)
 }
 
 // State checkes state of this type.
@@ -136,18 +125,18 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 	if spec.Type != nil {
 		log.Panicln("TODO: type already defined -", typ)
 	}
-	named := p.typeNamed()
-	if named, ok := typ.(*types.Named); ok {
-		p.typ.SetUnderlying(pkg.cb.getUnderlying(named))
-	} else if alias, ok := typ.(*types.Alias); ok {
-		p.typ.SetUnderlying(alias.Underlying())
-	} else {
-		p.typ.SetUnderlying(typ)
+	spec.Type = toType(pkg, typ)
+	switch t := typ.(type) {
+	case *types.Named:
+		typ = pkg.cb.getUnderlying(t)
+	case *types.Alias:
+		typ = t.Underlying()
 	}
+	named := p.Type()
+	named.SetUnderlying(typ)
 	if len(p.tparams) != 0 {
 		spec.TypeParams = toTypeParamsFieldList(pkg, p.tparams)
 	}
-	spec.Type = toType(pkg, typ)
 	return named
 }
 
@@ -162,17 +151,13 @@ func (p *TypeDecl) AliasType(pkg *Package, typ types.Type) *types.Alias {
 	if spec.Type != nil {
 		log.Panicln("TODO: type already defined -", typ)
 	}
-	if p.typ != nil {
-		log.Panicln("TypeDecl: AliasType used after Type/InitType -", p.obj.Name())
-	}
-	p.alias = true
 	spec.Assign = 1 // mark the TypeSpec as an alias (`type Name = typ`)
+	spec.Type = toType(pkg, typ)
 	ret := types.NewAlias(p.obj, typ)
 	if len(p.tparams) != 0 {
 		ret.SetTypeParams(p.tparams)
 		spec.TypeParams = toTypeParamsFieldList(pkg, p.tparams)
 	}
-	spec.Type = toType(pkg, typ)
 	return ret
 }
 
