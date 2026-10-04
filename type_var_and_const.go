@@ -60,20 +60,30 @@ const (
 
 // TypeDecl type
 type TypeDecl struct {
-	typ  *types.Named
-	spec *ast.TypeSpec
+	obj     *types.TypeName
+	spec    *ast.TypeSpec
+	tparams []*TypeParam
 }
 
 // SetComments sets associated documentation.
 func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 	p.spec.Doc = doc
-	pkg.setDoc(p.typ.Obj(), doc)
+	pkg.setDoc(p.obj, doc)
 	return p
 }
 
-// Type returns the type.
+// Type returns the named type of this type declaration. Don't call this method
+// if the type is a type alias.
 func (p *TypeDecl) Type() *types.Named {
-	return p.typ
+	t := p.obj.Type()
+	if t == nil {
+		named := types.NewNamed(p.obj, nil, nil)
+		if len(p.tparams) != 0 {
+			named.SetTypeParams(p.tparams)
+		}
+		return named
+	}
+	return t.(*types.Named)
 }
 
 // State checkes state of this type.
@@ -103,27 +113,52 @@ func (p *TypeDecl) Inited() bool {
 	return p.spec.Type != nil
 }
 
-// InitType initializes a uncompleted type.
-func (p *TypeDecl) InitType(pkg *Package, typ types.Type, tparams ...*TypeParam) *types.Named {
+// InitType initializes an uncompleted (named) type.
+//
+// The type parameters, if any, are bound when the TypeDecl is created by
+// NewType, so InitType only needs the underlying type. See NewType.
+func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 	if debugInstr {
-		log.Println("InitType", p.typ.Obj().Name(), typ)
+		log.Println("InitType", p.obj.Name(), typ)
 	}
 	spec := p.spec
 	if spec.Type != nil {
 		log.Panicln("TODO: type already defined -", typ)
 	}
-	if named, ok := typ.(*types.Named); ok {
-		p.typ.SetUnderlying(pkg.cb.getUnderlying(named))
-	} else if alias, ok := typ.(*types.Alias); ok {
-		p.typ.SetUnderlying(alias.Underlying())
-	} else {
-		p.typ.SetUnderlying(typ)
-	}
-	if tparams != nil {
-		setTypeParams(pkg, p.typ, spec, tparams)
-	}
 	spec.Type = toType(pkg, typ)
-	return p.typ
+	switch t := typ.(type) {
+	case *types.Named:
+		typ = pkg.cb.getUnderlying(t)
+	case *types.Alias:
+		typ = t.Underlying()
+	}
+	named := p.Type()
+	named.SetUnderlying(typ)
+	if len(p.tparams) != 0 {
+		spec.TypeParams = toTypeParamsFieldList(pkg, p.tparams)
+	}
+	return named
+}
+
+// AliasType turns this type declaration into a type alias of typ (e.g.
+// `type Foo[T any] = Bar[T]`). The type parameters, if any, are bound when the
+// TypeDecl is created by NewType, mirroring InitType. See NewType.
+func (p *TypeDecl) AliasType(pkg *Package, typ types.Type) *types.Alias {
+	if debugInstr {
+		log.Println("AliasType", p.obj.Name(), typ)
+	}
+	spec := p.spec
+	if spec.Type != nil {
+		log.Panicln("TODO: type already defined -", typ)
+	}
+	spec.Assign = 1 // mark the TypeSpec as an alias (`type Name = typ`)
+	spec.Type = toType(pkg, typ)
+	ret := types.NewAlias(p.obj, typ)
+	if len(p.tparams) != 0 {
+		ret.SetTypeParams(p.tparams)
+		spec.TypeParams = toTypeParamsFieldList(pkg, p.tparams)
+	}
+	return ret
 }
 
 // ----------------------------------------------------------------------------
@@ -146,26 +181,17 @@ func (p *TypeDefs) SetComments(doc *ast.CommentGroup) *TypeDefs {
 	return p
 }
 
-// NewType creates a new type (which need to call InitType later).
-func (p *TypeDefs) NewType(name string, src ...ast.Node) *TypeDecl {
+// NewType creates a new type (which need to call InitType or AliasType later).
+//
+// The type parameters (if any) are bound to the type up front, so by the time
+// the member/underlying type is built the declared type already carries its
+// type parameters. This lets a definition refer back to itself with type
+// arguments (e.g. a CRTP-style base `type T[P any] struct { Base[T[P]] }`).
+func (p *TypeDefs) NewType(name string, tparams []*TypeParam, src ...ast.Node) *TypeDecl {
 	if debugInstr {
-		log.Println("NewType", name)
+		log.Println("NewType", name, tparams)
 	}
-	return p.pkg.doNewType(p, getPos(src), getEnd(src), name, nil, 0)
-}
-
-// AliasType gives a specified type with a new name.
-func (p *TypeDefs) AliasType(name string, typ types.Type, src ...ast.Node) types.Type {
-	return p.AliasTypeEx(name, typ, nil, src...)
-}
-
-// AliasTypeEx gives a specified type with a new name, and it supports type
-// parameters (e.g. `type Foo[T any] = Bar[T]`).
-func (p *TypeDefs) AliasTypeEx(name string, typ types.Type, tparams []*TypeParam, src ...ast.Node) *types.Alias {
-	if debugInstr {
-		log.Println("AliasType", name, typ, tparams)
-	}
-	return p.pkg.doNewAlias(p, getPos(src), getEnd(src), name, typ, tparams, 1)
+	return p.pkg.doNewType(p, getPos(src), getEnd(src), name, tparams)
 }
 
 // Complete checks type declarations & marks completed.
@@ -195,18 +221,11 @@ func (p *TypeDefs) Complete() {
 
 // ----------------------------------------------------------------------------
 
-// AliasType gives a specified type with a new name.
-//
-// Deprecated: use NewTypeDefs instead.
-func (p *Package) AliasType(name string, typ types.Type, src ...ast.Node) types.Type {
-	return p.NewTypeDefs().AliasType(name, typ, src...)
-}
-
 // NewType creates a new type (which need to call InitType later).
 //
 // Deprecated: use NewTypeDefs instead.
 func (p *Package) NewType(name string, src ...ast.Node) *TypeDecl {
-	return p.NewTypeDefs().NewType(name, src...)
+	return p.NewTypeDefs().NewType(name, nil, src...)
 }
 
 // NewTypeDefs starts a type declaration block.
@@ -238,8 +257,12 @@ func (p *CodeBuilder) NewTypeDecls() (ret *TypeDefs, defineHere func()) {
 	}
 }
 
-func (p *Package) doNewAlias(tdecl *TypeDefs, pos, end token.Pos, name string, typ types.Type, tparams []*TypeParam, alias token.Pos) *types.Alias {
+func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, tparams []*TypeParam) *TypeDecl {
 	scope := tdecl.scope
+	// Create the type name with no type yet: whether this declaration becomes a
+	// named type or a type alias is decided later by InitType/AliasType, which
+	// bind the type name accordingly. The named type (and its type parameters)
+	// is created lazily by TypeDecl.typeNamed. See NewType.
 	typName := types.NewTypeName(pos, p.Types, name, nil)
 	if old := scope.Insert(typName); old != nil {
 		oldPos := p.cb.fset.Position(old.Pos())
@@ -247,44 +270,10 @@ func (p *Package) doNewAlias(tdecl *TypeDefs, pos, end token.Pos, name string, t
 			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
 	}
 	decl := tdecl.decl
-	spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}, Assign: alias}
+	spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}}
 	decl.Specs = append(decl.Specs, spec)
-	spec.Type = toType(p, typ)
-	ret := types.NewAlias(typName, typ)
-	if len(tparams) != 0 {
-		setTypeParams(p, ret, spec, tparams)
-	}
 	p.useName(name)
-	return ret
-}
-
-func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, typ types.Type, alias token.Pos) *TypeDecl {
-	scope := tdecl.scope
-	typName := types.NewTypeName(pos, p.Types, name, typ)
-	if old := scope.Insert(typName); old != nil {
-		oldPos := p.cb.fset.Position(old.Pos())
-		p.cb.panicCodeErrorf(
-			pos, end, "%s redeclared in this block\n\tprevious declaration at %v", name, oldPos)
-	}
-	decl := tdecl.decl
-	spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}, Assign: alias}
-	decl.Specs = append(decl.Specs, spec)
-	var methods []*types.Func
-	if alias != 0 { // alias don't need to call InitType
-		if named, ok := typ.(*types.Named); ok {
-			if n := named.NumMethods(); n != 0 {
-				methods = make([]*types.Func, n)
-				for i := 0; i < n; i++ {
-					methods[i] = named.Method(i)
-				}
-			}
-		}
-		spec.Type = toType(p, typ)
-		typ = typ.Underlying() // typ.Underlying() may delay load and can be nil, it's reasonable
-	}
-	named := types.NewNamed(typName, typ, methods)
-	p.useName(name)
-	return &TypeDecl{typ: named, spec: spec}
+	return &TypeDecl{obj: typName, spec: spec, tparams: tparams}
 }
 
 // ----------------------------------------------------------------------------

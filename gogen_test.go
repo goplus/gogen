@@ -29,6 +29,14 @@ import (
 	"github.com/goplus/gogen/packages"
 )
 
+// aliasType is a test helper mirroring the removed Package.AliasType: it
+// declares a package-level type alias using the current API
+// (NewType(...).AliasType(...)). It lives in this build-tag-agnostic file so
+// both the default and genjs test builds can use it.
+func aliasType(pkg *gogen.Package, name string, typ types.Type, src ...ast.Node) types.Type {
+	return pkg.NewTypeDefs().NewType(name, nil, src...).AliasType(pkg, typ)
+}
+
 var (
 	gblFset   *token.FileSet
 	gblImp    types.Importer

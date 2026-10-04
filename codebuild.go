@@ -683,12 +683,7 @@ func (p *CodeBuilder) ConvertToClosure(retType types.Type) error {
 
 // NewType func
 func (p *CodeBuilder) NewType(name string, src ...ast.Node) *TypeDecl {
-	return p.NewTypeDefs().NewType(name, src...)
-}
-
-// AliasType func
-func (p *CodeBuilder) AliasType(name string, typ types.Type, src ...ast.Node) types.Type {
-	return p.NewTypeDefs().AliasType(name, typ, src...)
+	return p.NewTypeDefs().NewType(name, nil, src...)
 }
 
 // NewConstStart func
