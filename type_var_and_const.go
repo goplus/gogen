@@ -62,7 +62,6 @@ const (
 type TypeDecl struct {
 	typ     *types.Named // created lazily; see typeNamed
 	obj     *types.TypeName
-	pkg     *Package
 	spec    *ast.TypeSpec
 	tparams []*TypeParam
 	alias   bool // true once AliasType has turned this into a type alias
@@ -289,7 +288,7 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, tp
 	spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}}
 	decl.Specs = append(decl.Specs, spec)
 	p.useName(name)
-	return &TypeDecl{obj: typName, pkg: p, spec: spec, tparams: tparams}
+	return &TypeDecl{obj: typName, spec: spec, tparams: tparams}
 }
 
 // ----------------------------------------------------------------------------
