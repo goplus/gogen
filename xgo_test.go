@@ -1162,7 +1162,7 @@ func TestStaticMemberInstantiatedGenericType(t *testing.T) {
 	pkg := newMainPackage()
 	scope := pkg.Types.Scope()
 	tparam := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), types.Universe.Lookup("any").Type())
-	box := pkg.NewType("Box").InitType(pkg, types.Typ[types.Int], tparam)
+	box := pkg.NewTypeDefs().NewType("Box", []*gogen.TypeParam{tparam}).InitType(pkg, types.Typ[types.Int])
 	boxInt := pkg.Instantiate(box, []types.Type{types.Typ[types.Int]})
 	pkg.NewConstStart(scope, token.NoPos, nil, "XGos_Box_name").
 		Val("box").EndInit(1)

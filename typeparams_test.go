@@ -34,7 +34,7 @@ func TestAliasTypeAsRecv(t *testing.T) {
 	pkg := newGoxTest().NewPackage("", "main")
 	baseT := pkg.NewType("Base").InitType(pkg, types.NewStruct(
 		[]*types.Var{types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false)}, nil))
-	aliasT := pkg.AliasType("Alias", baseT)
+	aliasT := aliasType(pkg, "Alias", baseT)
 	recv := types.NewParam(token.NoPos, pkg.Types, "b", aliasT)
 	pkg.NewFunc(recv, "Foo", nil, nil, false).BodyStart(pkg).End()
 	precv := types.NewParam(token.NoPos, pkg.Types, "p", types.NewPointer(aliasT))
@@ -386,8 +386,8 @@ func XGox_Var_Cast__1[T map[string]any]() *Var__1[T] {
 	tyM := pkgRef.Ref("M").Type()
 	ty1 := pkg.Instantiate(typ, []types.Type{tyInt})
 	ty2 := pkg.Instantiate(typ, []types.Type{tyM})
-	pkg.NewTypeDefs().NewType("t1").InitType(pkg, ty1)
-	pkg.NewTypeDefs().NewType("t2").InitType(pkg, ty2)
+	pkg.NewTypeDefs().NewType("t1", nil).InitType(pkg, ty1)
+	pkg.NewTypeDefs().NewType("t2", nil).InitType(pkg, ty2)
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 		Val(objVar).Typ(tyInt).Call(1).EndStmt().
 		Val(objVar).Typ(tyM).Call(1).EndStmt().
@@ -413,7 +413,7 @@ func main() {
 			}
 		}()
 		ty3 := pkg.Instantiate(on, []types.Type{gogen.TyByte})
-		pkg.NewTypeDefs().NewType("t3").InitType(pkg, ty3)
+		pkg.NewTypeDefs().NewType("t3", nil).InitType(pkg, ty3)
 	}()
 	func() {
 		defer func() {
@@ -542,21 +542,46 @@ func TestAliasTypeEx(t *testing.T) {
 	pkg := newMainPackage()
 	tparam := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), types.Universe.Lookup("any").Type())
 	// type Box[T any] int
-	box := pkg.NewType("Box").InitType(pkg, types.Typ[types.Int], tparam)
+	box := pkg.NewTypeDefs().NewType("Box", []*gogen.TypeParam{tparam}).InitType(pkg, types.Typ[types.Int])
 	// type BoxAlias[T any] = Box[T]
 	aliasParam := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), types.Universe.Lookup("any").Type())
 	boxT := pkg.Instantiate(box, []types.Type{aliasParam})
-	alias := pkg.NewTypeDefs().AliasTypeEx("BoxAlias", boxT, []*gogen.TypeParam{aliasParam})
+	alias := aliasTypeEx(pkg, "BoxAlias", boxT, []*gogen.TypeParam{aliasParam})
 	if alias.TypeParams().Len() != 1 {
 		t.Fatal("AliasTypeEx: type params not set")
 	}
 	// type IntAlias = int (no type params)
-	pkg.NewTypeDefs().AliasTypeEx("IntAlias", types.Typ[types.Int], nil)
+	aliasTypeEx(pkg, "IntAlias", types.Typ[types.Int], nil)
 	domTest(t, pkg, `package main
 
 type Box[T any] int
 type BoxAlias[T any] = Box[T]
 type IntAlias = int
+`)
+}
+
+// TestSelfReferentialTypeParams covers a generic type whose definition refers
+// back to itself with type arguments (a CRTP-style embedding). Because NewType
+// binds the type parameters before the underlying type is built, the self
+// reference `Node[T]` can be instantiated while constructing the struct body.
+func TestSelfReferentialTypeParams(t *testing.T) {
+	pkg := newMainPackage()
+	tparam := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), types.Universe.Lookup("any").Type())
+	decl := pkg.NewTypeDefs().NewType("Node", []*gogen.TypeParam{tparam})
+	named := decl.Type()
+	// The named type already carries its type parameter, so Node[T] instantiates.
+	self := pkg.Instantiate(named, []types.Type{tparam})
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "next", types.NewPointer(self), false),
+		types.NewField(token.NoPos, pkg.Types, "val", tparam, false),
+	}
+	decl.InitType(pkg, types.NewStruct(fields, nil))
+	domTest(t, pkg, `package main
+
+type Node[T any] struct {
+	next *Node[T]
+	val  T
+}
 `)
 }
 
@@ -1177,7 +1202,7 @@ func TestGenTypeParamsType(t *testing.T) {
 	// type M
 	mp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), ut)
 	mp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), ut)
-	mt1 := pkg.NewType("M").InitType(pkg, types.NewStruct(nil, nil), mp1)
+	mt1 := pkg.NewTypeDefs().NewType("M", []*gogen.TypeParam{mp1}).InitType(pkg, types.NewStruct(nil, nil))
 	msig1 := types.NewSignatureType(types.NewVar(token.NoPos, pkg.Types, "m1", types.NewPointer(mt1)), []*types.TypeParam{mp2}, nil, nil, nil, false)
 	mfn1 := pkg.NewFuncDecl(token.NoPos, "test", msig1)
 	mfn1.BodyStart(pkg).End()
@@ -1192,7 +1217,7 @@ func TestGenTypeParamsType(t *testing.T) {
 		types.NewField(token.NoPos, pkg.Types, "f2", sp2, false),
 		types.NewField(token.NoPos, pkg.Types, "f3", sp3, false),
 	}, nil)
-	named := pkg.NewType("S").InitType(pkg, st, sp1, sp2, sp3)
+	named := pkg.NewTypeDefs().NewType("S", []*gogen.TypeParam{sp1, sp2, sp3}).InitType(pkg, st)
 
 	tp1 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T1", nil), types.Universe.Lookup("any").Type())
 	tp2 := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T2", nil), ut)

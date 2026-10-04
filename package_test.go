@@ -35,6 +35,19 @@ import (
 	"github.com/goplus/gogen/packages"
 )
 
+// aliasType is a test helper mirroring the removed Package.AliasType: it
+// declares a package-level type alias using the current API
+// (NewType(...).AliasType(...)).
+func aliasType(pkg *gogen.Package, name string, typ types.Type, src ...ast.Node) types.Type {
+	return pkg.NewTypeDefs().NewType(name, nil, src...).AliasType(pkg, typ)
+}
+
+// aliasTypeEx mirrors the removed TypeDefs.AliasTypeEx, declaring a possibly
+// generic type alias via NewType(name, tparams).AliasType(pkg, typ).
+func aliasTypeEx(pkg *gogen.Package, name string, typ types.Type, tparams []*gogen.TypeParam, src ...ast.Node) *types.Alias {
+	return pkg.NewTypeDefs().NewType(name, tparams, src...).AliasType(pkg, typ)
+}
+
 type importer struct {
 	packages map[string]*types.Package
 	imp      types.Importer
@@ -616,7 +629,7 @@ func main() {
 
 func TestZeroLitAlias(t *testing.T) {
 	pkg := newPackage("main")
-	bar := pkg.AliasType("bar", types.Typ[types.Float64])
+	bar := aliasType(pkg, "bar", types.Typ[types.Float64])
 	results := types.NewTuple(types.NewVar(token.NoPos, pkg.Types, "", bar))
 	pkg.NewFunc(nil, "foo", nil, results, false).BodyStart(pkg).
 		ZeroLit(bar).Return(1).End()
@@ -678,9 +691,9 @@ func TestTypeDeclInFunc(t *testing.T) {
 	typ := types.NewStruct(fields, nil)
 	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
 	foo := cb.NewType("foo").InitType(pkg, typ)
-	cb.AliasType("bar", typ)
-	a := cb.AliasType("a", foo)
-	cb.AliasType("b", a)
+	cb.NewTypeDefs().NewType("bar", nil).AliasType(pkg, typ)
+	a := cb.NewTypeDefs().NewType("a", nil).AliasType(pkg, foo)
+	cb.NewTypeDefs().NewType("b", nil).AliasType(pkg, a)
 	cb.End()
 	domTest(t, pkg, `package main
 
@@ -703,7 +716,7 @@ func TestTypeDoc(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)
 	def := pkg.NewTypeDefs().SetComments(nil)
-	def.NewType("foo").SetComments(pkg, comment("\n//go:notinheap")).InitType(pkg, typ)
+	def.NewType("foo", nil).SetComments(pkg, comment("\n//go:notinheap")).InitType(pkg, typ)
 	def.Complete()
 	domTest(t, pkg, `package main
 
@@ -717,7 +730,7 @@ func TestDeleteType(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)
 	def := pkg.NewTypeDefs()
-	decl := def.NewType("foo")
+	decl := def.NewType("foo", nil)
 	if decl.State() != gogen.TyStateUninited {
 		t.Fatal("TypeDecl.State failed")
 	}
@@ -729,8 +742,8 @@ func TestDeleteType(t *testing.T) {
 	if decl.State() != gogen.TyStateDeleted {
 		t.Fatal("TypeDecl.State failed")
 	}
-	def.NewType("t").InitType(def.Pkg(), gogen.TyByte)
-	def.NewType("bar").Delete()
+	def.NewType("t", nil).InitType(def.Pkg(), gogen.TyByte)
+	def.NewType("bar", nil).Delete()
 	def.Complete()
 	domTest(t, pkg, `package main
 
@@ -746,9 +759,9 @@ func TestTypeDecl(t *testing.T) {
 	}
 	typ := types.NewStruct(fields, nil)
 	foo := pkg.NewType("foo").InitType(pkg, typ)
-	pkg.AliasType("bar", typ)
-	a := pkg.AliasType("a", foo)
-	pkg.AliasType("b", a)
+	aliasType(pkg, "bar", typ)
+	a := aliasType(pkg, "a", foo)
+	aliasType(pkg, "b", a)
 	domTest(t, pkg, `package main
 
 type foo struct {
@@ -767,8 +780,8 @@ type b = a
 func TestTypeCycleDef(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.NewType("foo")
-	a := pkg.AliasType("a", foo.Type())
-	b := pkg.AliasType("b", a)
+	a := aliasType(pkg, "a", foo.Type())
+	b := aliasType(pkg, "b", a)
 	fields := []*types.Var{
 		types.NewField(token.NoPos, pkg.Types, "p", types.NewPointer(b), false),
 	}
@@ -1041,7 +1054,7 @@ func TestNamedStructLit(t *testing.T) {
 	}
 	typU := types.NewStruct(fields, nil)
 	typ := pkg.NewType("foo").InitType(pkg, typU)
-	bar := pkg.AliasType("bar", typ)
+	bar := aliasType(pkg, "bar", typ)
 	pkg.CB().NewVarStart(typ, "a").
 		StructLit(typ, 0, false).EndInit(1)
 	pkg.CB().NewVarStart(types.NewPointer(bar), "b").
@@ -1089,7 +1102,7 @@ var d = map[int]bool{1: true}
 func TestNamedMapLit(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.NewType("foo").InitType(pkg, types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]))
-	bar := pkg.AliasType("bar", foo)
+	bar := aliasType(pkg, "bar", foo)
 	pkg.CB().NewVarStart(foo, "a").
 		Val(1).Val(true).
 		MapLit(foo, 2).EndInit(1)
@@ -1129,7 +1142,7 @@ var d = []int{1}
 func TestNamedSliceLit(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.NewType("foo").InitType(pkg, types.NewSlice(types.Typ[types.Int]))
-	bar := pkg.AliasType("bar", foo)
+	bar := aliasType(pkg, "bar", foo)
 	pkg.CB().NewVarStart(foo, "a").
 		Val(1).
 		SliceLit(foo, 1).EndInit(1)
@@ -1164,7 +1177,7 @@ var b = []float64{2: 1.2, 3, 6: 4.5}
 func TestNamedArrayLit(t *testing.T) {
 	pkg := newMainPackage()
 	foo := pkg.NewType("foo").InitType(pkg, types.NewArray(types.Typ[types.String], 2))
-	bar := pkg.AliasType("bar", foo)
+	bar := aliasType(pkg, "bar", foo)
 	pkg.CB().NewVarStart(foo, "a").
 		Val("a").Val("b").ArrayLit(foo, 2).EndInit(1)
 	pkg.CB().NewVarStart(bar, "b").
@@ -1444,7 +1457,7 @@ func (p *fldAdder) addFld(idx int, name string, typ types.Type, embed bool) {
 func TestClassDefsInitWithoutType(t *testing.T) {
 	pkg := newMainPackage()
 	fa := fldAdder{pkgTypes: pkg.Types}
-	typ := pkg.NewTypeDefs().NewType("Rect")
+	typ := pkg.NewTypeDefs().NewType("Rect", nil)
 	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
 	defs := pkg.ClassDefsStart(recv, fa.addFld)
 	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
@@ -1471,7 +1484,7 @@ func (this *Rect) XGo_Init() *Rect {
 func TestClassDefsInitWithType(t *testing.T) {
 	pkg := newMainPackage()
 	fa := fldAdder{pkgTypes: pkg.Types}
-	typ := pkg.NewTypeDefs().NewType("Rect")
+	typ := pkg.NewTypeDefs().NewType("Rect", nil)
 	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
 	defs := pkg.ClassDefsStart(recv, fa.addFld)
 	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
@@ -1503,7 +1516,7 @@ func TestClassDefsInitPanic(t *testing.T) {
 	}()
 	pkg := newMainPackage()
 	fa := fldAdder{pkgTypes: pkg.Types}
-	typ := pkg.NewTypeDefs().NewType("Rect")
+	typ := pkg.NewTypeDefs().NewType("Rect", nil)
 	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
 	defs := pkg.ClassDefsStart(recv, fa.addFld)
 	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
@@ -1516,7 +1529,7 @@ func TestClassDefsInitPanic(t *testing.T) {
 func TestClassDefsNoInit(t *testing.T) {
 	pkg := newMainPackage()
 	fa := fldAdder{pkgTypes: pkg.Types}
-	typ := pkg.NewTypeDefs().NewType("Rect")
+	typ := pkg.NewTypeDefs().NewType("Rect", nil)
 	defs := pkg.ClassDefsStart(nil, fa.addFld)
 	defs.NewAndInit(nil, token.NoPos, types.Typ[types.Int], "a", "b")
 	defs.End()
@@ -1533,7 +1546,7 @@ type Rect struct {
 func TestClassDefsEmbedNoInit(t *testing.T) {
 	pkg := newMainPackage()
 	fa := fldAdder{pkgTypes: pkg.Types}
-	typ := pkg.NewTypeDefs().NewType("Rect")
+	typ := pkg.NewTypeDefs().NewType("Rect", nil)
 	defs := pkg.ClassDefsStart(nil, fa.addFld)
 	defs.NewAndInit(nil, token.NoPos, types.Typ[types.Int])
 	defs.End()
@@ -1549,7 +1562,7 @@ type Rect struct {
 func TestClassDefsEmbedInit(t *testing.T) {
 	pkg := newMainPackage()
 	fa := fldAdder{pkgTypes: pkg.Types}
-	typ := pkg.NewTypeDefs().NewType("Rect")
+	typ := pkg.NewTypeDefs().NewType("Rect", nil)
 	recv := types.NewParam(token.NoPos, pkg.Types, "this", types.NewPointer(typ.Type()))
 	defs := pkg.ClassDefsStart(recv, fa.addFld)
 	defs.NewAndInit(func(cb *gogen.CodeBuilder) int {
@@ -4329,9 +4342,9 @@ func TestTypeAliasInFunc(t *testing.T) {
 	typ := types.NewStruct(fields, nil)
 	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
 	foo := cb.NewType("foo").InitType(pkg, typ)
-	cb.AliasType("bar", typ)
-	a := cb.AliasType("a", foo)
-	alias := cb.AliasType("b", a)
+	cb.NewTypeDefs().NewType("bar", nil).AliasType(pkg, typ)
+	a := cb.NewTypeDefs().NewType("a", nil).AliasType(pkg, foo)
+	var alias types.Type = cb.NewTypeDefs().NewType("b", nil).AliasType(pkg, a)
 	if _, ok := alias.(*types.Named); ok {
 		t.Fatal("no named")
 	}
@@ -4356,8 +4369,8 @@ func main() {
 func TestTypeAliasInInitType(t *testing.T) {
 	pkg := newPackage("main")
 	foo := pkg.NewType("foo").InitType(pkg, types.Typ[types.Float64])
-	foo2 := pkg.AliasType("foo2", types.Typ[types.Float64])
-	afoo := pkg.AliasType("afoo", foo)
+	foo2 := aliasType(pkg, "foo2", types.Typ[types.Float64])
+	afoo := aliasType(pkg, "afoo", foo)
 	pkg.NewType("tfoo").InitType(pkg, afoo)
 	pkg.NewType("tfoo2").InitType(pkg, foo2)
 	domTest(t, pkg, `package main
@@ -4385,14 +4398,14 @@ func TestTypeAliasError(t *testing.T) {
 	typ := types.NewStruct(fields, nil)
 	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg)
 	cb.NewType("foo").InitType(pkg, typ)
-	cb.AliasType("foo", typ)
+	cb.NewTypeDefs().NewType("foo", nil).AliasType(pkg, typ)
 	cb.End()
 }
 
 func TestTypesAliasLit(t *testing.T) {
 	pkg := newPackage("main")
 	mfoo := pkg.NewType("mfoo").InitType(pkg, types.NewMap(types.Typ[types.Int], types.Typ[types.Bool]))
-	mbar := pkg.AliasType("mbar", mfoo)
+	mbar := aliasType(pkg, "mbar", mfoo)
 	pkg.CB().NewVarStart(mfoo, "_").
 		Val(1).Val(true).
 		MapLit(mfoo, 2).EndInit(1)
@@ -4401,7 +4414,7 @@ func TestTypesAliasLit(t *testing.T) {
 		MapLit(mbar, 2).EndInit(1)
 
 	sfoo := pkg.NewType("sfoo").InitType(pkg, types.NewSlice(types.Typ[types.Int]))
-	sbar := pkg.AliasType("sbar", sfoo)
+	sbar := aliasType(pkg, "sbar", sfoo)
 	pkg.CB().NewVarStart(sfoo, "_").
 		Val(1).
 		SliceLit(sfoo, 1).EndInit(1)
@@ -4413,7 +4426,7 @@ func TestTypesAliasLit(t *testing.T) {
 		SliceLit(sbar, 1).Val(0).Index(1, 0).EndInit(1)
 
 	afoo := pkg.NewType("afoo").InitType(pkg, types.NewArray(types.Typ[types.String], 2))
-	abar := pkg.AliasType("abar", afoo)
+	abar := aliasType(pkg, "abar", afoo)
 	pkg.CB().NewVarStart(afoo, "_").
 		Val("a").Val("b").ArrayLit(afoo, 2).EndInit(1)
 	pkg.CB().NewVarStart(abar, "_").
@@ -4425,7 +4438,7 @@ func TestTypesAliasLit(t *testing.T) {
 	}
 	typU := types.NewStruct(fields, nil)
 	tfoo := pkg.NewType("tfoo").InitType(pkg, typU)
-	tbar := pkg.AliasType("tbar", tfoo)
+	tbar := aliasType(pkg, "tbar", tfoo)
 	pkg.CB().NewVarStart(tfoo, "_").
 		StructLit(tfoo, 0, false).EndInit(1)
 	pkg.CB().NewVarStart(types.NewPointer(tbar), "_").

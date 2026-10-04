@@ -123,7 +123,7 @@ let x = "Hello, " + "XGo"
 
 func TestZeroLitAlias(t *testing.T) {
 	pkg := newPackage("main")
-	bar := pkg.AliasType("bar", types.Typ[types.Float64])
+	bar := aliasType(pkg, "bar", types.Typ[types.Float64])
 	results := types.NewTuple(types.NewVar(token.NoPos, pkg.Types, "", bar))
 	pkg.NewFunc(nil, "foo", nil, results, false).BodyStart(pkg).
 		ZeroLit(bar).Return(1).End()
