@@ -21,6 +21,7 @@ import (
 	"go/types"
 	"log"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -169,7 +170,7 @@ func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 	}
 	for key, items := range overloads {
 		off := len(key.name) + 2
-		fns := overloadFuncs(off, items)
+		fns := overloadFuncs(pkg, off, items)
 		newOverload(pkg, scope, key, fns, pos)
 	}
 	for name, items := range onameds {
@@ -336,17 +337,24 @@ func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Ob
 	}
 }
 
-func overloadFuncs(off int, items []types.Object) []types.Object {
+func overloadFuncs(pkg *types.Package, off int, items []types.Object) []types.Object {
 	fns := make([]types.Object, len(items))
 	for _, item := range items {
 		idx := toIndex(item.Name()[off])
-		if idx >= len(items) {
-			log.Panicf("overload func %v out of range 0..%v\n", item.Name(), len(fns)-1)
+		if idx >= len(fns) {
+			fns = slices.Grow(fns, idx+1-len(fns))[:idx+1]
 		}
 		if fns[idx] != nil {
 			log.Panicf("overload func %v exists?\n", item.Name())
 		}
 		fns[idx] = item
+	}
+	for i, item := range fns {
+		if item == nil {
+			// fill the gap with a placeholder function
+			sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+			fns[i] = types.NewFunc(0, pkg, "_", sig)
+		}
 	}
 	return fns
 }
