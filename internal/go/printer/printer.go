@@ -633,14 +633,6 @@ func (p *printer) writeComment(comment *ast.Comment) {
 	text := comment.Text
 	pos := p.posFor(comment.Pos())
 
-	const linePrefix = "//line "
-	if strings.HasPrefix(text, linePrefix) && (!pos.IsValid() || pos.Column == 1) {
-		// Possibly a //-style line directive.
-		// Suspend indentation temporarily to keep line directive valid.
-		defer func(indent int) { p.indent = indent }(p.indent)
-		p.indent = 0
-	}
-
 	// A synthetic comment produced by gogen may carry leading newlines in its
 	// text to request a blank line before it (a const spec doc comment, or a
 	// statement comment). Emit those newlines as line breaks so the following
@@ -649,6 +641,14 @@ func (p *printer) writeComment(comment *ast.Comment) {
 		p.writeByte('\f', nlimit(n))
 		text = text[n:]
 		pos = p.pos
+	}
+
+	const linePrefix = "//line "
+	if strings.HasPrefix(text, linePrefix) && (!pos.IsValid() || pos.Column == 1) {
+		// Possibly a //-style line directive.
+		// Suspend indentation temporarily to keep line directive valid.
+		defer func(indent int) { p.indent = indent }(p.indent)
+		p.indent = 0
 	}
 
 	// shortcut common case of //-style comments
