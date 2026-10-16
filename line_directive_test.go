@@ -68,6 +68,7 @@ func TestStatementLineDirectives(t *testing.T) {
 	if len(positions) != 2 {
 		t.Fatalf("got %d increment statements, want 2", len(positions))
 	}
+	// Go positions count each tab as one column: one or two tabs put the statements at columns 2 and 3.
 	for i, wantLine := range []int{10, 20} {
 		pos := positions[i]
 		if pos.Filename != "source.spx" || pos.Line != wantLine || pos.Column != i+2 {
