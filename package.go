@@ -187,7 +187,7 @@ func (p *astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 
 func markUsed(this *Package, file *File) {
 	p := &astVisitor{pkg: this, file: file}
-	for _, decl := range file.goDecls {
+	for _, decl := range file.goDecls() {
 		ast.Walk(p, decl)
 	}
 }
@@ -200,7 +200,10 @@ type File struct {
 	fileDecls
 	fname string
 	imps  map[string]*ast.Ident // importPath => impRef (nil means force-import)
-	dirty bool
+
+	nDecls int // used by goDecls() to determine if the cached declarations are up-to-date
+
+	dirtyUsed bool // used by markUsed() to determine if the file's imports need to be re-evaluated
 }
 
 func newFile(fname string) *File {
@@ -212,7 +215,7 @@ func (p *File) newImport(name, pkgPath string) *ast.Ident {
 	if id == nil {
 		id = &ast.Ident{Name: name, Obj: &ast.Object{Data: importUsed(false)}}
 		p.imps[pkgPath] = id
-		p.dirty = true
+		p.dirtyUsed = true
 	}
 	return id
 }
@@ -220,14 +223,14 @@ func (p *File) newImport(name, pkgPath string) *ast.Ident {
 func (p *File) forceImport(pkgPath string) {
 	if _, ok := p.imps[pkgPath]; !ok {
 		p.imps[pkgPath] = nil
-		p.dirty = true
+		p.dirtyUsed = true
 	}
 }
 
 func (p *File) markUsed(this *Package) {
-	if p.dirty {
+	if p.dirtyUsed {
 		markUsed(this, p)
-		p.dirty = false
+		p.dirtyUsed = false
 	}
 }
 
@@ -238,7 +241,41 @@ func (p *File) Name() string {
 
 // Empty returns true if this file is empty.
 func (p *File) Empty() bool {
-	return len(p.goDecls) == 0
+	return len(p.goDecls()) == 0
+}
+
+func (p *File) goDecls() []ast.Decl {
+	decls := p.fileDecls.goDecls
+	if len(decls) == p.nDecls {
+		return decls
+	}
+	ret := decls[:0]
+	for _, d := range decls {
+		if gd, ok := d.(*ast.GenDecl); ok && isEmptyGenDecl(gd) {
+			continue
+		}
+		ret = append(ret, d)
+	}
+	p.fileDecls.goDecls = ret
+	p.nDecls = len(ret)
+	return ret
+}
+
+func isEmptyGenDecl(d *ast.GenDecl) bool {
+	if d.Tok == token.TYPE {
+		for _, spec := range d.Specs {
+			if !isEmptyTypeSpec(spec.(*ast.TypeSpec)) {
+				return false
+			}
+		}
+		return true
+	}
+	return len(d.Specs) == 0
+}
+
+// for gogen.TypeDecl.Delete
+func isEmptyTypeSpec(spec *ast.TypeSpec) bool {
+	return spec.Name == nil
 }
 
 func isPkgInMod(pkgPath, modPath string) bool {
@@ -300,12 +337,16 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 	if p.fname == this.conf.DefaultGoFile {
 		valXGoPkg, addXGoPkg = checkXGoPkg(this)
 	}
+
+	goDecls := p.goDecls()
 	if len(specs) == 0 && !addXGoPkg {
-		return p.goDecls
+		return goDecls
 	}
 
-	decls = make([]ast.Decl, 0, len(p.goDecls)+2)
-	decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
+	decls = make([]ast.Decl, 0, len(goDecls)+2)
+	if len(specs) > 0 {
+		decls = append(decls, &ast.GenDecl{Tok: token.IMPORT, Specs: specs})
+	}
 	if addXGoPkg {
 		decls = append(decls, &ast.GenDecl{Tok: token.CONST, Specs: []ast.Spec{
 			&ast.ValueSpec{
@@ -316,7 +357,7 @@ func (p *File) getDecls(this *Package) (decls []ast.Decl) {
 			},
 		}})
 	}
-	return append(decls, p.goDecls...)
+	return append(decls, goDecls...)
 }
 
 // ----------------------------------------------------------------------------
