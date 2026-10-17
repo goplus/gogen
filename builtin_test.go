@@ -157,8 +157,8 @@ func TestCheckXGoDepsWithNilFuncType(t *testing.T) {
 	file := pkg.CurFile()
 	file.forceImport("github.com/qiniu/x/errors")
 	// Simulate a FuncDecl with nil Type (as created by NewFuncWith before End() is called)
-	file.goDecls = append(file.goDecls, &ast.FuncDecl{})
-	file.dirty = true
+	file.appendFuncDecl(&funcDecl{}, nil)
+	file.dirtyUsed = true
 	// Should not panic
 	_ = file.CheckXGoDeps(pkg)
 }

@@ -1724,18 +1724,6 @@ func checkSpecs(d *ast.GenDecl) {
 	}
 }
 
-func isEmptyGenDecl(d *ast.GenDecl) bool {
-	if d.Tok == token.TYPE {
-		for _, spec := range d.Specs {
-			if !isEmptyTypeSpec(spec.(*ast.TypeSpec)) {
-				return false
-			}
-		}
-		return true
-	}
-	return len(d.Specs) == 0
-}
-
 func (p *printer) genDecl(d *ast.GenDecl) {
 	checkSpecs(d)
 	n := len(d.Specs)
@@ -1967,9 +1955,6 @@ func declToken(decl ast.Decl) (tok token.Token) {
 func (p *printer) declList(list []ast.Decl) {
 	tok := token.ILLEGAL
 	for _, d := range list {
-		if gd, ok := d.(*ast.GenDecl); ok && isEmptyGenDecl(gd) {
-			continue
-		}
 		prev := tok
 		tok = declToken(d)
 		// If the declaration token changed (e.g., from CONST to TYPE)
