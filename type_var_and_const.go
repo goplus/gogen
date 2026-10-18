@@ -75,6 +75,13 @@ func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 // Type returns the named type of this type declaration. Don't call this method
 // if the type is a type alias.
 func (p *TypeDecl) Type() *types.Named {
+	return p.EnsureNamed()
+}
+
+// EnsureNamed ensures that the type of this type declaration is a named type and
+// returns it. If the type is not yet a named type, it will initialize it as a named
+// type.
+func (p *TypeDecl) EnsureNamed() *types.Named {
 	t := p.obj.Type()
 	if t == nil {
 		named := types.NewNamed(p.obj, nil, nil)
