@@ -28,8 +28,11 @@ import (
 
 // ----------------------------------------------------------------------------
 
+// runtime.Compile may use different compilers, but we assume "gc" here for sizes.
+const runtimeCompiler = "gc"
+
 var (
-	std = types.SizesFor(runtime.Compiler, runtime.GOARCH)
+	std = types.SizesFor(runtimeCompiler, runtime.GOARCH)
 )
 
 func checkArgsCount(pkg *Package, fn string, n int, args int, src ast.Node) {
