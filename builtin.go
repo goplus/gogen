@@ -28,7 +28,9 @@ import (
 
 // ----------------------------------------------------------------------------
 
-// runtime.Compile may use different compilers, but we assume "gc" here for sizes.
+// types.SizesFor returns nil for compilers other than "gc"/"gccgo", so using
+// runtime.Compiler directly would leave std nil (and panic later) under e.g.
+// LLGo and TinyGo. gogen always targets gc sizing, so force "gc".
 const runtimeCompiler = "gc"
 
 var (
