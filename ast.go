@@ -384,7 +384,7 @@ func toObject(pkg *Package, v types.Object, src ast.Node) *internal.Elem {
 		cval = cv.Val()
 	}
 	return &internal.Elem{
-		Val: toObjectExpr(pkg, v), Type: realType(v.Type()), CVal: cval, Src: src,
+		Val: toObjectExpr(pkg, v), Type: v.Type(), CVal: cval, Src: src,
 	}
 }
 

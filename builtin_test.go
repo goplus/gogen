@@ -1505,7 +1505,7 @@ func isError(e any, msg string) bool {
 }
 
 func TestImportError(t *testing.T) {
-	err := &types.Error{Msg: "foo"}
+	err := types.Error{Msg: "foo"}
 	e := &ImportError{Err: err}
 	if v := e.Unwrap(); v != err {
 		t.Fatal("TestImportError2:", v)

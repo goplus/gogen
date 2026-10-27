@@ -209,14 +209,6 @@ func DerefType(typ types.Type) (types.Type, bool) {
 	return typ, false
 }
 
-func realType(typ types.Type) types.Type {
-	switch t := typ.(type) {
-	case *types.Alias:
-		return types.Unalias(t)
-	}
-	return typ
-}
-
 // ----------------------------------------------------------------------------
 
 type btiMethodType struct {

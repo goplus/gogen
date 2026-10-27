@@ -1601,7 +1601,7 @@ func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
 		if op != nil {
 			fn := &internal.Elem{
 				Val:  &target.SelectorExpr{X: arg.Val, Sel: ident(name)},
-				Type: realType(op.Type()),
+				Type: op.Type(),
 			}
 			ret := toFuncCall(pkg, fn, []*Element{arg}, 0)
 			if ret.Type != nil {
@@ -1671,7 +1671,7 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 		if op != nil {
 			fn := &internal.Elem{
 				Val:  &target.SelectorExpr{X: args[0].Val, Sel: ident(name)},
-				Type: realType(op.Type()),
+				Type: op.Type(),
 			}
 			ret := toFuncCall(pkg, fn, args, 0)
 			if ret.Type != nil {
@@ -1804,7 +1804,7 @@ retry:
 		if lm != nil {
 			fn := &internal.Elem{
 				Val:  &target.SelectorExpr{X: args[0].Val, Sel: ident(name)},
-				Type: realType(lm.Type()),
+				Type: lm.Type(),
 			}
 			return matchFuncCall(pkg, fn, args, lhs, 0)
 		}
