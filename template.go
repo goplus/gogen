@@ -113,7 +113,7 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 	pkg.cb.ensureLoaded(V)
 	pkg.cb.ensureLoaded(T)
-	V, T = realType(V), realType(T)
+	V, T = types.Unalias(V), types.Unalias(T)
 	switch v := V.(type) {
 	case *refType: // ref type
 		if t, ok := T.(*types.Pointer); ok {

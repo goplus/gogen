@@ -58,7 +58,7 @@ type unsafeSizeofInstr struct{}
 func (p unsafeSizeofInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Sizeof", 1, len(args), src)
 
-	typ := types.Default(realType(args[0].Type))
+	typ := types.Default(args[0].Type)
 	ret = &Element{
 		Val:  newSizeofExpr(pkg, args),
 		Type: types.Typ[types.Uintptr],
@@ -74,7 +74,7 @@ type unsafeAlignofInstr struct{}
 func (p unsafeAlignofInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	checkArgsCount(pkg, "unsafe.Alignof", 1, len(args), src)
 
-	typ := types.Default(realType(args[0].Type))
+	typ := types.Default(args[0].Type)
 	ret = &Element{
 		Val:  newAlignofExpr(pkg, args),
 		Type: types.Typ[types.Uintptr],
