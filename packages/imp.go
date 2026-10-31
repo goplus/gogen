@@ -120,9 +120,11 @@ func (p *Importer) findExport(dir, pkgPath string) (f io.ReadCloser, err error) 
 
 func golistExport(dir, pkgPath string, tags string) (ret []byte, err error) {
 	var stdout, stderr bytes.Buffer
-	args := []string{"list", "-f={{.Export}}"}
+	args := make([]string, 2, 6)
+	args[0] = "list"
+	args[1] = "-f={{.Export}}"
 	if tags != "" {
-		args = append(args, "-tags=", tags)
+		args = append(args, "-tags="+tags)
 	}
 	args = append(args, "-export", pkgPath)
 	cmd := exec.Command("go", args...)
