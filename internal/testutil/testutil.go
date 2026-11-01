@@ -18,7 +18,7 @@ package testutil
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -33,7 +33,7 @@ func FromDir(t *testing.T, sel, relDir string, testFunc func(t *testing.T, pkgDi
 	if err != nil {
 		t.Fatal("Getwd failed:", err)
 	}
-	dir = path.Join(dir, relDir)
+	dir = filepath.Join(dir, relDir)
 	fis, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal("ReadDir failed:", err)
@@ -50,7 +50,7 @@ func FromDir(t *testing.T, sel, relDir string, testFunc func(t *testing.T, pkgDi
 			continue
 		}
 		t.Run(name, func(t *testing.T) {
-			pkgDir := dir + "/" + name
+			pkgDir := filepath.Join(dir, name)
 			testFunc(t, pkgDir)
 		})
 	}

@@ -57,10 +57,12 @@ func New(h PkgHash) *Impl {
 	return &Impl{h: h}
 }
 
+// SetTags sets the build tags for the import cache.
 func (p *Impl) SetTags(tags string) {
 	p.tags = tags
 }
 
+// Tags returns the build tags for the import cache.
 func (p *Impl) Tags() string {
 	return p.tags
 }
@@ -131,7 +133,7 @@ type exportPkg struct {
 
 func golistExport(dir string, pkgPath []string, tags string) (ret []exportPkg, err error) {
 	var stdout, stderr bytes.Buffer
-	var args = make([]string, 0, 3+len(pkgPath))
+	var args = make([]string, 0, 4+len(pkgPath))
 	args = append(args, "list", "-f={{.ImportPath}}\t{{.Export}}\t{{.Deps}}")
 	if tags != "" {
 		args = append(args, "-tags="+tags)
