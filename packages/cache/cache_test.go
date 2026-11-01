@@ -58,6 +58,10 @@ func TestBasic(t *testing.T) {
 	if v := c.ListTimes(); v != 2 {
 		t.Fatal("ListTimes:", v)
 	}
+	p.SetTags("foo")
+	if p.Tags() != "foo" {
+		t.Fatal("Tags mismatch:", p.Tags())
+	}
 	pkg, err = p.Import("github.com/goplus/gogen/internal/foo")
 	if err != nil {
 		t.Fatal("Import failed:", pkg, err)
