@@ -72,10 +72,12 @@ func (p *Importer) Cache() Cache {
 	return p.cache
 }
 
+// SetTags sets the build tags for the importer.
 func (p *Importer) SetTags(tags string) {
 	p.tags = tags
 }
 
+// Tags returns the build tags for the importer.
 func (p *Importer) Tags() string {
 	return p.tags
 }
