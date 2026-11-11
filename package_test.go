@@ -717,6 +717,124 @@ func TestTypeDoc(t *testing.T) {
 type foo struct {
 }
 `)
+
+	t.Run("field_anchors", func(t *testing.T) {
+		pkg := newMainPackage()
+		defs := pkg.NewTypeDefs()
+		decl := defs.NewType("Node", nil)
+		fields := []*types.Var{
+			types.NewField(token.NoPos, pkg.Types, "Plain", types.Typ[types.Int], false),
+			types.NewField(100, pkg.Types, "First", types.Typ[types.Int], false),
+			types.NewField(200, pkg.Types, "Callback", types.Typ[types.Uintptr], false),
+			types.NewField(300, pkg.Types, "Last", types.Typ[types.Uintptr], false),
+		}
+		decl.InitType(pkg, types.NewStruct(fields, nil))
+		decl.SetComments(pkg, comment("\n// Node stores callbacks."))
+		for _, item := range []struct {
+			pos  token.Pos
+			text string
+		}{
+			{100, "// first field"},
+			{200, "// int (*callback)()"},
+			{300, "// replaced comment"},
+			{300, "// int (*last)()"},
+		} {
+			decl.SetComments(pkg, &ast.CommentGroup{List: []*ast.Comment{
+				{Slash: item.pos, Text: item.text},
+			}})
+		}
+		defs.Complete()
+		pkg.NewTypeDefs().NewType("After", nil).InitType(pkg, types.Typ[types.Int])
+		domTest(t, pkg, `package main
+
+// Node stores callbacks.
+type Node struct {
+	Plain    int
+	First    int// first field
+	Callback uintptr// int (*callback)()
+	Last     uintptr// int (*last)()
+}
+type After int
+`)
+	})
+
+	t.Run("reused_field_comment_group", func(t *testing.T) {
+		pkg := newMainPackage()
+		doc := &ast.CommentGroup{List: []*ast.Comment{
+			{Slash: 100, Text: "/* callback */"},
+			{Slash: 100, Text: "/* original signature */"},
+		}}
+		for _, name := range []string{"First", "Second"} {
+			decl := pkg.NewTypeDefs().NewType(name, nil)
+			field := types.NewField(100, pkg.Types, "Callback", types.Typ[types.Uintptr], false)
+			decl.InitType(pkg, types.NewStruct([]*types.Var{field}, nil))
+			decl.SetComments(pkg, doc)
+		}
+		domTest(t, pkg, `package main
+
+type First struct {
+	Callback uintptr/* callback *//* original signature */
+}
+type Second struct {
+	Callback uintptr/* callback *//* original signature */
+}
+`)
+	})
+
+	t.Run("type_anchor_comments", func(t *testing.T) {
+		pkg := newMainPackage()
+		defs := pkg.NewTypeDefs()
+		decl := defs.NewType("Node", nil, gogen.NewPosNode(10))
+		decl.InitType(pkg, types.NewStruct(nil, nil))
+		decl.SetComments(pkg, &ast.CommentGroup{List: []*ast.Comment{
+			{Slash: 999, Text: "// unmatched anchor"},
+			{Slash: 10, Text: "\n// Node stores callbacks."},
+			{Text: "// Additional type documentation."},
+		}})
+		defs.Complete()
+		domTest(t, pkg, `package main
+
+// Node stores callbacks.
+// Additional type documentation.
+type Node struct {
+}
+`)
+	})
+
+	t.Run("mixed_type_and_field_anchors", func(t *testing.T) {
+		pkg := newMainPackage()
+		defs := pkg.NewTypeDefs()
+		decl := defs.NewType("Node", nil, gogen.NewPosNode(10))
+		fields := []*types.Var{
+			types.NewField(token.NoPos, pkg.Types, "Plain", types.Typ[types.Int], false),
+			types.NewField(100, pkg.Types, "First", types.Typ[types.Int], false),
+			types.NewField(200, pkg.Types, "Callback", types.Typ[types.Uintptr], false),
+			types.NewField(300, pkg.Types, "Last", types.Typ[types.Uintptr], false),
+		}
+		decl.InitType(pkg, types.NewStruct(fields, nil))
+		decl.SetComments(pkg, &ast.CommentGroup{List: []*ast.Comment{
+			{Slash: 200, Text: "// int (*callback)()"},
+			{Slash: 10, Text: "\n// Node stores callbacks."},
+			{Slash: 300, Text: "// int (*last)()"},
+			{Text: "// Additional type documentation."},
+			{Slash: 100, Text: "// first field"},
+			{Slash: 999, Text: "// unmatched anchor"},
+		}})
+		defs.Complete()
+		pkg.NewTypeDefs().NewType("After", nil).InitType(pkg, types.Typ[types.Int])
+		domTest(t, pkg, `package main
+
+// Node stores callbacks.
+// Additional type documentation.
+type Node struct {
+	Plain    int
+	First    int// first field
+	Callback uintptr// int (*callback)()
+	Last     uintptr// int (*last)()
+}
+type After int
+`)
+	})
 }
 
 func TestDeleteType(t *testing.T) {

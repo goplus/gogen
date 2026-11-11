@@ -66,7 +66,40 @@ type TypeDecl struct {
 }
 
 // SetComments sets associated documentation.
+// After InitType, each comment's Slash is an anchor within a struct: NoPos or
+// the type's Pos selects the type, and a field's Pos selects that field's
+// trailing comments. For example, type documentation and C callback signatures
+// can share one List. Attached comments are copied with NoPos for printing;
+// unmatched anchors are ignored. A field-only call preserves existing type docs.
 func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
+	if typ, ok := p.spec.Type.(*ast.StructType); ok && doc != nil && len(doc.List) != 0 {
+		fields := p.obj.Type().Underlying().(*types.Struct)
+		var typeComments []*ast.Comment
+		fieldComments := make([][]*ast.Comment, fields.NumFields())
+		for _, item := range doc.List {
+			comment := *item
+			comment.Slash = token.NoPos
+			if item.Slash == token.NoPos || item.Slash == p.obj.Pos() {
+				typeComments = append(typeComments, &comment)
+				continue
+			}
+			for i := 0; i < fields.NumFields(); i++ {
+				if fields.Field(i).Pos() == item.Slash {
+					fieldComments[i] = append(fieldComments[i], &comment)
+					break
+				}
+			}
+		}
+		for i, comments := range fieldComments {
+			if len(comments) != 0 {
+				typ.Fields.List[i].Comment = &ast.CommentGroup{List: comments}
+			}
+		}
+		if len(typeComments) == 0 {
+			return p
+		}
+		doc = &ast.CommentGroup{List: typeComments}
+	}
 	p.spec.Doc = doc
 	pkg.setDoc(p.obj, doc)
 	return p
