@@ -74,9 +74,7 @@ func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 		fieldPositions := make(map[token.Pos]int, fields.NumFields())
 		for i := 0; i < fields.NumFields(); i++ {
 			if pos := fields.Field(i).Pos(); pos.IsValid() {
-				if _, exists := fieldPositions[pos]; !exists {
-					fieldPositions[pos] = i
-				}
+				fieldPositions[pos] = i
 			}
 		}
 		var typeComments []*ast.Comment

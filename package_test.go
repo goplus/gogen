@@ -899,13 +899,13 @@ type Other int
 		}
 		decl.InitType(pkg, types.NewStruct(fields, nil))
 		decl.SetComments(pkg, &ast.CommentGroup{List: []*ast.Comment{
-			{Slash: 100, Text: "// first field"},
+			{Slash: 100, Text: "// field comment"},
 		}})
 		domTest(t, pkg, `package main
 
 type Node struct {
-	First  int// first field
-	Second int
+	First  int
+	Second int// field comment
 }
 `)
 	})
