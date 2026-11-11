@@ -66,8 +66,21 @@ type TypeDecl struct {
 }
 
 // SetComments sets associated documentation.
-// For struct types after InitType, a valid Slash matching a field's Pos selects
-// its trailing comments; other comments remain type documentation.
+// For struct types after InitType:
+//   - A valid Slash matching a field's Pos sets its trailing comments.
+//   - Other comments remain type documentation.
+//
+// For example, if Node's Callback field has Pos 100:
+//
+//	decl.SetComments(pkg, &ast.CommentGroup{List: []*ast.Comment{
+//		{Slash: 100, Text: "// int (*callback)()"},
+//	}})
+//
+// generates:
+//
+//	type Node struct {
+//		Callback uintptr// int (*callback)()
+//	}
 func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 	if typ, ok := p.spec.Type.(*ast.StructType); ok && doc != nil && len(doc.List) != 0 {
 		fields := p.obj.Type().Underlying().(*types.Struct)
