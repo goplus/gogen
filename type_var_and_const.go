@@ -66,28 +66,48 @@ type TypeDecl struct {
 }
 
 // SetComments sets associated documentation.
-// After InitType, each comment's Slash is an anchor within a struct: NoPos or
-// the type's Pos selects the type, and a field's Pos selects that field's
-// trailing comments. For example, type documentation and C callback signatures
-// can share one List. Attached comments are copied with NoPos for printing;
-// unmatched anchors are ignored. A field-only call preserves existing type docs.
+// For struct types after InitType:
+//   - A valid Slash matching a field position sets that field's trailing comments.
+//   - Other comments remain type documentation.
+//
+// For example:
+//
+//	field := types.NewField(100, pkg.Types, "Callback", types.Typ[types.Uintptr], false)
+//	defs := pkg.NewTypeDefs()
+//	decl := defs.NewType("Node", nil)
+//	decl.InitType(pkg, types.NewStruct([]*types.Var{field}, nil))
+//	decl.SetComments(pkg, &ast.CommentGroup{List: []*ast.Comment{
+//		{Text: "\n// Node stores callbacks."},
+//		{Slash: field.Pos(), Text: "// int (*callback)()"},
+//	}})
+//	defs.Complete()
+//
+// generates:
+//
+//	// Node stores callbacks.
+//	type Node struct {
+//		Callback uintptr// int (*callback)()
+//	}
 func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 	if typ, ok := p.spec.Type.(*ast.StructType); ok && doc != nil && len(doc.List) != 0 {
 		fields := p.obj.Type().Underlying().(*types.Struct)
+		fieldPositions := make(map[token.Pos]int, fields.NumFields())
+		for i := 0; i < fields.NumFields(); i++ {
+			if pos := fields.Field(i).Pos(); pos.IsValid() {
+				if _, exists := fieldPositions[pos]; !exists {
+					fieldPositions[pos] = i
+				}
+			}
+		}
 		var typeComments []*ast.Comment
 		fieldComments := make([][]*ast.Comment, fields.NumFields())
 		for _, item := range doc.List {
-			comment := *item
-			comment.Slash = token.NoPos
-			if item.Slash == token.NoPos || item.Slash == p.obj.Pos() {
-				typeComments = append(typeComments, &comment)
-				continue
-			}
-			for i := 0; i < fields.NumFields(); i++ {
-				if fields.Field(i).Pos() == item.Slash {
-					fieldComments[i] = append(fieldComments[i], &comment)
-					break
-				}
+			if i, ok := fieldPositions[item.Slash]; ok {
+				comment := *item
+				comment.Slash = token.NoPos
+				fieldComments[i] = append(fieldComments[i], &comment)
+			} else {
+				typeComments = append(typeComments, item)
 			}
 		}
 		for i, comments := range fieldComments {
@@ -95,10 +115,12 @@ func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 				typ.Fields.List[i].Comment = &ast.CommentGroup{List: comments}
 			}
 		}
-		if len(typeComments) == 0 {
-			return p
+		if len(typeComments) != len(doc.List) {
+			if len(typeComments) == 0 {
+				return p
+			}
+			doc = &ast.CommentGroup{List: typeComments}
 		}
-		doc = &ast.CommentGroup{List: typeComments}
 	}
 	p.spec.Doc = doc
 	pkg.setDoc(p.obj, doc)

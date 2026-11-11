@@ -781,19 +781,20 @@ type Second struct {
 `)
 	})
 
-	t.Run("type_anchor_comments", func(t *testing.T) {
+	t.Run("type_comments_after_init", func(t *testing.T) {
 		pkg := newMainPackage()
 		defs := pkg.NewTypeDefs()
 		decl := defs.NewType("Node", nil, gogen.NewPosNode(10))
 		decl.InitType(pkg, types.NewStruct(nil, nil))
 		decl.SetComments(pkg, &ast.CommentGroup{List: []*ast.Comment{
-			{Slash: 999, Text: "// unmatched anchor"},
-			{Slash: 10, Text: "\n// Node stores callbacks."},
+			{Slash: 999, Text: "\n// Source documentation."},
+			{Slash: 10, Text: "// Node stores callbacks."},
 			{Text: "// Additional type documentation."},
 		}})
 		defs.Complete()
 		domTest(t, pkg, `package main
 
+// Source documentation.
 // Node stores callbacks.
 // Additional type documentation.
 type Node struct {
@@ -818,7 +819,7 @@ type Node struct {
 			{Slash: 300, Text: "// int (*last)()"},
 			{Text: "// Additional type documentation."},
 			{Slash: 100, Text: "// first field"},
-			{Slash: 999, Text: "// unmatched anchor"},
+			{Slash: 999, Text: "// Additional source documentation."},
 		}})
 		defs.Complete()
 		pkg.NewTypeDefs().NewType("After", nil).InitType(pkg, types.Typ[types.Int])
@@ -826,6 +827,7 @@ type Node struct {
 
 // Node stores callbacks.
 // Additional type documentation.
+// Additional source documentation.
 type Node struct {
 	Plain    int
 	First    int// first field
@@ -833,6 +835,78 @@ type Node struct {
 	Last     uintptr// int (*last)()
 }
 type After int
+`)
+	})
+
+	for _, tc := range []struct {
+		name       string
+		beforeInit bool
+		noPos      bool
+	}{
+		{"parsed_doc_before_init", true, false},
+		{"parsed_doc_after_init", false, false},
+		{"nopos_doc_after_init", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			const source = "package main\n\n// Node source documentation.\ntype Node struct { A int }\n"
+			file, err := parser.ParseFile(token.NewFileSet(), "input.go", source, parser.ParseComments)
+			if err != nil {
+				t.Fatal(err)
+			}
+			original := file.Decls[0].(*ast.GenDecl)
+			spec := original.Specs[0].(*ast.TypeSpec)
+			doc := original.Doc
+			if tc.noPos {
+				doc.List[0].Slash = token.NoPos
+			}
+			pkg := newMainPackage()
+			defs := pkg.NewTypeDefs()
+			decl := defs.NewType("Node", nil, spec)
+			fieldPos := spec.Type.(*ast.StructType).Fields.List[0].Pos()
+			field := types.NewField(fieldPos, pkg.Types, "A", types.Typ[types.Int], false)
+			if tc.beforeInit {
+				decl.SetComments(pkg, doc)
+			}
+			decl.InitType(pkg, types.NewStruct([]*types.Var{field}, nil))
+			if !tc.beforeInit {
+				decl.SetComments(pkg, doc)
+			}
+			otherDefs := pkg.NewTypeDefs()
+			other := otherDefs.NewType("Other", nil)
+			other.SetComments(pkg, pkg.Docs[decl.Type().Obj()]).InitType(pkg, types.Typ[types.Int])
+			doc.List = append(doc.List, &ast.Comment{Text: "// Caller update."})
+			defs.Complete()
+			otherDefs.Complete()
+			domTest(t, pkg, `package main
+// Node source documentation.
+// Caller update.
+type Node struct {
+	A int
+}
+// Node source documentation.
+// Caller update.
+type Other int
+`)
+		})
+	}
+
+	t.Run("duplicate_field_positions", func(t *testing.T) {
+		pkg := newMainPackage()
+		decl := pkg.NewTypeDefs().NewType("Node", nil)
+		fields := []*types.Var{
+			types.NewField(100, pkg.Types, "First", types.Typ[types.Int], false),
+			types.NewField(100, pkg.Types, "Second", types.Typ[types.Int], false),
+		}
+		decl.InitType(pkg, types.NewStruct(fields, nil))
+		decl.SetComments(pkg, &ast.CommentGroup{List: []*ast.Comment{
+			{Slash: 100, Text: "// first field"},
+		}})
+		domTest(t, pkg, `package main
+
+type Node struct {
+	First  int// first field
+	Second int
+}
 `)
 	})
 }
