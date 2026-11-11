@@ -69,6 +69,7 @@ type TypeDecl struct {
 // For struct types after InitType:
 //   - A valid Slash matching a field's Pos sets its trailing comments.
 //   - Other comments remain type documentation.
+//   - A nil doc or empty List clears type and field comments.
 //
 // For example, if Node's Callback field has Pos 100:
 //
@@ -82,7 +83,7 @@ type TypeDecl struct {
 //		Callback uintptr// int (*callback)()
 //	}
 func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
-	if typ, ok := p.spec.Type.(*ast.StructType); ok && doc != nil && len(doc.List) != 0 {
+	if typ, ok := p.spec.Type.(*ast.StructType); ok {
 		fields := p.obj.Type().Underlying().(*types.Struct)
 		fieldPositions := make(map[token.Pos]int, fields.NumFields())
 		for i := 0; i < fields.NumFields(); i++ {
@@ -90,28 +91,52 @@ func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 				fieldPositions[pos] = i
 			}
 		}
-		var typeComments []*ast.Comment
-		fieldComments := make([][]*ast.Comment, fields.NumFields())
-		for _, item := range doc.List {
-			if i, ok := fieldPositions[item.Slash]; ok {
-				comment := *item
-				comment.Slash = token.NoPos
-				fieldComments[i] = append(fieldComments[i], &comment)
-			} else {
-				typeComments = append(typeComments, item)
+		var newDoc *ast.CommentGroup
+		fieldComments := make([]*ast.Field, len(typ.Fields.List))
+		// four cases:
+		// 1. doc is nil or doc.List is empty
+		// 2. modify field only
+		// 3. modify doc only
+		// 4. both modify
+		if doc != nil {
+			newDoc = &ast.CommentGroup{}
+
+			for _, item := range doc.List {
+				// comment is for the field
+				if j, ok := fieldPositions[item.Slash]; ok {
+					// preserve the order
+					field := fieldComments[j]
+					if field == nil {
+						raw := *typ.Fields.List[j]
+						field = &raw
+						field.Comment = &ast.CommentGroup{}
+						fieldComments[j] = field
+					}
+					field.Comment.List = append(field.Comment.List, item)
+				} else {
+					// copy the doc
+					newDoc.List = append(newDoc.List, item)
+				}
 			}
 		}
-		for i, comments := range fieldComments {
-			if len(comments) != 0 {
-				typ.Fields.List[i].Comment = &ast.CommentGroup{List: comments}
+		for i, field := range typ.Fields.List {
+			// case 1: doc is nil or empty, clear field comments
+			if doc == nil || len(doc.List) == 0 {
+				raw := *field
+				raw.Comment = nil
+				fieldComments[i] = &raw
+			} else if fieldComments[i] == nil {
+				// case3, modify doc only.
+				fieldComments[i] = field
 			}
 		}
-		if len(typeComments) != len(doc.List) {
-			if len(typeComments) == 0 {
-				return p
-			}
-			doc = &ast.CommentGroup{List: typeComments}
+		typ.Fields.List = fieldComments
+
+		if newDoc != nil && len(newDoc.List) == 0 && len(doc.List) > 0 {
+			// case 2: modify field only, no need to update doc.
+			return p
 		}
+		doc = newDoc
 	}
 	p.spec.Doc = doc
 	pkg.setDoc(p.obj, doc)
