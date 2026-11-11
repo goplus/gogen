@@ -66,28 +66,8 @@ type TypeDecl struct {
 }
 
 // SetComments sets associated documentation.
-// For struct types after InitType:
-//   - A valid Slash matching a field position sets that field's trailing comments.
-//   - Other comments remain type documentation.
-//
-// For example:
-//
-//	field := types.NewField(100, pkg.Types, "Callback", types.Typ[types.Uintptr], false)
-//	defs := pkg.NewTypeDefs()
-//	decl := defs.NewType("Node", nil)
-//	decl.InitType(pkg, types.NewStruct([]*types.Var{field}, nil))
-//	decl.SetComments(pkg, &ast.CommentGroup{List: []*ast.Comment{
-//		{Text: "\n// Node stores callbacks."},
-//		{Slash: field.Pos(), Text: "// int (*callback)()"},
-//	}})
-//	defs.Complete()
-//
-// generates:
-//
-//	// Node stores callbacks.
-//	type Node struct {
-//		Callback uintptr// int (*callback)()
-//	}
+// For struct types after InitType, a valid Slash matching a field's Pos selects
+// its trailing comments; other comments remain type documentation.
 func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 	if typ, ok := p.spec.Type.(*ast.StructType); ok && doc != nil && len(doc.List) != 0 {
 		fields := p.obj.Type().Underlying().(*types.Struct)
