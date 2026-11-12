@@ -665,7 +665,7 @@ func (p makeInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags
 	}
 	typ := ttyp.Type()
 	if !makable.Match(pkg, typ) {
-		pkg.cb.panicCodeErrorf(getSrcPos(src), getSrcEnd(src), "invalid argument: cannot make %v; type must be slice, map, or channel", typ)
+		pkg.cb.panicCodeErrorf(getSrcPos(src), getSrcEnd(src), "invalid argument: cannot make %v: type must be slice, map, or channel", typ)
 	}
 	ret = &Element{
 		Val:  newMakeExpr(args),

@@ -1481,7 +1481,7 @@ func TestErrMakeLenCap(t *testing.T) {
 				EndStmt().
 				End()
 		})
-	codeErrorTest(t, "./foo.gop:1:5: invalid argument: cannot make int; type must be slice, map, or channel",
+	codeErrorTest(t, "./foo.gop:1:5: invalid argument: cannot make int: type must be slice, map, or channel",
 		func(pkg *gogen.Package) {
 			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
 				Val(pkg.Builtin().Ref("make")).

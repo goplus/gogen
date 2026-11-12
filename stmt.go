@@ -527,6 +527,9 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 				continue
 			}
 			if scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, typs[i])) != nil {
+				// The range variables are inserted with token.NoPos, so unlike other
+				// "redeclared in this block" sites we intentionally omit the
+				// "previous declaration at ..." suffix: there is no useful position.
 				cb.panicCodeErrorf(pos, pos, "%s redeclared in this block", name)
 			}
 		}

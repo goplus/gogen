@@ -141,7 +141,7 @@ type CodeError struct {
 }
 
 func (p *CodeError) Error() string {
-	if p.Fset == nil { // no position information available
+	if p.Fset == nil { // no position information available (e.g. a zero-value CodeBuilder, as in tests)
 		return p.Msg
 	}
 	pos := p.Fset.Position(p.Pos)
