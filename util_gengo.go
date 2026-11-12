@@ -191,7 +191,7 @@ func (p *CodeBuilder) SliceLitEx(typ types.Type, arity int, keyVal bool, src ...
 	}
 	if keyVal { // in keyVal mode
 		if (arity & 1) != 0 {
-			log.Panicln("SliceLit: invalid arity, can't be odd in keyVal mode -", arity)
+			p.panicCodeErrorf(getPos(src), getEnd(src), "SliceLit: invalid arity, can't be odd in keyVal mode - %d", arity)
 		}
 		args := p.stk.GetArgs(arity)
 		val := t.Elem()
@@ -279,7 +279,7 @@ retry:
 	}
 	if keyVal { // in keyVal mode
 		if (arity & 1) != 0 {
-			log.Panicln("ArrayLit: invalid arity, can't be odd in keyVal mode -", arity)
+			p.panicCodeErrorf(getPos(src), getEnd(src), "ArrayLit: invalid arity, can't be odd in keyVal mode - %d", arity)
 		}
 		n := int(t.Len())
 		args := p.stk.GetArgs(arity)
@@ -350,7 +350,7 @@ retry:
 	var args = p.stk.GetArgs(arity)
 	if keyVal {
 		if (arity & 1) != 0 {
-			log.Panicln("StructLit: invalid arity, can't be odd in keyVal mode -", arity)
+			p.panicCodeErrorf(getPos(src), getEnd(src), "StructLit: invalid arity, can't be odd in keyVal mode - %d", arity)
 		}
 		elts = make([]ast.Expr, arity>>1)
 		for i := 0; i < arity; i += 2 {

@@ -22,7 +22,6 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
-	"log"
 	"syscall"
 )
 
@@ -541,7 +540,7 @@ func (p lenInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 		}
 	default:
 		if !lenable.Match(pkg, t) {
-			log.Panicln("TODO: can't call len() to", t)
+			pkg.cb.panicCodeErrorf(getSrcPos(src), getSrcEnd(src), "invalid argument: cannot call len() on %v", t)
 		}
 	}
 	ret = &Element{
@@ -569,7 +568,7 @@ func (p capInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 		}
 	default:
 		if !capable.Match(pkg, t) {
-			log.Panicln("TODO: can't call cap() to", t)
+			pkg.cb.panicCodeErrorf(getSrcPos(src), getSrcEnd(src), "invalid argument: cannot call cap() on %v", t)
 		}
 	}
 	ret = &Element{
@@ -666,7 +665,7 @@ func (p makeInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags
 	}
 	typ := ttyp.Type()
 	if !makable.Match(pkg, typ) {
-		log.Panicln("TODO: can't make this type -", typ)
+		pkg.cb.panicCodeErrorf(getSrcPos(src), getSrcEnd(src), "invalid argument: cannot make %v; type must be slice, map, or channel", typ)
 	}
 	ret = &Element{
 		Val:  newMakeExpr(args),

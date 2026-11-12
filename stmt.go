@@ -17,7 +17,6 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"log"
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/target"
@@ -528,7 +527,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 				continue
 			}
 			if scope.Insert(types.NewVar(token.NoPos, pkg.Types, name, typs[i])) != nil {
-				log.Panicln("TODO: variable already defined -", name)
+				cb.panicCodeErrorf(pos, pos, "%s redeclared in this block", name)
 			}
 		}
 		if p.udt != 0 {

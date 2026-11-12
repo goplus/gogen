@@ -141,6 +141,9 @@ type CodeError struct {
 }
 
 func (p *CodeError) Error() string {
+	if p.Fset == nil { // no position information available
+		return p.Msg
+	}
 	pos := p.Fset.Position(p.Pos)
 	return fmt.Sprintf("%v: %s", pos, p.Msg)
 }
@@ -974,7 +977,7 @@ func (p *CodeBuilder) UntypedBigRat(v *big.Rat, src ...ast.Node) *CodeBuilder {
 func (p *CodeBuilder) VarVal(name string, src ...ast.Node) *CodeBuilder {
 	_, o := p.Scope().LookupParent(name, token.NoPos)
 	if o == nil {
-		log.Panicf("VarVal: variable `%v` not found\n", name)
+		p.panicCodeErrorf(getPos(src), getEnd(src), "VarVal: variable `%v` not found", name)
 	}
 	return p.Val(o, src...)
 }

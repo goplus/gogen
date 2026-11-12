@@ -498,6 +498,17 @@ func TestErrForRange(t *testing.T) {
 				End().
 				End()
 		})
+	codeErrorTest(t, `./foo.gop:1:17: a redeclared in this block`,
+		func(pkg *gogen.Package) {
+			tyMap := types.NewMap(types.Typ[types.String], types.Typ[types.Int])
+			v := newParam(pkg, token.NoPos, "v", tyMap)
+			pkg.NewFunc(nil, "foo", types.NewTuple(v), nil, false).BodyStart(pkg).
+				ForRange("a", "a").
+				Val(v, source("v", 1, 9)).
+				RangeAssignThen(position(1, 17)).
+				End().
+				End()
+		})
 }
 
 func TestErrAssign(t *testing.T) {
@@ -1409,6 +1420,73 @@ func TestErrMapLit2(t *testing.T) {
 				Val("!", source(`"!"`)).
 				BinaryOp(token.ADD, source(`"Hi" + "!"`, 1, 5)).
 				MapLit(tyMap, 2).
+				EndStmt().
+				End()
+		})
+}
+
+func TestErrLitKeyValArity(t *testing.T) {
+	codeErrorTest(t, "./foo.gop:1:5: SliceLit: invalid arity, can't be odd in keyVal mode - 1",
+		func(pkg *gogen.Package) {
+			tySlice := types.NewSlice(types.Typ[types.Int])
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1, source("1", 1, 5)).
+				SliceLitEx(tySlice, 1, true, source("[]int{1}", 1, 5)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:1:5: ArrayLit: invalid arity, can't be odd in keyVal mode - 1",
+		func(pkg *gogen.Package) {
+			tyArray := types.NewArray(types.Typ[types.Int], 10)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1, source("1", 1, 5)).
+				ArrayLitEx(tyArray, 1, true, source("[10]int{1}", 1, 5)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:1:5: StructLit: invalid arity, can't be odd in keyVal mode - 1",
+		func(pkg *gogen.Package) {
+			tyStruct := types.NewStruct([]*types.Var{
+				types.NewField(token.NoPos, pkg.Types, "x", types.Typ[types.Int], false),
+			}, nil)
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(1, source("1", 1, 5)).
+				StructLit(tyStruct, 1, true, source("T{1}", 1, 5)).
+				EndStmt().
+				End()
+		})
+}
+
+func TestErrMakeLenCap(t *testing.T) {
+	tyStruct := types.NewStruct([]*types.Var{
+		types.NewField(token.NoPos, nil, "x", types.Typ[types.Int], false),
+	}, nil)
+	codeErrorTest(t, "./foo.gop:2:10: invalid argument: cannot call len() on struct{x int}",
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyStruct, "a").
+				Val(pkg.Builtin().Ref("len")).
+				VarVal("a").
+				CallWith(1, 0, 0, source("len(a)", 2, 10)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:2:10: invalid argument: cannot call cap() on struct{x int}",
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(tyStruct, "a").
+				Val(pkg.Builtin().Ref("cap")).
+				VarVal("a").
+				CallWith(1, 0, 0, source("cap(a)", 2, 10)).
+				EndStmt().
+				End()
+		})
+	codeErrorTest(t, "./foo.gop:1:5: invalid argument: cannot make int; type must be slice, map, or channel",
+		func(pkg *gogen.Package) {
+			pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				Val(pkg.Builtin().Ref("make")).
+				Typ(types.Typ[types.Int], source("int", 1, 5)).
+				CallWith(1, 0, 0, source("make(int)", 1, 5)).
 				EndStmt().
 				End()
 		})
