@@ -1484,7 +1484,7 @@ func TestLookupLabel(t *testing.T) {
 
 func TestVarVal(t *testing.T) {
 	defer func() {
-		if e := recover(); !isError(e, "VarVal: variable `unknown` not found\n") {
+		if e := recover(); !isError(e, "VarVal: variable `unknown` not found") {
 			t.Fatal("TestVarVal:", e)
 		}
 	}()
