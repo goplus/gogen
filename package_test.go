@@ -790,6 +790,65 @@ type Resetter interface {
 `)
 }
 
+func TestNewInterfaceType(t *testing.T) {
+	pkg := newMainPackage()
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+	// Methods are given out of alphabetical order on purpose: go/types sorts
+	// them, so NewInterfaceType must realign the comments with the final order.
+	methods := []gogen.ExplicitMethod{
+		{
+			Func:    types.NewFunc(token.NoPos, pkg.Types, "Reset", sig),
+			Doc:     comment("// Reset resets the state."),
+			Comment: comment("// reset it"),
+		},
+		{
+			Func:    types.NewFunc(token.NoPos, pkg.Types, "Close", sig),
+			Comment: comment("// close it"),
+		},
+	}
+	tyStringer := pkg.Import("fmt").Ref("Stringer").Type()
+	embeddeds := []gogen.EmbeddedType{
+		{Type: tyStringer, Comment: comment("// embedded")},
+	}
+	iface, fieldDocs, fieldComments := gogen.NewInterfaceType(methods, embeddeds)
+	def := pkg.NewTypeDefs()
+	decl := def.NewType("Resetter", nil)
+	decl.InitType(pkg, iface)
+	decl.SetBodyComments(pkg, fieldDocs, fieldComments)
+	def.Complete()
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+type Resetter interface {
+	fmt.Stringer // embedded
+	Close()      // close it
+	// Reset resets the state.
+	Reset() // reset it
+}
+`)
+}
+
+func TestNewInterfaceTypeNoComments(t *testing.T) {
+	pkg := newMainPackage()
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+	methods := []gogen.ExplicitMethod{
+		{Func: types.NewFunc(token.NoPos, pkg.Types, "Close", sig)},
+	}
+	iface, fieldDocs, fieldComments := gogen.NewInterfaceType(methods, nil)
+	def := pkg.NewTypeDefs()
+	decl := def.NewType("Closer", nil)
+	decl.InitType(pkg, iface)
+	decl.SetBodyComments(pkg, fieldDocs, fieldComments)
+	def.Complete()
+	domTest(t, pkg, `package main
+
+type Closer interface {
+	Close()
+}
+`)
+}
+
 func TestTypeBodyCommentsErr(t *testing.T) {
 	pkg := newMainPackage()
 	def := pkg.NewTypeDefs()
