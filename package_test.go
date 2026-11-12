@@ -719,6 +719,158 @@ type foo struct {
 `)
 }
 
+func TestTypeBodyComments(t *testing.T) {
+	pkg := newMainPackage()
+	fields := []*types.Var{
+		types.NewField(token.NoPos, pkg.Types, "Name", types.Typ[types.String], false),
+		types.NewField(token.NoPos, pkg.Types, "Timeout", types.Typ[types.Int], false),
+		types.NewField(token.NoPos, pkg.Types, "Flags", types.Typ[types.Uint], false),
+		types.NewField(token.NoPos, pkg.Types, "Extra", types.Typ[types.Int], false),
+	}
+	typ := types.NewStruct(fields, []string{"", "", `json:"flags"`})
+	def := pkg.NewTypeDefs()
+	decl := def.NewType("Config", nil)
+	decl.InitType(pkg, typ)
+	decl.SetBodyComments(pkg, []*ast.CommentGroup{comment("// replaced")}, nil)
+	decl.SetComments(pkg, comment("\n// Config holds the library settings."))
+	decl.SetBodyComments(pkg,
+		[]*ast.CommentGroup{
+			comment("// Name is the display name."),
+			nil,
+			{List: []*ast.Comment{{Text: "// Flags doc"}, {Text: "// more"}}},
+			comment("\n\n// Extra doc"),
+		},
+		[]*ast.CommentGroup{nil, comment("// milliseconds"), comment("/* flags */")},
+	)
+	def.Complete()
+	domTest(t, pkg, `package main
+
+// Config holds the library settings.
+type Config struct {
+	// Name is the display name.
+	Name    string
+	Timeout int // milliseconds
+	// Flags doc
+	// more
+	Flags uint `+"`json:\"flags\"`"+` /* flags */
+
+	// Extra doc
+	Extra int
+}
+`)
+}
+
+func TestInterfaceBodyComments(t *testing.T) {
+	pkg := newMainPackage()
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+	methods := []*types.Func{
+		types.NewFunc(token.NoPos, pkg.Types, "Close", sig),
+		types.NewFunc(token.NoPos, pkg.Types, "Reset", sig),
+	}
+	tyStringer := pkg.Import("fmt").Ref("Stringer").Type()
+	typ := types.NewInterfaceType(methods, []types.Type{tyStringer}).Complete()
+	def := pkg.NewTypeDefs()
+	decl := def.NewType("Resetter", nil)
+	decl.InitType(pkg, typ)
+	decl.SetBodyComments(pkg,
+		[]*ast.CommentGroup{nil, nil, comment("// Reset resets the state.")},
+		[]*ast.CommentGroup{comment("// embedded"), comment("// close it")},
+	)
+	def.Complete()
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+type Resetter interface {
+	fmt.Stringer // embedded
+	Close()      // close it
+	// Reset resets the state.
+	Reset()
+}
+`)
+}
+
+func TestNewInterfaceType(t *testing.T) {
+	pkg := newMainPackage()
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+	// Methods are given out of alphabetical order on purpose: go/types sorts
+	// them, so NewInterfaceType must realign the comments with the final order.
+	methods := []gogen.ExplicitMethod{
+		{
+			Func:    types.NewFunc(token.NoPos, pkg.Types, "Reset", sig),
+			Doc:     comment("// Reset resets the state."),
+			Comment: comment("// reset it"),
+		},
+		{
+			Func:    types.NewFunc(token.NoPos, pkg.Types, "Close", sig),
+			Comment: comment("// close it"),
+		},
+	}
+	tyStringer := pkg.Import("fmt").Ref("Stringer").Type()
+	embeddeds := []gogen.EmbeddedType{
+		{Type: tyStringer, Comment: comment("// embedded")},
+	}
+	iface, fieldDocs, fieldComments := gogen.NewInterfaceType(methods, embeddeds)
+	def := pkg.NewTypeDefs()
+	decl := def.NewType("Resetter", nil)
+	decl.InitType(pkg, iface)
+	decl.SetBodyComments(pkg, fieldDocs, fieldComments)
+	def.Complete()
+	domTest(t, pkg, `package main
+
+import "fmt"
+
+type Resetter interface {
+	fmt.Stringer // embedded
+	Close()      // close it
+	// Reset resets the state.
+	Reset() // reset it
+}
+`)
+}
+
+func TestNewInterfaceTypeNoComments(t *testing.T) {
+	pkg := newMainPackage()
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+	methods := []gogen.ExplicitMethod{
+		{Func: types.NewFunc(token.NoPos, pkg.Types, "Close", sig)},
+	}
+	iface, fieldDocs, fieldComments := gogen.NewInterfaceType(methods, nil)
+	def := pkg.NewTypeDefs()
+	decl := def.NewType("Closer", nil)
+	decl.InitType(pkg, iface)
+	decl.SetBodyComments(pkg, fieldDocs, fieldComments)
+	def.Complete()
+	domTest(t, pkg, `package main
+
+type Closer interface {
+	Close()
+}
+`)
+}
+
+func TestTypeBodyCommentsErr(t *testing.T) {
+	pkg := newMainPackage()
+	def := pkg.NewTypeDefs()
+	foo := def.NewType("foo", nil)
+	safeRun(t, func() {
+		foo.SetBodyComments(pkg, nil, nil)
+	})
+	foo.InitType(pkg, types.Typ[types.Int])
+	safeRun(t, func() {
+		foo.SetBodyComments(pkg, nil, nil)
+	})
+	bar := def.NewType("bar", nil)
+	bar.InitType(pkg, types.NewStruct(nil, nil))
+	bar.SetBodyComments(pkg, nil, nil)
+	safeRun(t, func() {
+		bar.SetBodyComments(pkg, []*ast.CommentGroup{nil}, nil)
+	})
+	safeRun(t, func() {
+		bar.SetBodyComments(pkg, nil, []*ast.CommentGroup{nil})
+	})
+}
+
 func TestDeleteType(t *testing.T) {
 	pkg := newMainPackage()
 	typ := types.NewStruct(nil, nil)

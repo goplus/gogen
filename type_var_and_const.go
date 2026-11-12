@@ -72,6 +72,121 @@ func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 	return p
 }
 
+// SetBodyComments sets the comments of the members of the type's body.
+//
+// fieldDocs[i] becomes the doc comment (ast.Field.Doc) of the i-th member,
+// and fieldLineComments[i] becomes its trailing line comment
+// (ast.Field.Comment). A nil entry means "no comment".
+//
+// Member order:
+//   - struct: the order of the fields.
+//   - interface: all embedded types first, then all methods.
+//
+// For interfaces, types.NewInterfaceType sorts methods and loses the
+// caller's order, so it is recommended to build the interface with
+// gogen.NewInterfaceType, which returns fieldDocs and fieldLineComments
+// already aligned with the final member order.
+//
+// Neither slice needs to be as long as the member list; it may be shorter,
+// in which case the remaining members have no comment. A slice longer than
+// the member list is an error.
+//
+// SetBodyComments must be called after the type has been initialized
+// (InitType). It returns the receiver so calls can be chained.
+func (p *TypeDecl) SetBodyComments(pkg *Package, fieldDocs, fieldLineComments []*ast.CommentGroup) *TypeDecl {
+	var flds *ast.FieldList
+	switch t := p.spec.Type.(type) {
+	case *ast.StructType:
+		flds = t.Fields
+	case *ast.InterfaceType:
+		flds = t.Methods
+	case nil:
+		log.Panicln("SetBodyComments:", p.obj.Name(), "is not initialized (call InitType first)")
+	default:
+		log.Panicln("SetBodyComments:", p.obj.Name(), "is not a struct or interface type")
+	}
+	var list []*ast.Field
+	if flds != nil {
+		list = flds.List
+	}
+	if len(fieldDocs) > len(list) {
+		log.Panicf("SetBodyComments: %s has %d members, but got %d field docs\n", p.obj.Name(), len(list), len(fieldDocs))
+	}
+	if len(fieldLineComments) > len(list) {
+		log.Panicf("SetBodyComments: %s has %d members, but got %d field line comments\n", p.obj.Name(), len(list), len(fieldLineComments))
+	}
+	for i, fld := range list {
+		fld.Doc, fld.Comment = nil, nil
+		if i < len(fieldDocs) {
+			fld.Doc = fieldDocs[i]
+		}
+		if i < len(fieldLineComments) {
+			fld.Comment = fieldLineComments[i]
+		}
+	}
+	return p
+}
+
+// ExplicitMethod is a method declared directly in an interface body,
+// together with its comments.
+type ExplicitMethod struct {
+	Func         *types.Func
+	Doc, Comment *ast.CommentGroup
+}
+
+// EmbeddedType is a type embedded in an interface body, together with
+// its comments.
+type EmbeddedType struct {
+	Type         types.Type
+	Doc, Comment *ast.CommentGroup
+}
+
+// NewInterfaceType is a replacement for types.NewInterfaceType that keeps
+// comments attached to their members.
+//
+// It returns the interface along with the doc comments and line comments
+// laid out in the interface's final member order (all embedded types
+// first, then the methods in the order go/types gives them). The two
+// slices can be passed directly to TypeDecl.SetBodyComments.
+func NewInterfaceType(methods []ExplicitMethod, embeddeds []EmbeddedType) (
+	iface *types.Interface, fieldDocs, fieldComments []*ast.CommentGroup) {
+	funcs := make([]*types.Func, len(methods))
+	for i, m := range methods {
+		funcs[i] = m.Func
+	}
+	embeds := make([]types.Type, len(embeddeds))
+	for i, e := range embeddeds {
+		embeds[i] = e.Type
+	}
+	iface = types.NewInterfaceType(funcs, embeds).Complete()
+
+	// go/types keeps embedded types in input order but sorts the methods,
+	// so rebuild the comment slices in the interface's final member order:
+	// all embedded types first, then all explicit methods. See toInterface
+	// in ast.go, which lays out the ast.Field list the same way.
+	n := iface.NumEmbeddeds() + iface.NumExplicitMethods()
+	fieldDocs = make([]*ast.CommentGroup, n)
+	fieldComments = make([]*ast.CommentGroup, n)
+	idx := 0
+	for i, ne := 0, iface.NumEmbeddeds(); i < ne; i, idx = i+1, idx+1 {
+		// Embeddeds keep their input order, so embeddeds[i] matches.
+		fieldDocs[idx] = embeddeds[i].Doc
+		fieldComments[idx] = embeddeds[i].Comment
+	}
+	for i, nm := 0, iface.NumExplicitMethods(); i < nm; i, idx = i+1, idx+1 {
+		// Methods are reordered, so match by the *types.Func pointer.
+		fn := iface.ExplicitMethod(i)
+		for _, m := range methods {
+			if m.Func == fn {
+				fieldDocs[idx] = m.Doc
+				fieldComments[idx] = m.Comment
+				break
+			}
+		}
+	}
+	return
+}
+
 // Type returns the named type of this type declaration. Don't call this method
 // if the type is a type alias.
 func (p *TypeDecl) Type() *types.Named {
