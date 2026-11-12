@@ -72,6 +72,56 @@ func (p *TypeDecl) SetComments(pkg *Package, doc *ast.CommentGroup) *TypeDecl {
 	return p
 }
 
+// SetBodyComments sets the comments of the members of the type's body.
+//
+// fieldDocs[i] becomes the doc comment (ast.Field.Doc) of the i-th member,
+// and fieldLineComments[i] becomes its trailing line comment
+// (ast.Field.Comment). A nil entry means "no comment".
+//
+// Member order:
+//   - struct: the order of the fields.
+//   - interface: all embedded types first, then all methods.
+//
+// Neither slice needs to be as long as the member list; it may be shorter,
+// in which case the remaining members have no comment. A slice longer than
+// the member list is an error.
+//
+// SetBodyComments must be called after the type has been initialized
+// (InitType). It returns the receiver so calls can be chained.
+func (p *TypeDecl) SetBodyComments(pkg *Package, fieldDocs, fieldLineComments []*ast.CommentGroup) *TypeDecl {
+	var flds *ast.FieldList
+	switch t := p.spec.Type.(type) {
+	case *ast.StructType:
+		flds = t.Fields
+	case *ast.InterfaceType:
+		flds = t.Methods
+	case nil:
+		log.Panicln("SetBodyComments:", p.obj.Name(), "is not initialized (call InitType first)")
+	default:
+		log.Panicln("SetBodyComments:", p.obj.Name(), "is not a struct or interface type")
+	}
+	var list []*ast.Field
+	if flds != nil {
+		list = flds.List
+	}
+	if len(fieldDocs) > len(list) {
+		log.Panicf("SetBodyComments: %s has %d members, but got %d field docs\n", p.obj.Name(), len(list), len(fieldDocs))
+	}
+	if len(fieldLineComments) > len(list) {
+		log.Panicf("SetBodyComments: %s has %d members, but got %d field line comments\n", p.obj.Name(), len(list), len(fieldLineComments))
+	}
+	for i, fld := range list {
+		fld.Doc, fld.Comment = nil, nil
+		if i < len(fieldDocs) {
+			fld.Doc = fieldDocs[i]
+		}
+		if i < len(fieldLineComments) {
+			fld.Comment = fieldLineComments[i]
+		}
+	}
+	return p
+}
+
 // Type returns the named type of this type declaration. Don't call this method
 // if the type is a type alias.
 func (p *TypeDecl) Type() *types.Named {

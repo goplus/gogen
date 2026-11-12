@@ -97,6 +97,7 @@ type printer struct {
 
 	// by XGo
 	commentedStmts map[ast.Stmt]*ast.CommentGroup
+	lineComment    *ast.CommentGroup // synthetic line comment of a field, if any
 }
 
 func (p *printer) internalError(msg ...any) {
@@ -361,7 +362,16 @@ func (p *printer) writeCommentPrefix(pos, next token.Position, prev *ast.Comment
 		return
 	}
 
-	if pos.Line == p.last.Line && (prev == nil || prev.Text[1] != '/') {
+	// A synthetic comment (no position, e.g. produced by gogen) has no line
+	// information: a synthetic line comment (see setLineCommentGroup) goes on
+	// the same line as the last item, any other one starts a new line.
+	synthetic := !pos.IsValid() && prev == nil
+	sameLine := pos.Line == p.last.Line
+	if synthetic {
+		sameLine = p.comment == p.lineComment
+	}
+
+	if sameLine && (prev == nil || commentText(prev)[1] != '/') {
 		// comment on the same line as last item:
 		// separate with at least one separator
 		hasSep := false
@@ -457,9 +467,15 @@ func (p *printer) writeCommentPrefix(pos, next token.Position, prev *ast.Comment
 			n++
 		}
 
+		// keep the dropped line break before a synthetic comment, unless the
+		// comment text requests line breaks itself (see writeComment)
+		if n == 0 && synthetic && droppedLinebreak && !strings.HasPrefix(p.comment.List[0].Text, "\n") {
+			n = 1
+		}
+
 		// make sure there is at least one line break
 		// if the previous comment was a line comment
-		if n == 0 && prev != nil && prev.Text[1] == '/' {
+		if n == 0 && prev != nil && commentText(prev)[1] == '/' {
 			n = 1
 		}
 
@@ -627,6 +643,12 @@ func stripCommonPrefix(lines []string) {
 			lines[i] = line[len(prefix):]
 		}
 	}
+}
+
+// commentText returns the text of c without the leading newlines a synthetic
+// comment may carry (see writeComment).
+func commentText(c *ast.Comment) string {
+	return strings.TrimLeft(c.Text, "\n")
 }
 
 func (p *printer) writeComment(comment *ast.Comment) {
@@ -810,9 +832,10 @@ func (p *printer) intersperseComments(next token.Position, tok token.Token) (wro
 				p.writeByte(' ', 1)
 			}
 		}
-		// Ensure that there is a line break after a //-style comment,
+		// Ensure that there is a line break after a //-style comment, after
+		// a synthetic comment starting with newlines (see writeComment),
 		// before EOF, and before a closing '}' unless explicitly disabled.
-		if last.Text[1] == '/' ||
+		if last.Text[1] == '/' || last.Text[0] == '\n' ||
 			tok == token.EOF ||
 			tok == token.RBRACE && p.mode&noExtraLinebreak == 0 {
 			needsLinebreak = true

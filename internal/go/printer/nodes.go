@@ -487,6 +487,16 @@ func (p *printer) isOneLineFieldList(list []*ast.Field) bool {
 	return namesSize+typeSize <= maxSize
 }
 
+// setLineCommentGroup sets g as the next comment like setComment, and marks
+// it as a line comment: if g has no position (a synthetic comment produced by
+// gogen), it is printed on the same line as the last item.
+func (p *printer) setLineCommentGroup(g *ast.CommentGroup) {
+	if g != nil && len(g.List) > 0 && !g.List[0].Pos().IsValid() {
+		p.lineComment = g
+	}
+	p.setComment(g)
+}
+
 func (p *printer) setLineComment(text string) {
 	p.setComment(&ast.CommentGroup{List: []*ast.Comment{{Slash: token.NoPos, Text: text}}})
 }
@@ -595,7 +605,7 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 				for ; extraTabs > 0; extraTabs-- {
 					p.print(sep)
 				}
-				p.setComment(f.Comment)
+				p.setLineCommentGroup(f.Comment)
 			}
 		}
 		if isIncomplete {
@@ -623,7 +633,7 @@ func (p *printer) fieldList(fields *ast.FieldList, isStruct, isIncomplete bool) 
 				// embedded interface
 				p.expr(f.Type)
 			}
-			p.setComment(f.Comment)
+			p.setLineCommentGroup(f.Comment)
 		}
 		if isIncomplete {
 			if len(list) > 0 {
