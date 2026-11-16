@@ -410,7 +410,7 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	args := p.stk.GetArgs(n)
 	x := args[0]
 	typ := x.Type
-	switch t := typ.(type) {
+	switch t := types.Unalias(typ).(type) {
 	case *types.Slice:
 		// nothing to do
 	case *types.Basic:
@@ -426,7 +426,7 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	case *types.Array:
 		typ = types.NewSlice(t.Elem())
 	case *types.Pointer:
-		if tt, ok := t.Elem().(*types.Array); ok {
+		if tt, ok := types.Unalias(t.Elem()).(*types.Array); ok {
 			typ = types.NewSlice(tt.Elem())
 		} else {
 			code, pos, end := p.loadExpr(x.Src)
@@ -502,7 +502,7 @@ func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 	ret := &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Src: getSrc(src)}
 	argType := arg.Type
 retry:
-	switch t := argType.(type) {
+	switch t := types.Unalias(argType).(type) {
 	case *TypeType:
 		ret.Type = t.Pointer()
 	case *types.Pointer:
@@ -550,8 +550,9 @@ func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-// pointerType returns the pointer type of an operand, resolving defined types as needed.
+// pointerType returns the pointer type of an operand, resolving aliases and defined types as needed.
 func (p *CodeBuilder) pointerType(typ types.Type) (*types.Pointer, bool) {
+	typ = types.Unalias(typ)
 	if named, ok := typ.(*types.Named); ok {
 		typ = p.getUnderlying(named)
 	}
@@ -628,7 +629,7 @@ func (p *CodeBuilder) methodSigOf(typ types.Type, flag MemberFlag, arg, ret *Ele
 	at := arg.Type.(*TypeType).typ
 	recv := sig.Recv().Type()
 	_, isPtr := recv.(*types.Pointer) // recv is a pointer
-	if t, ok := at.(*types.Pointer); ok {
+	if t, ok := types.Unalias(at).(*types.Pointer); ok {
 		if !isPtr {
 			if _, ok := recv.Underlying().(*types.Interface); !ok { // and recv isn't a interface
 				log.Panicf("recv of method %v.%s isn't a pointer\n", t.Elem(), sel.Sel.Name)

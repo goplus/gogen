@@ -631,7 +631,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, lhs i
 	var sig *types.Signature
 	var cval constant.Value
 retry:
-	switch t := fnType.(type) {
+	switch t := types.Unalias(fnType).(type) {
 	case *types.Signature:
 		if t.TypeParams() != nil {
 			if (flags & instrFlagXGoxFunc) == 0 {
@@ -900,7 +900,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 	}
 	if len(args) == 1 && ConvertibleTo(pkg, args[0].Type, typ) {
 		if args[0].CVal != nil {
-			if t, ok := typ.(*types.Named); ok {
+			if t, ok := types.Unalias(typ).(*types.Named); ok {
 				o := t.Obj()
 				if at := o.Pkg(); at != nil {
 					tname := o.Name()
@@ -915,7 +915,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 		goto finish
 	}
 
-	switch t := typ.(type) {
+	switch t := types.Unalias(typ).(type) {
 	case *types.Basic:
 		if len(args) == 1 {
 			if ret, ok := CastFromBool(&pkg.cb, typ, args[0]); ok {
@@ -955,7 +955,7 @@ func matchTypeCast(pkg *Package, typ types.Type, fn *internal.Elem, args []*inte
 	switch len(args) {
 	case 1:
 		arg := args[0]
-		switch t := arg.Type.(type) {
+		switch t := types.Unalias(arg.Type).(type) {
 		case *types.Named:
 			if m := lookupMethod(t, "XGo_Rcast"); m != nil {
 				switch mt := m.Type().(type) {
@@ -1037,7 +1037,7 @@ func CastFromBool(cb *CodeBuilder, typ types.Type, v *Element) (ret *Element, ok
 }
 
 func isPointer(typ types.Type) bool {
-	_, ok := typ.(*types.Pointer)
+	_, ok := types.Unalias(typ).(*types.Pointer)
 	return ok
 }
 
@@ -1212,7 +1212,7 @@ func matchArgType(pkg *Package, arg *internal.Elem, texp types.Type, at any) err
 }
 
 func isReflectType(t types.Type) bool {
-	if named, ok := t.(*types.Named); ok {
+	if named, ok := types.Unalias(t).(*types.Named); ok {
 		obj := named.Obj()
 		return obj.Name() == "Type" && obj.Pkg() != nil && obj.Pkg().Path() == "reflect"
 	}
@@ -1397,7 +1397,7 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 		}
 	}
 	// check generic type instance
-	if psig, ok := param.(*types.Signature); ok {
+	if psig, ok := types.Unalias(param).(*types.Signature); ok {
 		switch tsig := arg.Type.(type) {
 		case *inferFuncType:
 			if err := instanceInferFunc(pkg, arg, tsig, psig); err == nil {

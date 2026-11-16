@@ -30,7 +30,7 @@ type TyFuncEx interface {
 
 // IsFunc returns if specified type is a function or not.
 func IsFunc(t types.Type) bool {
-	if _, ok := t.(*types.Signature); ok {
+	if _, ok := types.Unalias(t).(*types.Signature); ok {
 		return true
 	}
 	_, ok := t.(*inferFuncType)
@@ -336,7 +336,7 @@ func methodHasAutoProperty(typ types.Type, n int) bool {
 
 // HasAutoProperty checks if specified type is a function without parameters or not.
 func HasAutoProperty(typ types.Type) bool {
-	if sig, ok := typ.(*types.Signature); ok {
+	if sig, ok := types.Unalias(typ).(*types.Signature); ok {
 		if t, ok := CheckFuncEx(sig); ok {
 			switch t := t.(type) {
 			case *TyOverloadFunc:

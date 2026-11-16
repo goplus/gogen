@@ -411,6 +411,7 @@ func TestContract(t *testing.T) {
 	foo := pkg.Import("github.com/goplus/gogen/internal/foo")
 	tfoo := foo.Ref("Foo5").Type()
 	tarr := types.NewArray(tyInt, 10)
+	arrayAlias := aliasType(pkg, "Array", tarr)
 	testcases := []struct {
 		Contract
 		typ    types.Type
@@ -418,6 +419,9 @@ func TestContract(t *testing.T) {
 	}{
 		{integer, tyInt, true},
 		{capable, types.Typ[types.String], false},
+		{capable, types.NewPointer(arrayAlias), true},
+		{lenable, types.NewPointer(arrayAlias), true},
+		{capable, types.NewPointer(aliasType(pkg, "Item", tyInt)), false},
 		{capable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), tarr, nil), true},
 		{capable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.NewPointer(tarr), nil), true},
 		{capable, types.NewNamed(types.NewTypeName(0, at, "bar", nil), types.Typ[types.String], nil), false},
@@ -1835,6 +1839,554 @@ func TestAliasOffsetof(t *testing.T) {
 	_, err := instr.Call(pkg, []*Element{elem}, 0, 0, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCodeBuilderAliasIndex(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		typ  func(*Package, types.Type) types.Type
+		key  any
+	}{
+		{"Slice", func(_ *Package, elem types.Type) types.Type { return types.NewSlice(elem) }, 0},
+		{"Map", func(_ *Package, elem types.Type) types.Type { return types.NewMap(tyInt, elem) }, 0},
+		{"Array", func(_ *Package, elem types.Type) types.Type { return types.NewArray(elem, 2) }, 0},
+		{"String", func(_ *Package, _ types.Type) types.Type { return types.Typ[types.String] }, 0},
+		{"PointerArray", func(_ *Package, elem types.Type) types.Type {
+			return types.NewPointer(types.NewArray(elem, 2))
+		}, 0},
+		{"PointerNamedArray", func(pkg *Package, elem types.Type) types.Type {
+			return types.NewPointer(pkg.NewType("Array").InitType(pkg, types.NewArray(elem, 2)))
+		}, 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := NewPackage("", "foo", gblConf)
+			elem := aliasType(pkg, "Item", tyInt)
+			typ := aliasType(pkg, "Values", aliasType(pkg, "Inner", tt.typ(pkg, elem)))
+			v := types.NewVar(token.NoPos, pkg.Types, "values", typ)
+			cb := pkg.NewFunc(nil, "f", types.NewTuple(v), nil, false).BodyStart(pkg)
+			cb.Val(v).Val(tt.key).Index(1, 1)
+			want := elem
+			if tt.name == "String" {
+				want = TyByte
+			}
+			if got := cb.stk.Pop().Type; got != want {
+				t.Errorf("index type = %v, want %v", got, want)
+			}
+			if tt.name != "String" {
+				cb.Val(v).Val(tt.key).IndexRef(1).Val(1).Assign(1)
+			}
+			if tt.name == "Map" {
+				cb.Val(v).Val(tt.key).Index(1, 2)
+				got, ok := cb.stk.Pop().Type.(*types.Tuple)
+				if !ok || got.Len() != 2 || got.At(0).Type() != elem || got.At(1).Type() != types.Typ[types.Bool] {
+					t.Errorf("comma-ok index type = %v, want (%v, bool)", got, elem)
+				}
+			}
+			cb.End()
+		})
+	}
+}
+
+func TestCodeBuilderAliasIndirect(t *testing.T) {
+	for _, name := range []string{"Star", "Elem", "ElemRef"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := NewPackage("", "foo", gblConf)
+			elem := aliasType(pkg, "Item", tyInt)
+			typ := aliasType(pkg, "Pointer", types.NewPointer(elem))
+			v := types.NewVar(token.NoPos, pkg.Types, "ptr", typ)
+			cb := pkg.CB().Val(v)
+			switch name {
+			case "Star":
+				cb.Star()
+			case "Elem":
+				cb.Elem()
+			case "ElemRef":
+				cb.ElemRef()
+			}
+			got, ref := DerefType(cb.Get(-1).Type)
+			if got != elem || ref != (name == "ElemRef") {
+				t.Errorf("indirect type = %v, ref = %v, want %v", got, ref, elem)
+			}
+		})
+	}
+}
+
+func TestCodeBuilderAliasRange(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		typ  func(*Package, types.Type) types.Type
+	}{
+		{"Slice", func(_ *Package, elem types.Type) types.Type { return types.NewSlice(elem) }},
+		{"Map", func(_ *Package, elem types.Type) types.Type { return types.NewMap(elem, elem) }},
+		{"Array", func(_ *Package, elem types.Type) types.Type { return types.NewArray(elem, 2) }},
+		{"PointerArray", func(_ *Package, elem types.Type) types.Type {
+			return types.NewPointer(types.NewArray(elem, 2))
+		}},
+		{"Chan", func(_ *Package, elem types.Type) types.Type { return types.NewChan(types.RecvOnly, elem) }},
+		{"String", func(_ *Package, _ types.Type) types.Type { return types.Typ[types.String] }},
+		{"Integer", func(_ *Package, _ types.Type) types.Type { return tyInt }},
+		{"Function", func(pkg *Package, elem types.Type) types.Type {
+			params := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", tyInt),
+				types.NewParam(token.NoPos, pkg.Types, "", elem))
+			result := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", types.Typ[types.Bool]))
+			yield := types.NewSignatureType(nil, nil, nil, params, result, false)
+			return types.NewSignatureType(nil, nil, nil,
+				types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "yield", yield)), nil, false)
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := NewPackage("", "foo", gblConf)
+			elem := aliasType(pkg, "Item", tyInt)
+			alias := aliasType(pkg, "Values", tt.typ(pkg, elem))
+			v := types.NewVar(token.NoPos, pkg.Types, "values", alias)
+			cb := pkg.NewFunc(nil, "f", types.NewTuple(v), nil, false).BodyStart(pkg)
+			want := []types.Type{tyInt, elem}
+			switch tt.name {
+			case "Map":
+				want[0] = elem
+			case "Chan":
+				want = []types.Type{elem}
+			case "String":
+				want[1] = types.Typ[types.Rune]
+			case "Integer":
+				want = []types.Type{tyInt}
+			}
+			names := []string{"i", "v"}[:len(want)]
+			cb.ForRange(names...).Val(v).RangeAssignThen(token.NoPos)
+			for i, name := range names {
+				if got := cb.Scope().Lookup(name).Type(); got != want[i] {
+					t.Errorf("range variable %s type = %v, want %v", name, got, want[i])
+				}
+			}
+			cb.End().End()
+		})
+	}
+}
+
+func TestCodeBuilderAliasLenCap(t *testing.T) {
+	for _, name := range []string{"String", "Array", "PointerArray"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := NewPackage("", "foo", gblConf)
+			var typ types.Type = types.NewArray(tyInt, 2)
+			if name == "PointerArray" {
+				typ = types.NewPointer(typ)
+			}
+			if name == "String" {
+				typ = types.Typ[types.String]
+			}
+			typ = aliasType(pkg, "Alias", typ)
+			var value types.Object = types.NewVar(token.NoPos, pkg.Types, "value", typ)
+			if name == "String" {
+				value = types.NewConst(token.NoPos, pkg.Types, "value", typ, constant.MakeString("hi"))
+			}
+			for _, builtin := range []string{"len", "cap"} {
+				if name == "String" && builtin == "cap" {
+					continue
+				}
+				ret := pkg.ConstStart().Val(pkg.Builtin().Ref(builtin)).Val(value).Call(1).EndConst()
+				if ret.CVal == nil || ret.CVal.ExactString() != "2" {
+					t.Errorf("%s constant value = %v, want 2", builtin, ret.CVal)
+				}
+			}
+		})
+	}
+}
+
+func TestCodeBuilderPointerAliasArray(t *testing.T) {
+	for _, name := range []string{"Alias", "AliasChain", "PointerAlias", "GenericAlias"} {
+		for _, op := range []string{"Index", "IndexRef", "Range", "Len", "Cap"} {
+			t.Run(name+"/"+op, func(t *testing.T) {
+				pkg := NewPackage("", "foo", gblConf)
+				elem := aliasType(pkg, "Item", tyInt)
+				var array types.Type
+				if name == "GenericAlias" {
+					tp := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), TyEmptyInterface)
+					generic := types.NewAlias(types.NewTypeName(token.NoPos, pkg.Types, "Array", nil), types.NewArray(tp, 2))
+					generic.SetTypeParams([]*types.TypeParam{tp})
+					var err error
+					array, err = types.Instantiate(nil, generic, []types.Type{elem}, true)
+					if err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					array = aliasType(pkg, "Array", types.NewArray(elem, 2))
+					if name == "AliasChain" {
+						array = aliasType(pkg, "Next", array)
+					}
+				}
+				var typ types.Type = types.NewPointer(array)
+				if name == "PointerAlias" {
+					typ = aliasType(pkg, "Pointer", typ)
+				}
+				value := types.NewVar(token.NoPos, pkg.Types, "value", typ)
+				cb := pkg.NewFunc(nil, "f", types.NewTuple(value), nil, false).BodyStart(pkg)
+				cb.Val(value)
+				if got := cb.stk.Pop().Type; got != typ {
+					t.Fatalf("pointer type = %v, want preserved type %v", got, typ)
+				}
+				switch op {
+				case "Index":
+					cb.Val(value).Val(0).Index(1, 1)
+					if got := cb.stk.Pop().Type; got != elem {
+						t.Errorf("index type = %v, want %v", got, elem)
+					}
+				case "IndexRef":
+					cb.Val(value).Val(0).IndexRef(1)
+					if got, ref := DerefType(cb.Get(-1).Type); got != elem || !ref {
+						t.Errorf("index reference type = %v, ref = %v, want %v", got, ref, elem)
+					}
+					cb.Val(1).Assign(1)
+				case "Range":
+					cb.ForRange("i", "v").Val(value).RangeAssignThen(token.NoPos)
+					for i, name := range []string{"i", "v"} {
+						want := []types.Type{tyInt, elem}[i]
+						if got := cb.Scope().Lookup(name).Type(); got != want {
+							t.Errorf("range variable %s type = %v, want %v", name, got, want)
+						}
+					}
+					cb.End()
+				case "Len", "Cap":
+					builtin := strings.ToLower(op)
+					cb.Val(pkg.Builtin().Ref(builtin)).Val(value).Call(1)
+					ret := cb.stk.Pop()
+					if ret.CVal == nil || ret.CVal.ExactString() != "2" {
+						t.Errorf("%s constant value = %v, want 2", builtin, ret.CVal)
+					}
+					if ret.Type != tyInt {
+						t.Errorf("%s type = %v, want int", builtin, ret.Type)
+					}
+				}
+				cb.End()
+			})
+		}
+	}
+}
+
+func TestCodeBuilderAliasSlice(t *testing.T) {
+	for _, name := range []string{"Slice", "Array", "PointerArray", "PointerAliasArray", "String"} {
+		for _, mode := range []string{"TwoIndex", "ThreeIndex"} {
+			t.Run(name+"/"+mode, func(t *testing.T) {
+				full := mode == "ThreeIndex"
+				pkg := NewPackage("", "foo", gblConf)
+				elem := aliasType(pkg, "Item", tyInt)
+				var typ types.Type = types.NewArray(elem, 2)
+				switch name {
+				case "Slice":
+					typ = types.NewSlice(elem)
+				case "PointerArray":
+					typ = types.NewPointer(typ)
+				case "PointerAliasArray":
+					typ = types.NewPointer(aliasType(pkg, "Array", typ))
+				case "String":
+					typ = types.Typ[types.String]
+				}
+				typ = aliasType(pkg, "Alias", typ)
+				cb := pkg.CB().Val(types.NewVar(token.NoPos, pkg.Types, "values", typ)).Val(0).Val(1)
+				if full {
+					cb.Val(2)
+				}
+				if name == "String" && full {
+					defer func() {
+						err, ok := recover().(*CodeError)
+						if !ok || !strings.Contains(err.Msg, "3-index slice of string") {
+							t.Errorf("full string slice panic = %v, want CodeError", err)
+						}
+					}()
+				}
+				cb.Slice(full)
+				want := typ
+				if name != "Slice" && name != "String" {
+					want = types.NewSlice(elem)
+				}
+				if got := cb.Get(-1).Type; !types.Identical(got, want) || got.String() != want.String() {
+					t.Errorf("slice type = %v, want %v", got, want)
+				}
+			})
+		}
+	}
+}
+
+func TestCodeBuilderAliasMapMember(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	key := aliasType(pkg, "Key", types.Typ[types.String])
+	elem := aliasType(pkg, "Item", tyInt)
+	v := types.NewVar(token.NoPos, pkg.Types, "values", types.NewMap(key, elem))
+	cb := pkg.NewFunc(nil, "f", types.NewTuple(v), nil, false).BodyStart(pkg)
+	cb.Val(v).MemberVal("item", 0)
+	if got := cb.stk.Pop().Type; got != elem {
+		t.Errorf("member type = %v, want %v", got, elem)
+	}
+	cb.Val(v).MemberRef("item").Val(1).Assign(1).End()
+}
+
+func TestComparableToAlias(t *testing.T) {
+	for _, name := range []string{"Slice", "Map", "Pointer", "Channel", "Function", "Interface", "Integer"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := NewPackage("", "foo", gblConf)
+			var typ types.Type
+			switch name {
+			case "Slice":
+				typ = types.NewSlice(tyInt)
+			case "Map":
+				typ = types.NewMap(tyInt, tyInt)
+			case "Pointer":
+				typ = types.NewPointer(tyInt)
+			case "Channel":
+				typ = types.NewChan(types.SendRecv, tyInt)
+			case "Function":
+				typ = types.NewSignatureType(nil, nil, nil, nil, nil, false)
+			case "Interface":
+				typ = TyEmptyInterface
+			case "Integer":
+				typ = tyInt
+			}
+			alias := aliasType(pkg, "Alias", typ)
+			value := &Element{Type: alias}
+			nilValue := &Element{Type: types.Typ[types.UntypedNil]}
+			want := name != "Integer"
+			if got := ComparableTo(pkg, value, nilValue); got != want {
+				t.Errorf("alias compared to nil = %v, want %v", got, want)
+			}
+			if got := ComparableTo(pkg, nilValue, value); got != want {
+				t.Errorf("nil compared to alias = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestCheckIteratorFuncAlias(t *testing.T) {
+	for _, name := range []string{"AliasBool", "AliasDefinedBool"} {
+		t.Run(name, func(t *testing.T) {
+			named := name == "AliasDefinedBool"
+			pkg := NewPackage("", "foo", gblConf)
+			var result types.Type = types.Typ[types.Bool]
+			if named {
+				result = pkg.NewType("Boolean").InitType(pkg, result)
+			}
+			result = aliasType(pkg, "Bool", result)
+			yield := types.NewSignatureType(nil, nil, nil, nil,
+				types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", result)), false)
+			sig := types.NewSignatureType(nil, nil, nil,
+				types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "yield", yield)), nil, false)
+			got := checkIteratorFunc(sig)
+			if named {
+				if got != nil {
+					t.Errorf("iterator with defined bool result accepted: %v", got)
+				}
+			} else if len(got) != 2 || got[0] != nil || got[1] != nil {
+				t.Errorf("zero-value iterator types = %v, want [nil nil]", got)
+			}
+		})
+	}
+}
+
+func TestCodeBuilderAliasReturnErr(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	alias := aliasType(pkg, "Err", TyError)
+	results := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", tyInt),
+		types.NewParam(token.NoPos, pkg.Types, "", alias))
+	pkg.NewFunc(nil, "f", nil, results, false).BodyStart(pkg).Val(nil).ReturnErr(false).End()
+}
+
+func TestCodeBuilderAliasUnsafe(t *testing.T) {
+	for _, name := range []string{"Slice", "String", "SliceData", "StringData", "Add"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := NewPackage("", "foo", gblConf)
+			elem := aliasType(pkg, "Byte", types.Typ[types.Byte])
+			var typ, want types.Type
+			switch name {
+			case "Slice":
+				typ, want = types.NewPointer(elem), types.NewSlice(elem)
+			case "String":
+				typ, want = types.NewPointer(elem), types.Typ[types.String]
+			case "SliceData":
+				typ, want = types.NewSlice(elem), types.NewPointer(elem)
+			case "StringData":
+				typ, want = types.Typ[types.String], types.NewPointer(types.Typ[types.Byte])
+			case "Add":
+				typ, want = types.Typ[types.UnsafePointer], types.Typ[types.UnsafePointer]
+			}
+			value := types.NewVar(token.NoPos, pkg.Types, "value", aliasType(pkg, "Alias", typ))
+			cb := pkg.CB().Val(pkg.unsafe_.Ref(name)).Val(value)
+			arity := 1
+			if name == "Slice" || name == "String" || name == "Add" {
+				cb.Val(1)
+				arity++
+			}
+			cb.Call(arity)
+			if got := cb.Get(-1).Type; !types.Identical(got, want) || got.String() != want.String() {
+				t.Errorf("unsafe.%s type = %v, want %v", name, got, want)
+			}
+		})
+	}
+}
+
+func TestCodeBuilderAliasOperators(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		pointer bool
+		binary  bool
+		right   bool
+	}{
+		{name: "Unary"},
+		{name: "PointerUnary", pointer: true},
+		{name: "Binary", binary: true},
+		{name: "PointerBinary", pointer: true, binary: true},
+		{name: "RightBinary", binary: true, right: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := NewPackage("", "foo", gblConf)
+			var underlying types.Type = types.NewStruct(nil, nil)
+			if tt.right {
+				underlying = tyInt
+			}
+			named := pkg.NewType("Value").InitType(pkg, underlying)
+			var recv types.Type = named
+			if tt.pointer {
+				recv = types.NewPointer(recv)
+			}
+			name := "XGo_Neg"
+			var params *types.Tuple
+			if tt.binary {
+				name = "XGo_Add"
+				params = types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "other", recv))
+			}
+			result := aliasType(pkg, "Result", tyInt)
+			sig := types.NewSignatureType(types.NewVar(token.NoPos, pkg.Types, "v", recv), nil, nil, params,
+				types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", result)), false)
+			named.AddMethod(types.NewFunc(token.NoPos, pkg.Types, name, sig))
+			value := types.NewVar(token.NoPos, pkg.Types, "value", aliasType(pkg, "Alias", recv))
+			cb := pkg.CB()
+			if tt.right {
+				cb.Val(1)
+			} else {
+				cb.Val(value)
+			}
+			if tt.binary {
+				cb.Val(value).BinaryOp(token.ADD)
+			} else {
+				cb.UnaryOp(token.SUB)
+			}
+			if got := cb.Get(-1).Type; got != result {
+				t.Errorf("operator type = %v, want %v", got, result)
+			}
+		})
+	}
+}
+
+func TestCodeBuilderAliasAppendString(t *testing.T) {
+	for _, name := range []string{"Slice", "String", "Byte", "Both"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := NewPackage("", "foo", gblConf)
+			var elem types.Type = types.Typ[types.Byte]
+			if name == "Byte" {
+				elem = aliasType(pkg, "Byte", elem)
+			}
+			var slice types.Type = types.NewSlice(elem)
+			if name == "Slice" || name == "Both" {
+				slice = aliasType(pkg, "Bytes", slice)
+			}
+			var str types.Type = types.Typ[types.String]
+			if name == "String" || name == "Both" {
+				str = aliasType(pkg, "Text", str)
+			}
+			values := types.NewVar(token.NoPos, pkg.Types, "values", slice)
+			text := types.NewVar(token.NoPos, pkg.Types, "text", str)
+			cb := pkg.CB().Val(pkg.Builtin().Ref("append")).Val(values).Val(text).CallWith(2, 0, InstrFlagEllipsis)
+			if got := cb.Get(-1).Type; got != slice {
+				t.Errorf("append type = %v, want %v", got, slice)
+			}
+		})
+	}
+}
+
+func TestCodeBuilderAliasTemplateRecv(t *testing.T) {
+	for _, name := range []string{"Pointer", "AliasPointer"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := NewPackage("", "foo", gblConf)
+			named := pkg.NewType("Value").InitType(pkg, types.NewStruct(nil, nil))
+			ptr := types.NewPointer(named)
+			sig := types.NewSignatureType(nil, nil, nil,
+				types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "value", types.NewPointer(ptr))),
+				types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", tyInt)), false)
+			extension := types.NewFunc(token.NoPos, pkg.Types, "Extension", sig)
+			NewTemplateRecvMethod(named, token.NoPos, pkg.Types, "Run", extension)
+			var typ types.Type = ptr
+			if name == "AliasPointer" {
+				typ = aliasType(pkg, "Ref", ptr)
+			}
+			value := types.NewVar(token.NoPos, pkg.Types, "value", typ)
+			cb := pkg.CB().Val(value).MemberVal("Run", 0)
+			if err := cb.CallWithEx(0, 0, 0); err == nil {
+				t.Error("template method unexpectedly took the address of a pointer")
+			}
+		})
+	}
+}
+
+func TestCodeBuilderAliasRcast(t *testing.T) {
+	pkg := NewPackage("", "foo", gblConf)
+	named := pkg.NewType("Value").InitType(pkg, types.NewStruct(nil, nil))
+	sig := types.NewSignatureType(types.NewVar(token.NoPos, pkg.Types, "v", named), nil, nil, nil,
+		types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", tyInt)), false)
+	named.AddMethod(types.NewFunc(token.NoPos, pkg.Types, "XGo_Rcast", sig))
+	value := types.NewVar(token.NoPos, pkg.Types, "value", aliasType(pkg, "Alias", named))
+	cb := pkg.CB().Typ(tyInt).Val(value).Call(1)
+	call, ok := cb.Get(-1).Val.(*ast.CallExpr)
+	if !ok {
+		t.Fatalf("cast expression = %T, want call", cb.Get(-1).Val)
+	}
+	fn, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || fn.Sel.Name != "XGo_Rcast" {
+		t.Errorf("cast function = %v, want value.XGo_Rcast", call.Fun)
+	}
+}
+
+func TestCodeBuilderAliasDelayedType(t *testing.T) {
+	conf := *gblConf
+	conf.LoadNamed = func(_ *Package, typ *types.Named) {
+		typ.SetUnderlying(types.Typ[types.Int])
+	}
+	pkg := NewPackage("", "foo", &conf)
+	named := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "Value", nil), nil, nil)
+	typ := aliasType(pkg, "Alias", named)
+	param := types.NewParam(token.NoPos, pkg.Types, "value", typ)
+	sig := types.NewSignatureType(nil, nil, nil, types.NewTuple(param), types.NewTuple(param), false)
+	fn := types.NewFunc(token.NoPos, pkg.Types, "f", sig)
+	cb := pkg.CB().Val(fn).Val(types.NewVar(token.NoPos, pkg.Types, "value", typ)).Call(1)
+	if named.Underlying() == nil {
+		t.Error("aliased named type was not loaded")
+	}
+	if got := cb.Get(-1).Type; got != typ {
+		t.Errorf("call type = %v, want %v", got, typ)
+	}
+}
+
+func TestCodeBuilderInvalidAliasOperations(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		typ  types.Type
+		run  func(*CodeBuilder)
+		want string
+	}{
+		{"Call", tyInt, func(cb *CodeBuilder) { cb.Call(0) }, "cannot call non-function"},
+		{"Index", types.Typ[types.Bool], func(cb *CodeBuilder) { cb.Val(0).Index(1, 1) }, "does not support indexing"},
+		{"IndexRef", types.Typ[types.String], func(cb *CodeBuilder) { cb.Val(0).IndexRef(1) }, "strings are immutable"},
+		{"Star", tyInt, func(cb *CodeBuilder) { cb.Star() }, "invalid indirect"},
+		{"Elem", tyInt, func(cb *CodeBuilder) { cb.Elem() }, "invalid indirect"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			defer func() {
+				got := recover()
+				if err, ok := got.(*CodeError); !ok || !strings.Contains(err.Msg, tt.want) {
+					t.Errorf("panic = %v, want CodeError containing %q", got, tt.want)
+				}
+			}()
+			pkg := NewPackage("", "foo", gblConf)
+			value := types.NewVar(token.NoPos, pkg.Types, "value", aliasType(pkg, "Alias", tt.typ))
+			tt.run(pkg.CB().Val(value))
+		})
 	}
 }
 
