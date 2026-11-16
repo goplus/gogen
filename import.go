@@ -170,7 +170,7 @@ func InitXGoPackageEx(pkg *types.Package, pos map[string]token.Pos) {
 	}
 	for key, items := range overloads {
 		off := len(key.name) + 2
-		fns := overloadFuncs(pkg, off, items)
+		fns := overloadFuncs(off, items)
 		newOverload(pkg, scope, key, fns, pos)
 	}
 	for name, items := range onameds {
@@ -337,7 +337,8 @@ func newOverload(pkg *types.Package, scope *types.Scope, m omthd, fns []types.Ob
 	}
 }
 
-func overloadFuncs(pkg *types.Package, off int, items []types.Object) []types.Object {
+// overloadFuncs orders indexed overloads and omits missing indices.
+func overloadFuncs(off int, items []types.Object) []types.Object {
 	fns := make([]types.Object, len(items))
 	for _, item := range items {
 		idx := toIndex(item.Name()[off])
@@ -349,14 +350,9 @@ func overloadFuncs(pkg *types.Package, off int, items []types.Object) []types.Ob
 		}
 		fns[idx] = item
 	}
-	for i, item := range fns {
-		if item == nil {
-			// fill the gap with a placeholder function
-			sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
-			fns[i] = types.NewFunc(0, pkg, "_", sig)
-		}
-	}
-	return fns
+	return slices.DeleteFunc(fns, func(fn types.Object) bool {
+		return fn == nil
+	})
 }
 
 func overloadNameds(off int, items []*types.Named) []*types.Named {

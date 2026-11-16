@@ -261,6 +261,156 @@ func TestImportXGoPkg(t *testing.T) {
 	t.Fatal("TestImportXGoPkg: NodeSet.Attr not found")
 }
 
+func TestImportSparseOverloads(t *testing.T) {
+	for _, kind := range []string{"Function", "ValueMethod", "PointerMethod", "InterfaceMethod"} {
+		t.Run(kind, func(t *testing.T) {
+			for _, tt := range []struct {
+				name    string
+				indices []string
+				zero    bool
+			}{
+				{name: "Contiguous", indices: []string{"0", "1"}},
+				{name: "Gap", indices: []string{"0", "2"}},
+				{name: "LeadingGap", indices: []string{"2", "4"}},
+				{name: "LetterIndices", indices: []string{"9", "a", "z"}},
+				{name: "SingleHighIndex", indices: []string{"z"}},
+				{name: "ZeroArgument", indices: []string{"0", "2"}, zero: true},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					var declarations strings.Builder
+					declarations.WriteString("package sdk\nconst XGoPackage = true\n")
+					if kind == "InterfaceMethod" {
+						declarations.WriteString("type Item interface {\n")
+					} else if kind != "Function" {
+						declarations.WriteString("type Item struct {}\n")
+					}
+					for i := len(tt.indices) - 1; i >= 0; i-- {
+						argument := []string{"int", "string", "bool"}[i]
+						parameters, result := "value "+argument, "return value"
+						if tt.zero && i == len(tt.indices)-1 {
+							parameters, argument, result = "", "int", "return 0"
+						}
+						prefix := "func "
+						switch kind {
+						case "ValueMethod":
+							prefix += "(Item) "
+						case "PointerMethod":
+							prefix += "(*Item) "
+						case "InterfaceMethod":
+							prefix = ""
+						}
+						declaration := prefix + "Choose__" + tt.indices[i] + "(" + parameters + ") " + argument
+						if kind != "InterfaceMethod" {
+							declaration += " { " + result + " }"
+						}
+						declarations.WriteString(declaration + "\n")
+					}
+					if kind == "InterfaceMethod" {
+						declarations.WriteString("}\n")
+					}
+					fixture := newGoxTest()
+					sdk, err := fixture.LoadGoPackage("example.com/sdk", "sdk.go", declarations.String())
+					if err != nil {
+						t.Fatal(err)
+					}
+					pkg := fixture.NewPackage("example.com/use", "use")
+					imported := pkg.Import(sdk.Path())
+					imported.EnsureImported()
+					cb := pkg.NewFunc(nil, "run", nil, nil, false).BodyStart(pkg)
+					var overload types.Object
+					if kind == "Function" {
+						overload = sdk.Scope().Lookup("Choose")
+					} else {
+						typ := sdk.Scope().Lookup("Item").Type()
+						cb.NewVar(typ, "item")
+						overload, _, _ = types.LookupFieldOrMethod(types.NewPointer(typ), true, sdk, "Choose")
+						if kind == "InterfaceMethod" {
+							overload, _, _ = types.LookupFieldOrMethod(typ, true, sdk, "Choose")
+						}
+					}
+					if overload == nil {
+						t.Fatal("missing overload group")
+					}
+					sig, ok := overload.Type().(*types.Signature)
+					if !ok {
+						t.Fatalf("overload type = %T, want signature", overload.Type())
+					}
+					_, candidates := gogen.CheckSigFuncExObjects(sig)
+					if len(candidates) != len(tt.indices) {
+						t.Fatalf("candidate count = %d, want %d", len(candidates), len(tt.indices))
+					}
+					for i, candidate := range candidates {
+						want := "Choose__" + tt.indices[i]
+						fn, ok := candidate.(*types.Func)
+						if !ok || fn == nil || fn.Name() != want {
+							t.Fatalf("candidate %d = %v, want %s", i, candidate, want)
+						}
+					}
+					if kind == "Function" {
+						if got := gogen.HasAutoProperty(sig); got != tt.zero {
+							t.Errorf("automatic call = %v, want %v", got, tt.zero)
+						}
+					}
+					push := func() {
+						if kind == "Function" {
+							cb.Val(overload)
+						} else {
+							cb.VarVal("item").MemberVal("Choose", 0)
+						}
+					}
+					for i, suffix := range tt.indices {
+						push()
+						n := 1
+						if tt.zero && i == len(tt.indices)-1 {
+							n = 0
+						} else {
+							cb.Val([]any{1, "text", true}[i])
+						}
+						if err := cb.CallWithEx(n, 1, 0); err != nil {
+							t.Fatal(err)
+						}
+						call, ok := cb.Get(-1).Val.(*ast.CallExpr)
+						if !ok {
+							t.Fatalf("call = %T, want call expression", cb.Get(-1).Val)
+						}
+						selector, ok := call.Fun.(*ast.SelectorExpr)
+						if !ok || selector.Sel.Name != "Choose__"+suffix {
+							t.Fatalf("selected call = %v, want Choose__%s", call.Fun, suffix)
+						}
+						cb.EndStmt()
+					}
+					if kind == "Function" && len(candidates) == 1 {
+						cb.NewVarStart(nil, "inferred").Val(overload).EndInit(1).
+							VarVal("inferred").Val(1).Call(1).EndStmt().
+							NewVarStart(candidates[0].Type(), "typed").Val(overload).EndInit(1).
+							VarVal("typed").Val(1).Call(1).EndStmt()
+					}
+					if !tt.zero {
+						push()
+						if err := cb.CallWithEx(0, 0, 0); err == nil {
+							t.Error("missing zero-argument overload was accepted")
+						}
+						cb.ResetStmt()
+					}
+					cb.End()
+					var output strings.Builder
+					if err := gogen.WriteTo(&output, pkg); err != nil {
+						t.Fatal(err)
+					}
+					file, err := parser.ParseFile(fixture.fset, "use.go", output.String(), 0)
+					if err != nil {
+						t.Fatal(err)
+					}
+					conf := types.Config{Importer: fixture.imp}
+					if _, err := conf.Check("example.com/use", fixture.fset, []*ast.File{file}, nil); err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestGoTypesPkg(t *testing.T) {
 	const src = `package foo
 
