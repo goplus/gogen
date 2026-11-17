@@ -3746,6 +3746,209 @@ func main() {
 `)
 }
 
+func testSliceOperand(t *testing.T, declarations, parameters, operandType string) {
+	t.Helper()
+	for _, full := range []bool{false, true} {
+		name, indices := "Simple", ":"
+		if full {
+			name, indices = "Full", ":3:4"
+		}
+		t.Run(name, func(t *testing.T) {
+			gt := newGoxTest()
+			sdk, err := gt.LoadGoPackage("fixture", "fixture.go", "package fixture\n"+declarations+
+				"\nfunc Operand"+parameters+"(value "+operandType+") {}\n")
+			if err != nil {
+				t.Fatal(err)
+			}
+			obj, ok := sdk.Scope().Lookup("Operand").(*types.Func)
+			if !ok {
+				t.Fatal("Operand is not a function")
+			}
+			sig, ok := obj.Type().(*types.Signature)
+			if !ok {
+				t.Fatal("Operand has no signature")
+			}
+			valueType := sig.Params().At(0).Type()
+			want, oracleErr := types.Eval(gt.fset, sdk, obj.Scope().End()-1, "value["+indices+"]")
+			pkg := gt.NewPackage("main", "main")
+			operand := source("value", 2, 5)
+			cb := pkg.CB().Val(types.NewVar(token.NoPos, pkg.Types, "value", valueType), operand).None()
+			if full {
+				cb.Val(3).Val(4)
+			} else {
+				cb.None()
+			}
+			if oracleErr != nil {
+				defer func() {
+					codeErr, ok := recover().(*gogen.CodeError)
+					if !ok {
+						t.Fatalf("want a CodeError, Go rejects the operand: %v", oracleErr)
+					}
+					if strings.Contains(oracleErr.Error(), "3-index slice of string") {
+						if !strings.Contains(codeErr.Msg, "3-index slice of string") {
+							t.Fatalf("unexpected string error: %v", codeErr)
+						}
+					} else {
+						if !strings.Contains(codeErr.Msg, "cannot slice value (type ") {
+							t.Fatalf("unexpected slice error: %v", codeErr)
+						}
+						if codeErr.Pos != operand.Pos() || codeErr.End != operand.End() {
+							t.Fatalf("error span = [%d, %d], want [%d, %d]", codeErr.Pos, codeErr.End, operand.Pos(), operand.End())
+						}
+					}
+				}()
+				cb.Slice(full, source("value["+indices+"]", 2, 5))
+				return
+			}
+			cb.Slice(full, source("value["+indices+"]", 2, 5))
+			got := cb.Get(-1)
+			if !types.Identical(got.Type, want.Type) {
+				t.Fatalf("slice type = %v, want %v", got.Type, want.Type)
+			}
+			expr, ok := got.Val.(*ast.SliceExpr)
+			if !ok {
+				t.Fatal("result is not a slice expression")
+			}
+			if expr.Slice3 != full {
+				t.Errorf("Slice3 = %v, want %v", expr.Slice3, full)
+			}
+		})
+	}
+}
+
+func TestCodeBuilderSliceOperands(t *testing.T) {
+	t.Run("UntypedString", func(t *testing.T) {
+		pkg := newMainPackage()
+		cb := pkg.CB().Val("abcd").None().None().Slice(false)
+		got := cb.Get(-1)
+		if got.Type != types.Typ[types.String] || got.CVal != nil {
+			t.Fatalf("string slice = (%v, %v), want (string, nil)", got.Type, got.CVal)
+		}
+	})
+
+	for _, tt := range []struct {
+		name, declarations, operandType string
+	}{
+		{"Slice", "", "[]int"},
+		{"Array", "", "[4]int"},
+		{"ArrayPointer", "", "*[4]int"},
+		{"String", "", "string"},
+		{"NamedSlice", "type Values []int", "Values"},
+		{"NamedArray", "type Values [4]int", "Values"},
+		{"NamedString", "type Text string", "Text"},
+		{"NamedPointer", "type Pointer *[4]int", "Pointer"},
+		{"PointerToNamedArray", "type Values [4]int", "*Values"},
+		{"SliceAlias", "type Values = []int", "Values"},
+		{"ArrayAlias", "type Values = [4]int", "Values"},
+		{"StringAlias", "type Text = string", "Text"},
+		{"PointerAlias", "type Pointer = *[4]int", "Pointer"},
+		{"PointerToArrayAlias", "type Values = [4]int", "*Values"},
+		{"Map", "", "map[string]int"},
+		{"Struct", "", "struct{ Value int }"},
+		{"Interface", "", "any"},
+		{"Channel", "", "chan int"},
+		{"Function", "", "func()"},
+		{"NamedFunction", "type Callback func()", "Callback"},
+		{"NamedMap", "type Values map[string]int", "Values"},
+		{"NamedStruct", "type Record struct{ Value int }", "Record"},
+		{"MapAlias", "type Values = map[string]int", "Values"},
+		{"FunctionAlias", "type Callback = func()", "Callback"},
+		{"SlicePointer", "", "*[]int"},
+		{"StringPointer", "", "*string"},
+		{"Integer", "", "int"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			testSliceOperand(t, tt.declarations, "", tt.operandType)
+		})
+	}
+}
+
+func TestCodeBuilderSliceTypeParameters(t *testing.T) {
+	for _, tt := range []struct {
+		name, declarations, constraint, operandType string
+	}{
+		{"Slice", "", "~[]int", "T"},
+		{"Array", "", "~[4]int", "T"},
+		{"ArrayPointer", "", "~*[4]int", "T"},
+		{"String", "", "~string", "T"},
+		{"StringOrBytes", "", "~string | ~[]byte", "T"},
+		{"ByteAlias", "type Byte = byte", "~string | ~[]Byte", "T"},
+		{"DefinedByte", "type Byte byte", "~string | ~[]Byte", "T"},
+		{"NamedSlices", "type A []int; type B []int", "A | B", "T"},
+		{"Intersection", "", "interface{~[]int | ~[]byte; ~[]int}", "T"},
+		{"Any", "", "any", "T"},
+		{"MethodsOnly", "", "interface{M()}", "T"},
+		{"MixedElements", "", "~[]int | ~[]byte", "T"},
+		{"MixedArrays", "", "~[3]int | ~[4]int", "T"},
+		{"MixedKinds", "", "~[]int | ~[4]int", "T"},
+		{"StringOrRunes", "", "~string | ~[]rune", "T"},
+		{"StringAndMixedSlices", "", "~string | ~[]byte | ~[]int", "T"},
+		{"Functions", "", "~func()", "T"},
+		{"Empty", "", "interface{int;string}", "T"},
+		{"Comparable", "", "comparable", "T"},
+		{"ComparableSlice", "", "interface{comparable; ~[]int}", "T"},
+		{"ComparableArray", "", "interface{comparable; ~[]int | ~[4]int}", "T"},
+		{"ComparableArrayWithInterface", "", "interface{comparable; ~[4]any}", "T"},
+		{"ComparableString", "", "interface{comparable; ~string | ~[]byte}", "T"},
+		{"ComparablePointer", "", "interface{comparable; ~[]int | ~*[4]int}", "T"},
+		{"ComparableNamedArray", "type Values []int; type Array [4]int", "interface{comparable; Values | Array}", "T"},
+		{"NestedComparable", "type Constraint interface{comparable}", "interface{Constraint; ~[]int | ~[4]int}", "T"},
+		{"PointerToArrayParameter", "", "~[4]int", "*T"},
+		{"PointerToSliceParameter", "", "~[]int", "*T"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			testSliceOperand(t, tt.declarations, "[T "+tt.constraint+"]", tt.operandType)
+		})
+	}
+}
+
+func TestCodeBuilderSliceGenericFunctions(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		arguments int
+	}{
+		{"Generic", 0},
+		{"Partial", 1},
+		{"Instantiated", 2},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gt := newGoxTest()
+			sdk, err := gt.LoadGoPackage("fixture", "fixture.go", `package fixture
+func Pair[T, U any](first T, second U) T { return first }
+`)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pkg := gt.NewPackage("main", "main")
+			operand := source("fixture.Pair", 3, 5)
+			cb := pkg.CB().Val(sdk.Scope().Lookup("Pair"), operand)
+			for range tt.arguments {
+				cb.Typ(types.Typ[types.Int])
+			}
+			if tt.arguments != 0 {
+				cb.Index(tt.arguments, 1, operand)
+			}
+			cb.None().None()
+			defer func() {
+				codeErr, ok := recover().(*gogen.CodeError)
+				if !ok {
+					t.Fatal("want a CodeError for slicing a function")
+				}
+				if !strings.Contains(codeErr.Msg, "cannot slice fixture.Pair (type func[") && !strings.Contains(codeErr.Msg, "cannot slice fixture.Pair (type func(") {
+					t.Fatalf("unexpected error: %v", codeErr)
+				}
+				if strings.Contains(codeErr.Msg, "inferFuncType{") {
+					t.Fatal("error exposes inference internals")
+				}
+				if codeErr.Pos != operand.Pos() || codeErr.End != operand.End() {
+					t.Fatalf("incorrect slice error span: %v", codeErr)
+				}
+			}()
+			cb.Slice(false, source("fixture.Pair[:]", 3, 5))
+		})
+	}
+}
+
 func TestIndex(t *testing.T) {
 	pkg := newMainPackage()
 
