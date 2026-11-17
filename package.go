@@ -175,7 +175,9 @@ func (p *astVisitor) Visit(node ast.Node) (w ast.Visitor) {
 			ast.Walk(p, val)
 		}
 	case *ast.TypeSpec:
-		ast.Walk(p, v.Type)
+		if !isEmptyTypeSpec(v) {
+			return p
+		}
 	case *ast.BranchStmt:
 	case *ast.LabeledStmt:
 		ast.Walk(p, v.Stmt)

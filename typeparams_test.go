@@ -16,6 +16,7 @@
 package gogen_test
 
 import (
+	"bytes"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -1192,6 +1193,95 @@ func main() {
 	test[string]("hello", 100, 200)
 }
 `)
+}
+
+func TestTypeParamsConstraintImports(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		typeName string
+		alias    bool
+		deleted  bool
+		grouped  bool
+		want     string
+	}{
+		{
+			name:     "Named",
+			typeName: "Values",
+			want: `package example
+
+import "cmp"
+
+type Values[T cmp.Ordered] []T
+`,
+		},
+		{
+			name:     "Alias",
+			typeName: "Values",
+			alias:    true,
+			want: `package example
+
+import "cmp"
+
+type Values[T cmp.Ordered] = []T
+`,
+		},
+		{
+			name:     "RenamedImport",
+			typeName: "cmp",
+			want: `package example
+
+import cmp1 "cmp"
+
+type cmp[T cmp1.Ordered] []T
+`,
+		},
+		{
+			name:     "Deleted",
+			typeName: "Values",
+			deleted:  true,
+			want:     "package example\n",
+		},
+		{
+			name:     "DeletedFromGroup",
+			typeName: "Values",
+			deleted:  true,
+			grouped:  true,
+			want:     "package example\n\ntype Remaining int\n",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.alias && !isLeastGo(24) {
+				t.Skip("generic type aliases require Go 1.24")
+			}
+			gt := newGoxTest()
+			pkg := gt.NewPackage("example", "example")
+			pkg.Import("fmt")
+			constraint := pkg.Import("cmp").Ref("Ordered").Type()
+			param := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), constraint)
+			underlying := types.NewSlice(param)
+			defs := pkg.NewTypeDefs()
+			decl := defs.NewType(tt.typeName, []*gogen.TypeParam{param})
+			if tt.alias {
+				decl.AliasType(pkg, underlying)
+			} else {
+				decl.InitType(pkg, underlying)
+			}
+			if tt.deleted {
+				decl.Delete()
+			}
+			if tt.grouped {
+				defs.NewType("Remaining", nil).InitType(pkg, types.Typ[types.Int])
+			}
+			var out bytes.Buffer
+			if err := gogen.WriteTo(&out, pkg); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := gt.LoadGoPackage("example", "generated.go", out.String()); err != nil {
+				t.Fatalf("generated code does not type check: %v\n%s", err, out.String())
+			}
+			domTest(t, pkg, tt.want)
+		})
+	}
 }
 
 func TestGenTypeParamsType(t *testing.T) {
