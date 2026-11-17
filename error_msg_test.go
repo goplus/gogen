@@ -1638,6 +1638,28 @@ func TestErrSlice(t *testing.T) {
 				EndStmt().
 				End()
 		})
+
+	for _, tt := range []struct {
+		name  string
+		alias bool
+	}{
+		{"DefinedString", false},
+		{"AliasString", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			codeErrorTest(t,
+				"./foo.gop:1:5: invalid operation x[1:3:5] (3-index slice of string)",
+				func(pkg *gogen.Package) {
+					var typ types.Type = pkg.NewType("Text").InitType(pkg, types.Typ[types.String])
+					if tt.alias {
+						typ = aliasType(pkg, "Alias", typ)
+					}
+					pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+						NewVar(typ, "x").Val(ctxRef(pkg, "x")).Val(1).Val(3).Val(5).
+						Slice(true, source("x[1:3:5]", 1, 5)).EndStmt().End()
+				})
+		})
+	}
 }
 
 func TestErrIndex(t *testing.T) {

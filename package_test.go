@@ -3746,6 +3746,144 @@ func main() {
 `)
 }
 
+func TestSliceResultType(t *testing.T) {
+	for _, tt := range []struct {
+		name, declarations, operand string
+		full                        bool
+	}{
+		{"Array", "", "[4]int", true},
+		{"DefinedArray", "type Values [4]int", "Values", true},
+		{"ArrayPointer", "", "*[4]int", true},
+		{"DefinedArrayPointer", "type Values [4]int", "*Values", true},
+		{"DefinedPointer", "type Pointer *[4]int", "Pointer", true},
+		{"DefinedPointerToDefinedArray", "type Values [4]int; type Pointer *Values", "Pointer", true},
+		{"GenericArray", "type Values[T any] [4]T", "Values[int]", true},
+		{"AliasedElement", "type Item = int; type Values [4]Item", "Values", true},
+		{"ArrayAlias", "type Values = [4]int", "Values", true},
+		{"DefinedArrayAlias", "type Values [4]int; type Alias = Values", "Alias", true},
+		{"ArrayAliasPointer", "type Values = [4]int", "*Values", true},
+		{"PointerAlias", "type Values [4]int; type Pointer = *Values", "Pointer", true},
+		{"AliasChain", "type Values [4]int; type Alias = Values; type Next = Alias", "Next", true},
+		{"Slice", "", "[]int", true},
+		{"DefinedSlice", "type Values []int", "Values", true},
+		{"SliceAlias", "type Values = []int", "Values", true},
+		{"DefinedSliceAlias", "type Values []int; type Alias = Values", "Alias", true},
+		{"String", "", "string", false},
+		{"DefinedString", "type Text string", "Text", false},
+		{"StringAlias", "type Text = string", "Text", false},
+		{"DefinedStringAlias", "type Text string; type Alias = Text", "Alias", false},
+		{"UntypedString", "", "\"abcd\"", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, full := range []bool{false, true} {
+				if full && !tt.full {
+					continue
+				}
+				name, indices := "Simple", "1:3"
+				if full {
+					name, indices = "Full", "1:3:4"
+				}
+				t.Run(name, func(t *testing.T) {
+					operand, declaration := "value", "var value "+tt.operand
+					if tt.name == "UntypedString" {
+						operand, declaration = tt.operand, ""
+					}
+					fset := token.NewFileSet()
+					file, err := parser.ParseFile(fset, "slice.go", "package main\n"+tt.declarations+"\n"+declaration, 0)
+					if err != nil {
+						t.Fatal(err)
+					}
+					checked, err := new(types.Config).Check("main", fset, []*ast.File{file}, nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					want, err := types.Eval(fset, checked, token.NoPos, operand+"["+indices+"]")
+					if err != nil {
+						t.Fatal(err)
+					}
+					pkg := gogen.NewPackage("main", "main", &gogen.Config{Types: checked, Fset: fset})
+					cb := pkg.CB()
+					if tt.name == "UntypedString" {
+						cb.Val("abcd")
+					} else {
+						cb.Val(checked.Scope().Lookup("value"))
+					}
+					operandType := cb.Get(-1).Type
+					cb.Val(1).Val(3)
+					if full {
+						cb.Val(4)
+					}
+					cb.Slice(full)
+					got := cb.Get(-1).Type
+					if !types.Identical(got, want.Type) || got.String() != want.Type.String() {
+						t.Fatalf("slice type = %v, want %v", got, want.Type)
+					}
+					if want.Type == operandType && got != operandType {
+						t.Fatalf("slice type did not preserve %v", operandType)
+					}
+					if cb.Get(-1).CVal != nil {
+						t.Fatal("slice expression is constant")
+					}
+				})
+			}
+		})
+	}
+
+	t.Run("IncompleteGenericFunction", func(t *testing.T) {
+		gox := newGoxTest()
+		sdk, err := gox.LoadGoPackage("example.com/sdk", "sdk.go", "package sdk\nfunc Pair[T, U any](value T, other U) T { return value }")
+		if err != nil {
+			t.Fatal(err)
+		}
+		pkg := gox.NewPackage("main", "main")
+		defer func() {
+			value := recover()
+			err, ok := value.(*gogen.CodeError)
+			if !ok || !strings.Contains(err.Error(), "cannot infer U") {
+				t.Fatalf("got %v, want a cannot-infer CodeError", value)
+			}
+		}()
+		pkg.CB().NewVarStart(nil, "result").Val(sdk.Scope().Lookup("Pair")).
+			Typ(types.Typ[types.Int]).Index(1, 0).None().None().Slice(false).EndInit(1)
+	})
+
+	t.Run("DelayedArray", func(t *testing.T) {
+		for _, tt := range []struct {
+			name           string
+			alias, pointer bool
+		}{
+			{"Value", false, false},
+			{"Pointer", false, true},
+			{"Alias", true, false},
+			{"PointerToAlias", true, true},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				loaded := false
+				pkg := gogen.NewPackage("main", "main", &gogen.Config{
+					LoadNamed: func(at *gogen.Package, typ *types.Named) {
+						loaded = true
+						typ.SetUnderlying(types.NewArray(types.Typ[types.Int], 4))
+					},
+				})
+				var operand types.Type = types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "Values", nil), nil, nil)
+				if tt.alias {
+					operand = types.NewAlias(types.NewTypeName(token.NoPos, pkg.Types, "Alias", nil), operand)
+				}
+				if tt.pointer {
+					operand = types.NewPointer(operand)
+				}
+				cb := pkg.CB().Val(types.NewVar(token.NoPos, pkg.Types, "value", operand)).None().None().Slice(false)
+				if !loaded {
+					t.Fatal("array type was not loaded")
+				}
+				if got, want := cb.Get(-1).Type, types.NewSlice(types.Typ[types.Int]); !types.Identical(got, want) {
+					t.Fatalf("slice type = %v, want %v", got, want)
+				}
+			})
+		}
+	})
+}
+
 func TestIndex(t *testing.T) {
 	pkg := newMainPackage()
 
