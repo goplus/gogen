@@ -410,7 +410,11 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	args := p.stk.GetArgs(n)
 	x := args[0]
 	typ := x.Type
-	switch t := typ.(type) {
+	underlying := types.Unalias(typ)
+	if named, ok := underlying.(*types.Named); ok {
+		underlying = p.getUnderlying(named)
+	}
+	switch t := underlying.(type) {
 	case *types.Slice:
 		// nothing to do
 	case *types.Basic:
@@ -419,6 +423,9 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 				code, pos, end := p.loadExpr(srcExpr)
 				p.panicCodeErrorf(pos, end, "invalid operation %s (3-index slice of string)", code)
 			}
+			if t.Kind() == types.UntypedString {
+				typ = types.Typ[types.String]
+			}
 		} else {
 			code, pos, end := p.loadExpr(x.Src)
 			p.panicCodeErrorf(pos, end, "cannot slice %s (type %v)", code, typ)
@@ -426,7 +433,11 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	case *types.Array:
 		typ = types.NewSlice(t.Elem())
 	case *types.Pointer:
-		if tt, ok := t.Elem().(*types.Array); ok {
+		elem := types.Unalias(t.Elem())
+		if named, ok := elem.(*types.Named); ok {
+			elem = p.getUnderlying(named)
+		}
+		if tt, ok := elem.(*types.Array); ok {
 			typ = types.NewSlice(tt.Elem())
 		} else {
 			code, pos, end := p.loadExpr(x.Src)
