@@ -133,6 +133,26 @@ func TestBigRatConstant(t *testing.T) {
 	}
 }
 
+func TestXGoUntypedConstantConversion(t *testing.T) {
+	for _, name := range []string{"Named", "Alias"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := newXGoMainPackage()
+			typ := pkg.Import("github.com/goplus/gogen/internal/builtin").Ref("XGo_untyped_bigint").Type()
+			if name == "Alias" {
+				typ = aliasType(pkg, "Big", typ)
+			}
+			cb := pkg.CB().Typ(typ).UntypedBigInt(big.NewInt(65)).Call(1)
+			result := cb.Get(-1)
+			if result.Type != typ {
+				t.Fatalf("type = %v, want %v", result.Type, typ)
+			}
+			if result.CVal == nil || result.CVal.Kind() != constant.Int || result.CVal.ExactString() != "65" {
+				t.Fatalf("constant value = %v, want 65", result.CVal)
+			}
+		})
+	}
+}
+
 func TestBigIntVar(t *testing.T) {
 	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
@@ -485,6 +505,10 @@ func main() {
 	a.XGo_AddAssign(builtin.XGo_bigrat_Init__0(1))
 }
 `)
+}
+
+func TestXGoConstantDivisionOverflow(t *testing.T) {
+	testConstantDivisionOverflow(t, newXGoMainPackage)
 }
 
 func TestUntypedBigIntQuo(t *testing.T) {

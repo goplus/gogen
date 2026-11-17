@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/target/util"
@@ -504,16 +505,40 @@ retry:
 	return false
 }
 
-func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.Value {
+// binaryOp evaluates a constant binary operation after converting untyped operands.
+func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) (constant.Value, error) {
 	if len(args) == 2 {
 		if a, b := args[0].CVal, args[1].CVal; a != nil && b != nil {
+			if binaryOpKinds[tok] != binaryOpShift {
+				untyped0 := isUntyped(cb.pkg, types.Unalias(args[0].Type))
+				untyped1 := isUntyped(cb.pkg, types.Unalias(args[1].Type))
+				if untyped0 != untyped1 {
+					i := 1
+					if untyped0 {
+						i = 0
+					}
+					typ := args[1-i].Type
+					if isNumeric(cb, typ) && types.AssignableTo(args[i].Type, typ) {
+						value, err := convertConst(cb.pkg, typ, args[i])
+						if err != nil {
+							return nil, err
+						}
+						arg := *args[i]
+						arg.Type, arg.CVal = typ, value
+						operands := [2]*internal.Elem{args[0], args[1]}
+						operands[i] = &arg
+						args = operands[:]
+						a, b = args[0].CVal, args[1].CVal
+					}
+				}
+			}
 			if tok == token.QUO && isNormalInt(cb, args[0]) && isNormalInt(cb, args[1]) {
 				tok = token.QUO_ASSIGN // issue #805
 			}
-			return doBinaryOp(a, tok, b, args)
+			return doBinaryOp(a, tok, b, args), nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func isBool(cb *CodeBuilder, arg *internal.Elem) bool { // is bool
@@ -616,8 +641,23 @@ func getParam1st(sig *types.Signature) int {
 	return 0
 }
 
-// TODO: check if fn.recv != nil
+// constantEvalError marks a constant evaluation error that must stop overload resolution.
+type constantEvalError struct {
+	error
+}
+
+// matchFuncCall matches a call and returns the original diagnostic on failure.
 func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, lhs int, flags InstrFlags) (ret *internal.Elem, err error) {
+	ret, err = matchFuncCandidate(pkg, fn, args, lhs, flags)
+	if opErr, ok := err.(constantEvalError); ok {
+		err = opErr.error
+	}
+	return
+}
+
+// matchFuncCandidate keeps constant evaluation errors distinct from candidate mismatches.
+// TODO: check if fn.recv != nil
+func matchFuncCandidate(pkg *Package, fn *internal.Elem, args []*internal.Elem, lhs int, flags InstrFlags) (ret *internal.Elem, err error) {
 	fnType := fn.Type
 	if debugMatch {
 		ft := fnType
@@ -657,7 +697,7 @@ retry:
 			case *TyOverloadFunc:
 				backup := backupArgs(args)
 				for _, o := range ft.Funcs {
-					if ret, err = matchFuncCall(pkg, chgObject(pkg, o, fn), args, lhs, flags); err == nil {
+					if ret, err = matchFuncCandidate(pkg, chgObject(pkg, o, fn), args, lhs, flags); err == nil {
 						if ret.CVal == nil && isUntyped(pkg, ret.Type) {
 							ret.CVal = tryBuiltinCall(fn, args, false)
 						}
@@ -667,6 +707,9 @@ retry:
 						return
 					}
 					restoreArgs(args, backup)
+					if _, ok := err.(constantEvalError); ok {
+						return
+					}
 				}
 				return
 			case *TyOverloadMethod:
@@ -732,7 +775,10 @@ retry:
 		if t.isUnaryOp() {
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
-			cval = binaryOp(&pkg.cb, t.tok(), args)
+			cval, err = binaryOp(&pkg.cb, t.tok(), args)
+			if err != nil {
+				return nil, constantEvalError{err}
+			}
 			if binaryOpKinds[t.tok()] == binaryOpShift && isUntyped(pkg, args[0].Type) {
 				flags |= instrFlagUntyped
 			}
@@ -740,7 +786,16 @@ retry:
 			cval = tryBuiltinCall(fn, args, true)
 		}
 		if cval != nil {
-			flags |= instrFlagUntyped
+			typedNumeric := false
+			for _, arg := range args {
+				if !isUntyped(pkg, types.Unalias(arg.Type)) && isNumeric(&pkg.cb, arg.Type) {
+					typedNumeric = true
+					break
+				}
+			}
+			if !typedNumeric || t.isOp() && binaryOpKinds[t.tok()] == binaryOpCompare {
+				flags |= instrFlagUntyped
+			}
 		}
 		if t.hasApproxType() {
 			flags |= instrFlagApproxType
@@ -798,9 +853,23 @@ retry:
 			args = newArgs
 		}
 	}
-	if flags&instrFlagUntyped == 0 {
+	if flags&instrFlagUntyped == 0 && cval == nil {
 		if err = matchFuncType(pkg, args, lhs, flags, sig, fn); err != nil {
 			return
+		}
+	}
+	if cval != nil && flags&instrFlagUntyped == 0 {
+		for i, arg := range args {
+			if isUntyped(pkg, types.Unalias(arg.Type)) {
+				last := getParamLen(sig) - 1
+				typ := getParam(sig, min(i, last)).Type()
+				if sig.Variadic() && i >= last {
+					typ = typ.(*types.Slice).Elem()
+				}
+				if _, err = convertConst(pkg, typ, arg); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 	tyRet := toRetType(sig.Results())
@@ -826,7 +895,15 @@ retry:
 			}
 		}
 	}
-	if cval != nil { // untyped bigint/bigrat
+	if cval != nil {
+		src := fn.Src
+		if src == nil && len(args) != 0 {
+			src = args[0].Src
+		}
+		cval, err = convertConst(pkg, tyRet, &internal.Elem{Type: tyRet, CVal: cval, Src: src})
+		if err != nil {
+			return nil, constantEvalError{err}
+		}
 		if ret, ok := untypeBig(pkg, cval, tyRet); ok {
 			return ret, nil
 		}
@@ -845,22 +922,6 @@ retry:
 		valArgs = make([]target.Expr, n-recv)
 		for i := recv; i < n; i++ {
 			valArgs[i-recv] = args[i].Val
-		}
-	}
-
-	// For constant-folded template functions with all untyped args, preserve untyped type
-	// to match Go compiler behavior. This is needed because template type inference converts
-	// untyped to concrete types.
-	if cval != nil && len(args) > 0 {
-		allUntyped := true
-		for _, arg := range args {
-			if !isUntyped(pkg, arg.Type) {
-				allUntyped = false
-				break
-			}
-		}
-		if allUntyped {
-			tyRet = args[0].Type
 		}
 	}
 
@@ -986,10 +1047,95 @@ finish:
 		Val:  &target.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 		Type: typ,
 	}
-	if len(args) == 1 { // TODO(xsw): const value may changed by type-convert
-		ret.CVal = args[0].CVal
+	if len(args) == 1 {
+		ret.CVal, err = convertConst(pkg, typ, args[0])
 	}
 	return
+}
+
+// convertConst computes a conversion's constant value, or nil for non-constant
+// results. It rounds numeric values to the destination precision and preserves
+// XGo untyped numeric values.
+func convertConst(pkg *Package, typ types.Type, arg *internal.Elem) (constant.Value, error) {
+	v := arg.CVal
+	if v == nil || isUntyped(pkg, types.Unalias(typ)) {
+		return v, nil
+	}
+	t, ok := getUnderlying(pkg, typ).(*types.Basic)
+	if !ok {
+		return nil, nil
+	}
+	switch {
+	case t.Info()&types.IsNumeric != 0:
+		if isNumeric(&pkg.cb, arg.Type) {
+			v = convertNumericConst(t, v)
+		} else {
+			v = constant.MakeUnknown()
+		}
+	case t.Info()&types.IsString != 0:
+		switch {
+		case isBasicKind(&pkg.cb, arg, types.IsString):
+		case isNormalInt(&pkg.cb, arg):
+			v = constant.ToInt(v)
+			if v.Kind() == constant.Int {
+				codepoint := unicode.ReplacementChar
+				if i, ok := constant.Uint64Val(v); ok && i <= unicode.MaxRune {
+					codepoint = rune(i)
+				}
+				v = constant.MakeString(string(codepoint))
+			}
+		default:
+			v = constant.MakeUnknown()
+		}
+	case t.Info()&types.IsBoolean != 0:
+		if !isBasicKind(&pkg.cb, arg, types.IsBoolean) {
+			v = constant.MakeUnknown()
+		}
+	default:
+		return nil, nil
+	}
+	if v.Kind() == constant.Unknown {
+		return nil, pkg.cb.newCodeErrorf(getSrcPos(arg.Src), getSrcEnd(arg.Src),
+			"cannot convert constant %v to type %v", arg.CVal, typ)
+	}
+	return v, nil
+}
+
+// convertNumericConst converts v to a typed numeric basic type.
+func convertNumericConst(typ *types.Basic, v constant.Value) constant.Value {
+	switch {
+	case typ.Info()&types.IsInteger != 0:
+		v = constant.ToInt(v)
+		if v.Kind() == constant.Int && outOfRange(typ.Kind(), v) {
+			return constant.MakeUnknown()
+		}
+		return v
+	case typ.Info()&types.IsFloat != 0:
+		return roundFloatConst(v, typ.Kind() == types.Float32)
+	default:
+		v = constant.ToComplex(v)
+		if v.Kind() == constant.Unknown {
+			return v
+		}
+		is32 := typ.Kind() == types.Complex64
+		re := roundFloatConst(constant.Real(v), is32)
+		im := roundFloatConst(constant.Imag(v), is32)
+		return constant.BinaryOp(re, token.ADD, constant.MakeImag(im))
+	}
+}
+
+// roundFloatConst rounds v to the precision of float32 or float64.
+func roundFloatConst(v constant.Value, is32 bool) constant.Value {
+	v = constant.ToFloat(v)
+	if v.Kind() == constant.Unknown {
+		return v
+	}
+	if is32 {
+		f, _ := constant.Float32Val(v)
+		return constant.MakeFloat64(float64(f))
+	}
+	f, _ := constant.Float64Val(v)
+	return constant.MakeFloat64(f)
 }
 
 func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type, lhs int, flags InstrFlags) (ret *internal.Elem, err error) {
