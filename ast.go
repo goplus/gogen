@@ -630,6 +630,7 @@ func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, lhs i
 	}
 	var sig *types.Signature
 	var cval constant.Value
+	var constBuiltin bool
 retry:
 	switch t := fnType.(type) {
 	case *types.Signature:
@@ -658,8 +659,14 @@ retry:
 				backup := backupArgs(args)
 				for _, o := range ft.Funcs {
 					if ret, err = matchFuncCall(pkg, chgObject(pkg, o, fn), args, lhs, flags); err == nil {
-						if ret.CVal == nil && isUntyped(pkg, ret.Type) {
-							ret.CVal = tryBuiltinCall(fn, args, false)
+						if o.Pkg() == pkg.builtin.Types {
+							value := tryBuiltinCall(fn, args, true)
+							if ret.CVal == nil && isUntyped(pkg, ret.Type) {
+								ret.CVal = value
+							}
+							if call, ok := ret.Val.(*target.CallExpr); ok && value != nil {
+								recordNonFuncCall(call)
+							}
 						}
 						if pkg.cb.rec != nil {
 							pkg.cb.rec.Call(fn.Src, o)
@@ -738,6 +745,7 @@ retry:
 			}
 		} else {
 			cval = tryBuiltinCall(fn, args, true)
+			constBuiltin = cval != nil
 		}
 		if cval != nil {
 			flags |= instrFlagUntyped
@@ -864,11 +872,11 @@ retry:
 		}
 	}
 
-	return &internal.Elem{
-		Type: tyRet, CVal: cval,
-		Val: &target.CallExpr{
-			Fun: fn.Val, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
-	}, nil
+	call := &target.CallExpr{Fun: fn.Val, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)}
+	if constBuiltin {
+		recordNonFuncCall(call)
+	}
+	return &internal.Elem{Val: call, Type: tyRet, CVal: cval}, nil
 }
 
 // isParamOptional checks if a parameter is marked as optional.
@@ -982,10 +990,9 @@ finish:
 	for i, v := range args { // TODO(xsw): type check
 		valArgs[i] = v.Val
 	}
-	ret = &internal.Elem{
-		Val:  &target.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
-		Type: typ,
-	}
+	call := &target.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)}
+	ret = &internal.Elem{Val: call, Type: typ}
+	recordNonFuncCall(call)
 	if len(args) == 1 { // TODO(xsw): const value may changed by type-convert
 		ret.CVal = args[0].CVal
 	}

@@ -18,6 +18,7 @@ limitations under the License.
 package gogen_test
 
 import (
+	"bytes"
 	"go/ast"
 	"go/constant"
 	"go/parser"
@@ -1469,6 +1470,528 @@ func TestConstLenCap(t *testing.T) {
 	tv = pkg.ConstStart().Val(pkg.Builtin().Ref("cap")).Val(pkg.Ref("parray")).Call(1).EndConst()
 	if constant.Compare(tv.CVal, token.NEQ, constant.MakeInt64(10)) {
 		t.Fatal("TestConst: != 10, it is", tv.CVal)
+	}
+}
+
+func TestLenCapDefinedOperands(t *testing.T) {
+	const fixture = `package fixture
+
+type Array [2]int
+type ArrayAlias = Array
+type Pointer *ArrayAlias
+type PointerAlias = Pointer
+type Generic[T any] [2]T
+type Bytes []byte
+type PlainArrayAlias = [2]int
+
+var Value Array
+var Aliased ArrayAlias
+var PlainPointer *Array
+var NamedPointer Pointer
+var AliasedPointer PointerAlias
+var GenericValue Generic[int]
+var Arrays chan Array
+var Pointers chan Pointer
+var Slice Bytes
+var PointerToAlias *PlainArrayAlias
+
+func MakeArray() Array { return Array{} }
+func MakePointer() Pointer { return nil }
+`
+	for _, tt := range []struct {
+		name, operand string
+		build         func(*gogen.CodeBuilder)
+		wantConst     bool
+	}{
+		{name: "Array", operand: "Value", wantConst: true},
+		{name: "ArrayAlias", operand: "Aliased", wantConst: true},
+		{name: "PointerToArray", operand: "PlainPointer", wantConst: true},
+		{name: "DefinedPointer", operand: "NamedPointer", wantConst: true},
+		{name: "PointerAlias", operand: "AliasedPointer", wantConst: true},
+		{name: "GenericArray", operand: "GenericValue", wantConst: true},
+		{name: "ArrayCall", operand: "MakeArray", build: func(cb *gogen.CodeBuilder) { cb.Call(0) }},
+		{name: "PointerCall", operand: "MakePointer", build: func(cb *gogen.CodeBuilder) { cb.Call(0) }},
+		{name: "ArrayReceive", operand: "Arrays", build: func(cb *gogen.CodeBuilder) { cb.UnaryOp(token.ARROW) }},
+		{name: "PointerReceive", operand: "Pointers", build: func(cb *gogen.CodeBuilder) { cb.UnaryOp(token.ARROW) }},
+		{name: "Slice", operand: "Slice"},
+		{name: "PointerToAlias", operand: "PointerToAlias", wantConst: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, builtin := range []string{"len", "cap"} {
+				t.Run(builtin, func(t *testing.T) {
+					gt := newGoxTest()
+					sdk, err := gt.LoadGoPackage("fixture", "fixture.go", fixture)
+					if err != nil {
+						t.Fatal(err)
+					}
+					pkg := gt.NewPackage("main", "main")
+					var cb *gogen.CodeBuilder
+					if tt.wantConst {
+						cb = pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "size")
+					} else {
+						cb = pkg.NewVarStart(token.NoPos, nil, "size")
+					}
+					cb.Val(pkg.Builtin().Ref(builtin)).Val(sdk.Scope().Lookup(tt.operand))
+					if tt.build != nil {
+						tt.build(cb)
+					}
+					cb.Call(1)
+					got := cb.Get(-1)
+					if got.Type != types.Typ[types.Int] {
+						t.Errorf("type = %v, want int", got.Type)
+					}
+					if tt.wantConst {
+						if got.CVal == nil || got.CVal.ExactString() != "2" {
+							t.Fatalf("constant value = %v, want 2", got.CVal)
+						}
+					} else if got.CVal != nil {
+						t.Fatalf("constant value = %v, want nil", got.CVal)
+					}
+					cb.EndInit(1)
+					var out bytes.Buffer
+					if err := pkg.WriteTo(&out); err != nil {
+						t.Fatal(err)
+					}
+					if _, err := gt.LoadGoPackage("main", "generated.go", out.String()); err != nil {
+						t.Fatalf("generated source does not type check: %v\n%s", err, out.String())
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestLenCapSharedCallee(t *testing.T) {
+	for _, builtin := range []struct{ name, value string }{{"Len", "len"}, {"Cap", "cap"}} {
+		t.Run(builtin.name, func(t *testing.T) {
+			pkg := newMainPackage()
+			cb := pkg.CB()
+			cb.NewVar(types.Typ[types.Int], "value")
+			cb.Val(pkg.Builtin().Ref("min"))
+			fn := cb.Get(-1)
+			cb.ResetStmt()
+			id, ok := fn.Val.(*ast.Ident)
+			if !ok {
+				t.Fatalf("callee = %T, want *ast.Ident", fn.Val)
+			}
+			obj := ast.NewObj(ast.Fun, "min")
+			obj.Data = "original"
+			id.Obj = obj
+
+			cb.Val(fn).Val(1).Val(2).Call(2)
+			folded := cb.Get(-1)
+			cb.ResetStmt()
+			cb.Val(fn).VarVal("value").Val(2).Call(2)
+			nonconstant := cb.Get(-1)
+			cb.ResetStmt()
+			if id.Obj != obj || id.Obj.Data != "original" {
+				t.Fatal("call classification changed the shared callee")
+			}
+
+			cb.Val(pkg.Builtin().Ref(builtin.value)).Val(folded).
+				ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false).Call(1)
+			got := cb.Get(-1).CVal
+			if got == nil || got.ExactString() != "2" {
+				t.Fatalf("constant value = %v, want 2", got)
+			}
+			cb.ResetStmt()
+			cb.Val(pkg.Builtin().Ref(builtin.value)).Val(nonconstant).
+				ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false).Call(1)
+			if got := cb.Get(-1).CVal; got != nil {
+				t.Fatalf("constant value = %v, want nil", got)
+			}
+		})
+	}
+}
+
+func TestLenCapReusedExpression(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		build func(*gogen.Package) *gogen.Element
+		array bool
+	}{
+		{"PointerConversion", func(pkg *gogen.Package) *gogen.Element {
+			pkg.CB().Typ(types.NewPointer(types.NewArray(types.Typ[types.Int], 2))).Val(nil).Call(1)
+			return pkg.CB().Get(-1)
+		}, false},
+		{"BasicConversion", func(pkg *gogen.Package) *gogen.Element {
+			pkg.CB().Typ(types.Typ[types.Int]).Val(1).Call(1)
+			return pkg.CB().Get(-1)
+		}, true},
+		{"ConstantBuiltin", func(pkg *gogen.Package) *gogen.Element {
+			pkg.CB().Val(pkg.Builtin().Ref("len")).Val("hi").Call(1)
+			return pkg.CB().Get(-1)
+		}, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, builtin := range []struct{ name, value string }{{"Len", "len"}, {"Cap", "cap"}} {
+				t.Run(builtin.name, func(t *testing.T) {
+					first := newMainPackage()
+					operand := tt.build(first)
+					second := newMainPackage()
+					cb := second.CB().Val(second.Builtin().Ref(builtin.value)).Val(operand)
+					if tt.array {
+						cb.ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+					}
+					cb.Call(1)
+					result := cb.Get(-1)
+					if result.CVal == nil || result.CVal.ExactString() != "2" {
+						t.Fatalf("constant value = %v, want 2", result.CVal)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestLenCapConstantOperandBoundary(t *testing.T) {
+	const operand = "string(unsafe.Sizeof(func() [2]int { return [2]int{} }()))"
+	fset := token.NewFileSet()
+	checked := types.NewPackage("checked", "checked")
+	checked.Scope().Insert(types.NewPkgName(token.NoPos, checked, "unsafe", types.Unsafe))
+	for _, builtin := range []struct{ name, value string }{{"Len", "len"}, {"Cap", "cap"}} {
+		t.Run(builtin.name, func(t *testing.T) {
+			text := builtin.value + "([2]int{len(" + operand + ")})"
+			expr, err := parser.ParseExprFrom(fset, "oracle.go", text, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			info := &types.Info{Types: make(map[ast.Expr]types.TypeAndValue)}
+			if err := types.CheckExpr(fset, checked, token.NoPos, expr, info); err != nil {
+				t.Fatal(err)
+			}
+			want := info.Types[expr].Value
+			if want == nil {
+				t.Fatal("Go expression is not constant")
+			}
+
+			arg, err := parser.ParseExprFrom(fset, "operand.go", operand, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := types.CheckExpr(fset, checked, token.NoPos, arg, info); err != nil {
+				t.Fatal(err)
+			}
+			typed := info.Types[arg]
+			pkg := newMainPackage()
+			cb := pkg.CB().Val(pkg.Builtin().Ref(builtin.value)).
+				Val(pkg.Builtin().Ref("len")).
+				Val(&gogen.Element{Val: arg, Type: typed.Type, CVal: typed.Value}).Call(1).
+				ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false).Call(1)
+			got := cb.Get(-1).CVal
+			if got == nil || got.ExactString() != want.ExactString() {
+				t.Fatalf("constant value = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestLenCapEvaluation(t *testing.T) {
+	const fixture = `package fixture
+
+var Array [2]int
+var Pointer *[2]int
+var Arrays chan [2]int
+var Pointers chan *[2]int
+var Ints chan int
+var Value int
+var Flag bool
+var Slice []int
+var FloatValue float32
+var ComplexValue complex64
+
+func ArrayCall() [2]int { return [2]int{} }
+func PointerCall() *[2]int { return nil }
+func ScalarCall() int { return 1 }
+func Operator(x, y int) int { return x + y }
+func StructCall() struct { Value int } { return struct { Value int }{} }
+var FactoryPointer *func() [2]int
+type Box[T any] struct { Value T }
+type Pair[A, B any] struct { First A; Second B }
+var BoxValue struct { Value int }
+var PairValue struct { First int; Second string }
+func Generic[T any]() [2]int { return [2]int{} }
+func GenericPair[A, B any]() [2]int { return [2]int{} }
+
+type CastType struct { Value int }
+const CastType_IsUntyped = true
+func CastType_Cast(value int) CastType { return CastType{value} }
+
+`
+	for _, builtin := range []struct {
+		name  string
+		value string
+	}{
+		{"Len", "len"},
+		{"Cap", "cap"},
+	} {
+		t.Run(builtin.name, func(t *testing.T) {
+			for _, tt := range []struct {
+				name      string
+				wantConst bool
+				build     func(*gogen.CodeBuilder, gogen.PkgRef)
+			}{
+				{"ArrayVariable", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("Array"))
+				}},
+				{"ArrayPointer", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("Pointer"))
+				}},
+				{"ArrayCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("ArrayCall")).Call(0)
+				}},
+				{"PointerCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("PointerCall")).Call(0)
+				}},
+				{"ArrayReceive", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("Arrays")).UnaryOp(token.ARROW)
+				}},
+				{"PointerReceive", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("Pointers")).UnaryOp(token.ARROW)
+				}},
+				{"LiteralCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("ScalarCall")).Call(0).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"LiteralReceive", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("Ints")).UnaryOp(token.ARROW).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"Conversion", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.Typ[types.Int]).Val(ref.Ref("Value")).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"PointerConversion", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.NewPointer(types.NewArray(types.Typ[types.Int], 2))).Val(nil).Call(1)
+				}},
+				{"ArrayConversion", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.NewArray(types.Typ[types.Int], 2)).Val(ref.Ref("Slice")).Call(1)
+				}},
+				{"PointerScalarConversion", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					typ := types.NewPointer(types.Typ[types.Int])
+					cb.Typ(typ).Val(nil).Call(1).ArrayLit(types.NewArray(typ, 2), 1, false)
+				}},
+				{"GenericConversion", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					typ := cb.Pkg().Instantiate(ref.Ref("Box").Type(), []types.Type{types.Typ[types.Int]})
+					cb.Typ(typ).Val(ref.Ref("BoxValue")).Call(1).ArrayLit(types.NewArray(typ, 2), 1, false)
+				}},
+				{"GenericPairConversion", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					typ := cb.Pkg().Instantiate(ref.Ref("Pair").Type(), []types.Type{types.Typ[types.Int], types.Typ[types.String]})
+					cb.Typ(typ).Val(ref.Ref("PairValue")).Call(1).ArrayLit(types.NewArray(typ, 2), 1, false)
+				}},
+				{"GenericCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("Generic")).Typ(types.Typ[types.Int]).Index(1, 0).Call(0)
+				}},
+				{"GenericPairCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("GenericPair")).Typ(types.Typ[types.Int]).Typ(types.Typ[types.String]).
+						Index(2, 0).Call(0)
+				}},
+				{"FunctionPointerCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(ref.Ref("FactoryPointer")).Elem().Call(0)
+				}},
+				{"ResolvedConversion", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					typ := &gogen.Element{
+						Val:  &ast.Ident{Name: "int", Obj: ast.NewObj(ast.Typ, "int")},
+						Type: gogen.NewTypeType(types.Typ[types.Int]),
+					}
+					cb.Val(typ).Val(ref.Ref("Value")).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"ConstantBuiltin", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("len")).Val("hi").Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"TypedComplex", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("complex")).
+						Typ(types.Typ[types.Float32]).Val(1).Call(1).
+						Typ(types.Typ[types.Float32]).Val(2).Call(1).Call(2).
+						ArrayLit(types.NewArray(types.Typ[types.Complex64], 2), 1, false)
+				}},
+				{"TypedReal", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("real")).
+						Typ(types.Typ[types.Complex64]).Val(&ast.BasicLit{Kind: token.IMAG, Value: "2i"}).Call(1).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Float32], 2), 1, false)
+				}},
+				{"TypedImag", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("imag")).
+						Typ(types.Typ[types.Complex64]).Val(&ast.BasicLit{Kind: token.IMAG, Value: "2i"}).Call(1).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Float32], 2), 1, false)
+				}},
+				{"NonconstantComplexReal", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("complex")).Val(ref.Ref("FloatValue")).Val(2).Call(2).
+						ArrayLit(types.NewArray(types.Typ[types.Complex64], 2), 1, false)
+				}},
+				{"NonconstantComplexImag", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("complex")).Val(1).Val(ref.Ref("FloatValue")).Call(2).
+						ArrayLit(types.NewArray(types.Typ[types.Complex64], 2), 1, false)
+				}},
+				{"NonconstantReal", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("real")).Val(ref.Ref("ComplexValue")).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Float32], 2), 1, false)
+				}},
+				{"NonconstantImag", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("imag")).Val(ref.Ref("ComplexValue")).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Float32], 2), 1, false)
+				}},
+				{"Min", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("min")).Val(1).Val(2).Call(2).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"Max", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("max")).Val(1).Val(2).Call(2).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"Complex", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("complex")).Val(1).Val(2).Call(2).
+						ArrayLit(types.NewArray(types.Typ[types.Complex128], 2), 1, false)
+				}},
+				{"Real", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("real")).
+						Val(&ast.BasicLit{Kind: token.IMAG, Value: "2i"}).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"Imag", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("imag")).
+						Val(&ast.BasicLit{Kind: token.IMAG, Value: "2i"}).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"NonconstantBuiltin", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("len")).Val(ref.Ref("Slice")).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"NestedConstantBuiltin", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("len")).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 0, false).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"NestedNonconstantBuiltin", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Val(cb.Pkg().Builtin().Ref("len")).Val(ref.Ref("ScalarCall")).Call(0).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"Sizeof", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.Typ[types.Int]).Val(cb.Pkg().Unsafe().Ref("Sizeof")).
+						Val(ref.Ref("Array")).Call(1).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"Alignof", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.Typ[types.Int]).Val(cb.Pkg().Unsafe().Ref("Alignof")).
+						Val(ref.Ref("Array")).Call(1).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"Offsetof", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.Typ[types.Int]).Val(cb.Pkg().Unsafe().Ref("Offsetof")).
+						Val(ref.Ref("BoxValue")).MemberVal("Value", 0).Call(1).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"AlignofCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.Typ[types.Int]).Val(cb.Pkg().Unsafe().Ref("Alignof")).
+						Val(ref.Ref("ArrayCall")).Call(0).Call(1).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"OffsetofCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.Typ[types.Int]).Val(cb.Pkg().Unsafe().Ref("Offsetof")).
+						Val(ref.Ref("StructCall")).Call(0).MemberVal("Value", 0).Call(1).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"SizeofCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.Typ[types.Int]).Val(cb.Pkg().Unsafe().Ref("Sizeof")).
+						Val(ref.Ref("ArrayCall")).Call(0).Call(1).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"SizeofReceive", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.Typ[types.Int]).Val(cb.Pkg().Unsafe().Ref("Sizeof")).
+						Val(ref.Ref("Arrays")).UnaryOp(token.ARROW).Call(1).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"ClosureBody", true, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.NewClosure(nil, nil, false).BodyStart(cb.Pkg()).
+						Val(ref.Ref("ScalarCall")).Call(0).EndStmt().End().
+						ArrayLit(types.NewArray(types.NewSignatureType(nil, nil, nil, nil, nil, false), 2), 1, false)
+				}},
+				{"UntypedCast", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					typ := ref.Ref("CastType").Type()
+					cb.Typ(typ).Val(1).Call(1)
+					cb.ArrayLit(types.NewArray(typ, 2), 1, false)
+				}},
+				{"NestedUntypedCast", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					typ := ref.Ref("CastType").Type()
+					cb.Val(cb.Pkg().Builtin().Ref("len")).Typ(typ).Val(1).Call(1).
+						ArrayLit(types.NewArray(typ, 2), 1, false).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"UntypedCastInSizeof", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.Typ[types.Int]).Val(cb.Pkg().Unsafe().Ref("Sizeof")).
+						Typ(ref.Ref("CastType").Type()).Val(1).Call(1).Call(1).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"OperatorCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					params := types.NewTuple(
+						types.NewParam(token.NoPos, ref.Types, "x", types.Typ[types.Int]),
+						types.NewParam(token.NoPos, ref.Types, "y", types.Typ[types.Int]),
+					)
+					results := types.NewTuple(types.NewParam(token.NoPos, ref.Types, "", types.Typ[types.Int]))
+					sig := gogen.NewTemplateSignature(nil, nil, params, results, false, token.ADD)
+					fn := gogen.NewTemplateFunc(token.NoPos, ref.Types, "Operator", sig)
+					cb.Val(fn).Val(1).Val(2).Call(2).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+				{"GeneratedConversionCall", false, func(cb *gogen.CodeBuilder, ref gogen.PkgRef) {
+					cb.Typ(types.Typ[types.Int]).Val(ref.Ref("Flag")).Call(1).
+						ArrayLit(types.NewArray(types.Typ[types.Int], 2), 1, false)
+				}},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					gt := newGoxTest()
+					if _, err := gt.LoadGoPackage("example.com/fixture", "fixture.go", fixture); err != nil {
+						t.Fatal(err)
+					}
+					pkg := gt.NewPackage("example", "example")
+					var cb *gogen.CodeBuilder
+					if tt.wantConst {
+						cb = pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "size")
+					} else {
+						cb = pkg.NewVarStart(token.NoPos, nil, "size")
+					}
+					cb.Val(pkg.Builtin().Ref(builtin.value))
+					tt.build(cb, pkg.Import("example.com/fixture"))
+					cb.Call(1)
+					value := cb.Get(-1).CVal
+					if tt.wantConst {
+						if value == nil || !constant.Compare(value, token.EQL, constant.MakeInt64(2)) {
+							t.Fatalf("constant value = %v, want 2", value)
+						}
+					} else if value != nil {
+						t.Fatalf("constant value = %v, want nil", value)
+					}
+					cb.EndInit(1)
+					var out bytes.Buffer
+					if err := pkg.WriteTo(&out); err != nil {
+						t.Fatal(err)
+					}
+					if _, err := gt.LoadGoPackage("example", "generated.go", out.String()); err != nil {
+						t.Fatalf("generated source does not type check: %v\n%s", err, out.String())
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestCodeBuilderCallUntypedCast(t *testing.T) {
+	for _, name := range []string{"Int128", "Uint128"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := newXGoMainPackage()
+			typ := pkg.Import("github.com/goplus/gogen/internal/builtin").Ref(name).Type()
+			pkg.CB().Typ(typ).Val(1).Call(1)
+			result := pkg.CB().Get(-1)
+			if !types.Identical(result.Type, typ) {
+				t.Fatalf("type = %v, want %v", result.Type, typ)
+			}
+			if result.CVal == nil || result.CVal.ExactString() != "1" {
+				t.Fatalf("cast constant value = %v, want 1", result.CVal)
+			}
+		})
 	}
 }
 

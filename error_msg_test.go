@@ -299,6 +299,53 @@ func TestErrTypeAssert(t *testing.T) {
 		})
 }
 
+func TestLenCapNonconstantInitializer(t *testing.T) {
+	for _, builtin := range []struct{ name, value string }{
+		{"Len", "len"}, {"Cap", "cap"},
+	} {
+		t.Run(builtin.name, func(t *testing.T) {
+			for _, pointer := range []bool{false, true} {
+				name := "Array"
+				if pointer {
+					name = "Pointer"
+				}
+				t.Run(name, func(t *testing.T) {
+					text := builtin.value + "(factory())"
+					codeErrorTest(t, "./foo.gop:3:7: const initializer "+text+" is not a constant",
+						func(pkg *gogen.Package) {
+							var typ types.Type = types.NewArray(types.Typ[types.Int], 2)
+							if pointer {
+								typ = types.NewPointer(typ)
+							}
+							result := types.NewParam(token.NoPos, pkg.Types, "", typ)
+							fn := pkg.NewFunc(nil, "factory", nil, types.NewTuple(result), false)
+							fn.BodyStart(pkg).ZeroLit(typ).Return(1).End()
+							pkg.NewConstStart(pkg.Types.Scope(), position(3, 7), nil, "size").
+								Val(pkg.Builtin().Ref(builtin.value)).Val(fn).Call(0).
+								CallWith(1, 0, 0, source(text, 3, 14)).EndInit(1)
+						})
+				})
+			}
+		})
+	}
+}
+
+func TestLenCapUntypedCastInitializer(t *testing.T) {
+	for _, builtin := range []struct{ name, value string }{{"Len", "len"}, {"Cap", "cap"}} {
+		t.Run(builtin.name, func(t *testing.T) {
+			text := builtin.value + "([2]builtin.Int128{builtin.Int128(1)})"
+			codeErrorTest(t, "./foo.gop:3:7: const initializer "+text+" is not a constant",
+				func(pkg *gogen.Package) {
+					typ := pkg.Import("github.com/goplus/gogen/internal/builtin").Ref("Int128").Type()
+					pkg.NewConstStart(pkg.Types.Scope(), position(3, 7), nil, "size").
+						Val(pkg.Builtin().Ref(builtin.value)).Typ(typ).Val(1).Call(1).
+						ArrayLit(types.NewArray(typ, 2), 1, false).
+						CallWith(1, 0, 0, source(text, 3, 14)).EndInit(1)
+				})
+		})
+	}
+}
+
 func TestErrConst(t *testing.T) {
 	codeErrorTest(t, "./foo.gop:2:9: cannot use 1 (type untyped int) as type string in assignment",
 		func(pkg *gogen.Package) {

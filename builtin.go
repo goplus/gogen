@@ -343,10 +343,16 @@ func doBuiltinCall(bfn builtinFn, args []*Element) constant.Value {
 	switch bfn.narg {
 	case 1:
 		a := args[0].CVal
+		if a == nil {
+			return nil
+		}
 		return bfn.fn.(func(a constant.Value) constant.Value)(a)
 	case 2:
 		a := args[0].CVal
 		b := args[1].CVal
+		if a == nil || b == nil {
+			return nil
+		}
 		return bfn.fn.(func(a, b constant.Value) constant.Value)(a, b)
 	case -1: // variadic (min/max)
 		if len(args) == 0 {

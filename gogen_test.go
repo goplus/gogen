@@ -173,3 +173,40 @@ func doDomTest(t *testing.T, pkg *gogen.Package, expected string, fname string) 
 		t.Fatalf("\ngogen.WriteTo Result:\n%s\nExpected:\n%s\n", result, expected)
 	}
 }
+
+func TestCodeBuilderCallTypeConversion(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		constant bool
+		named    bool
+	}{
+		{"Constant", true, false}, {"Variable", false, false},
+		{"NamedConstant", true, true}, {"NamedVariable", false, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := newMainPackage()
+			cb := pkg.CB()
+			var operand any = &ast.BasicLit{Kind: token.INT, Value: "2"}
+			if !tt.constant {
+				cb.NewVar(types.Typ[types.Int], "value")
+				operand = pkg.Ref("value")
+			}
+			var typ types.Type = types.Typ[types.Int]
+			if tt.named {
+				typ = types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "Number", nil), typ, nil)
+			}
+			cb.Typ(typ).Val(operand).Call(1)
+			result := cb.Get(-1)
+			if !types.Identical(result.Type, typ) {
+				t.Fatalf("type = %v, want %v", result.Type, typ)
+			}
+			if tt.constant {
+				if result.CVal == nil || result.CVal.ExactString() != "2" {
+					t.Fatalf("constant value = %v, want 2", result.CVal)
+				}
+			} else if result.CVal != nil {
+				t.Fatalf("constant value = %v, want nil", result.CVal)
+			}
+		})
+	}
+}
