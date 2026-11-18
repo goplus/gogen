@@ -26,6 +26,7 @@ import (
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/go/printer"
 	"github.com/goplus/gogen/internal/goxdbg"
+	"github.com/goplus/gogen/internal/typeparams"
 	"github.com/goplus/gogen/target"
 )
 
@@ -410,7 +411,8 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	args := p.stk.GetArgs(n)
 	x := args[0]
 	typ := x.Type
-	switch t := typ.(type) {
+	valid := true
+	switch t := p.sliceUnderlying(typ).(type) {
 	case *types.Slice:
 		// nothing to do
 	case *types.Basic:
@@ -419,25 +421,39 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 				code, pos, end := p.loadExpr(srcExpr)
 				p.panicCodeErrorf(pos, end, "invalid operation %s (3-index slice of string)", code)
 			}
+			if t.Kind() == types.UntypedString {
+				typ = types.Typ[types.String]
+			}
 		} else {
-			code, pos, end := p.loadExpr(x.Src)
-			p.panicCodeErrorf(pos, end, "cannot slice %s (type %v)", code, typ)
+			valid = false
 		}
 	case *types.Array:
 		typ = types.NewSlice(t.Elem())
 	case *types.Pointer:
-		if tt, ok := t.Elem().(*types.Array); ok {
+		elem := types.Unalias(t.Elem())
+		if named, ok := elem.(*types.Named); ok {
+			elem = p.getUnderlying(named)
+		}
+		if tt, ok := elem.(*types.Array); ok {
 			typ = types.NewSlice(tt.Elem())
 		} else {
-			code, pos, end := p.loadExpr(x.Src)
-			p.panicCodeErrorf(pos, end, "cannot slice %s (type %v)", code, typ)
+			valid = false
 		}
+	default:
+		valid = false
+	}
+	if !valid {
+		if t, ok := typ.(*inferFuncType); ok {
+			typ = t.typ
+		}
+		code, pos, end := p.loadExpr(x.Src)
+		p.panicCodeErrorf(pos, end, "cannot slice %s (type %v)", code, typ)
 	}
 	var exprMax ast.Expr
 	if slice3 {
 		exprMax = args[3].Val
 	}
-	// TODO: check type
+	// TODO: check slice indices
 	elem := &internal.Elem{
 		Val: &ast.SliceExpr{
 			X: x.Val, Low: args[1].Val, High: args[2].Val, Max: exprMax, Slice3: slice3,
@@ -446,6 +462,50 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	}
 	p.stk.Ret(n, elem)
 	return p
+}
+
+// sliceUnderlying returns the type used to classify a slice operand.
+// For a type parameter, it finds the common underlying type of the constraint
+// terms after applying comparable restrictions. Go's slice rules allow string
+// and []byte terms to coexist. When compatible terms include a string, it
+// returns string so [CodeBuilder.Slice] rejects three-index slicing.
+// It returns nil if the terms cannot be determined, none remain, or their
+// underlying types are incompatible for slicing.
+func (p *CodeBuilder) sliceUnderlying(typ types.Type) types.Type {
+	typ = types.Unalias(typ)
+	switch t := typ.(type) {
+	case *types.Named:
+		return p.getUnderlying(t)
+	case *types.TypeParam:
+		terms, err := typeparams.StructuralTerms(t)
+		if err != nil {
+			return nil
+		}
+		// StructuralTerms omits the constraint's comparability restriction.
+		comparable := comparableConstraint.Underlying().(*types.Interface)
+		onlyComparable := types.Implements(t, comparable)
+		var common types.Type
+		hasString := false
+		for _, term := range terms {
+			u := getUnderlying(p.pkg, types.Unalias(term.Type()))
+			if onlyComparable && !types.Implements(u, comparable) {
+				continue
+			}
+			if b, ok := u.(*types.Basic); ok && b.Info()&types.IsString != 0 {
+				u = types.NewSlice(types.Typ[types.Byte])
+				hasString = true
+			}
+			if common != nil && !types.Identical(common, u) {
+				return nil
+			}
+			common = u
+		}
+		if hasString {
+			return types.Typ[types.String]
+		}
+		return common
+	}
+	return typ
 }
 
 // Index func:
