@@ -18,6 +18,7 @@ limitations under the License.
 package gogen_test
 
 import (
+	"bytes"
 	"go/ast"
 	"go/constant"
 	"go/parser"
@@ -465,6 +466,158 @@ func main() {
 	var b *uint32 = (*uint32)(nil)
 }
 `)
+}
+
+func TestConstDefsOverflow(t *testing.T) {
+	for _, name := range []string{"First", "Next"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := newMainPackage()
+			var defs *gogen.ConstDefs
+			if name == "Next" {
+				defs = pkg.NewConstDefs(pkg.Types.Scope()).New(func(cb *gogen.CodeBuilder) int {
+					cb.Val(&ast.BasicLit{Kind: token.FLOAT, Value: "3e38"}).
+						Val(ctxRef(pkg, "iota")).Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e38"}).
+						BinaryOp(token.MUL).BinaryOp(token.ADD)
+					return 1
+				}, 0, token.NoPos, types.Typ[types.Float32], "first")
+			}
+			defer func() {
+				codeErr, ok := recover().(*gogen.CodeError)
+				if !ok {
+					t.Fatal("want a CodeError")
+				}
+				if !strings.Contains(codeErr.Msg, "cannot convert constant") {
+					t.Fatalf("error = %q, want a constant conversion error", codeErr.Msg)
+				}
+			}()
+			if name == "First" {
+				pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, types.Typ[types.Float32], "first").
+					Val(&ast.BasicLit{Kind: token.FLOAT, Value: "1e40"}).EndInit(1)
+			} else {
+				defs.Next(1, token.NoPos, "second")
+			}
+		})
+	}
+}
+
+func TestCodeBuilderConstantBuiltins(t *testing.T) {
+	for _, tt := range []struct{ name, expression string }{
+		{"UntypedComplex", "complex(1, 2)"},
+		{"UntypedMin", "min(1, 2.0)"},
+		{"TypedMin", "min(float32(1), float32(2))"},
+		{"MixedMin", "min(float64(1), 2.5)"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			fset := token.NewFileSet()
+			expr, err := parser.ParseExprFrom(fset, "main.go", tt.expression, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := types.Eval(fset, nil, token.NoPos, tt.expression)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pkg := newMainPackage()
+			emitConstExpr(t, pkg, expr)
+			got := pkg.CB().Get(-1)
+			if !types.Identical(got.Type, want.Type) {
+				t.Errorf("type = %v, want %v", got.Type, want.Type)
+			}
+			if got.CVal == nil || got.CVal.Kind() != want.Value.Kind() || !constant.Compare(got.CVal, token.EQL, want.Value) {
+				t.Errorf("value = %v, want %v", got.CVal, want.Value)
+			}
+		})
+	}
+}
+
+func TestConstStringConversion(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		from  string
+		to    string
+		value any
+		want  string
+	}{
+		{"Integer", "", "string", 65, "A"},
+		{"Rune", "", "string", rune(0x266c), "\u266c"},
+		{"Byte", "byte", "string", 65, "A"},
+		{"TypedRune", "rune", "string", 0x1f30e, "\U0001f30e"},
+		{"DefinedInteger", "Codepoint", "string", 65, "A"},
+		{"IntegerAlias", "CodepointAlias", "string", 65, "A"},
+		{"IntegralFloat", "int", "string", 65.0, "A"},
+		{"NegativeInteger", "int64", "string", -1, "\ufffd"},
+		{"LargeUnsignedInteger", "uint64", "string", &ast.BasicLit{Kind: token.INT, Value: "0xffffffffffffffff"}, "\ufffd"},
+		{"DefinedString", "", "Text", 65, "A"},
+		{"StringAlias", "", "StringAlias", 65, "A"},
+		{"DefinedStringAlias", "", "TextAlias", 65, "A"},
+		{"StringConstant", "", "string", "ab\x00c", "ab\x00c"},
+		{"DefinedStringConstant", "", "Text", "ab\x00c", "ab\x00c"},
+		{"StringToString", "Text", "string", "ab\x00c", "ab\x00c"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gt := newGoxTest()
+			pkg := gt.NewPackage("main", "main")
+			typesByName := map[string]types.Type{
+				"int":       types.Typ[types.Int],
+				"byte":      types.Typ[types.Byte],
+				"rune":      types.Typ[types.Rune],
+				"int64":     types.Typ[types.Int64],
+				"uint64":    types.Typ[types.Uint64],
+				"string":    types.Typ[types.String],
+				"Codepoint": pkg.NewType("Codepoint").InitType(pkg, types.Typ[types.Int32]),
+				"Text":      pkg.NewType("Text").InitType(pkg, types.Typ[types.String]),
+			}
+			typesByName["CodepointAlias"] = aliasType(pkg, "CodepointAlias", typesByName["Codepoint"])
+			typesByName["StringAlias"] = aliasType(pkg, "StringAlias", types.Typ[types.String])
+			typesByName["TextAlias"] = aliasType(pkg, "TextAlias", typesByName["Text"])
+			to := typesByName[tt.to]
+			cb := pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "text").Typ(to)
+			if tt.from != "" {
+				cb.Typ(typesByName[tt.from])
+			}
+			cb.Val(tt.value)
+			if tt.from != "" {
+				cb.Call(1)
+			}
+			cb.Call(1)
+			result := cb.Get(-1)
+			if result.Type != to {
+				t.Fatalf("type = %v, want %v", result.Type, to)
+			}
+			if result.CVal == nil || result.CVal.Kind() != constant.String || constant.StringVal(result.CVal) != tt.want {
+				t.Fatalf("constant value = %v, want %q", result.CVal, tt.want)
+			}
+			cb.EndInit(1)
+			pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "size").
+				Val(pkg.Builtin().Ref("len")).Typ(types.Typ[types.String]).Val(pkg.Ref("text")).Call(1).Call(1).EndInit(1)
+			pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "joined").
+				Val(pkg.Ref("text")).Val("!").BinaryOp(token.ADD).EndInit(1)
+			pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, nil, "equal").
+				Val(pkg.Ref("text")).Val(tt.want).BinaryOp(token.EQL).EndInit(1)
+
+			var output bytes.Buffer
+			if err := gogen.WriteTo(&output, pkg); err != nil {
+				t.Fatal(err)
+			}
+			checked, err := gt.LoadGoPackage("generated", "generated.go", output.String())
+			if err != nil {
+				t.Fatalf("invalid generated source: %v\n%s", err, &output)
+			}
+			for _, name := range []string{"text", "size", "joined", "equal"} {
+				got, ok := pkg.Ref(name).(*types.Const)
+				if !ok {
+					t.Fatalf("%s is not a constant", name)
+				}
+				want, ok := checked.Scope().Lookup(name).(*types.Const)
+				if !ok {
+					t.Fatalf("generated %s is not a constant", name)
+				}
+				if got.Val().Kind() != want.Val().Kind() || !constant.Compare(got.Val(), token.EQL, want.Val()) {
+					t.Errorf("%s = %v, want %v", name, got.Val(), want.Val())
+				}
+			}
+		})
+	}
 }
 
 func TestTypeConvBool(t *testing.T) { // TypeCast
