@@ -954,17 +954,23 @@ func newMakeExpr(args []*internal.Elem) *ast.CallExpr {
 
 func newSizeofExpr(pkg *Package, args []*internal.Elem) *ast.CallExpr {
 	fn := toObjectExpr(pkg, unsafeRef("Sizeof"))
-	return &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}}
+	call := &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}}
+	recordNonFuncCall(call)
+	return call
 }
 
 func newAlignofExpr(pkg *Package, args []*internal.Elem) *ast.CallExpr {
 	fn := toObjectExpr(pkg, unsafeRef("Alignof"))
-	return &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}}
+	call := &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}}
+	recordNonFuncCall(call)
+	return call
 }
 
 func newOffsetofExpr(pkg *Package, args []*internal.Elem) *ast.CallExpr {
 	fn := toObjectExpr(pkg, unsafeRef("Offsetof"))
-	return &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}}
+	call := &ast.CallExpr{Fun: fn, Args: []ast.Expr{args[0].Val}}
+	recordNonFuncCall(call)
+	return call
 }
 
 func newUnsafeAddExpr(pkg *Package, args []*internal.Elem) *ast.CallExpr {

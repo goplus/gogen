@@ -518,33 +518,23 @@ func (p lenInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 	if len(args) != 1 {
 		panic("TODO: len() should have one parameter")
 	}
+	arg := args[0]
 	var cval constant.Value
-	switch t := args[0].Type.(type) {
-	case *types.Basic:
-		switch t.Kind() {
-		case types.String, types.UntypedString:
-			if v := args[0].CVal; v != nil {
-				n := len(constant.StringVal(v))
-				cval = constant.MakeInt64(int64(n))
-			}
-		default:
-			panic("TODO: call len() to a basic type")
+	if array := lenCapArray(pkg, arg.Type); array != nil {
+		cval = arrayLenConst(arg.Val, array.Len())
+	} else if basic, ok := arg.Type.(*types.Basic); ok && basic.Info()&types.IsString != 0 {
+		if arg.CVal != nil {
+			cval = constant.MakeInt64(int64(len(constant.StringVal(arg.CVal))))
 		}
-	case *types.Array:
-		cval = constant.MakeInt64(t.Len())
-	case *types.Pointer:
-		if tt, ok := t.Elem().(*types.Array); ok {
-			cval = constant.MakeInt64(tt.Len())
-		} else {
-			panic("TODO: call len() to a pointer")
-		}
-	default:
-		if !lenable.Match(pkg, t) {
-			pkg.cb.panicCodeErrorf(getSrcPos(src), getSrcEnd(src), "invalid argument: cannot call len() on %v", t)
-		}
+	} else if !lenable.Match(pkg, arg.Type) {
+		pkg.cb.panicCodeErrorf(getSrcPos(src), getSrcEnd(src), "invalid argument: cannot call len() on %v", arg.Type)
+	}
+	call := newLenExpr(args)
+	if cval != nil {
+		recordNonFuncCall(call)
 	}
 	ret = &Element{
-		Val:  newLenExpr(args),
+		Val:  call,
 		Type: types.Typ[types.Int],
 		CVal: cval,
 	}
@@ -556,27 +546,157 @@ func (p capInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 	if len(args) != 1 {
 		panic("TODO: cap() should have one parameter")
 	}
+	arg := args[0]
 	var cval constant.Value
-	switch t := args[0].Type.(type) {
-	case *types.Array:
-		cval = constant.MakeInt64(t.Len())
-	case *types.Pointer:
-		if tt, ok := t.Elem().(*types.Array); ok {
-			cval = constant.MakeInt64(tt.Len())
-		} else {
-			panic("TODO: call cap() to a pointer")
-		}
-	default:
-		if !capable.Match(pkg, t) {
-			pkg.cb.panicCodeErrorf(getSrcPos(src), getSrcEnd(src), "invalid argument: cannot call cap() on %v", t)
-		}
+	if array := lenCapArray(pkg, arg.Type); array != nil {
+		cval = arrayLenConst(arg.Val, array.Len())
+	} else if !capable.Match(pkg, arg.Type) {
+		pkg.cb.panicCodeErrorf(getSrcPos(src), getSrcEnd(src), "invalid argument: cannot call cap() on %v", arg.Type)
+	}
+	call := newCapExpr(args)
+	if cval != nil {
+		recordNonFuncCall(call)
 	}
 	ret = &Element{
-		Val:  newCapExpr(args),
+		Val:  call,
 		Type: types.Typ[types.Int],
 		CVal: cval,
 	}
 	return
+}
+
+// lenCapArray returns the array type of an array or array pointer operand.
+func lenCapArray(pkg *Package, typ types.Type) *types.Array {
+	typ = types.Unalias(typ)
+	if named, ok := typ.(*types.Named); ok {
+		typ = pkg.cb.getUnderlying(named)
+	}
+	if ptr, ok := typ.(*types.Pointer); ok {
+		typ = types.Unalias(ptr.Elem())
+		if named, ok := typ.(*types.Named); ok {
+			typ = pkg.cb.getUnderlying(named)
+		}
+	}
+	array, _ := typ.(*types.Array)
+	return array
+}
+
+// callInfo records call syntax that does not represent a non-constant function
+// call, including conversions and constant builtins.
+type callInfo struct {
+	nonFunc  bool
+	skipArgs bool
+}
+
+// recordNonFuncCall annotates a resolved callee without changing shared nodes.
+func recordNonFuncCall(call *ast.CallExpr) {
+	info := getCallInfo(call.Fun)
+	if info.nonFunc {
+		return
+	}
+	info.nonFunc = true
+	info.skipArgs = call.Fun == identLen || call.Fun == identCap
+	call.Fun = withCallInfo(call.Fun, info)
+}
+
+// getCallInfo returns the evaluation information attached to a callee.
+func getCallInfo(expr ast.Expr) callInfo {
+	for {
+		var obj *ast.Object
+		switch v := expr.(type) {
+		case *ast.Ident:
+			obj = v.Obj
+		case *ast.SelectorExpr:
+			obj = v.Sel.Obj
+		case *ast.ParenExpr:
+			expr = v.X
+			continue
+		case *ast.StarExpr:
+			expr = v.X
+			continue
+		case *ast.IndexExpr:
+			expr = v.X
+			continue
+		case *ast.IndexListExpr:
+			expr = v.X
+			continue
+		case *ast.ArrayType, *ast.ChanType, *ast.FuncType, *ast.InterfaceType, *ast.MapType, *ast.StructType:
+			return callInfo{nonFunc: true}
+		default:
+			return callInfo{}
+		}
+		if obj != nil {
+			info, _ := obj.Data.(callInfo)
+			info.nonFunc = info.nonFunc || obj.Kind == ast.Typ
+			return info
+		}
+		return callInfo{}
+	}
+}
+
+// withCallInfo copies a callee and attaches its evaluation information.
+func withCallInfo(expr ast.Expr, info callInfo) ast.Expr {
+	switch v := expr.(type) {
+	case *ast.Ident:
+		cloned := *v
+		var obj ast.Object
+		if v.Obj != nil {
+			obj = *v.Obj
+		}
+		obj.Data = info
+		cloned.Obj = &obj
+		return &cloned
+	case *ast.SelectorExpr:
+		cloned := *v
+		cloned.Sel = withCallInfo(v.Sel, info).(*ast.Ident)
+		return &cloned
+	case *ast.ParenExpr:
+		cloned := *v
+		cloned.X = withCallInfo(v.X, info)
+		return &cloned
+	case *ast.StarExpr:
+		cloned := *v
+		cloned.X = withCallInfo(v.X, info)
+		return &cloned
+	case *ast.IndexExpr:
+		cloned := *v
+		cloned.X = withCallInfo(v.X, info)
+		return &cloned
+	case *ast.IndexListExpr:
+		cloned := *v
+		cloned.X = withCallInfo(v.X, info)
+		return &cloned
+	}
+	return expr
+}
+
+// arrayLenConst returns an array length constant when its operand contains no
+// non-constant function calls or channel receives.
+func arrayLenConst(expr ast.Expr, n int64) constant.Value {
+	hasCallOrRecv := false
+	ast.Inspect(expr, func(node ast.Node) bool {
+		if hasCallOrRecv {
+			return false
+		}
+		switch v := node.(type) {
+		case *ast.FuncLit:
+			return false
+		case *ast.CallExpr:
+			info := getCallInfo(v.Fun)
+			if !info.nonFunc {
+				hasCallOrRecv = true
+			} else if info.skipArgs {
+				return false
+			}
+		case *ast.UnaryExpr:
+			hasCallOrRecv = v.Op == token.ARROW
+		}
+		return !hasCallOrRecv
+	})
+	if hasCallOrRecv {
+		return nil
+	}
+	return constant.MakeInt64(n)
 }
 
 type recvInstr struct {

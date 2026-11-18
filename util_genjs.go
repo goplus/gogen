@@ -154,6 +154,10 @@ func newAppendStringExpr(args []*internal.Elem) js.Expr {
 	panic("todo newAppendStringExpr")
 }
 
+// recordNonFuncCall needs no annotation for the JavaScript backend.
+func recordNonFuncCall(call *js.CallExpr) {
+}
+
 func newLenExpr(args []*internal.Elem) js.Expr {
 	panic("todo newLenExpr")
 }
