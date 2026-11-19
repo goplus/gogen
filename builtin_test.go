@@ -1656,16 +1656,16 @@ func TestAssignableUntyped(t *testing.T) {
 		types.Typ[types.UntypedFloat], nil)
 	i64 := types.NewNamed(types.NewTypeName(token.NoPos, nil, "Int64", nil),
 		types.Typ[types.UntypedInt], nil)
-	if assignableTo(f64, types.Typ[types.UntypedInt], nil) {
+	if assignableTo(f64, types.Typ[types.UntypedInt], nil, types.IsNumeric) {
 		t.Fatal("error f2i")
 	}
-	if !assignableTo(f64, types.Typ[types.UntypedFloat], nil) {
+	if !assignableTo(f64, types.Typ[types.UntypedFloat], nil, types.IsNumeric) {
 		t.Fatal("must f2f")
 	}
-	if !assignableTo(i64, types.Typ[types.UntypedInt], nil) {
+	if !assignableTo(i64, types.Typ[types.UntypedInt], nil, types.IsNumeric) {
 		t.Fatal("must i2i")
 	}
-	if !assignableTo(i64, types.Typ[types.UntypedFloat], nil) {
+	if !assignableTo(i64, types.Typ[types.UntypedFloat], nil, types.IsNumeric) {
 		t.Fatal("must i2f")
 	}
 }

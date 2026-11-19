@@ -1585,9 +1585,9 @@ func main() {
 func TestReflectTypeArgVariadic(t *testing.T) {
 	pkg := newMainPackage()
 	reflectPkg := pkg.Import("reflect")
-	reflectType := reflectPkg.Ref("Type").Type()
+	reflectType := pkg.NewType("Type").AliasType(pkg, reflectPkg.Ref("Type").Type())
 
-	// func accept(typs ...reflect.Type) {}
+	// func accept(typs ...Type) {}
 	acceptParams := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "typs", types.NewSlice(reflectType)))
 	pkg.NewFunc(nil, "accept", acceptParams, nil, true).BodyStart(pkg).End()
 
@@ -1603,7 +1603,9 @@ func TestReflectTypeArgVariadic(t *testing.T) {
 
 import "reflect"
 
-func accept(typs ...reflect.Type) {
+type Type = reflect.Type
+
+func accept(typs ...Type) {
 }
 func main() {
 	accept(reflect.TypeFor[int](), reflect.TypeFor[string]())

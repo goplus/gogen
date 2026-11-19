@@ -167,6 +167,8 @@ type CodeBuilder struct {
 	iotav       int
 	commentOnce bool
 	noSkipConst bool
+
+	untypedShifts map[target.Expr]shiftOperand
 }
 
 func (p *CodeBuilder) init(pkg *Package) {

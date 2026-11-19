@@ -644,19 +644,23 @@ func TestBlankConstInitializer(t *testing.T) {
 		name    string
 		typ     types.Type
 		literal string
-		message string
 	}{
-		{"Overflow", types.Typ[types.Float32], "1e40", "cannot convert constant"},
-		{"NonConstant", gogen.TyAny, "1.5", "is not a constant"},
+		{"Overflow", types.Typ[types.Float32], "1e40"},
+		{"NonConstant", gogen.TyAny, "1.5"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
-				codeErr, ok := recover().(*gogen.CodeError)
-				if !ok {
-					t.Fatal("want a CodeError")
+				err := recover()
+				if tt.name == "Overflow" {
+					matchErr, ok := err.(*gogen.MatchError)
+					if !ok || !types.Identical(matchErr.Param, tt.typ) {
+						t.Fatalf("error = %v, want an assignment error for %v", err, tt.typ)
+					}
+					return
 				}
-				if !strings.Contains(codeErr.Msg, tt.message) {
-					t.Fatalf("error = %q, want %q", codeErr.Msg, tt.message)
+				codeErr, ok := err.(*gogen.CodeError)
+				if !ok || !strings.Contains(codeErr.Msg, "is not a constant") {
+					t.Fatalf("error = %v, want a non-constant initializer error", err)
 				}
 			}()
 			pkg := newMainPackage()
@@ -666,6 +670,325 @@ func TestBlankConstInitializer(t *testing.T) {
 			} else {
 				pkg.NewConstStart(pkg.Types.Scope(), token.NoPos, tt.typ, "_").
 					Val(&ast.BasicLit{Kind: token.FLOAT, Value: tt.literal}).EndInit(1)
+			}
+		})
+	}
+}
+
+func TestCallMultipleValues(t *testing.T) {
+	anyType := types.Universe.Lookup("any").Type()
+	intType := types.Typ[types.Int]
+	pairResults := types.NewTuple(types.NewVar(token.NoPos, nil, "", intType), types.NewVar(token.NoPos, nil, "", intType))
+	pair := types.NewFunc(token.NoPos, nil, "pair", types.NewSignatureType(nil, nil, nil, nil, pairResults, false))
+	variadic := types.NewParam(token.NoPos, nil, "args", types.NewSlice(anyType))
+	consume := types.NewFunc(token.NoPos, nil, "consume",
+		types.NewSignatureType(nil, nil, nil, types.NewTuple(variadic), nil, true))
+	withFirst := types.NewFunc(token.NoPos, nil, "withFirst",
+		types.NewSignatureType(nil, nil, nil, types.NewTuple(types.NewParam(token.NoPos, nil, "first", anyType), variadic), nil, true))
+	number := types.NewVar(token.NoPos, nil, "n", intType)
+
+	for _, tt := range []struct {
+		name    string
+		callee  *types.Func
+		args    []types.Object
+		flags   gogen.InstrFlags
+		wantErr bool
+	}{
+		{name: "SoleArgument", callee: consume, args: []types.Object{pair}},
+		{name: "WithAnotherArgument", callee: consume, args: []types.Object{number, pair}, wantErr: true},
+		{name: "InFixedArgument", callee: withFirst, args: []types.Object{pair, number}, wantErr: true},
+		{name: "WithEllipsis", callee: consume, args: []types.Object{pair}, flags: gogen.InstrFlagEllipsis, wantErr: true},
+		{name: "WithEllipsisAndFixedParameter", callee: withFirst, args: []types.Object{pair}, flags: gogen.InstrFlagEllipsis, wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := newMainPackage()
+			cb := pkg.CB().Val(tt.callee)
+			for _, arg := range tt.args {
+				cb.Val(arg)
+				if arg == pair {
+					cb.Call(0)
+				}
+			}
+			err := cb.CallWithEx(len(tt.args), 0, tt.flags)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("call error = %v, want error = %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCallArgumentValues(t *testing.T) {
+	anyType := types.Universe.Lookup("any").Type()
+	params := types.NewTuple(types.NewParam(token.NoPos, nil, "", anyType))
+	consume := types.NewFunc(token.NoPos, nil, "consume", types.NewSignatureType(nil, nil, nil, params, nil, false))
+	builtin := types.NewPackage("", "")
+	panicFunc := types.NewFunc(token.NoPos, builtin, "panic", types.NewSignatureType(nil, nil, nil, params, nil, false))
+	builtin.Scope().Insert(panicFunc)
+	shadow := types.NewFunc(token.NoPos, nil, "panic", types.NewSignatureType(nil, nil, nil, params, nil, false))
+	alias := gogen.NewOverloadFunc(token.NoPos, nil, "alias", consume)
+	overload := gogen.NewOverloadFunc(token.NoPos, nil, "choose", consume, shadow)
+	instruction := gogen.NewInstruction(token.NoPos, nil, "instruction", nil)
+	template := gogen.NewTemplateFunc(token.NoPos, nil, "template", gogen.NewTemplateSignature(nil, nil, nil, nil, false))
+	for _, tt := range []struct {
+		name string
+		obj  types.Object
+		want string
+	}{
+		{"TypeName", types.Universe.Lookup("int"), "type int is not an expression"},
+		{"Instruction", instruction, "use of instruction outside a function call"},
+		{"Template", template, "use of template outside a function call"},
+		{"Builtin", panicFunc, "cannot use panic"},
+		{"Overload", overload, "cannot use choose"},
+		{"FunctionAlias", alias, ""},
+		{"ShadowedBuiltin", shadow, ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := gogen.NewPackage("", "main", &gogen.Config{
+				Fset:            gblFset,
+				NodeInterpreter: nodeInterp{},
+				NewBuiltin:      func(*gogen.Package, *gogen.Config) *types.Package { return builtin },
+			})
+			arg := source(tt.obj.Name(), 2, 12)
+			cb := pkg.CB().Val(consume).Val(tt.obj, arg)
+			err := cb.CallWithEx(1, 0, 0, source("consume", 2, 2))
+			if tt.want == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("call error = %v, want %q", err, tt.want)
+			}
+			if codeErr, ok := err.(*gogen.CodeError); ok {
+				if codeErr.Pos != arg.Pos() || codeErr.End != arg.End() {
+					t.Fatalf("error range = %v:%v, want %v:%v", codeErr.Pos, codeErr.End, arg.Pos(), arg.End())
+				}
+			}
+		})
+	}
+}
+
+func TestTypeExpressionIsNotAssignable(t *testing.T) {
+	pkg := newMainPackage()
+	typ := gogen.NewTypeType(types.Typ[types.Int])
+	if gogen.AssignableTo(pkg, typ, types.Universe.Lookup("any").Type()) {
+		t.Fatal("assignability accepted a type expression as a value")
+	}
+}
+
+func TestCallArityWithNoResult(t *testing.T) {
+	pkg := newMainPackage()
+	args := types.NewParam(token.NoPos, nil, "args", types.NewSlice(types.Universe.Lookup("any").Type()))
+	consume := types.NewFunc(token.NoPos, nil, "consume",
+		types.NewSignatureType(nil, nil, nil, types.NewTuple(args), nil, true))
+	noResult := types.NewFunc(token.NoPos, nil, "noResult", types.NewSignatureType(nil, nil, nil, nil, nil, false))
+	number := types.NewVar(token.NoPos, nil, "n", types.Typ[types.Int])
+	cb := pkg.CB().Val(consume).Val(number).Val(noResult).Call(0)
+	callee := source("consume", 2, 5)
+	err := cb.CallWithEx(2, 0, gogen.InstrFlagEllipsis, callee)
+	codeErr, ok := err.(*gogen.CodeError)
+	if !ok {
+		t.Fatalf("call error = %v, want an argument count error", err)
+	}
+	if codeErr.Pos != callee.Pos() || codeErr.End != callee.End() {
+		t.Fatalf("error range = %v:%v, want %v:%v", codeErr.Pos, codeErr.End, callee.Pos(), callee.End())
+	}
+	if !strings.Contains(codeErr.Msg, "too many arguments in call to consume\n\thave (int, <nil>)") {
+		t.Fatalf("unexpected argument count error: %v", err)
+	}
+}
+
+func TestCallImplicitConversionWithMultipleValues(t *testing.T) {
+	narrow, wide := types.Typ[types.Int32], types.Typ[types.Int64]
+	convert := types.NewFunc(token.NoPos, nil, "convert", types.NewSignatureType(nil, nil, nil,
+		types.NewTuple(types.NewParam(token.NoPos, nil, "x", narrow)),
+		types.NewTuple(types.NewVar(token.NoPos, nil, "", wide)), false))
+	for _, tt := range []struct {
+		name            string
+		first, second   types.Type
+		wantConversions int
+		wantErr         bool
+	}{
+		{name: "DirectResults", first: wide, second: wide},
+		{name: "FixedArgumentNeedsConversion", first: narrow, second: wide, wantErr: true},
+		{name: "VariadicArgumentNeedsConversion", first: wide, second: narrow, wantErr: true},
+		{name: "SeparateArguments", wantConversions: 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var conversions int
+			pkg := newMainPackage(func(pkg *gogen.Package, v, target types.Type, arg *gogen.Element) bool {
+				if arg == nil || !types.Identical(v, narrow) || !types.Identical(target, wide) {
+					return false
+				}
+				conversions++
+				*arg = *pkg.CB().Val(convert).Val(arg).Call(1).InternalStack().Pop()
+				return true
+			})
+			consume := types.NewFunc(token.NoPos, nil, "consume", types.NewSignatureType(nil, nil, nil,
+				types.NewTuple(types.NewParam(token.NoPos, nil, "first", wide),
+					types.NewParam(token.NoPos, nil, "rest", types.NewSlice(wide))), nil, true))
+			cb := pkg.CB().Val(consume)
+			n := 2
+			pairSource := source("pair()", 2, 13)
+			if tt.first != nil {
+				results := types.NewTuple(
+					types.NewVar(token.NoPos, nil, "", tt.first),
+					types.NewVar(token.NoPos, nil, "", tt.second),
+				)
+				pair := types.NewFunc(token.NoPos, nil, "pair", types.NewSignatureType(nil, nil, nil, nil, results, false))
+				cb.Val(pair).CallWith(0, 1, 0, pairSource)
+				n = 1
+			} else {
+				cb.Val(types.NewVar(token.NoPos, nil, "first", wide)).Val(types.NewVar(token.NoPos, nil, "second", narrow))
+			}
+			err := cb.CallWithEx(n, 0, 0, source("consume", 2, 5))
+			if tt.wantErr {
+				match, ok := err.(*gogen.MatchError)
+				if !ok || match.Pos() != pairSource.Pos() {
+					t.Fatalf("call error = %v, want an argument type mismatch at pair()", err)
+				}
+			} else if err != nil {
+				t.Fatal(err)
+			}
+			if conversions != tt.wantConversions {
+				t.Fatalf("conversion count = %d, want %d", conversions, tt.wantConversions)
+			}
+		})
+	}
+}
+
+func TestCallConstantRange(t *testing.T) {
+	anyType := types.Universe.Lookup("any").Type()
+	floats := types.NewUnion([]*types.Term{
+		types.NewTerm(true, types.Typ[types.Float32]),
+		types.NewTerm(true, types.Typ[types.Float64]),
+	})
+	floatParam := types.NewTypeParam(types.NewTypeName(token.NoPos, nil, "F", nil),
+		types.NewInterfaceType(nil, []types.Type{floats}).Complete())
+	bytesOrRunes := types.NewUnion([]*types.Term{
+		types.NewTerm(true, types.Typ[types.Byte]),
+		types.NewTerm(true, types.NewSlice(types.Typ[types.Rune])),
+	})
+	byteParam := types.NewTypeParam(types.NewTypeName(token.NoPos, nil, "B", nil),
+		types.NewInterfaceType(nil, []types.Type{bytesOrRunes, types.Universe.Lookup("comparable").Type()}).Complete())
+	emptyParam := types.NewTypeParam(types.NewTypeName(token.NoPos, nil, "E", nil),
+		types.NewInterfaceType(nil, []types.Type{types.Typ[types.Uint8], types.Typ[types.Float32]}).Complete())
+	for _, tt := range []struct {
+		name, literal string
+		token         token.Token
+		source        types.BasicKind
+		dest          types.Type
+		wantErr       bool
+	}{
+		{"IntegralFloatInInterface", "1e100", token.FLOAT, types.UntypedFloat, anyType, false},
+		{"FloatOverflowInInterface", "1e500", token.FLOAT, types.UntypedFloat, anyType, true},
+		{"IntOverflowInInterface", "18446744073709551616", token.INT, types.UntypedInt, anyType, true},
+		{"UnknownConstantRecovery", "1e", token.FLOAT, types.UntypedFloat, types.Typ[types.Float64], false},
+		{"ComplexOverflowInInterface", "1e500i", token.IMAG, types.UntypedComplex, anyType, true},
+		{"Float32RoundedInRange", "0x1.fffffe8p127", token.FLOAT, types.UntypedFloat, types.Typ[types.Float32], false},
+		{"Float32RoundedOverflow", "0x1.ffffffp127", token.FLOAT, types.UntypedFloat, types.Typ[types.Float32], true},
+		{"Float64Overflow", "1e500", token.FLOAT, types.UntypedFloat, types.Typ[types.Float64], true},
+		{"FloatTypeParameterInRange", "1e25", token.FLOAT, types.UntypedFloat, floatParam, false},
+		{"FloatTypeParameterOverflow", "1e100", token.FLOAT, types.UntypedFloat, floatParam, true},
+		{"ComparableByteConstraint", "255", token.INT, types.UntypedInt, byteParam, false},
+		{"ComparableByteConstraintOverflow", "256", token.INT, types.UntypedInt, byteParam, true},
+		{"EmptyConstraint", "1", token.INT, types.UntypedInt, emptyParam, true},
+		{"ImaginaryToFloat", "1i", token.IMAG, types.UntypedComplex, types.Typ[types.Float64], true},
+		{"ZeroImaginaryToFloat", "0i", token.IMAG, types.UntypedComplex, types.Typ[types.Float64], false},
+		{"Complex64InRange", "1e30i", token.IMAG, types.UntypedComplex, types.Typ[types.Complex64], false},
+		{"Complex64Overflow", "1e40i", token.IMAG, types.UntypedComplex, types.Typ[types.Complex64], true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := newMainPackage()
+			value := constant.MakeFromLiteral(tt.literal, tt.token, 0)
+			c := types.NewConst(token.NoPos, nil, "value", types.Typ[tt.source], value)
+			params := types.NewTuple(types.NewParam(token.NoPos, nil, "value", tt.dest))
+			consume := types.NewFunc(token.NoPos, nil, "consume", types.NewSignatureType(nil, nil, nil, params, nil, false))
+			err := pkg.CB().Val(consume).Val(c).CallWithEx(1, 0, 0)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("call error = %v, want error = %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCallRuntimeShift(t *testing.T) {
+	byteType := types.Typ[types.Byte]
+	floatType := types.Typ[types.Float64]
+	anyType := types.Universe.Lookup("any").Type()
+	mixed := types.NewUnion([]*types.Term{
+		types.NewTerm(true, byteType),
+		types.NewTerm(true, floatType),
+	})
+	mixedParam := types.NewTypeParam(types.NewTypeName(token.NoPos, nil, "T", nil),
+		types.NewInterfaceType(nil, []types.Type{mixed}).Complete())
+	for _, tt := range []struct {
+		name    string
+		kind    types.BasicKind
+		value   int64
+		dest    types.Type
+		nested  bool
+		wantErr bool
+	}{
+		{name: "Byte", kind: types.UntypedInt, value: 255, dest: byteType},
+		{name: "ByteOverflow", kind: types.UntypedInt, value: 256, dest: byteType, wantErr: true},
+		{name: "Float", kind: types.UntypedInt, value: 1, dest: floatType, wantErr: true},
+		{name: "MixedConstraint", kind: types.UntypedInt, value: 1, dest: mixedParam, wantErr: true},
+		{name: "DefaultRune", kind: types.UntypedRune, value: 255, dest: anyType},
+		{name: "DefaultRuneOverflow", kind: types.UntypedRune, value: 1 << 31, dest: anyType, wantErr: true},
+		{name: "NestedByte", kind: types.UntypedInt, value: 255, dest: byteType, nested: true},
+		{name: "NestedByteOverflow", kind: types.UntypedInt, value: 256, dest: byteType, nested: true, wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := newMainPackage()
+			left := types.NewConst(token.NoPos, nil, "left", types.Typ[tt.kind], constant.MakeInt64(tt.value))
+			count := types.NewVar(token.NoPos, nil, "n", types.Typ[types.Uint])
+			params := types.NewTuple(types.NewParam(token.NoPos, nil, "value", tt.dest))
+			consume := types.NewFunc(token.NoPos, nil, "consume", types.NewSignatureType(nil, nil, nil, params, nil, false))
+			cb := pkg.CB().Val(consume).Val(left).Val(count).BinaryOp(token.SHR)
+			if tt.nested {
+				cb.Val(count).BinaryOp(token.SHL)
+			}
+			shift := cb.Get(-1)
+			if shift.CVal != nil {
+				t.Fatalf("runtime shift incorrectly has constant value %v", shift.CVal)
+			}
+			if !gogen.AssignableTo(pkg, shift.Type, tt.dest) {
+				t.Fatalf("type-only assignment from %v to %v failed", shift.Type, tt.dest)
+			}
+			err := cb.CallWithEx(1, 0, 0)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("call error = %v, want error = %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCallRoundedConstant(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		kind       types.BasicKind
+		expression string
+	}{
+		{"Float32", types.Float32, "(float32(16777217) - float32(16777216)) * 1e38 * 4"},
+		{"Float64", types.Float64, "(float64(9007199254740993) - float64(9007199254740992)) * 1e308 * 4"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			expr, err := parser.ParseExpr(tt.expression)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pkg := newMainPackage()
+			params := types.NewTuple(types.NewParam(token.NoPos, nil, "value", types.Typ[tt.kind]))
+			consume := types.NewFunc(token.NoPos, nil, "consume", types.NewSignatureType(nil, nil, nil, params, nil, false))
+			cb := pkg.CB().Val(consume)
+			emitConstExpr(t, pkg, expr)
+			if val := cb.Get(-1).CVal; val == nil || !constant.Compare(val, token.EQL, constant.MakeInt64(0)) {
+				t.Fatalf("rounded argument = %v, want 0", val)
+			}
+			if err := cb.CallWithEx(1, 0, 0); err != nil {
+				t.Fatalf("call rejected a rounded constant: %v", err)
 			}
 		})
 	}

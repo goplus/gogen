@@ -166,17 +166,6 @@ func hasBreakList(list []ast.Stmt, label string, isTarget bool) bool {
 	return false
 }
 
-// unparen returns the expression with any enclosing parentheses removed.
-func unparen(x ast.Expr) ast.Expr {
-	for {
-		p, ok := x.(*ast.ParenExpr)
-		if !ok {
-			return x
-		}
-		x = p.X
-	}
-}
-
 // ----------------------------------------------------------------------------
 
 type setTyper struct {

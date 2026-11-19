@@ -833,7 +833,8 @@ retry:
 		// For variadic functions, don't include the variadic parameter in the count
 		nreq--
 	}
-	if len(args) < nreq {
+	// A sole multi-valued call must remain the only argument.
+	if len(args) < nreq && soleCallResults(args, flags) == nil {
 		n := len(args)
 		allOptional := true
 		for i := n; i < nreq; i++ {
@@ -911,6 +912,9 @@ retry:
 	switch t := fn.Val.(type) {
 	case *target.BinaryExpr:
 		t.X, t.Y = checkParenExpr(args[0].Val), checkParenExpr(args[1].Val)
+		if cval == nil && flags&instrFlagUntyped != 0 && binaryOpKinds[t.Op] == binaryOpShift {
+			pkg.cb.recordUntypedShift(t, args[0])
+		}
 		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	case *target.UnaryExpr:
 		t.X = args[0].Val
@@ -1187,6 +1191,17 @@ func isPointer(typ types.Type) bool {
 	return ok
 }
 
+// unparen returns the expression with any enclosing parentheses removed.
+func unparen(x target.Expr) target.Expr {
+	for {
+		p, ok := x.(*target.ParenExpr)
+		if !ok {
+			return x
+		}
+		x = p.X
+	}
+}
+
 func checkParenExpr(x target.Expr) target.Expr {
 	return util.CheckParenExpr(x)
 }
@@ -1263,6 +1278,22 @@ func toRetType(t *types.Tuple) types.Type {
 	return t
 }
 
+// soleCallResults returns the tuple of a multi-valued call used as the only argument.
+func soleCallResults(args []*internal.Elem, flags InstrFlags) *types.Tuple {
+	if len(args) != 1 || flags&InstrFlagEllipsis != 0 {
+		return nil
+	}
+	results, ok := args[0].Type.(*types.Tuple)
+	if !ok {
+		return nil
+	}
+	// Comma-ok expressions also have tuple types, but only calls expand into arguments.
+	if _, ok := unparen(args[0].Val).(*target.CallExpr); !ok {
+		return nil
+	}
+	return results
+}
+
 func matchFuncType(
 	pkg *Package, args []*internal.Elem, lhs int, flags InstrFlags, sig *types.Signature, fn *internal.Elem) error {
 	if lhs == 2 {
@@ -1271,13 +1302,13 @@ func matchFuncType(
 			return pkg.cb.newCodeErrorf(pos, end, "assignment mismatch: 2 variables but %v returns %v values", caller, n)
 		}
 	}
-	var t *types.Tuple
 	n := len(args)
-	if len(args) == 1 && checkTuple(&t, args[0].Type) { // TODO(xsw): tuple type
-		n = t.Len()
+	if results := soleCallResults(args, flags); results != nil {
+		src := args[0].Src
+		n = results.Len()
 		args = make([]*internal.Elem, n)
 		for i := 0; i < n; i++ {
-			args[i] = &internal.Elem{Type: t.At(i).Type()}
+			args[i] = &internal.Elem{Type: results.At(i).Type(), Src: src}
 		}
 	} else if (flags&instrFlagApproxType) != 0 && n > 0 {
 		if typ, ok := args[0].Type.(*types.Named); ok {
@@ -1348,17 +1379,28 @@ func matchFuncArgs(
 	return nil
 }
 
+// matchArgType checks a single argument after any multi-valued call has been expanded.
 func matchArgType(pkg *Package, arg *internal.Elem, texp types.Type, at any) error {
-	if t, ok := arg.Type.(*TypeType); ok && isReflectType(texp) {
-		arg.Val = buildTypeForCallExpr(pkg, t.typ)
-		arg.Type = texp
-		return nil
+	switch t := arg.Type.(type) {
+	case *types.Tuple:
+		return pkg.cb.newCodeErrorf(getSrcPos(arg.Src), getSrcEnd(arg.Src),
+			"multiple values of type %v in single-value argument", t)
+	case *TypeType:
+		if isReflectType(texp) {
+			arg.Val = buildTypeForCallExpr(pkg, t.typ)
+			arg.Type = texp
+			return nil
+		}
+		return pkg.cb.newCodeErrorf(getSrcPos(arg.Src), getSrcEnd(arg.Src), "type %v is not an expression", t.typ)
+	case *TyInstruction, *TemplateSignature:
+		return pkg.cb.newCodeErrorf(getSrcPos(arg.Src), getSrcEnd(arg.Src),
+			"use of %v outside a function call", exprString(arg.Val))
 	}
 	return matchType(pkg, arg, texp, at)
 }
 
 func isReflectType(t types.Type) bool {
-	if named, ok := t.(*types.Named); ok {
+	if named, ok := types.Unalias(t).(*types.Named); ok {
 		obj := named.Obj()
 		return obj.Name() == "Type" && obj.Pkg() != nil && obj.Pkg().Path() == "reflect"
 	}
@@ -1416,10 +1458,18 @@ func checkFuncResults(pkg *Package, rets []*internal.Elem, results *types.Tuple,
 		pos, end, "too %s arguments to return\n\thave (%v)\n\twant %v", fewOrMany, getTypes(rets), results)
 }
 
+// getFunExpr returns the callee text and source range for a call diagnostic.
+func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
+	if fn == nil {
+		return "the closure call", token.NoPos, token.NoPos
+	}
+	return exprString(fn.Val), getSrcPos(fn.Src), getSrcEnd(fn.Src)
+}
+
 func getTypes(rets []*internal.Elem) string {
 	typs := make([]string, len(rets))
 	for i, ret := range rets {
-		typs[i] = ret.Type.String()
+		typs[i] = fmt.Sprint(ret.Type)
 	}
 	return strings.Join(typs, ", ")
 }
@@ -1510,6 +1560,14 @@ func (p *MatchError) Error() string {
 	return p.Message(pos.String() + ": ")
 }
 
+// newMatchError reports a type mismatch at an argument or assignment.
+func newMatchError(pkg *Package, arg *internal.Elem, param types.Type, at any) *MatchError {
+	return &MatchError{
+		Src: arg.Src, Arg: arg.Type, Param: param, At: at, fstmt: arg.Val == nil,
+		Fset: pkg.cb.fset, intr: pkg.cb.interp,
+	}
+}
+
 // TODO(xsw): matchType vs. AssignableConv
 func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error {
 	if debugMatch {
@@ -1522,6 +1580,15 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 	if arg.Type == nil {
 		src, pos, end := pkg.cb.loadExpr(arg.Src)
 		return pkg.cb.newCodeError(pos, end, fmt.Sprintf("%v (no value) used as value", src))
+	}
+	if arg.Val == nil {
+		// Type-only operands must be directly assignable.
+		pkg.cb.ensureLoaded(arg.Type)
+		pkg.cb.ensureLoaded(param)
+		if types.AssignableTo(arg.Type, param) {
+			return nil
+		}
+		return newMatchError(pkg, arg, param, at)
 	}
 	// check untyped big int/rat/flt => interface
 	switch arg.Type {
@@ -1543,14 +1610,22 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 		}
 	}
 	// check generic type instance
-	if psig, ok := param.(*types.Signature); ok {
-		switch tsig := arg.Type.(type) {
-		case *inferFuncType:
+	argType := arg.Type
+	switch tsig := argType.(type) {
+	case *inferFuncType:
+		if psig, ok := getUnderlying(pkg, param).(*types.Signature); ok {
 			if err := instanceInferFunc(pkg, arg, tsig, psig); err == nil {
 				return nil
 			}
-		case *types.Signature:
-			if tsig.TypeParams() != nil {
+		}
+		inferred, err := tsig.instance()
+		if err != nil {
+			return pkg.cb.newCodeError(getSrcPos(arg.Src), getSrcEnd(arg.Src), err.Error())
+		}
+		argType = inferred
+	case *types.Signature:
+		if tsig.TypeParams().Len() != 0 {
+			if psig, ok := getUnderlying(pkg, param).(*types.Signature); ok {
 				if err := instanceFunc(pkg, arg, tsig, psig); err == nil {
 					return nil
 				}
@@ -1578,13 +1653,10 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 			}
 		}
 	}
-	if AssignableConv(pkg, arg.Type, param, arg) {
+	if AssignableConv(pkg, argType, param, arg) {
 		return nil
 	}
-	return &MatchError{
-		Src: arg.Src, Arg: arg.Type, Param: param, At: at, fstmt: arg.Val == nil,
-		Fset: pkg.cb.fset, intr: pkg.cb.interp,
-	}
+	return newMatchError(pkg, arg, param, at)
 }
 
 // -----------------------------------------------------------------------------

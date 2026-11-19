@@ -482,7 +482,15 @@ func TestConstDefsOverflow(t *testing.T) {
 				}, 0, token.NoPos, types.Typ[types.Float32], "first")
 			}
 			defer func() {
-				codeErr, ok := recover().(*gogen.CodeError)
+				err := recover()
+				if name == "First" {
+					matchErr, ok := err.(*gogen.MatchError)
+					if !ok || !types.Identical(matchErr.Param, types.Typ[types.Float32]) {
+						t.Fatalf("error = %v, want an assignment error for float32", err)
+					}
+					return
+				}
+				codeErr, ok := err.(*gogen.CodeError)
 				if !ok {
 					t.Fatal("want a CodeError")
 				}
@@ -2589,6 +2597,41 @@ func foo(v ...interface{}) {
 func main() {
 }
 `)
+}
+
+func TestCallCommaOKArgument(t *testing.T) {
+	items := types.NewSlice(types.Universe.Lookup("any").Type())
+	params := types.NewTuple(
+		types.NewParam(token.NoPos, nil, "items", items),
+		types.NewParam(token.NoPos, nil, "ok", types.Typ[types.Bool]),
+	)
+	consume := types.NewFunc(token.NoPos, nil, "consume", types.NewSignatureType(nil, nil, nil, params, nil, false))
+	for _, tt := range []struct {
+		name string
+		push func(*gogen.CodeBuilder)
+	}{
+		{name: "MapIndex", push: func(cb *gogen.CodeBuilder) {
+			m := types.NewMap(types.Typ[types.String], items)
+			cb.Val(types.NewVar(token.NoPos, nil, "m", m)).Val("k").Index(1, 2)
+		}},
+		{name: "TypeAssertion", push: func(cb *gogen.CodeBuilder) {
+			x := types.NewVar(token.NoPos, nil, "x", types.Universe.Lookup("any").Type())
+			cb.Val(x).TypeAssert(items, 2)
+		}},
+		{name: "Receive", push: func(cb *gogen.CodeBuilder) {
+			ch := types.NewChan(types.RecvOnly, items)
+			cb.Val(types.NewVar(token.NoPos, nil, "ch", ch)).UnaryOpEx(token.ARROW, 2)
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := newMainPackage()
+			cb := pkg.CB().Val(consume)
+			tt.push(cb)
+			if err := cb.CallWithEx(1, 0, 0); err == nil {
+				t.Fatal("call accepted a comma-ok expression as two arguments")
+			}
+		})
+	}
 }
 
 func TestDelayedLoadUnused(t *testing.T) {
@@ -5015,6 +5058,32 @@ func add(x int, __xgo_optional_y int) int {
 }
 func main() {
 	add(1, 2)
+}
+`)
+}
+
+func TestOptionalParamCallWithMultipleValues(t *testing.T) {
+	pkg := newMainPackage()
+	intType := types.Typ[types.Int]
+	first := newParam(pkg, token.NoPos, "first", intType)
+	second := pkg.NewParam(token.NoPos, "second", intType, true)
+	pairResults := types.NewTuple(newParam(pkg, token.NoPos, "", intType), newParam(pkg, token.NoPos, "", intType))
+	pair := pkg.NewFunc(nil, "pair", nil, pairResults, false)
+	pair.BodyStart(pkg).Val(1).Val(2).Return(2).End()
+	consume := pkg.NewFunc(nil, "consume", types.NewTuple(first, second), nil, false)
+	consume.BodyStart(pkg).End()
+	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(consume.Func).Val(pair.Func).Call(0).Call(1).EndStmt().End()
+
+	domTest(t, pkg, `package main
+
+func pair() (int, int) {
+	return 1, 2
+}
+func consume(first int, __xgo_optional_second int) {
+}
+func main() {
+	consume(pair())
 }
 `)
 }
