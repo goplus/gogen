@@ -201,6 +201,14 @@ type File struct {
 	fname string
 	imps  map[string]*ast.Ident // importPath => impRef (nil means force-import)
 
+	structAliases    map[*types.Struct]*ast.Ident
+	localStructs     map[*types.Struct][]*localEmbeddedStruct
+	typeNameAliases  map[*types.TypeName]*ast.Ident
+	localTypeSpecs   map[*types.TypeName]*ast.TypeSpec
+	localTypeAliases localAliasDecls
+
+	mapStringAnyAssert *ast.Ident
+
 	nDecls int // used by goDecls() to determine if the cached declarations are up-to-date
 
 	dirtyUsed bool // used by markUsed() to determine if the file's imports need to be re-evaluated
@@ -374,6 +382,7 @@ type Package struct {
 	optionalVars
 	unitMgr
 	autoNames
+	embeddedStructs
 	cb             CodeBuilder
 	imp            types.Importer
 	files          map[string]*File

@@ -49,6 +49,20 @@ func init() {
 	gblImp = packages.NewImporter(gblFset)
 }
 
+func TestEmbeddedAnyType(t *testing.T) {
+	pkg := newMainPackage()
+	embedded := types.NewField(token.NoPos, pkg.Types, "any", gogen.TyEmptyInterface, true)
+	named := types.NewField(token.NoPos, pkg.Types, "value", gogen.TyEmptyInterface, false)
+	pkg.NewType("Box").InitType(pkg, types.NewStruct([]*types.Var{embedded, named}, nil))
+	doDomTest(t, pkg, `package main
+
+type Box struct {
+	any
+	value interface{}
+}
+`, "")
+}
+
 func ctxRef(pkg *gogen.Package, name string) gogen.Ref {
 	_, o := pkg.CB().Scope().LookupParent(name, token.NoPos)
 	return o

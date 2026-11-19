@@ -182,7 +182,7 @@ func init() {
 	TyError = universe.Lookup("error").Type()
 	TyAny = universe.Lookup("any").Type()
 	TyEmptyInterface = types.NewInterfaceType(nil, nil)
-	tyMapStringAny = types.NewMap(types.Typ[types.String], TyAny)
+	tyMapStringAny = types.NewMap(types.Typ[types.String], TyEmptyInterface)
 }
 
 // ----------------------------------------------------------------------------

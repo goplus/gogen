@@ -40,10 +40,11 @@ func (p *Package) NewParam(pos token.Pos, name string, typ types.Type, optional 
 // Func type
 type Func struct {
 	*types.Func
-	decl   *funcDecl
-	cate   AutoLambdaCategory
-	old    funcBodyCtx
-	arity1 int // 0 for normal, (arity+1) for inlineClosure
+	decl    *funcDecl
+	litType *ast.FuncType
+	cate    AutoLambdaCategory
+	old     funcBodyCtx
+	arity1  int // 0 for normal, (arity+1) for inlineClosure
 }
 
 // Obj returns this function object.
@@ -72,13 +73,13 @@ func (p *Func) Ancestor() *Func {
 	return p
 }
 
-// BodyStart func
+// BodyStart starts emitting the function body.
 func (p *Func) BodyStart(pkg *Package, src ...ast.Node) *CodeBuilder {
+	sig := p.Type().(*types.Signature)
 	if debugInstr {
 		var recv string
 		tag := "NewFunc "
 		name := p.Name()
-		sig := p.Type().(*types.Signature)
 		if v := sig.Recv(); v != nil {
 			recv = fmt.Sprintf(" (%v)", v.Type())
 		}
@@ -86,6 +87,17 @@ func (p *Func) BodyStart(pkg *Package, src ...ast.Node) *CodeBuilder {
 			tag = "NewClosure"
 		}
 		log.Printf("%v%v%v %v\n", tag, name, recv, sig)
+	}
+	if p.decl == nil {
+		// The signature is in the enclosing scope and can supply type
+		// spellings needed by code generated for the body.
+		p.litType = toFuncType(pkg, sig)
+		for i, result := range p.litType.Results.List {
+			if sig.Results().At(i).Type() == types.Typ[types.Invalid] {
+				// Comprehensions determine these result types in the body.
+				result.Type = nil
+			}
+		}
 	}
 	return pkg.cb.startFuncBody(p, src, &p.old)
 }
@@ -101,7 +113,6 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 		return
 	}
 
-	pkg := cb.pkg
 	checker := termChecker{cb.current.panicCalls}
 	fnBody, flows := cb.endFuncBody(p.old)
 	cate := p.cate
@@ -127,7 +138,12 @@ func (p *Func) End(cb *CodeBuilder, src ast.Node) {
 	}
 
 	if fn := p.decl; fn == nil { // is closure
-		expr := newFuncLit(pkg, t, body)
+		for i, result := range p.litType.Results.List {
+			if result.Type == nil {
+				result.Type = toType(cb.pkg, t.Results().At(i).Type())
+			}
+		}
+		expr := newFuncLit(p.litType, body)
 		cb.stk.Push(&internal.Elem{Val: expr, Type: t, Src: src})
 	} else {
 		// Recv is already set by NewFuncWith at declaration time (for both
@@ -262,13 +278,15 @@ func (p *Package) NewFuncWith(
 	// function (created with a nil body and never passed through BodyStart/End)
 	// is still a valid declaration when code is generated. Otherwise Type stays
 	// nil and code generation panics while dereferencing it.
-	fn.decl.Name, fn.decl.Type = &ast.Ident{Name: name}, toFuncType(p, sig)
-	// Preserve the receiver so a body-less method (created with a nil body and
-	// never passed through BodyStart/End) is emitted as a method declaration
-	// rather than being silently downgraded to a global function.
-	if recv := sig.Recv(); recv != nil {
-		fn.decl.Recv = toRecv(p, recv)
-	}
+	p.cb.AtPackageScope(func() {
+		fn.decl.Name, fn.decl.Type = &ast.Ident{Name: name}, toFuncType(p, sig)
+		// Preserve the receiver so a body-less method (created with a nil body and
+		// never passed through BodyStart/End) is emitted as a method declaration
+		// rather than being silently downgraded to a global function.
+		if recv := sig.Recv(); recv != nil {
+			fn.decl.Recv = toRecv(p, recv)
+		}
+	})
 	p.file.appendFuncDecl(fn.decl, sig)
 	return fn, nil
 }

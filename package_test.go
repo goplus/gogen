@@ -1704,6 +1704,27 @@ type Rect struct {
 `)
 }
 
+func TestEmbeddedPredeclaredAny(t *testing.T) {
+	pkg := newMainPackage()
+	field := types.NewField(token.NoPos, pkg.Types, "any", gogen.TyEmptyInterface, true)
+	box := pkg.NewTypeDefs().NewType("Box", nil).InitType(pkg, types.NewStruct([]*types.Var{field}, nil))
+	left := newParam(pkg, token.NoPos, "left", box)
+	right := newParam(pkg, token.NoPos, "right", box)
+	result := newParam(pkg, token.NoPos, "", types.Typ[types.Bool])
+	pkg.NewFunc(nil, "equal", types.NewTuple(left, right), types.NewTuple(result), false).BodyStart(pkg).
+		Val(left).Val(right).BinaryOp(token.EQL).Return(1).End()
+	domTest(t, pkg, `package main
+
+type Box struct {
+	any
+}
+
+func equal(left Box, right Box) bool {
+	return left == right
+}
+`)
+}
+
 func TestClassDefsEmbedInit(t *testing.T) {
 	pkg := newMainPackage()
 	fa := fldAdder{pkgTypes: pkg.Types}
@@ -3746,13 +3767,40 @@ func main() {
 `)
 }
 
+func TestLocalVarInitializerScope(t *testing.T) {
+	pkg := newMainPackage()
+	cb := pkg.NewFunc(nil, "f", nil, nil, false).BodyStart(pkg)
+	cb.NewVarStart(types.Typ[types.String], "value").Val("outer").EndInit(1)
+	cb.Block()
+	pkg.NewVarDefs(cb.Scope()).NewAndInit(func(cb *gogen.CodeBuilder) int {
+		cb.Val(ctxRef(pkg, "len")).VarVal("value").Call(1)
+		return 1
+	}, token.NoPos, types.Typ[types.Int], "value")
+	cb.VarRef(nil).VarVal("value").Assign(1)
+	cb.NewVarStart(types.Typ[types.Int], "pending").ResetInit()
+	cb.VarRef(nil).VarVal("pending").Assign(1)
+	cb.End().End()
+	domTest(t, pkg, `package main
+
+func f() {
+	var value string = "outer"
+	{
+		var value int = len(value)
+		_ = value
+		var pending int
+		_ = pending
+	}
+}
+`)
+}
+
 func TestIndex(t *testing.T) {
 	pkg := newMainPackage()
 
 	x := newParam(pkg, token.NoPos, "x", types.NewSlice(types.Typ[types.Int]))
 	y := newParam(pkg, token.NoPos, "y", types.NewMap(types.Typ[types.String], types.Typ[types.Int]))
 	z := newParam(pkg, token.NoPos, "z", gogen.TyEmptyInterface)
-	ret := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
+	ret := newParam(pkg, token.NoPos, "_autoGo_1", types.Typ[types.Int])
 	pkg.NewFunc(nil, "foo", types.NewTuple(x, y, z), types.NewTuple(ret), false).BodyStart(pkg).
 		DefineVarStart(0, "v", "ok").Val(y).Val("a").Index(1, 2).EndInit(1).
 		DefineVarStart(0, "v1", "ok").Val(z).Val("a").Index(1, 2).EndInit(1).
@@ -3766,19 +3814,50 @@ func TestIndex(t *testing.T) {
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).End()
 	domTest(t, pkg, `package main
 
-func foo(x []int, y map[string]int, z interface{}) int {
+func foo(x []int, y map[string]int, z interface{}) (_autoGo_1 int) {
 	v, ok := y["a"]
-	_autoGo_1, _ := z.(map[string]any)
-	v1, ok := _autoGo_1["a"]
+	v1, ok := _autoGo_2(z)["a"]
 	v2 := y["a"]
 	v3, ok := y["b"]
-	_autoGo_2, _ := z.(map[string]any)
-	v4, ok := _autoGo_2["c"]
-	_autoGo_3, _ := z.(map[string]any)
-	v5 := _autoGo_3["d"]
+	v4, ok := _autoGo_2(z)["c"]
+	v5 := _autoGo_2(z)["d"]
 	return x[0]
 }
+func _autoGo_2(value interface{}) map[string]interface{} {
+	m, _ := value.(map[string]interface{})
+	return m
+}
 func main() {
+}
+`)
+}
+
+func TestDynamicIndexInInlineInitializer(t *testing.T) {
+	pkg := newMainPackage()
+	input := newParam(pkg, token.NoPos, "input", gogen.TyEmptyInterface)
+	result := newParam(pkg, token.NoPos, "result", gogen.TyEmptyInterface)
+	sig := types.NewSignatureType(nil, nil, nil, nil, types.NewTuple(result), false)
+	pkg.NewFunc(nil, "read", types.NewTuple(input), types.NewTuple(result), false).BodyStart(pkg).
+		DefineVarStart(0, "value").
+		CallInlineClosureStart(sig, 0, false).
+		Val(input).Val("key").Index(1, 1).Return(1).
+		End().EndInit(1).
+		VarVal("value").Return(1).End()
+	domTest(t, pkg, `package main
+
+func read(input interface{}) (result interface{}) {
+	var _autoGo_1 interface{}
+	{
+		_autoGo_1 = _autoGo_2(input)["key"]
+		goto _autoGo_3
+	_autoGo_3:
+	}
+	value := _autoGo_1
+	return value
+}
+func _autoGo_2(value interface{}) map[string]interface{} {
+	m, _ := value.(map[string]interface{})
+	return m
 }
 `)
 }
