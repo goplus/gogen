@@ -419,10 +419,16 @@ const (
 	tokFlagAll                    = tokUnaryFlag | tokFlagApproxType
 )
 
-// TemplateSignature: type of template function
+// TemplateSignature represents the signature of a template function.
 type TemplateSignature struct {
 	sig     *types.Signature
 	tokFlag token.Token // tok + unary flag, only for builtin operator
+	matcher *templateSignatureMatcher
+}
+
+// templateSignatureMatcher holds the signature matcher for a specialized template.
+type templateSignatureMatcher struct {
+	match func(*Package, *Element, []*Element, InstrFlags) (*types.Signature, error)
 }
 
 func (p *TemplateSignature) tok() token.Token {
@@ -461,6 +467,9 @@ func NewTemplateSignature(
 }
 
 func (p *TemplateSignature) instantiate(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (*types.Signature, error) {
+	if p.matcher != nil {
+		return p.matcher.match(pkg, fn, args, flags)
+	}
 	// A TemplateSignature is also used for non-generic overloads. Such a
 	// signature must be matched as-is; passing it through InferFunc would call
 	// go/types' generic inference with zero type parameters and panic.

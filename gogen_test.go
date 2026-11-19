@@ -31,6 +31,9 @@ import (
 	"github.com/goplus/gogen/packages"
 )
 
+// Keep template signatures usable as map keys.
+var _ map[gogen.TemplateSignature]struct{}
+
 // aliasType is a test helper mirroring the removed Package.AliasType: it
 // declares a package-level type alias using the current API
 // (NewType(...).AliasType(...)). It lives in this build-tag-agnostic file so

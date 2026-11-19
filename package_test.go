@@ -2362,6 +2362,252 @@ func foo(a []uint8) {
 `)
 }
 
+func TestAppendOperandTypes(t *testing.T) {
+	for _, tt := range []struct {
+		name, declarations, tparams, dst, src, value string
+		noEllipsis                                   bool
+	}{
+		{name: "DefinedSlice", declarations: "type Buffer []byte", dst: "Buffer", src: "string"},
+		{name: "DefinedString", declarations: "type Text string", dst: "[]byte", src: "Text"},
+		{name: "Aliases", declarations: "type Buffer []byte; type A = Buffer; type B = A; type Text string; type S = Text", dst: "B", src: "S"},
+		{name: "ByteAlias", declarations: "type Octet = byte; type Buffer []Octet", dst: "Buffer", src: "string"},
+		{name: "GenericInstance", declarations: "type Buffer[T any] []T", dst: "Buffer[byte]", src: "string"},
+		{name: "DefinedByte", declarations: "type Octet byte; type Buffer []Octet", dst: "Buffer", src: "string"},
+		{name: "Array", dst: "[2]byte", src: "string"},
+		{name: "InterfaceSource", dst: "[]byte", src: "any"},
+		{name: "BothStringOperandsConstrained", tparams: "[S ~[]byte, T ~string]", dst: "S", src: "T"},
+		{name: "MixedStringAndBytes", tparams: "[T ~string | ~[]byte]", dst: "[]byte", src: "T"},
+		{name: "ConstrainedByteSliceSource", tparams: "[T ~[]byte]", dst: "[]byte", src: "T"},
+		{name: "DefinedDestinationUnion", declarations: "type A []byte; type B []byte", tparams: "[S A | B, T ~string]", dst: "S", src: "T"},
+		{name: "StringMethodConstraint", tparams: "[T interface{ ~string; Text() string }]", dst: "[]byte", src: "T"},
+		{name: "ComparableStringConstraint", tparams: "[T interface{ ~string | ~[]rune | ~struct{ V any }; comparable }]", dst: "[]byte", src: "T"},
+		{name: "InvalidStringUnion", tparams: "[T ~string | ~[]rune]", dst: "[]byte", src: "T"},
+		{name: "DefinedByteSpreadUnion", declarations: "type Octet byte", tparams: "[T ~string | ~[]Octet]", dst: "[]byte", src: "T"},
+		{name: "StringToSliceOfTypeParameter", tparams: "[E ~byte]", dst: "[]E", src: "string"},
+		{name: "EmptyStringSourceConstraint", tparams: "[T interface{ ~string; ~[]byte }]", dst: "[]byte", src: "T"},
+		{name: "EmptyOrdinaryDestinationConstraint", tparams: "[S interface{ ~[]byte; comparable }]", dst: "S", src: "byte", noEllipsis: true},
+		{name: "NoEllipsis", declarations: "type Buffer []byte", dst: "Buffer", src: "string", noEllipsis: true},
+		{name: "DefinedSliceSource", declarations: "type Buffer []byte; type Source []byte", dst: "Buffer", src: "Source"},
+		{name: "AliasOfDefinedSlice", declarations: "type Buffer []byte; type A = Buffer; type B = A", dst: "B", src: "[]byte"},
+		{name: "InterfaceElement", declarations: "type Buffer []any", dst: "Buffer", src: "byte", noEllipsis: true},
+		{name: "WrongSliceElement", declarations: "type Buffer []any", dst: "Buffer", src: "[]byte"},
+		{name: "NamedElement", declarations: "type Octet byte; type Buffer []Octet", dst: "Buffer", src: "Octet", noEllipsis: true},
+		{name: "TypeParameter", tparams: "[S ~[]E, E any]", dst: "S", src: "E", noEllipsis: true},
+		{name: "TypeParameterEllipsis", tparams: "[S ~[]E, E any]", dst: "S", src: "S"},
+		{name: "DifferentSliceConstraint", tparams: "[S ~[]byte | ~[]int]", dst: "S", src: "byte", noEllipsis: true},
+		{name: "MixedConstraint", tparams: "[S ~int | ~[]byte]", dst: "S", src: "byte", noEllipsis: true},
+		{name: "UnconstrainedDestination", tparams: "[S any]", dst: "S", src: "byte", noEllipsis: true},
+		{name: "TypeParameterByte", tparams: "[E ~byte]", dst: "[]E", value: "255", noEllipsis: true},
+		{name: "TypeParameterByteOverflow", tparams: "[E ~byte]", dst: "[]E", value: "256", noEllipsis: true},
+		{name: "TypeParameterByteFraction", tparams: "[E ~byte]", dst: "[]E", value: "1.25", noEllipsis: true},
+		{name: "TypeParameterByteComplex", tparams: "[E ~byte]", dst: "[]E", value: "1 + 0i", noEllipsis: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gt := newGoxTest()
+			decls := tt.declarations
+			paramsDecl := "dst " + tt.dst
+			if tt.value == "" {
+				paramsDecl += ", src " + tt.src
+			} else {
+				decls += "\nconst src = " + tt.value
+			}
+			fixture := "package fixture\n" + decls + "\nfunc Operands" + tt.tparams + "(" + paramsDecl + ") {}\n"
+			sdk, err := gt.LoadGoPackage("fixture", "fixture.go", fixture)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fn, ok := sdk.Scope().Lookup("Operands").(*types.Func)
+			if !ok {
+				t.Fatal("Operands is not a function")
+			}
+			sig, ok := fn.Type().(*types.Signature)
+			if !ok {
+				t.Fatal("Operands has no signature")
+			}
+			params := sig.Params()
+			var src types.Object
+			if tt.value == "" {
+				src = params.At(1)
+			} else {
+				src = sdk.Scope().Lookup("src")
+			}
+			ellipsis := "..."
+			if tt.noEllipsis {
+				ellipsis = ""
+			}
+			expr := "append(dst, src" + ellipsis + ")"
+			want, checkErr := types.Eval(gt.fset, sdk, fn.Scope().End()-1, expr)
+			pkg := gt.NewPackage("main", "main")
+			cb := pkg.CB()
+			var flags gogen.InstrFlags
+			if !tt.noEllipsis {
+				flags = gogen.InstrFlagEllipsis
+			}
+			// Check the alias after a call with the unaliased operand type.
+			if alias, ok := params.At(0).Type().(*types.Alias); ok {
+				rawDst := types.NewParam(token.NoPos, sdk, "dst", types.Unalias(alias))
+				cb.Val(pkg.Builtin().Ref("append")).Val(rawDst).Val(src).CallWith(2, 1, flags)
+			}
+			cb.Val(pkg.Builtin().Ref("append")).Val(params.At(0)).Val(src)
+			if err := cb.CallWithEx(2, 1, flags, source(expr, 2, 5)); err != nil {
+				if checkErr == nil {
+					t.Fatalf("gogen rejected a valid append: %v", err)
+				}
+				return
+			}
+			if checkErr != nil {
+				t.Fatalf("gogen accepted append rejected by go/types: %v", checkErr)
+			}
+			got := cb.Get(-1)
+			if !types.Identical(got.Type, want.Type) {
+				t.Fatalf("append result = %v, want %v", got.Type, want.Type)
+			}
+			switch want.Type.(type) {
+			case *types.Alias, *types.Named, *types.TypeParam:
+				if got.Type != params.At(0).Type() {
+					t.Fatalf("append lost the operand type: got %v, want %v", got.Type, want.Type)
+				}
+			}
+			call, ok := got.Val.(*ast.CallExpr)
+			if !ok || call.Ellipsis.IsValid() == tt.noEllipsis {
+				t.Fatalf("append emitted unexpected expression: %T", got.Val)
+			}
+		})
+	}
+}
+
+func TestAppendStringResultCount(t *testing.T) {
+	pkg := newMainPackage()
+	dst := types.NewVar(token.NoPos, nil, "dst", types.NewSlice(types.Typ[types.Byte]))
+	cb := pkg.CB().Val(pkg.Builtin().Ref("append")).Val(dst).Val("x")
+	if err := cb.CallWithEx(2, 2, gogen.InstrFlagEllipsis); err == nil {
+		t.Fatal("append accepted a two-result call")
+	}
+}
+
+func TestAppendArguments(t *testing.T) {
+	gt := newGoxTest()
+	sdk, err := gt.LoadGoPackage("fixture", "fixture.go", `package fixture
+
+type Buffer []byte
+var Dst Buffer
+var Items []any
+
+const Huge = 1e500
+const Large = 1e100
+
+func Pair() (Buffer, byte)
+func SlicePair() (Buffer, []byte)
+func NoResult()
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst := sdk.Scope().Lookup("Dst")
+	pair := sdk.Scope().Lookup("Pair")
+	items := sdk.Scope().Lookup("Items")
+	slicePair := sdk.Scope().Lookup("SlicePair")
+	noResult := sdk.Scope().Lookup("NoResult")
+	for _, tt := range []struct {
+		name, expr string
+		args       []any
+		flags      gogen.InstrFlags
+	}{
+		{"NoValues", "append(Dst)", []any{dst}, 0},
+		{"TwoElements", "append(Dst, 0, 255)", []any{dst, 0, 255}, 0},
+		{"ElementOverflow", "append(Dst, 256)", []any{dst, 256}, 0},
+		{"NoArguments", "append()", nil, 0},
+		{"NilDestination", "append(nil, 1)", []any{types.Universe.Lookup("nil"), 1}, 0},
+		{"MultiResultCall", "append(Pair())", []any{pair}, 0},
+		{"MixedMultiValueArgument", "append(Items, Pair())", []any{items, pair}, 0},
+		{"TypeName", "append(Items, int)", []any{items, types.Universe.Lookup("int")}, 0},
+		{"Instruction", "append(Items, len)", []any{items, types.Universe.Lookup("len")}, 0},
+		{"Builtin", "append(Items, panic)", []any{items, types.Universe.Lookup("panic")}, 0},
+		{"InterfaceOverflow", "append(Items, Huge)", []any{items, sdk.Scope().Lookup("Huge")}, 0},
+		{"LargeFiniteFloat", "append(Items, Large)", []any{items, sdk.Scope().Lookup("Large")}, 0},
+		{"MultiResultSpread", "append(SlicePair()...)", []any{slicePair}, gogen.InstrFlagEllipsis},
+		{"NoResult", "append(NoResult())", []any{noResult}, 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			want, checkErr := types.Eval(gt.fset, sdk, token.NoPos, tt.expr)
+			pkg := gt.NewPackage("main", "main")
+			cb := pkg.CB().Val(pkg.Builtin().Ref("append"))
+			for _, arg := range tt.args {
+				cb.Val(arg)
+				if _, ok := arg.(*types.Func); ok {
+					cb.Call(0)
+				}
+			}
+			if err := cb.CallWithEx(len(tt.args), 1, tt.flags, source(tt.expr, 2, 5)); err != nil {
+				if checkErr == nil {
+					t.Fatalf("gogen rejected a valid append: %v", err)
+				}
+				return
+			}
+			if checkErr != nil {
+				t.Fatalf("gogen accepted append rejected by go/types: %v", checkErr)
+			}
+			if got := cb.Get(-1).Type; got != want.Type {
+				t.Fatalf("append result = %v, want %v", got, want.Type)
+			}
+		})
+	}
+}
+
+func TestAppendShiftToTypeParameter(t *testing.T) {
+	gt := newGoxTest()
+	sdk, err := gt.LoadGoPackage("fixture", "fixture.go", `package fixture
+func Operands[E ~int](dst []E, n uint) {}
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fn, ok := sdk.Scope().Lookup("Operands").(*types.Func)
+	if !ok {
+		t.Fatal("Operands is not a function")
+	}
+	sig, ok := fn.Type().(*types.Signature)
+	if !ok {
+		t.Fatal("Operands has no signature")
+	}
+	expr := "append(dst, 1 << n)"
+	want, err := types.Eval(gt.fset, sdk, fn.Scope().End()-1, expr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("main", "main")
+	params := sig.Params()
+	cb := pkg.CB().Val(pkg.Builtin().Ref("append")).Val(params.At(0)).
+		Val(1).Val(params.At(1)).BinaryOp(token.SHL)
+	if err := cb.CallWithEx(2, 1, 0, source(expr, 2, 5)); err != nil {
+		t.Fatal(err)
+	}
+	if got := cb.Get(-1).Type; got != want.Type {
+		t.Fatalf("append result = %v, want %v", got, want.Type)
+	}
+}
+
+func TestCopyDefinedSlice(t *testing.T) {
+	pkg := newMainPackage()
+	slice := types.NewSlice(types.Typ[types.Int])
+	values := pkg.NewType("Values").InitType(pkg, slice)
+	params := types.NewTuple(
+		newParam(pkg, token.NoPos, "dst", values),
+		newParam(pkg, token.NoPos, "src", slice),
+	)
+	pkg.NewFunc(nil, "foo", params, nil, false).BodyStart(pkg).
+		Val(pkg.Builtin().Ref("copy")).VarVal("dst").VarVal("src").Call(2).EndStmt().
+		End()
+	domTest(t, pkg, `package main
+
+type Values []int
+
+func foo(dst Values, src []int) {
+	copy(dst, src)
+}
+`)
+}
+
 func TestCopyString(t *testing.T) {
 	pkg := newMainPackage()
 	builtin := pkg.Builtin()

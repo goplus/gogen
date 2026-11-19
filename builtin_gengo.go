@@ -23,6 +23,8 @@ import (
 	"go/token"
 	"go/types"
 	"syscall"
+
+	"github.com/goplus/gogen/internal/typeparams"
 )
 
 const (
@@ -311,9 +313,6 @@ var _builtinFns = [...]struct {
 	{"close", []typeTParam{{"Type", _any}}, []typeXParam{{"c", xtChanIn}}, nil},
 	// func [Type any] close(c chan<- Type)
 
-	{"append", []typeTParam{{"Type", _any}}, []typeXParam{{"slice", xtSlice}, {"elems", xtEllipsis}}, xtSlice},
-	// func [Type any] append(slice []Type, elems ...Type) []Type
-
 	{"delete", []typeTParam{{"Key", comparable}, {"Elem", _any}}, []typeXParam{{"m", xtMap}, {"key", 0}}, nil},
 	// func [Key comparable, Elem any] delete(m map[Key]Elem, key Key)
 
@@ -387,9 +386,6 @@ func initBuiltinFuncs(builtin *types.Package, conf *Config) {
 		tsig := NewTemplateSignature(tparams, nil, types.NewTuple(params...), results, ellipsis, tokFlagApproxType)
 		var tfn types.Object = NewTemplateFunc(token.NoPos, builtin, fn.name, tsig)
 		switch fn.name {
-		case "append": // append is a special case
-			appendString := NewInstruction(token.NoPos, builtin, "append", appendStringInstr{})
-			tfn = NewOverloadFunc(token.NoPos, builtin, "append", appendString, tfn)
 		case "copy": // func [S string] copy(dst []byte, src S) int
 			tparams := newTypeParams(builtin, conf, []typeTParam{{"S", _string}})
 			dst := types.NewParam(token.NoPos, builtin, "dst", types.NewSlice(types.Typ[types.Byte]))
@@ -407,6 +403,7 @@ func initBuiltinFuncs(builtin *types.Package, conf *Config) {
 		}
 		gbl.Insert(tfn)
 	}
+	gbl.Insert(newBuiltinAppend(builtin))
 	for _, overload := range _builtinOverloads {
 		fns := []types.Object{
 			newBFunc(builtin, overload.name, overload.fns[0]),
@@ -485,26 +482,106 @@ func newXTypeParamType(tparams []*types.TypeParam, x xType) types.Type {
 
 // ----------------------------------------------------------------------------
 
+// newBuiltinAppend builds the ordinary and string forms of append.
+func newBuiltinAppend(builtin *types.Package) *types.Func {
+	e := types.NewTypeParam(types.NewTypeName(token.NoPos, builtin, "E", nil), anyConstraint)
+	s := types.NewTypeParam(types.NewTypeName(token.NoPos, builtin, "S", nil), newConstraint([]*types.Term{
+		types.NewTerm(true, types.NewSlice(e)),
+	}))
+	sig := &TemplateSignature{
+		sig:     newAppendSignature(builtin, s, types.NewSlice(e), s, e),
+		matcher: &appendSignatureMatcher,
+	}
+	regular := NewTemplateFunc(token.NoPos, builtin, "append", sig)
+	str := NewInstruction(token.NoPos, builtin, "append", appendStringInstr{})
+	return NewOverloadFunc(token.NoPos, builtin, "append", str, regular)
+}
+
+// newAppendSignature describes append(slice S, elems ...E) S.
+func newAppendSignature(builtin *types.Package, dst types.Type, elems *types.Slice, tparams ...*types.TypeParam) *types.Signature {
+	params := types.NewTuple(
+		types.NewParam(token.NoPos, builtin, "slice", dst),
+		types.NewParam(token.NoPos, builtin, "elems", elems),
+	)
+	results := types.NewTuple(types.NewParam(token.NoPos, builtin, "", dst))
+	return types.NewSignatureType(nil, nil, tparams, params, results, true)
+}
+
+// appendSignatureMatcher matches the ordinary append overload.
+var appendSignatureMatcher = templateSignatureMatcher{match: instantiateAppend}
+
+// instantiateAppend derives the element and result types from the destination slice.
+func instantiateAppend(pkg *Package, fn *Element, args []*Element, flags InstrFlags) (*types.Signature, error) {
+	if len(args) == 0 {
+		return nil, pkg.cb.newCodeError(getSrcPos(fn.Src), getSrcEnd(fn.Src), "not enough arguments in call to append")
+	}
+
+	dst := args[0].Type
+	if results := soleCallResults(args, flags); results != nil {
+		dst = results.At(0).Type()
+	}
+	slice := appendSliceType(pkg, dst)
+	if slice == nil {
+		return nil, pkg.cb.newCodeErrorf(getSrcPos(fn.Src), getSrcEnd(fn.Src), "first argument to append must be a slice (have %v)", dst)
+	}
+
+	return newAppendSignature(pkg.builtin.Types, dst, slice), nil
+}
+
+// appendSliceType returns the common underlying slice type of the destination.
+func appendSliceType(pkg *Package, dst types.Type) *types.Slice {
+	if dst == nil {
+		return nil
+	}
+	dst = types.Unalias(dst)
+	if t, ok := dst.(*types.TypeParam); ok {
+		terms, err := typeparams.StructuralTerms(t)
+		if err != nil || len(terms) == 0 {
+			return nil
+		}
+		slice, _ := getUnderlying(pkg, terms[0].Type()).(*types.Slice)
+		if slice != nil && types.AssignableTo(t, slice) {
+			return slice
+		}
+		return nil
+	}
+	slice, _ := getUnderlying(pkg, dst).(*types.Slice)
+	return slice
+}
+
+// These constraints distinguish string spreads from ordinary byte slice spreads.
+var (
+	appendByteSliceTerm          = types.NewTerm(true, types.NewSlice(types.Typ[types.Byte]))
+	appendByteSliceConstraint    = newConstraint([]*types.Term{appendByteSliceTerm})
+	appendStringSourceConstraint = newConstraint([]*types.Term{tildeString, appendByteSliceTerm})
+)
+
+// isAppendStringSource reports whether typ can use the string form of append.
+func isAppendStringSource(pkg *Package, typ types.Type) bool {
+	if param, ok := types.Unalias(typ).(*types.TypeParam); ok {
+		// The type set may mix strings and byte slices, but it must include a string.
+		return types.Implements(param, appendStringSourceConstraint) && !types.Implements(param, appendByteSliceConstraint)
+	}
+	return _string.Match(pkg, typ)
+}
+
 type appendStringInstr struct {
 }
 
-// func append(slice []byte, val ..string) []byte
+// Call handles appending the bytes of a string to a byte slice.
 func (p appendStringInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error) {
-	if len(args) == 2 && flags != 0 {
-		if t, ok := args[0].Type.(*types.Slice); ok {
-			if elem, ok := t.Elem().(*types.Basic); ok && elem.Kind() == types.Byte {
-				if v, ok := args[1].Type.(*types.Basic); ok {
-					if v.Kind() == types.String || v.Kind() == types.UntypedString {
-						return &Element{
-							Val:  newAppendStringExpr(args),
-							Type: t,
-						}, nil
-					}
-				}
-			}
-		}
+	if len(args) != 2 || lhs == 2 || flags&InstrFlagEllipsis == 0 ||
+		!isAppendStringSource(pkg, args[1].Type) {
+		return nil, syscall.EINVAL
 	}
-	return nil, syscall.EINVAL
+
+	dst := args[0].Type
+	slice := appendSliceType(pkg, dst)
+	if slice == nil || !types.Identical(slice.Elem(), types.Typ[types.Byte]) {
+		return nil, syscall.EINVAL
+	}
+
+	return &Element{Val: newAppendStringExpr(args), Type: dst}, nil
 }
 
 type lenInstr struct {
