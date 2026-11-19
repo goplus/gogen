@@ -3831,6 +3831,53 @@ func main() {
 `)
 }
 
+func TestDefinedPointerDereference(t *testing.T) {
+	pkg := newMainPackage()
+	valueType := pkg.NewType("Value").InitType(pkg, types.Typ[types.Int])
+	pointerType := pkg.NewType("Pointer").InitType(pkg, types.NewPointer(valueType))
+	pointer := newParam(pkg, token.NoPos, "p", pointerType)
+	value := newParam(pkg, token.NoPos, "", valueType)
+
+	pkg.NewFunc(nil, "update", types.NewTuple(pointer), types.NewTuple(value), false).BodyStart(pkg).
+		Val(pointer).ElemRef().Val(1).Assign(1).
+		Val(pointer).ElemRef().Val(2).AssignOp(token.ADD_ASSIGN).
+		Val(pointer).Elem().Return(1).
+		End()
+
+	domTest(t, pkg, `package main
+
+type Value int
+type Pointer *Value
+
+func update(p Pointer) Value {
+	*p = 1
+	*p += 2
+	return *p
+}
+`)
+}
+
+func TestElemRefLoadsDefinedPointer(t *testing.T) {
+	elemType := types.Typ[types.Int]
+	pkg := gogen.NewPackage("", "main", &gogen.Config{
+		LoadNamed: func(_ *gogen.Package, typ *types.Named) {
+			typ.SetUnderlying(types.NewPointer(elemType))
+		},
+	})
+	pointer := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "Pointer", nil), nil, nil)
+	value := types.NewVar(token.NoPos, pkg.Types, "p", pointer)
+	cb := pkg.CB().Val(value)
+	if pointer.Underlying() != nil {
+		t.Fatal("pointer type loaded before dereference")
+	}
+
+	ref := cb.ElemRef().Get(-1).Type
+	got, ok := gogen.DerefType(ref)
+	if !ok || got != elemType {
+		t.Fatalf("dereference type = %v, want a reference to %v", ref, elemType)
+	}
+}
+
 func TestAssignOp(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
