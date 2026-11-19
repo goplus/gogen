@@ -582,7 +582,14 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 }
 
 func (p *forRangeStmt) getKeyValTypes(cb *CodeBuilder, typ types.Type) []types.Type {
-retry:
+	typ = types.Unalias(typ)
+	named, _ := typ.(*types.Named)
+	if named != nil {
+		if kv, ok := p.checkUdt(cb, named); ok {
+			return kv
+		}
+		typ = cb.getUnderlying(named)
+	}
 	switch t := typ.(type) {
 	case *types.Slice:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
@@ -591,12 +598,19 @@ retry:
 	case *types.Array:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
 	case *types.Pointer:
-		switch e := t.Elem().(type) {
+		switch e := types.Unalias(t.Elem()).(type) {
 		case *types.Array:
 			return []types.Type{types.Typ[types.Int], e.Elem()}
 		case *types.Named:
-			if kv, ok := p.checkUdt(cb, e); ok {
-				return kv
+			underlying := cb.getUnderlying(e)
+			// Defined pointer types do not inherit methods of their element.
+			if named == nil {
+				if kv, ok := p.checkUdt(cb, e); ok {
+					return kv
+				}
+			}
+			if array, ok := underlying.(*types.Array); ok {
+				return []types.Type{types.Typ[types.Int], array.Elem()}
 			}
 		}
 	case *types.Chan:
@@ -619,12 +633,6 @@ retry:
 		// func(yield func(V) bool)          - 1 value
 		// func(yield func(K, V) bool)       - 2 values
 		return checkIteratorFunc(t)
-	case *types.Named:
-		if kv, ok := p.checkUdt(cb, t); ok {
-			return kv
-		}
-		typ = cb.getUnderlying(t)
-		goto retry
 	}
 	return nil
 }
@@ -643,7 +651,7 @@ func checkIteratorFunc(sig *types.Signature) []types.Type {
 	// The parameter must be a function
 	paramType := sig.Params().At(0).Type()
 	yieldSig, ok := types.Unalias(paramType).(*types.Signature)
-	if !ok {
+	if !ok || yieldSig.Variadic() {
 		return nil
 	}
 	// yield must return bool
@@ -651,7 +659,7 @@ func checkIteratorFunc(sig *types.Signature) []types.Type {
 	if yieldRets.Len() != 1 {
 		return nil
 	}
-	basic, ok := yieldRets.At(0).Type().(*types.Basic)
+	basic, ok := types.Unalias(yieldRets.At(0).Type()).(*types.Basic)
 	if !ok || basic.Kind() != types.Bool {
 		return nil
 	}
@@ -668,51 +676,46 @@ func checkIteratorFunc(sig *types.Signature) []types.Type {
 	return nil
 }
 
+// checkUdt resolves the iterator types of a named operand and records the
+// enumeration method only when it can be used to lower the range statement.
 func (p *forRangeStmt) checkUdt(cb *CodeBuilder, o *types.Named) ([]types.Type, bool) {
-	if enumName, sig := findEnumMethodType(cb, o); sig != nil {
-		p.enumName = enumName
-		enumRet := sig.Results()
-		params := sig.Params()
-		switch params.Len() {
-		case 0:
-			// fnIter := obj.XGo_Enum() or
-			// iter := obj.XGo_Enum()
-			// key, val, ok := iter.Next()
-		default:
-			return nil, false
-		}
-		if enumRet.Len() == 1 {
-			typ := enumRet.At(0).Type()
-			switch t := typ.(type) {
-			case *types.Pointer:
-				typ = t.Elem()
-				if it, ok := typ.(*types.Named); ok {
-					return p.checkUdtEnumRet(cb, it)
-				}
-			case *types.Named:
-				u := cb.getUnderlying(t)
-				if sig, ok := u.(*types.Signature); ok {
-					if ret := checkIteratorFunc(sig); ret != nil {
-						return ret, true
-					}
-				} else {
-					return p.checkUdtEnumRet(cb, t)
-				}
-			case *types.Signature:
-				if ret := checkIteratorFunc(t); ret != nil {
-					return ret, true
-				}
-			}
-		}
+	enumName, sig := findEnumMethodType(cb, o)
+	if sig == nil || sig.Params().Len() != 0 || sig.Results().Len() != 1 {
+		return nil, false
 	}
-	return nil, false
+
+	var kv []types.Type
+	switch t := types.Unalias(sig.Results().At(0).Type()).(type) {
+	case *types.Pointer:
+		if it, ok := types.Unalias(t.Elem()).(*types.Named); ok {
+			kv = p.checkUdtEnumRet(cb, it)
+		}
+	case *types.Named:
+		if sig, ok := cb.getUnderlying(t).(*types.Signature); ok {
+			kv = checkIteratorFunc(sig)
+		} else {
+			kv = p.checkUdtEnumRet(cb, t)
+		}
+	case *types.Signature:
+		kv = checkIteratorFunc(t)
+	}
+	if kv == nil {
+		return nil, false
+	}
+	p.enumName = enumName
+	return kv, true
 }
 
-// checkUdtEnumRet checks if a named type 'it' returned by XGo_Enum()
-// implements the iterator pattern with a Next() method.
-// Returns the key/value types and true if valid, nil and false otherwise.
-func (p *forRangeStmt) checkUdtEnumRet(cb *CodeBuilder, it *types.Named) ([]types.Type, bool) {
+// checkUdtEnumRet returns the iteration types of a named iterator with a
+// valid Next method. It records the result count for lowering the loop.
+func (p *forRangeStmt) checkUdtEnumRet(cb *CodeBuilder, it *types.Named) []types.Type {
 	if next := findMethodType(cb, it, "Next"); next != nil {
+		if n := next.Params().Len(); n != 0 {
+			sig, ok := next.(*types.Signature)
+			if n != 1 || !ok || !sig.Variadic() {
+				return nil
+			}
+		}
 		ret := next.Results()
 		typs := make([]types.Type, 2)
 		n := ret.Len()
@@ -722,14 +725,14 @@ func (p *forRangeStmt) checkUdtEnumRet(cb *CodeBuilder, it *types.Named) ([]type
 		case 3: // key, elem, ok
 			typs[0], typs[1] = ret.At(0).Type(), ret.At(1).Type()
 		default:
-			return nil, false
+			return nil
 		}
-		if ret.At(n-1).Type() == types.Typ[types.Bool] {
+		if types.Unalias(ret.At(n-1).Type()) == types.Typ[types.Bool] {
 			p.udt = n
-			return typs, true
+			return typs
 		}
 	}
-	return nil, false
+	return nil
 }
 
 func findMethodType(cb *CodeBuilder, o *types.Named, name string) mthdSignature {
