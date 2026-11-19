@@ -518,13 +518,13 @@ retry:
 	return p
 }
 
-// Elem func
+// Elem replaces the pointer on top of the stack with its dereferenced value.
 func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Elem")
 	}
 	arg := p.stk.Get(-1)
-	t, ok := arg.Type.(*types.Pointer)
+	t, ok := p.pointerType(arg.Type)
 	if !ok {
 		code, pos, end := p.loadExpr(arg.Src)
 		p.panicCodeErrorf(pos, end, "invalid indirect of %s (type %v)", code, arg.Type)
@@ -533,13 +533,13 @@ func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-// ElemRef func
+// ElemRef replaces the pointer on top of the stack with a reference to its element.
 func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("ElemRef")
 	}
 	arg := p.stk.Get(-1)
-	t, ok := arg.Type.(*types.Pointer)
+	t, ok := p.pointerType(arg.Type)
 	if !ok {
 		code, pos, end := p.loadExpr(arg.Src)
 		p.panicCodeErrorf(pos, end, "invalid indirect of %s (type %v)", code, arg.Type)
@@ -548,6 +548,15 @@ func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 		Val: &ast.StarExpr{X: arg.Val}, Type: &refType{typ: t.Elem()}, Src: getSrc(src),
 	})
 	return p
+}
+
+// pointerType returns the pointer type of an operand, resolving defined types as needed.
+func (p *CodeBuilder) pointerType(typ types.Type) (*types.Pointer, bool) {
+	if named, ok := typ.(*types.Named); ok {
+		typ = p.getUnderlying(named)
+	}
+	ptr, ok := typ.(*types.Pointer)
+	return ptr, ok
 }
 
 func (p *CodeBuilder) doVarRef(ref any, src ast.Node, allowDebug bool) *CodeBuilder {
