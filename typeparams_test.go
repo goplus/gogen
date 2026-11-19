@@ -1350,6 +1350,76 @@ func _() {
 `)
 }
 
+func TestGenericFunctionArguments(t *testing.T) {
+	const src = `package fixture
+
+type Callback func(...int) int
+
+func Consume(Callback) {}
+func ConsumeResult(func() string) {}
+func ConsumeAny(any) {}
+
+func Count[T any](items ...T) int { return len(items) }
+func Result[T any]() T {
+	var v T
+	return v
+}
+func Partial[A, B any](...B) A { return Result[A]() }
+func WrongResult[T any](...T) string { return "" }
+func Constrained[S ~[]E, E any](S) {}
+`
+	gt := newGoxTest()
+	if _, err := gt.LoadGoPackage("fixture", "fixture.go", src); err != nil {
+		t.Fatal(err)
+	}
+	pkg := gt.NewPackage("", "main")
+	fixture := pkg.Import("fixture")
+	cb := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+		Val(fixture.Ref("Consume")).Val(fixture.Ref("Count")).Call(1).EndStmt().
+		Val(fixture.Ref("ConsumeResult")).Val(fixture.Ref("Result")).Call(1).EndStmt().
+		Val(fixture.Ref("Consume")).Val(fixture.Ref("Partial")).Typ(types.Typ[types.Int]).Index(1, 0).Call(1).EndStmt().
+		Val(fixture.Ref("ConsumeAny")).Val(fixture.Ref("Constrained")).Typ(types.NewSlice(types.Typ[types.Int])).Index(1, 0)
+	if !gogen.AssignableTo(pkg, cb.Get(-1).Type, types.Universe.Lookup("any").Type()) {
+		t.Fatal("function inferred from its constraint is not assignable to any")
+	}
+	cb.Call(1).EndStmt().End()
+	domTest(t, pkg, `package main
+
+import "fixture"
+
+func main() {
+	fixture.Consume(fixture.Count[int])
+	fixture.ConsumeResult(fixture.Result[string])
+	fixture.Consume(fixture.Partial[int, int])
+	fixture.ConsumeAny(fixture.Constrained[[]int])
+}
+`)
+
+	for _, tt := range []struct {
+		name, caller, arg string
+		partial           bool
+	}{
+		{"WrongResult", "Consume", "WrongResult", false},
+		{"Uninstantiated", "ConsumeAny", "Count", false},
+		{"PartiallyInstantiated", "ConsumeAny", "Partial", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := gt.NewPackage("", "main")
+			fixture := pkg.Import("fixture")
+			cb := pkg.CB().Val(fixture.Ref(tt.caller)).Val(fixture.Ref(tt.arg))
+			if tt.partial {
+				cb.Typ(types.Typ[types.Int]).Index(1, 0)
+				if gogen.AssignableTo(pkg, cb.Get(-1).Type, types.Universe.Lookup("any").Type()) {
+					t.Fatal("assignability accepted a function with missing type arguments")
+				}
+			}
+			if err := cb.CallWithEx(1, 0, 0); err == nil {
+				t.Fatal("call accepted a generic function without a matching instance")
+			}
+		})
+	}
+}
+
 func TestAliasTypeParams(t *testing.T) {
 	if !isLeastGo(24) {
 		t.Skip()

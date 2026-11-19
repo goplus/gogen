@@ -60,7 +60,7 @@ func (p *inferFuncType) String() string {
 }
 
 func (p *inferFuncType) Instance() *types.Signature {
-	tyRet, err := inferFuncTargs(p.pkg, p.fn, p.typ, p.targs)
+	tyRet, err := p.instance()
 	if err != nil {
 		pos := getSrcPos(p.src)
 		end := getSrcEnd(p.src)
@@ -207,18 +207,19 @@ func InferFunc(pkg *Package, fn *Element, sig *types.Signature, targs []types.Ty
 	return typ, err
 }
 
-func inferFuncTargs(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type) (types.Type, error) {
-	tp := sig.TypeParams()
+// instance infers the remaining type arguments from the supplied arguments and constraints.
+func (p *inferFuncType) instance() (types.Type, error) {
+	tp := p.typ.TypeParams()
 	n := tp.Len()
 	tparams := make([]*types.TypeParam, n)
 	for i := 0; i < n; i++ {
 		tparams[i] = tp.At(i)
 	}
-	targs, err := infer(pkg, fn.Val, tparams, targs, nil, nil)
+	targs, err := infer(p.pkg, p.fn.Val, tparams, p.targs, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return types.Instantiate(pkg.cb.ctxt, sig, targs, true)
+	return types.Instantiate(p.pkg.cb.ctxt, p.typ, targs, true)
 }
 
 func toFieldListX(pkg *Package, t *types.TypeParamList) *ast.FieldList {
@@ -342,19 +343,6 @@ func (p *Package) Instantiate(orig types.Type, targs []types.Type, src ...ast.No
 		p.cb.handleCodeError(getPos(src), getEnd(src), err.Error())
 	}
 	return ret
-}
-
-func paramsToArgs(sig *types.Signature) []*internal.Elem {
-	n := sig.Params().Len()
-	args := make([]*internal.Elem, n)
-	for i := 0; i < n; i++ {
-		p := sig.Params().At(i)
-		args[i] = &internal.Elem{
-			Val:  ident(p.Name()),
-			Type: p.Type(),
-		}
-	}
-	return args
 }
 
 func inferFunc(pkg *Package, fn *internal.Elem, sig *types.Signature, targs []types.Type, args []*Element, flags InstrFlags) ([]types.Type, types.Type, error) {

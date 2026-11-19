@@ -133,6 +133,26 @@ func TestBigRatConstant(t *testing.T) {
 	}
 }
 
+func TestXGoUntypedConstantConversion(t *testing.T) {
+	for _, name := range []string{"Named", "Alias"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := newXGoMainPackage()
+			typ := pkg.Import("github.com/goplus/gogen/internal/builtin").Ref("XGo_untyped_bigint").Type()
+			if name == "Alias" {
+				typ = aliasType(pkg, "Big", typ)
+			}
+			cb := pkg.CB().Typ(typ).UntypedBigInt(big.NewInt(65)).Call(1)
+			result := cb.Get(-1)
+			if result.Type != typ {
+				t.Fatalf("type = %v, want %v", result.Type, typ)
+			}
+			if result.CVal == nil || result.CVal.Kind() != constant.Int || result.CVal.ExactString() != "65" {
+				t.Fatalf("constant value = %v, want 65", result.CVal)
+			}
+		})
+	}
+}
+
 func TestBigIntVar(t *testing.T) {
 	pkg := newXGoMainPackage()
 	big := pkg.Import("github.com/goplus/gogen/internal/builtin")
@@ -485,6 +505,10 @@ func main() {
 	a.XGo_AddAssign(builtin.XGo_bigrat_Init__0(1))
 }
 `)
+}
+
+func TestXGoConstantDivisionOverflow(t *testing.T) {
+	testConstantDivisionOverflow(t, newXGoMainPackage)
 }
 
 func TestUntypedBigIntQuo(t *testing.T) {
@@ -1561,9 +1585,9 @@ func main() {
 func TestReflectTypeArgVariadic(t *testing.T) {
 	pkg := newMainPackage()
 	reflectPkg := pkg.Import("reflect")
-	reflectType := reflectPkg.Ref("Type").Type()
+	reflectType := pkg.NewType("Type").AliasType(pkg, reflectPkg.Ref("Type").Type())
 
-	// func accept(typs ...reflect.Type) {}
+	// func accept(typs ...Type) {}
 	acceptParams := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "typs", types.NewSlice(reflectType)))
 	pkg.NewFunc(nil, "accept", acceptParams, nil, true).BodyStart(pkg).End()
 
@@ -1579,7 +1603,9 @@ func TestReflectTypeArgVariadic(t *testing.T) {
 
 import "reflect"
 
-func accept(typs ...reflect.Type) {
+type Type = reflect.Type
+
+func accept(typs ...Type) {
 }
 func main() {
 	accept(reflect.TypeFor[int](), reflect.TypeFor[string]())
