@@ -410,7 +410,7 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	args := p.stk.GetArgs(n)
 	x := args[0]
 	typ := x.Type
-	switch t := typ.(type) {
+	switch t := types.Unalias(typ).(type) {
 	case *types.Slice:
 		// nothing to do
 	case *types.Basic:
@@ -426,7 +426,7 @@ func (p *CodeBuilder) Slice(slice3 bool, src ...ast.Node) *CodeBuilder { // a[i:
 	case *types.Array:
 		typ = types.NewSlice(t.Elem())
 	case *types.Pointer:
-		if tt, ok := t.Elem().(*types.Array); ok {
+		if tt, ok := types.Unalias(t.Elem()).(*types.Array); ok {
 			typ = types.NewSlice(tt.Elem())
 		} else {
 			code, pos, end := p.loadExpr(x.Src)
@@ -502,7 +502,7 @@ func (p *CodeBuilder) Star(src ...ast.Node) *CodeBuilder {
 	ret := &internal.Elem{Val: &ast.StarExpr{X: arg.Val}, Src: getSrc(src)}
 	argType := arg.Type
 retry:
-	switch t := argType.(type) {
+	switch t := types.Unalias(argType).(type) {
 	case *TypeType:
 		ret.Type = t.Pointer()
 	case *types.Pointer:
@@ -518,13 +518,13 @@ retry:
 	return p
 }
 
-// Elem func
+// Elem replaces the pointer on top of the stack with its dereferenced value.
 func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("Elem")
 	}
 	arg := p.stk.Get(-1)
-	t, ok := arg.Type.(*types.Pointer)
+	t, ok := p.pointerType(arg.Type)
 	if !ok {
 		code, pos, end := p.loadExpr(arg.Src)
 		p.panicCodeErrorf(pos, end, "invalid indirect of %s (type %v)", code, arg.Type)
@@ -533,13 +533,13 @@ func (p *CodeBuilder) Elem(src ...ast.Node) *CodeBuilder {
 	return p
 }
 
-// ElemRef func
+// ElemRef replaces the pointer on top of the stack with a reference to its element.
 func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 	if debugInstr {
 		log.Println("ElemRef")
 	}
 	arg := p.stk.Get(-1)
-	t, ok := arg.Type.(*types.Pointer)
+	t, ok := p.pointerType(arg.Type)
 	if !ok {
 		code, pos, end := p.loadExpr(arg.Src)
 		p.panicCodeErrorf(pos, end, "invalid indirect of %s (type %v)", code, arg.Type)
@@ -548,6 +548,16 @@ func (p *CodeBuilder) ElemRef(src ...ast.Node) *CodeBuilder {
 		Val: &ast.StarExpr{X: arg.Val}, Type: &refType{typ: t.Elem()}, Src: getSrc(src),
 	})
 	return p
+}
+
+// pointerType returns the pointer type of an operand, resolving aliases and defined types as needed.
+func (p *CodeBuilder) pointerType(typ types.Type) (*types.Pointer, bool) {
+	typ = types.Unalias(typ)
+	if named, ok := typ.(*types.Named); ok {
+		typ = p.getUnderlying(named)
+	}
+	ptr, ok := typ.(*types.Pointer)
+	return ptr, ok
 }
 
 func (p *CodeBuilder) doVarRef(ref any, src ast.Node, allowDebug bool) *CodeBuilder {
@@ -619,7 +629,7 @@ func (p *CodeBuilder) methodSigOf(typ types.Type, flag MemberFlag, arg, ret *Ele
 	at := arg.Type.(*TypeType).typ
 	recv := sig.Recv().Type()
 	_, isPtr := recv.(*types.Pointer) // recv is a pointer
-	if t, ok := at.(*types.Pointer); ok {
+	if t, ok := types.Unalias(at).(*types.Pointer); ok {
 		if !isPtr {
 			if _, ok := recv.Underlying().(*types.Interface); !ok { // and recv isn't a interface
 				log.Panicf("recv of method %v.%s isn't a pointer\n", t.Elem(), sel.Sel.Name)

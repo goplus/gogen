@@ -491,13 +491,13 @@ type appendStringInstr struct {
 // func append(slice []byte, val ..string) []byte
 func (p appendStringInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags, src ast.Node) (ret *Element, err error) {
 	if len(args) == 2 && flags != 0 {
-		if t, ok := args[0].Type.(*types.Slice); ok {
-			if elem, ok := t.Elem().(*types.Basic); ok && elem.Kind() == types.Byte {
-				if v, ok := args[1].Type.(*types.Basic); ok {
+		if t, ok := types.Unalias(args[0].Type).(*types.Slice); ok {
+			if isBasicType(t.Elem(), types.Byte) {
+				if v, ok := types.Unalias(args[1].Type).(*types.Basic); ok {
 					if v.Kind() == types.String || v.Kind() == types.UntypedString {
 						return &Element{
 							Val:  newAppendStringExpr(args),
-							Type: t,
+							Type: args[0].Type,
 						}, nil
 					}
 				}
@@ -519,7 +519,7 @@ func (p lenInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 		panic("TODO: len() should have one parameter")
 	}
 	var cval constant.Value
-	switch t := args[0].Type.(type) {
+	switch t := types.Unalias(args[0].Type).(type) {
 	case *types.Basic:
 		switch t.Kind() {
 		case types.String, types.UntypedString:
@@ -533,7 +533,7 @@ func (p lenInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 	case *types.Array:
 		cval = constant.MakeInt64(t.Len())
 	case *types.Pointer:
-		if tt, ok := t.Elem().(*types.Array); ok {
+		if tt, ok := types.Unalias(t.Elem()).(*types.Array); ok {
 			cval = constant.MakeInt64(tt.Len())
 		} else {
 			panic("TODO: call len() to a pointer")
@@ -557,11 +557,11 @@ func (p capInstr) Call(pkg *Package, args []*Element, lhs int, flags InstrFlags,
 		panic("TODO: cap() should have one parameter")
 	}
 	var cval constant.Value
-	switch t := args[0].Type.(type) {
+	switch t := types.Unalias(args[0].Type).(type) {
 	case *types.Array:
 		cval = constant.MakeInt64(t.Len())
 	case *types.Pointer:
-		if tt, ok := t.Elem().(*types.Array); ok {
+		if tt, ok := types.Unalias(t.Elem()).(*types.Array); ok {
 			cval = constant.MakeInt64(tt.Len())
 		} else {
 			panic("TODO: call cap() to a pointer")

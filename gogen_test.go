@@ -173,3 +173,85 @@ func doDomTest(t *testing.T, pkg *gogen.Package, expected string, fname string) 
 		t.Fatalf("\ngogen.WriteTo Result:\n%s\nExpected:\n%s\n", result, expected)
 	}
 }
+
+func TestCodeBuilderAliasCall(t *testing.T) {
+	for _, name := range []string{"Function", "NamedFunction", "AliasChain", "GenericFunction", "VariadicFunction", "FunctionResult", "StructField"} {
+		t.Run(name, func(t *testing.T) {
+			pkg := gogen.NewPackage("", "foo", nil)
+			result := aliasType(pkg, "Result", types.Typ[types.Int])
+			paramType := types.Type(types.Typ[types.Int])
+			variadic := name == "VariadicFunction"
+			if variadic {
+				paramType = types.NewSlice(paramType)
+			}
+			sig := types.NewSignatureType(nil, nil, nil,
+				types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "value", paramType)),
+				types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", result)), variadic)
+			var typ types.Type = sig
+			if name == "NamedFunction" {
+				typ = pkg.NewType("Callback").InitType(pkg, sig)
+			}
+			if name == "GenericFunction" {
+				tp := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), gogen.TyEmptyInterface)
+				tuple := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", tp))
+				generic := types.NewAlias(types.NewTypeName(token.NoPos, pkg.Types, "Generic", nil),
+					types.NewSignatureType(nil, nil, nil, tuple, tuple, false))
+				generic.SetTypeParams([]*types.TypeParam{tp})
+				var err error
+				typ, err = types.Instantiate(nil, generic, []types.Type{result}, true)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			typ = aliasType(pkg, "Alias", typ)
+			if name == "AliasChain" {
+				typ = aliasType(pkg, "Next", typ)
+			}
+			fn := types.NewVar(token.NoPos, pkg.Types, "fn", typ)
+			cb := pkg.CB()
+			switch name {
+			case "FunctionResult":
+				factory := types.NewFunc(token.NoPos, pkg.Types, "factory",
+					types.NewSignatureType(nil, nil, nil, nil,
+						types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", typ)), false))
+				cb.Val(factory).Call(0)
+			case "StructField":
+				holder := types.NewStruct([]*types.Var{types.NewField(token.NoPos, pkg.Types, "Callback", typ, false)}, nil)
+				cb.Val(types.NewVar(token.NoPos, pkg.Types, "holder", holder)).MemberVal("Callback", 0)
+			default:
+				cb.Val(fn)
+			}
+			if got := cb.Get(-1).Type; got != typ {
+				t.Fatalf("function type = %v, want preserved alias %v", got, typ)
+			}
+			if name != "NamedFunction" && !gogen.IsFunc(cb.Get(-1).Type) {
+				t.Error("function alias is not recognized as a function")
+			}
+			cb.Val(types.NewVar(token.NoPos, pkg.Types, "value", types.Typ[types.Int])).Call(1)
+			if got := cb.Get(-1).Type; got != result {
+				t.Errorf("call type = %v, want %v", got, result)
+			}
+		})
+	}
+}
+
+func TestHasAutoPropertyAlias(t *testing.T) {
+	for _, count := range []int{0, 1} {
+		name := "NoParams"
+		if count != 0 {
+			name = "WithParam"
+		}
+		t.Run(name, func(t *testing.T) {
+			pkg := gogen.NewPackage("", "foo", nil)
+			var params *types.Tuple
+			if count != 0 {
+				params = types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", types.Typ[types.Int]))
+			}
+			sig := types.NewSignatureType(nil, nil, nil, params, nil, false)
+			alias := aliasType(pkg, "Alias", aliasType(pkg, "Inner", sig))
+			if got, want := gogen.HasAutoProperty(alias), count == 0; got != want {
+				t.Errorf("alias auto-property = %v, want %v", got, want)
+			}
+		})
+	}
+}

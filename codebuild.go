@@ -424,7 +424,7 @@ func (p *CodeBuilder) ReturnErr(outer bool) *CodeBuilder {
 	n := results.Len()
 	if n > 0 {
 		last := results.At(n - 1)
-		if last.Type() == TyError { // last result is error
+		if types.Unalias(last.Type()) == TyError { // last result is error
 			err := p.stk.Pop()
 			for i := 0; i < n-1; i++ {
 				p.stk.Push(p.pkg.Zero(results.At(i).Type()))
@@ -873,7 +873,7 @@ const (
 
 func (p *CodeBuilder) getIdxValTypes(typ types.Type, ref bool, idxSrc ast.Node) ([]types.Type, int) {
 retry:
-	switch t := typ.(type) {
+	switch t := types.Unalias(typ).(type) {
 	case *types.Slice:
 		return []types.Type{tyInt, t.Elem()}, 0
 	case *types.Map:
@@ -881,7 +881,7 @@ retry:
 	case *types.Array:
 		return []types.Type{tyInt, t.Elem()}, 0
 	case *types.Pointer:
-		elem := t.Elem()
+		elem := types.Unalias(t.Elem())
 		if named, ok := elem.(*types.Named); ok {
 			elem = p.getUnderlying(named)
 		}
@@ -1042,7 +1042,7 @@ func (p *CodeBuilder) refMember(typ types.Type, name string, argVal target.Expr,
 		// Map member access provides syntactic sugar: m.key is converted to m["key"]
 		// This allows more concise map access when keys are valid identifiers.
 		// Note: Only works with string-keyed maps.
-		if key, ok := o.Key().(*types.Basic); !ok || (key.Info()&types.IsString) == 0 {
+		if key, ok := types.Unalias(o.Key()).(*types.Basic); !ok || (key.Info()&types.IsString) == 0 {
 			break
 		}
 		tyRet := &refType{typ: o.Elem()}
@@ -1087,16 +1087,13 @@ func (p *CodeBuilder) fieldRef(x target.Expr, o *types.Struct, name string, src 
 	visited[o] = none{}
 
 	for _, fld := range embed {
-		fldt := fld.Type()
-		if o, ok := fldt.(*types.Pointer); ok {
-			fldt = o.Elem()
-		}
+		fldt := indirect(fld.Type())
 		if t, ok := fldt.(*types.Named); ok {
-			u := p.getUnderlying(t)
-			if struc, ok := u.(*types.Struct); ok {
-				if p.fieldRef(x, struc, name, src, visited) {
-					return true
-				}
+			fldt = p.getUnderlying(t)
+		}
+		if struc, ok := fldt.(*types.Struct); ok {
+			if p.fieldRef(x, struc, name, src, visited) {
+				return true
 			}
 		}
 	}
@@ -1213,7 +1210,7 @@ func (p *CodeBuilder) Member(name string, lhs int, flag MemberFlag, src ...ast.N
 	} else {
 		var aliasName string
 		if isType { // (T).method or (*T).method
-			at = t.Type()
+			at = types.Unalias(t.Type())
 			flag = memberFlagMethodToFunc
 		}
 		aliasName, flag = aliasNameOf(name, flag)
@@ -1242,8 +1239,9 @@ func (p *CodeBuilder) getUnderlying(t *types.Named) types.Type {
 }
 
 func (p *CodeBuilder) ensureLoaded(typ types.Type) {
+	typ = types.Unalias(typ)
 	if t, ok := typ.(*types.Pointer); ok {
-		typ = t.Elem()
+		typ = types.Unalias(t.Elem())
 	}
 	if t, ok := typ.(*types.Named); ok && (t.NumMethods() == 0 || t.Underlying() == nil) {
 		if debugMatch {
@@ -1268,7 +1266,7 @@ func (p *CodeBuilder) findMember(
 	typ types.Type, name, aliasName string, lhs int, flag MemberFlag, arg *Element, srcExpr ast.Node, visited map[*types.Struct]none) MemberKind {
 	var named *types.Named
 retry:
-	switch o := typ.(type) {
+	switch o := types.Unalias(typ).(type) {
 	case *types.Pointer:
 		switch t := types.Unalias(o.Elem()).(type) {
 		case *types.Named:
@@ -1322,13 +1320,13 @@ retry:
 		// original Named's method set, effectively disabling the overload.
 		//
 		// To work around this, walk the embedded types and, if an embedded
-		// item is a *types.Named, check its methods as well via p.method.
+		// item resolves to a *types.Named, check its methods as well via p.method.
 		// For ordinary embedded interfaces the corresponding *types.Named
 		// will typically have NumMethods == 0, so this check is a no-op for
 		// normal embedding and only helps the overload edge-case described
 		// above.
 		for j := 0; j < o.NumEmbeddeds(); j++ {
-			if t, ok := o.EmbeddedType(j).(*types.Named); ok {
+			if t, ok := types.Unalias(o.EmbeddedType(j)).(*types.Named); ok {
 				if kind := p.method(t, name, aliasName, flag, arg, srcExpr); kind != MemberInvalid {
 					return kind
 				}
@@ -1338,7 +1336,7 @@ retry:
 		// Map member access provides syntactic sugar: m.key is converted to m["key"]
 		// This allows more concise map access when keys are valid identifiers.
 		// Note: Only works with string-keyed maps.
-		if key, ok := o.Key().(*types.Basic); !ok || (key.Info()&types.IsString) == 0 {
+		if key, ok := types.Unalias(o.Key()).(*types.Basic); !ok || (key.Info()&types.IsString) == 0 {
 			break
 		}
 		return p.mapIndexExpr(o, name, lhs, arg.Val, srcExpr)
@@ -1585,8 +1583,9 @@ func methodCallSig(typ types.Type) types.Type {
 }
 
 func indirect(typ types.Type) types.Type {
+	typ = types.Unalias(typ)
 	if t, ok := typ.(*types.Pointer); ok {
-		typ = t.Elem()
+		typ = types.Unalias(t.Elem())
 	}
 	return typ
 }
@@ -1599,7 +1598,7 @@ func (p *CodeBuilder) IncDec(op token.Token, src ...ast.Node) *CodeBuilder {
 	}
 	pkg := p.pkg
 	arg := p.stk.Pop()
-	if t, ok := arg.Type.(*refType).typ.(*types.Named); ok {
+	if t, ok := types.Unalias(arg.Type.(*refType).typ).(*types.Named); ok {
 		op := lookupMethod(t, name)
 		if op != nil {
 			fn := &internal.Elem{
@@ -1669,7 +1668,7 @@ func callAssignOp(pkg *Package, tok token.Token, args []*internal.Elem, src []as
 	if debugInstr {
 		log.Println("AssignOp", tok, name)
 	}
-	if t, ok := args[0].Type.(*refType).typ.(*types.Named); ok {
+	if t, ok := types.Unalias(args[0].Type.(*refType).typ).(*types.Named); ok {
 		op := lookupMethod(t, name)
 		if op != nil {
 			fn := &internal.Elem{
@@ -1801,7 +1800,7 @@ func doUnaryOp(cb *CodeBuilder, op token.Token, args []*internal.Elem, lhs int) 
 	pkg := cb.pkg
 	typ := args[0].Type
 retry:
-	switch t := typ.(type) {
+	switch t := types.Unalias(typ).(type) {
 	case *types.Named:
 		lm := lookupMethod(t, name)
 		if lm != nil {
@@ -1916,8 +1915,9 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 }
 
 func checkNamed(typ types.Type) (ret *types.Named, ok bool) {
+	typ = types.Unalias(typ)
 	if t, ok := typ.(*types.Pointer); ok {
-		typ = t.Elem()
+		typ = types.Unalias(t.Elem())
 	}
 	ret, ok = typ.(*types.Named)
 	return

@@ -295,7 +295,7 @@ func untypedComparable(pkg *Package, v *types.Basic, varg *Element, t types.Type
 	kind := v.Kind()
 	if kind == types.UntypedNil {
 	retry:
-		switch tt := t.(type) {
+		switch tt := types.Unalias(t).(type) {
 		case *types.Interface, *types.Slice, *types.Pointer, *types.Map, *types.Signature, *types.Chan:
 			return true
 		case *types.Basic:

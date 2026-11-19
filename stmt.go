@@ -583,7 +583,7 @@ func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
 
 func (p *forRangeStmt) getKeyValTypes(cb *CodeBuilder, typ types.Type) []types.Type {
 retry:
-	switch t := typ.(type) {
+	switch t := types.Unalias(typ).(type) {
 	case *types.Slice:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
 	case *types.Map:
@@ -591,7 +591,7 @@ retry:
 	case *types.Array:
 		return []types.Type{types.Typ[types.Int], t.Elem()}
 	case *types.Pointer:
-		switch e := t.Elem().(type) {
+		switch e := types.Unalias(t.Elem()).(type) {
 		case *types.Array:
 			return []types.Type{types.Typ[types.Int], e.Elem()}
 		case *types.Named:
@@ -651,7 +651,7 @@ func checkIteratorFunc(sig *types.Signature) []types.Type {
 	if yieldRets.Len() != 1 {
 		return nil
 	}
-	basic, ok := yieldRets.At(0).Type().(*types.Basic)
+	basic, ok := types.Unalias(yieldRets.At(0).Type()).(*types.Basic)
 	if !ok || basic.Kind() != types.Bool {
 		return nil
 	}
@@ -683,9 +683,9 @@ func (p *forRangeStmt) checkUdt(cb *CodeBuilder, o *types.Named) ([]types.Type, 
 		}
 		if enumRet.Len() == 1 {
 			typ := enumRet.At(0).Type()
-			switch t := typ.(type) {
+			switch t := types.Unalias(typ).(type) {
 			case *types.Pointer:
-				typ = t.Elem()
+				typ = types.Unalias(t.Elem())
 				if it, ok := typ.(*types.Named); ok {
 					return p.checkUdtEnumRet(cb, it)
 				}
@@ -724,7 +724,7 @@ func (p *forRangeStmt) checkUdtEnumRet(cb *CodeBuilder, it *types.Named) ([]type
 		default:
 			return nil, false
 		}
-		if ret.At(n-1).Type() == types.Typ[types.Bool] {
+		if types.Unalias(ret.At(n-1).Type()) == types.Typ[types.Bool] {
 			p.udt = n
 			return typs, true
 		}

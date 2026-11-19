@@ -170,11 +170,12 @@ func offsetof(pkg *Package, typ types.Type, index []int, recv ast.Node, sel stri
 	var indirectType int
 	for n, i := range index {
 		if n > 0 {
-			if t, ok := types.Unalias(typ).(*types.Pointer); ok {
-				typ = t.Elem()
+			typ = types.Unalias(typ)
+			if t, ok := typ.(*types.Pointer); ok {
+				typ = types.Unalias(t.Elem())
 				indirectType = n
 			}
-			if t, ok := types.Unalias(typ).(*types.Named); ok {
+			if t, ok := typ.(*types.Named); ok {
 				typList = append(typList, t.Obj().Name())
 				typ = t.Underlying()
 			}
@@ -201,7 +202,7 @@ func (p unsafeAddInstr) Call(pkg *Package, args []*Element, lhs int, flags Instr
 	)
 	checkArgsCount(pkg, "unsafe.Add", 2, len(args), src)
 
-	if ts := args[0].Type.String(); ts != "unsafe.Pointer" {
+	if ts := args[0].Type; !isBasicType(ts, types.UnsafePointer) {
 		s, _, _ := pkg.cb.loadExpr(args[0].Src)
 		pos := getSrcPos(src)
 		end := getSrcEnd(src)
@@ -243,12 +244,12 @@ func (unsafeDataInstr) checkFirstType(pkg *Package, fname string, arg *Element, 
 	var info string
 	switch fname {
 	case "unsafe.Slice":
-		if t, ok := arg.Type.(*types.Pointer); ok {
+		if t, ok := types.Unalias(arg.Type).(*types.Pointer); ok {
 			return types.NewSlice(t.Elem()), nil
 		}
 		info = "pointer"
 	case "unsafe.String":
-		if t, ok := arg.Type.(*types.Pointer); ok && isBasicType(t.Elem(), types.Byte) {
+		if t, ok := types.Unalias(arg.Type).(*types.Pointer); ok && isBasicType(t.Elem(), types.Byte) {
 			return types.Typ[types.String], nil
 		}
 		info = "*byte"
@@ -299,7 +300,7 @@ func (p unsafeDataInstr) Call(pkg *Package, args []*Element, lhs int, flags Inst
 }
 
 func isBasicType(typ types.Type, kind types.BasicKind) bool {
-	if t, ok := typ.(*types.Basic); ok && t.Kind() == kind {
+	if t, ok := types.Unalias(typ).(*types.Basic); ok && t.Kind() == kind {
 		return true
 	}
 	return false
@@ -499,7 +500,7 @@ retry:
 	case *types.Array:
 		return true
 	case *types.Pointer:
-		_, ok := t.Elem().(*types.Array) // array_pointer
+		_, ok := types.Unalias(t.Elem()).(*types.Array) // array_pointer
 		return ok
 	case *types.Named:
 		typ = pkg.cb.getUnderlying(t)
@@ -974,11 +975,11 @@ func initBuiltinTIs(pkg *Package) {
 }
 
 func (p *CodeBuilder) getBuiltinTI(typ types.Type) *BuiltinTI {
-	switch t := typ.(type) {
+	switch t := types.Unalias(typ).(type) {
 	case *types.Basic:
 		typ = types.Default(typ)
 	case *types.Slice:
-		if t.Elem() != types.Typ[types.String] {
+		if !types.Identical(t.Elem(), types.Typ[types.String]) {
 			typ = tySlice
 		}
 	case *types.Chan:

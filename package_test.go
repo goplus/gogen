@@ -3815,6 +3815,344 @@ func main() {
 `)
 }
 
+func TestAliasOperations(t *testing.T) {
+	pkg := newMainPackage()
+	item := aliasType(pkg, "Item", types.Typ[types.Int])
+	values := aliasType(pkg, "Values", types.NewSlice(item))
+	ptr := aliasType(pkg, "Pointer", types.NewPointer(item))
+	callback := aliasType(pkg, "Callback", types.NewSignatureType(nil, nil, nil,
+		types.NewTuple(newParam(pkg, token.NoPos, "", item)),
+		types.NewTuple(newParam(pkg, token.NoPos, "", item)), false))
+	fn := newParam(pkg, token.NoPos, "fn", callback)
+	v := newParam(pkg, token.NoPos, "values", values)
+	p := newParam(pkg, token.NoPos, "ptr", ptr)
+	cb := pkg.NewFunc(nil, "run", types.NewTuple(fn, v, p),
+		types.NewTuple(newParam(pkg, token.NoPos, "", item)), false).BodyStart(pkg).
+		DefineVarStart(token.NoPos, "copy").Val(fn).EndInit(1)
+	if got := cb.Scope().Lookup("copy").Type(); got != callback {
+		t.Errorf("inferred callback type = %v, want %v", got, callback)
+	}
+	cb.Val(v).Val(0).IndexRef(1).VarVal("copy").Val(p).Star().Call(1).Assign(1).
+		ForRange("_", "value").Val(v).RangeAssignThen(token.NoPos).
+		Val(p).ElemRef().VarVal("value").Assign(1).End().
+		VarVal("copy").Val(v).Val(0).Index(1, 1).Call(1).Return(1).End()
+	domTest(t, pkg, `package main
+
+type Item = int
+type Values = []Item
+type Pointer = *Item
+type Callback = func(Item) Item
+
+func run(fn Callback, values Values, ptr Pointer) Item {
+	copy := fn
+	values[0] = copy(*ptr)
+	for _, value := range values {
+		*ptr = value
+	}
+	return copy(values[0])
+}
+`)
+}
+
+func TestAliasDefinedPointerDereference(t *testing.T) {
+	pkg := newMainPackage()
+	valueType := pkg.NewType("Value").InitType(pkg, types.Typ[types.Int])
+	pointerType := pkg.NewType("Pointer").InitType(pkg, types.NewPointer(valueType))
+	alias := aliasType(pkg, "Alias", pointerType)
+	pointer := newParam(pkg, token.NoPos, "p", alias)
+	value := newParam(pkg, token.NoPos, "", valueType)
+
+	pkg.NewFunc(nil, "update", types.NewTuple(pointer), types.NewTuple(value), false).BodyStart(pkg).
+		Val(pointer).ElemRef().Val(1).Assign(1).
+		Val(pointer).Elem().Return(1).End()
+
+	domTest(t, pkg, `package main
+
+type Value int
+type Pointer *Value
+type Alias = Pointer
+
+func update(p Alias) Value {
+	*p = 1
+	return *p
+}
+`)
+}
+
+func checkGeneratedSource(t *testing.T, gt *goxTest, pkg *gogen.Package) {
+	t.Helper()
+	var out strings.Builder
+	if err := gogen.WriteTo(&out, pkg); err != nil {
+		t.Fatal(err)
+	}
+	file, err := parser.ParseFile(gt.fset, "main.go", out.String(), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conf := types.Config{Importer: gt.imp}
+	if _, err := conf.Check("main", gt.fset, []*ast.File{file}, nil); err != nil {
+		t.Fatalf("generated source does not type-check: %v\n%s", err, out.String())
+	}
+}
+
+func TestAliasMemberSource(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		typ  string
+	}{
+		{"Embedded", "struct{ Alias }"},
+		{"EmbeddedPointer", "struct{ *Alias }"},
+		{"EmbeddedPointerAlias", "struct{ Ref }"},
+		{"Pointer", "*Alias"},
+	} {
+		for _, target := range []string{"Named", "Struct"} {
+			t.Run(tt.name+"/"+target, func(t *testing.T) {
+				rhs := "hidden"
+				if target == "Struct" {
+					rhs = "struct{ Value Item }"
+				}
+				sdk := strings.NewReplacer("TARGET", rhs, "OUTER", tt.typ).Replace(`package sdk
+
+type Item = int
+type hidden struct{ Value Item }
+type Alias = TARGET
+type Ref = *Alias
+
+var Value OUTER
+`)
+				gt := newGoxTest()
+				if _, err := gt.LoadGoPackage("example.com/sdk", "sdk.go", sdk); err != nil {
+					t.Fatal(err)
+				}
+				pkg := gt.NewPackage("", "main")
+				imp := pkg.Import("example.com/sdk")
+				value := imp.Ref("Value")
+				cb := pkg.NewFunc(nil, "run", nil, nil, false).BodyStart(pkg)
+				cb.VarRef(nil).Val(value).MemberVal("Value", 0)
+				if got, want := cb.Get(-1).Type, imp.Ref("Item").Type(); got != want {
+					t.Errorf("member type = %v, want %v", got, want)
+				}
+				cb.Assign(1).Val(value).MemberRef("Value").Val(1).Assign(1)
+				if tt.name == "Embedded" {
+					cb.VarRef(nil).Val(pkg.Import("unsafe").Ref("Offsetof")).Val(value).MemberVal("Value", 0).Call(1).Assign(1)
+				}
+				cb.End()
+				checkGeneratedSource(t, gt, pkg)
+			})
+		}
+	}
+}
+
+func TestAliasEnumSource(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		iter string
+	}{
+		{"Function", "type Iter = func(func(Item) Bool)"},
+		{"NamedFunction", "type Function func(func(Item) Bool)\ntype Iter = Function"},
+		{"Pointer", "type Iter = *Iterator"},
+		{"PointerElement", "type Alias = Iterator\ntype Iter = *Alias"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			sdk := `package sdk
+
+const XGoPackage = true
+
+type Item = int
+type Bool = bool
+type Iterator struct{}
+
+func (it *Iterator) Next() (Item, Bool) { return 0, false }
+
+` + tt.iter + `
+
+type Values struct{}
+
+func (v Values) XGo_Enum() Iter { return nil }
+
+var Value Values
+`
+			gt := newGoxTest()
+			if _, err := gt.LoadGoPackage("example.com/sdk", "sdk.go", sdk); err != nil {
+				t.Fatal(err)
+			}
+			pkg := gt.NewPackage("", "main")
+			imp := pkg.Import("example.com/sdk")
+			cb := pkg.NewFunc(nil, "run", nil, nil, false).BodyStart(pkg).
+				ForRange("value").Val(imp.Ref("Value")).RangeAssignThen(token.NoPos)
+			if got, want := cb.Scope().Lookup("value").Type(), imp.Ref("Item").Type(); got != want {
+				t.Errorf("range variable type = %v, want %v", got, want)
+			}
+			cb.VarRef(nil).VarVal("value").Assign(1).End().End()
+			checkGeneratedSource(t, gt, pkg)
+		})
+	}
+}
+
+func TestAliasInterfaceOverloadSource(t *testing.T) {
+	for _, name := range []string{"ImportedAlias", "LocalAlias", "AliasChain"} {
+		t.Run(name, func(t *testing.T) {
+			gt := newGoxTest()
+			if _, err := gt.LoadGoPackage("example.com/sdk", "sdk.go", `package sdk
+
+const XGoPackage = true
+
+type Base interface {
+	Step__0()
+	Step__1(int)
+}
+type Alias = Base
+`); err != nil {
+				t.Fatal(err)
+			}
+			pkg := gt.NewPackage("", "main")
+			imp := pkg.Import("example.com/sdk")
+			base := imp.Ref("Alias").Type()
+			if name == "LocalAlias" {
+				base = aliasType(pkg, "Local", imp.Ref("Base").Type())
+			} else if name == "AliasChain" {
+				base = aliasType(pkg, "Local", base)
+			}
+			derived := pkg.NewType("Derived").InitType(pkg, types.NewInterfaceType(nil, []types.Type{base}))
+			v := newParam(pkg, token.NoPos, "v", derived)
+			pkg.NewFunc(nil, "run", types.NewTuple(v), nil, false).BodyStart(pkg).
+				Val(v).MemberVal("Step", 0).Call(0).EndStmt().
+				Val(v).MemberVal("Step", 0).Val(1).Call(1).EndStmt().End()
+			checkGeneratedSource(t, gt, pkg)
+		})
+	}
+}
+
+func TestAliasImportedOperations(t *testing.T) {
+	for _, name := range []string{"CallbackInference", "ReflectType", "Inc", "Assign", "BuiltinJoin", "BoolCast", "CustomCast"} {
+		t.Run(name, func(t *testing.T) {
+			gt := newGoxTest()
+			if _, err := gt.LoadGoPackage("example.com/sdk", "sdk.go", `package sdk
+
+import "reflect"
+
+const XGoPackage = true
+
+type Item = int
+type Callback = func(Item) Item
+
+func Identity[T any](v T) T { return v }
+func Accept(cb Callback) Item { return cb(1) }
+
+type Type = reflect.Type
+
+func AcceptType(t Type) {}
+
+type Value struct{ Count int }
+type Alias = Value
+
+func (v *Value) XGo_Inc() { v.Count++ }
+func (v *Value) XGo_AddAssign(other Value) { v.Count += other.Count }
+
+var V Alias
+
+type Text = string
+
+var Words []Text
+var Boolean bool
+
+type Result struct{}
+type ResultAlias = Result
+
+func Result_Cast(v int) Result { return Result{} }
+`); err != nil {
+				t.Fatal(err)
+			}
+			pkg := gt.NewPackage("", "main")
+			imp := pkg.Import("example.com/sdk")
+			cb := pkg.NewFunc(nil, "run", nil, nil, false).BodyStart(pkg)
+			switch name {
+			case "CallbackInference":
+				cb.VarRef(nil).Val(imp.Ref("Accept")).Val(imp.Ref("Identity")).Call(1).Assign(1)
+			case "ReflectType":
+				cb.Val(imp.Ref("AcceptType")).Typ(types.Typ[types.Int]).Call(1).EndStmt()
+			case "Inc":
+				cb.VarRef(imp.Ref("V")).IncDec(token.INC)
+			case "Assign":
+				cb.VarRef(imp.Ref("V")).Val(imp.Ref("V")).AssignOp(token.ADD_ASSIGN)
+			case "BuiltinJoin":
+				cb.VarRef(nil).Val(imp.Ref("Words")).MemberVal("Join", 0).Val(",").Call(1).Assign(1)
+			case "BoolCast":
+				cb.VarRef(nil).Typ(imp.Ref("Item").Type()).Val(imp.Ref("Boolean")).Call(1).Assign(1)
+			case "CustomCast":
+				cb.VarRef(nil).Typ(imp.Ref("ResultAlias").Type()).Val(1).Call(1).Assign(1)
+			}
+			cb.End()
+			checkGeneratedSource(t, gt, pkg)
+		})
+	}
+}
+
+func TestAliasOperatorSource(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		recv    string
+		right   bool
+		pointer bool
+		local   bool
+		generic bool
+	}{
+		{name: "Value", recv: "hidden"},
+		{name: "Pointer", recv: "*hidden", pointer: true},
+		{name: "RightValue", recv: "hidden", right: true},
+		{name: "RightPointer", recv: "*hidden", right: true, pointer: true},
+		{name: "LocalAlias", recv: "hidden", local: true},
+		{name: "LocalPointerAlias", recv: "*hidden", pointer: true, local: true},
+		{name: "GenericAlias", recv: "hidden[T]", generic: true},
+		{name: "GenericPointerAlias", recv: "*hidden[T]", pointer: true, generic: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.generic && !isLeastGo(24) {
+				t.Skip("generic aliases require Go 1.24")
+			}
+			gt := newGoxTest()
+			params := ""
+			if tt.generic {
+				params = "[T any]"
+			}
+			sdk := strings.NewReplacer("PARAMS", params, "RECV", tt.recv).Replace(`package sdk
+
+type hiddenPARAMS int
+
+type PublicPARAMS = RECV
+
+func (v RECV) XGo_Add(other RECV) int { return 1 }
+`)
+			if _, err := gt.LoadGoPackage("example.com/sdk", "sdk.go", sdk); err != nil {
+				t.Fatal(err)
+			}
+			pkg := gt.NewPackage("", "main")
+			typ := pkg.Import("example.com/sdk").Ref("Public").Type()
+			if tt.generic {
+				typ = pkg.Instantiate(typ, []types.Type{types.Typ[types.Int]})
+			}
+			if tt.local {
+				typ = aliasType(pkg, "Local", typ)
+			}
+			left := newParam(pkg, token.NoPos, "left", typ)
+			right := newParam(pkg, token.NoPos, "right", typ)
+			result := newParam(pkg, token.NoPos, "", types.Typ[types.Int])
+			cb := pkg.NewFunc(nil, "combine", types.NewTuple(left, right), types.NewTuple(result), false).BodyStart(pkg)
+			if tt.right {
+				if tt.pointer {
+					cb.Val(nil)
+				} else {
+					cb.Val(0)
+				}
+			} else {
+				cb.Val(left)
+			}
+			cb.Val(right).BinaryOp(token.ADD).Return(1).End()
+			checkGeneratedSource(t, gt, pkg)
+		})
+	}
+}
+
 func TestStar(t *testing.T) {
 	pkg := newMainPackage()
 	tyInt := types.Typ[types.Uint32]
@@ -3829,6 +4167,53 @@ func main() {
 	var b uint32 = *a
 }
 `)
+}
+
+func TestDefinedPointerDereference(t *testing.T) {
+	pkg := newMainPackage()
+	valueType := pkg.NewType("Value").InitType(pkg, types.Typ[types.Int])
+	pointerType := pkg.NewType("Pointer").InitType(pkg, types.NewPointer(valueType))
+	pointer := newParam(pkg, token.NoPos, "p", pointerType)
+	value := newParam(pkg, token.NoPos, "", valueType)
+
+	pkg.NewFunc(nil, "update", types.NewTuple(pointer), types.NewTuple(value), false).BodyStart(pkg).
+		Val(pointer).ElemRef().Val(1).Assign(1).
+		Val(pointer).ElemRef().Val(2).AssignOp(token.ADD_ASSIGN).
+		Val(pointer).Elem().Return(1).
+		End()
+
+	domTest(t, pkg, `package main
+
+type Value int
+type Pointer *Value
+
+func update(p Pointer) Value {
+	*p = 1
+	*p += 2
+	return *p
+}
+`)
+}
+
+func TestElemRefLoadsDefinedPointer(t *testing.T) {
+	elemType := types.Typ[types.Int]
+	pkg := gogen.NewPackage("", "main", &gogen.Config{
+		LoadNamed: func(_ *gogen.Package, typ *types.Named) {
+			typ.SetUnderlying(types.NewPointer(elemType))
+		},
+	})
+	pointer := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "Pointer", nil), nil, nil)
+	value := types.NewVar(token.NoPos, pkg.Types, "p", pointer)
+	cb := pkg.CB().Val(value)
+	if pointer.Underlying() != nil {
+		t.Fatal("pointer type loaded before dereference")
+	}
+
+	ref := cb.ElemRef().Get(-1).Type
+	got, ok := gogen.DerefType(ref)
+	if !ok || got != elemType {
+		t.Fatalf("dereference type = %v, want a reference to %v", ref, elemType)
+	}
 }
 
 func TestAssignOp(t *testing.T) {
