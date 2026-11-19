@@ -18,6 +18,7 @@ limitations under the License.
 package gogen
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -766,41 +767,39 @@ func (p *CodeBuilder) instantiate(nidx int, args []*internal.Elem, src ...ast.No
 }
 
 func instanceInferFunc(pkg *Package, arg *internal.Elem, tsig *inferFuncType, sig *types.Signature) error {
-	args := paramsToArgs(sig)
-	targs, _, err := inferFunc(tsig.pkg, tsig.fn, tsig.typ, tsig.targs, args, 0)
-	if err != nil {
-		return err
-	}
-	arg.Type = sig
-	index := make([]ast.Expr, len(targs))
-	for i, a := range targs {
-		index[i] = toType(pkg, a)
-	}
-	var x ast.Expr
-	switch v := arg.Val.(type) {
-	case *ast.IndexExpr:
-		x = v.X
-	case *ast.IndexListExpr:
-		x = v.X
-	}
-	arg.Val = &ast.IndexListExpr{
-		Indices: index,
-		X:       x,
-	}
-	return nil
+	return instantiateFuncArg(pkg, arg, tsig.fn.Val, tsig.typ, tsig.targs, sig)
 }
 
 func instanceFunc(pkg *Package, arg *internal.Elem, tsig *types.Signature, sig *types.Signature) error {
-	args := paramsToArgs(sig)
-	targs, _, err := inferFunc(pkg, &internal.Elem{Val: arg.Val}, tsig, nil, args, 0)
+	return instantiateFuncArg(pkg, arg, arg.Val, tsig, nil, sig)
+}
+
+// instantiateFuncArg infers type arguments from the entire target signature.
+func instantiateFuncArg(pkg *Package, arg *internal.Elem, fun ast.Expr, sig *types.Signature, targs []types.Type, want *types.Signature) error {
+	tp := sig.TypeParams()
+	tparams := make([]*types.TypeParam, tp.Len())
+	for i := range tparams {
+		tparams[i] = tp.At(i)
+	}
+	pattern := types.NewSignatureType(nil, nil, nil, sig.Params(), sig.Results(), sig.Variadic())
+	params := types.NewTuple(types.NewParam(token.NoPos, pkg.Types, "", pattern))
+	args := []*operand{{mode: value, expr: arg.Val, typ: want}}
+	targs, err := infer(pkg, arg.Val, tparams, targs, params, args)
 	if err != nil {
 		return err
 	}
-	arg.Type = sig
+	typ, err := types.Instantiate(pkg.cb.ctxt, sig, targs, true)
+	if err != nil {
+		return err
+	}
+	if !types.AssignableTo(typ, want) {
+		return fmt.Errorf("inferred function type %v is not assignable to %v", typ, want)
+	}
+	arg.Type = typ
 	if len(targs) == 1 {
 		arg.Val = &ast.IndexExpr{
 			Index: toType(pkg, targs[0]),
-			X:     arg.Val,
+			X:     fun,
 		}
 	} else {
 		index := make([]ast.Expr, len(targs))
@@ -809,7 +808,7 @@ func instanceFunc(pkg *Package, arg *internal.Elem, tsig *types.Signature, sig *
 		}
 		arg.Val = &ast.IndexListExpr{
 			Indices: index,
-			X:       arg.Val,
+			X:       fun,
 		}
 	}
 	return nil
@@ -817,16 +816,6 @@ func instanceFunc(pkg *Package, arg *internal.Elem, tsig *types.Signature, sig *
 
 func exprString(x ast.Expr) string {
 	return types.ExprString(x)
-}
-
-func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
-	if fn == nil {
-		return "the closure call", token.NoPos, token.NoPos
-	}
-	caller = types.ExprString(fn.Val)
-	pos = getSrcPos(fn.Src)
-	end = getSrcEnd(fn.Src)
-	return
 }
 
 func getCaller(expr *internal.Elem) string {

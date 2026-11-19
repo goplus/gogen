@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/goplus/gogen/internal"
 	"github.com/goplus/gogen/internal/target/util"
@@ -504,16 +505,40 @@ retry:
 	return false
 }
 
-func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) constant.Value {
+// binaryOp evaluates a constant binary operation after converting untyped operands.
+func binaryOp(cb *CodeBuilder, tok token.Token, args []*internal.Elem) (constant.Value, error) {
 	if len(args) == 2 {
 		if a, b := args[0].CVal, args[1].CVal; a != nil && b != nil {
+			if binaryOpKinds[tok] != binaryOpShift {
+				untyped0 := isUntyped(cb.pkg, types.Unalias(args[0].Type))
+				untyped1 := isUntyped(cb.pkg, types.Unalias(args[1].Type))
+				if untyped0 != untyped1 {
+					i := 1
+					if untyped0 {
+						i = 0
+					}
+					typ := args[1-i].Type
+					if isNumeric(cb, typ) && types.AssignableTo(args[i].Type, typ) {
+						value, err := convertConst(cb.pkg, typ, args[i])
+						if err != nil {
+							return nil, err
+						}
+						arg := *args[i]
+						arg.Type, arg.CVal = typ, value
+						operands := [2]*internal.Elem{args[0], args[1]}
+						operands[i] = &arg
+						args = operands[:]
+						a, b = args[0].CVal, args[1].CVal
+					}
+				}
+			}
 			if tok == token.QUO && isNormalInt(cb, args[0]) && isNormalInt(cb, args[1]) {
 				tok = token.QUO_ASSIGN // issue #805
 			}
-			return doBinaryOp(a, tok, b, args)
+			return doBinaryOp(a, tok, b, args), nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func isBool(cb *CodeBuilder, arg *internal.Elem) bool { // is bool
@@ -616,8 +641,23 @@ func getParam1st(sig *types.Signature) int {
 	return 0
 }
 
-// TODO: check if fn.recv != nil
+// constantEvalError marks a constant evaluation error that must stop overload resolution.
+type constantEvalError struct {
+	error
+}
+
+// matchFuncCall matches a call and returns the original diagnostic on failure.
 func matchFuncCall(pkg *Package, fn *internal.Elem, args []*internal.Elem, lhs int, flags InstrFlags) (ret *internal.Elem, err error) {
+	ret, err = matchFuncCandidate(pkg, fn, args, lhs, flags)
+	if opErr, ok := err.(constantEvalError); ok {
+		err = opErr.error
+	}
+	return
+}
+
+// matchFuncCandidate keeps constant evaluation errors distinct from candidate mismatches.
+// TODO: check if fn.recv != nil
+func matchFuncCandidate(pkg *Package, fn *internal.Elem, args []*internal.Elem, lhs int, flags InstrFlags) (ret *internal.Elem, err error) {
 	fnType := fn.Type
 	if debugMatch {
 		ft := fnType
@@ -657,7 +697,7 @@ retry:
 			case *TyOverloadFunc:
 				backup := backupArgs(args)
 				for _, o := range ft.Funcs {
-					if ret, err = matchFuncCall(pkg, chgObject(pkg, o, fn), args, lhs, flags); err == nil {
+					if ret, err = matchFuncCandidate(pkg, chgObject(pkg, o, fn), args, lhs, flags); err == nil {
 						if ret.CVal == nil && isUntyped(pkg, ret.Type) {
 							ret.CVal = tryBuiltinCall(fn, args, false)
 						}
@@ -667,6 +707,9 @@ retry:
 						return
 					}
 					restoreArgs(args, backup)
+					if _, ok := err.(constantEvalError); ok {
+						return
+					}
 				}
 				return
 			case *TyOverloadMethod:
@@ -732,7 +775,10 @@ retry:
 		if t.isUnaryOp() {
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
-			cval = binaryOp(&pkg.cb, t.tok(), args)
+			cval, err = binaryOp(&pkg.cb, t.tok(), args)
+			if err != nil {
+				return nil, constantEvalError{err}
+			}
 			if binaryOpKinds[t.tok()] == binaryOpShift && isUntyped(pkg, args[0].Type) {
 				flags |= instrFlagUntyped
 			}
@@ -740,7 +786,16 @@ retry:
 			cval = tryBuiltinCall(fn, args, true)
 		}
 		if cval != nil {
-			flags |= instrFlagUntyped
+			typedNumeric := false
+			for _, arg := range args {
+				if !isUntyped(pkg, types.Unalias(arg.Type)) && isNumeric(&pkg.cb, arg.Type) {
+					typedNumeric = true
+					break
+				}
+			}
+			if !typedNumeric || t.isOp() && binaryOpKinds[t.tok()] == binaryOpCompare {
+				flags |= instrFlagUntyped
+			}
 		}
 		if t.hasApproxType() {
 			flags |= instrFlagApproxType
@@ -778,7 +833,8 @@ retry:
 		// For variadic functions, don't include the variadic parameter in the count
 		nreq--
 	}
-	if len(args) < nreq {
+	// A sole multi-valued call must remain the only argument.
+	if len(args) < nreq && soleCallResults(args, flags) == nil {
 		n := len(args)
 		allOptional := true
 		for i := n; i < nreq; i++ {
@@ -798,9 +854,23 @@ retry:
 			args = newArgs
 		}
 	}
-	if flags&instrFlagUntyped == 0 {
+	if flags&instrFlagUntyped == 0 && cval == nil {
 		if err = matchFuncType(pkg, args, lhs, flags, sig, fn); err != nil {
 			return
+		}
+	}
+	if cval != nil && flags&instrFlagUntyped == 0 {
+		for i, arg := range args {
+			if isUntyped(pkg, types.Unalias(arg.Type)) {
+				last := getParamLen(sig) - 1
+				typ := getParam(sig, min(i, last)).Type()
+				if sig.Variadic() && i >= last {
+					typ = typ.(*types.Slice).Elem()
+				}
+				if _, err = convertConst(pkg, typ, arg); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 	tyRet := toRetType(sig.Results())
@@ -826,7 +896,15 @@ retry:
 			}
 		}
 	}
-	if cval != nil { // untyped bigint/bigrat
+	if cval != nil {
+		src := fn.Src
+		if src == nil && len(args) != 0 {
+			src = args[0].Src
+		}
+		cval, err = convertConst(pkg, tyRet, &internal.Elem{Type: tyRet, CVal: cval, Src: src})
+		if err != nil {
+			return nil, constantEvalError{err}
+		}
 		if ret, ok := untypeBig(pkg, cval, tyRet); ok {
 			return ret, nil
 		}
@@ -834,6 +912,9 @@ retry:
 	switch t := fn.Val.(type) {
 	case *target.BinaryExpr:
 		t.X, t.Y = checkParenExpr(args[0].Val), checkParenExpr(args[1].Val)
+		if cval == nil && flags&instrFlagUntyped != 0 && binaryOpKinds[t.Op] == binaryOpShift {
+			pkg.cb.recordUntypedShift(t, args[0])
+		}
 		return &internal.Elem{Val: t, Type: tyRet, CVal: cval}, nil
 	case *target.UnaryExpr:
 		t.X = args[0].Val
@@ -845,22 +926,6 @@ retry:
 		valArgs = make([]target.Expr, n-recv)
 		for i := recv; i < n; i++ {
 			valArgs[i-recv] = args[i].Val
-		}
-	}
-
-	// For constant-folded template functions with all untyped args, preserve untyped type
-	// to match Go compiler behavior. This is needed because template type inference converts
-	// untyped to concrete types.
-	if cval != nil && len(args) > 0 {
-		allUntyped := true
-		for _, arg := range args {
-			if !isUntyped(pkg, arg.Type) {
-				allUntyped = false
-				break
-			}
-		}
-		if allUntyped {
-			tyRet = args[0].Type
 		}
 	}
 
@@ -986,10 +1051,95 @@ finish:
 		Val:  &target.CallExpr{Fun: fnVal, Args: valArgs, Ellipsis: token.Pos(flags & InstrFlagEllipsis)},
 		Type: typ,
 	}
-	if len(args) == 1 { // TODO(xsw): const value may changed by type-convert
-		ret.CVal = args[0].CVal
+	if len(args) == 1 {
+		ret.CVal, err = convertConst(pkg, typ, args[0])
 	}
 	return
+}
+
+// convertConst computes a conversion's constant value, or nil for non-constant
+// results. It rounds numeric values to the destination precision and preserves
+// XGo untyped numeric values.
+func convertConst(pkg *Package, typ types.Type, arg *internal.Elem) (constant.Value, error) {
+	v := arg.CVal
+	if v == nil || isUntyped(pkg, types.Unalias(typ)) {
+		return v, nil
+	}
+	t, ok := getUnderlying(pkg, typ).(*types.Basic)
+	if !ok {
+		return nil, nil
+	}
+	switch {
+	case t.Info()&types.IsNumeric != 0:
+		if isNumeric(&pkg.cb, arg.Type) {
+			v = convertNumericConst(t, v)
+		} else {
+			v = constant.MakeUnknown()
+		}
+	case t.Info()&types.IsString != 0:
+		switch {
+		case isBasicKind(&pkg.cb, arg, types.IsString):
+		case isNormalInt(&pkg.cb, arg):
+			v = constant.ToInt(v)
+			if v.Kind() == constant.Int {
+				codepoint := unicode.ReplacementChar
+				if i, ok := constant.Uint64Val(v); ok && i <= unicode.MaxRune {
+					codepoint = rune(i)
+				}
+				v = constant.MakeString(string(codepoint))
+			}
+		default:
+			v = constant.MakeUnknown()
+		}
+	case t.Info()&types.IsBoolean != 0:
+		if !isBasicKind(&pkg.cb, arg, types.IsBoolean) {
+			v = constant.MakeUnknown()
+		}
+	default:
+		return nil, nil
+	}
+	if v.Kind() == constant.Unknown {
+		return nil, pkg.cb.newCodeErrorf(getSrcPos(arg.Src), getSrcEnd(arg.Src),
+			"cannot convert constant %v to type %v", arg.CVal, typ)
+	}
+	return v, nil
+}
+
+// convertNumericConst converts v to a typed numeric basic type.
+func convertNumericConst(typ *types.Basic, v constant.Value) constant.Value {
+	switch {
+	case typ.Info()&types.IsInteger != 0:
+		v = constant.ToInt(v)
+		if v.Kind() == constant.Int && outOfRange(typ.Kind(), v) {
+			return constant.MakeUnknown()
+		}
+		return v
+	case typ.Info()&types.IsFloat != 0:
+		return roundFloatConst(v, typ.Kind() == types.Float32)
+	default:
+		v = constant.ToComplex(v)
+		if v.Kind() == constant.Unknown {
+			return v
+		}
+		is32 := typ.Kind() == types.Complex64
+		re := roundFloatConst(constant.Real(v), is32)
+		im := roundFloatConst(constant.Imag(v), is32)
+		return constant.BinaryOp(re, token.ADD, constant.MakeImag(im))
+	}
+}
+
+// roundFloatConst rounds v to the precision of float32 or float64.
+func roundFloatConst(v constant.Value, is32 bool) constant.Value {
+	v = constant.ToFloat(v)
+	if v.Kind() == constant.Unknown {
+		return v
+	}
+	if is32 {
+		f, _ := constant.Float32Val(v)
+		return constant.MakeFloat64(float64(f))
+	}
+	f, _ := constant.Float64Val(v)
+	return constant.MakeFloat64(f)
 }
 
 func matchRcast(pkg *Package, fn *internal.Elem, m types.Object, typ types.Type, lhs int, flags InstrFlags) (ret *internal.Elem, err error) {
@@ -1039,6 +1189,17 @@ func CastFromBool(cb *CodeBuilder, typ types.Type, v *Element) (ret *Element, ok
 func isPointer(typ types.Type) bool {
 	_, ok := typ.(*types.Pointer)
 	return ok
+}
+
+// unparen returns the expression with any enclosing parentheses removed.
+func unparen(x target.Expr) target.Expr {
+	for {
+		p, ok := x.(*target.ParenExpr)
+		if !ok {
+			return x
+		}
+		x = p.X
+	}
 }
 
 func checkParenExpr(x target.Expr) target.Expr {
@@ -1117,6 +1278,22 @@ func toRetType(t *types.Tuple) types.Type {
 	return t
 }
 
+// soleCallResults returns the tuple of a multi-valued call used as the only argument.
+func soleCallResults(args []*internal.Elem, flags InstrFlags) *types.Tuple {
+	if len(args) != 1 || flags&InstrFlagEllipsis != 0 {
+		return nil
+	}
+	results, ok := args[0].Type.(*types.Tuple)
+	if !ok {
+		return nil
+	}
+	// Comma-ok expressions also have tuple types, but only calls expand into arguments.
+	if _, ok := unparen(args[0].Val).(*target.CallExpr); !ok {
+		return nil
+	}
+	return results
+}
+
 func matchFuncType(
 	pkg *Package, args []*internal.Elem, lhs int, flags InstrFlags, sig *types.Signature, fn *internal.Elem) error {
 	if lhs == 2 {
@@ -1125,13 +1302,13 @@ func matchFuncType(
 			return pkg.cb.newCodeErrorf(pos, end, "assignment mismatch: 2 variables but %v returns %v values", caller, n)
 		}
 	}
-	var t *types.Tuple
 	n := len(args)
-	if len(args) == 1 && checkTuple(&t, args[0].Type) { // TODO(xsw): tuple type
-		n = t.Len()
+	if results := soleCallResults(args, flags); results != nil {
+		src := args[0].Src
+		n = results.Len()
 		args = make([]*internal.Elem, n)
 		for i := 0; i < n; i++ {
-			args[i] = &internal.Elem{Type: t.At(i).Type()}
+			args[i] = &internal.Elem{Type: results.At(i).Type(), Src: src}
 		}
 	} else if (flags&instrFlagApproxType) != 0 && n > 0 {
 		if typ, ok := args[0].Type.(*types.Named); ok {
@@ -1202,17 +1379,28 @@ func matchFuncArgs(
 	return nil
 }
 
+// matchArgType checks a single argument after any multi-valued call has been expanded.
 func matchArgType(pkg *Package, arg *internal.Elem, texp types.Type, at any) error {
-	if t, ok := arg.Type.(*TypeType); ok && isReflectType(texp) {
-		arg.Val = buildTypeForCallExpr(pkg, t.typ)
-		arg.Type = texp
-		return nil
+	switch t := arg.Type.(type) {
+	case *types.Tuple:
+		return pkg.cb.newCodeErrorf(getSrcPos(arg.Src), getSrcEnd(arg.Src),
+			"multiple values of type %v in single-value argument", t)
+	case *TypeType:
+		if isReflectType(texp) {
+			arg.Val = buildTypeForCallExpr(pkg, t.typ)
+			arg.Type = texp
+			return nil
+		}
+		return pkg.cb.newCodeErrorf(getSrcPos(arg.Src), getSrcEnd(arg.Src), "type %v is not an expression", t.typ)
+	case *TyInstruction, *TemplateSignature:
+		return pkg.cb.newCodeErrorf(getSrcPos(arg.Src), getSrcEnd(arg.Src),
+			"use of %v outside a function call", exprString(arg.Val))
 	}
 	return matchType(pkg, arg, texp, at)
 }
 
 func isReflectType(t types.Type) bool {
-	if named, ok := t.(*types.Named); ok {
+	if named, ok := types.Unalias(t).(*types.Named); ok {
 		obj := named.Obj()
 		return obj.Name() == "Type" && obj.Pkg() != nil && obj.Pkg().Path() == "reflect"
 	}
@@ -1270,10 +1458,18 @@ func checkFuncResults(pkg *Package, rets []*internal.Elem, results *types.Tuple,
 		pos, end, "too %s arguments to return\n\thave (%v)\n\twant %v", fewOrMany, getTypes(rets), results)
 }
 
+// getFunExpr returns the callee text and source range for a call diagnostic.
+func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
+	if fn == nil {
+		return "the closure call", token.NoPos, token.NoPos
+	}
+	return exprString(fn.Val), getSrcPos(fn.Src), getSrcEnd(fn.Src)
+}
+
 func getTypes(rets []*internal.Elem) string {
 	typs := make([]string, len(rets))
 	for i, ret := range rets {
-		typs[i] = ret.Type.String()
+		typs[i] = fmt.Sprint(ret.Type)
 	}
 	return strings.Join(typs, ", ")
 }
@@ -1364,6 +1560,14 @@ func (p *MatchError) Error() string {
 	return p.Message(pos.String() + ": ")
 }
 
+// newMatchError reports a type mismatch at an argument or assignment.
+func newMatchError(pkg *Package, arg *internal.Elem, param types.Type, at any) *MatchError {
+	return &MatchError{
+		Src: arg.Src, Arg: arg.Type, Param: param, At: at, fstmt: arg.Val == nil,
+		Fset: pkg.cb.fset, intr: pkg.cb.interp,
+	}
+}
+
 // TODO(xsw): matchType vs. AssignableConv
 func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error {
 	if debugMatch {
@@ -1376,6 +1580,15 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 	if arg.Type == nil {
 		src, pos, end := pkg.cb.loadExpr(arg.Src)
 		return pkg.cb.newCodeError(pos, end, fmt.Sprintf("%v (no value) used as value", src))
+	}
+	if arg.Val == nil {
+		// Type-only operands must be directly assignable.
+		pkg.cb.ensureLoaded(arg.Type)
+		pkg.cb.ensureLoaded(param)
+		if types.AssignableTo(arg.Type, param) {
+			return nil
+		}
+		return newMatchError(pkg, arg, param, at)
 	}
 	// check untyped big int/rat/flt => interface
 	switch arg.Type {
@@ -1397,14 +1610,22 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 		}
 	}
 	// check generic type instance
-	if psig, ok := param.(*types.Signature); ok {
-		switch tsig := arg.Type.(type) {
-		case *inferFuncType:
+	argType := arg.Type
+	switch tsig := argType.(type) {
+	case *inferFuncType:
+		if psig, ok := getUnderlying(pkg, param).(*types.Signature); ok {
 			if err := instanceInferFunc(pkg, arg, tsig, psig); err == nil {
 				return nil
 			}
-		case *types.Signature:
-			if tsig.TypeParams() != nil {
+		}
+		inferred, err := tsig.instance()
+		if err != nil {
+			return pkg.cb.newCodeError(getSrcPos(arg.Src), getSrcEnd(arg.Src), err.Error())
+		}
+		argType = inferred
+	case *types.Signature:
+		if tsig.TypeParams().Len() != 0 {
+			if psig, ok := getUnderlying(pkg, param).(*types.Signature); ok {
 				if err := instanceFunc(pkg, arg, tsig, psig); err == nil {
 					return nil
 				}
@@ -1432,13 +1653,10 @@ func matchType(pkg *Package, arg *internal.Elem, param types.Type, at any) error
 			}
 		}
 	}
-	if AssignableConv(pkg, arg.Type, param, arg) {
+	if AssignableConv(pkg, argType, param, arg) {
 		return nil
 	}
-	return &MatchError{
-		Src: arg.Src, Arg: arg.Type, Param: param, At: at, fstmt: arg.Val == nil,
-		Fset: pkg.cb.fset, intr: pkg.cb.interp,
-	}
+	return newMatchError(pkg, arg, param, at)
 }
 
 // -----------------------------------------------------------------------------

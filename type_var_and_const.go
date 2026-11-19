@@ -503,22 +503,34 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 		}
 	}
 	for i, name := range p.names {
-		if name == "_" { // skip underscore
+		if name == "_" && p.tok != token.CONST {
 			continue
 		}
-		pkg.useName(name)
+		if name != "_" {
+			pkg.useName(name)
+		}
 		if p.tok == token.CONST {
 			tv := rets[i]
-			if tv.CVal == nil {
-				src, _, _ := cb.loadExpr(tv.Src)
-				cb.panicCodeErrorf(
-					p.pos, p.pos, "const initializer %s is not a constant", src)
-			}
 			tvType := typ
 			if tvType == nil {
 				tvType = tv.Type
 			}
-			if old := p.scope.Insert(types.NewConst(p.pos, pkg.Types, name, tvType, tv.CVal)); old != nil {
+			cval := tv.CVal
+			if isNumeric(cb, tvType) {
+				var err error
+				if cval, err = convertConst(pkg, tvType, tv); err != nil {
+					panic(err)
+				}
+			}
+			if cval == nil {
+				src, _, _ := cb.loadExpr(tv.Src)
+				cb.panicCodeErrorf(
+					p.pos, p.pos, "const initializer %s is not a constant", src)
+			}
+			if name == "_" {
+				continue
+			}
+			if old := p.scope.Insert(types.NewConst(p.pos, pkg.Types, name, tvType, cval)); old != nil {
 				oldpos := cb.fset.Position(old.Pos())
 				cb.panicCodeErrorf(
 					p.pos, p.pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
@@ -889,8 +901,19 @@ func (p *ConstDefs) NextAt(at ValueAt, fn F, iotav int, pos token.Pos, names ...
 		if typ == nil {
 			typ = ret[i].Type
 		}
+		cval := ret[i].CVal
+		if isNumeric(cb, typ) {
+			var err error
+			if cval, err = convertConst(pkg, typ, ret[i]); err != nil {
+				panic(err)
+			}
+		}
+		if cval == nil {
+			src, _, _ := cb.loadExpr(ret[i].Src)
+			cb.panicCodeErrorf(pos, pos, "const initializer %s is not a constant", src)
+		}
 		if name != "_" {
-			if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, typ, ret[i].CVal)); old != nil {
+			if old := p.scope.Insert(types.NewConst(pos, pkg.Types, name, typ, cval)); old != nil {
 				oldpos := cb.fset.Position(old.Pos())
 				cb.panicCodeErrorf(
 					pos, pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)

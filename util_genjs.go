@@ -129,10 +129,6 @@ func exprString(x js.Expr) string {
 	return astutil.ExprString(x)
 }
 
-func getFunExpr(fn *internal.Elem) (caller string, pos, end token.Pos) {
-	panic("todo getFunExpr")
-}
-
 func getCaller(expr *internal.Elem) string {
 	panic("todo getCaller")
 }

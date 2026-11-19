@@ -1052,7 +1052,7 @@ func TestBinaryOp(t *testing.T) {
 		{CVal: a},
 		{CVal: constant.MakeInt64(3)},
 	}
-	if cval := binaryOp(nil, token.SHR, args); constant.Val(cval) != int64(1) {
+	if cval, err := binaryOp(nil, token.SHR, args); err != nil || constant.Val(cval) != int64(1) {
 		t.Fatal("binaryOp failed:", cval)
 	}
 	b := constant.MakeFromLiteral("1e100", token.FLOAT, 0)
@@ -1075,6 +1075,7 @@ func TestBinaryOp2(t *testing.T) {
 }
 
 func TestBinaryOpIssue805(t *testing.T) {
+	pkg := NewPackage("", "main", nil)
 	a := constant.MakeInt64(5)
 	b := constant.MakeInt64(3)
 	c := constant.MakeInt64(1)
@@ -1082,16 +1083,22 @@ func TestBinaryOpIssue805(t *testing.T) {
 		{CVal: a, Type: types.Typ[types.UntypedInt]},
 		{CVal: b, Type: types.Typ[types.UntypedInt]},
 	}
-	a_div_b := binaryOp(nil, token.QUO, args)
+	a_div_b, err := binaryOp(pkg.CB(), token.QUO, args)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ret := doBinaryOp(a_div_b, token.NEQ, c, nil)
 	if constant.BoolVal(ret) {
 		t.Fatal("TestBinaryOp failed:", a_div_b, c)
 	}
 	args2 := []*Element{
-		{CVal: a},
-		{CVal: b},
+		{CVal: a, Type: types.Typ[types.UntypedFloat]},
+		{CVal: b, Type: types.Typ[types.UntypedFloat]},
 	}
-	a_div_b2 := binaryOp(nil, token.QUO, args2)
+	a_div_b2, err := binaryOp(pkg.CB(), token.QUO, args2)
+	if err != nil {
+		t.Fatal(err)
+	}
 	a_div_b3 := constant.BinaryOp(a, token.QUO, b)
 	ret2 := doBinaryOp(a_div_b2, token.NEQ, a_div_b3, nil)
 	if constant.BoolVal(ret2) {
@@ -1649,16 +1656,16 @@ func TestAssignableUntyped(t *testing.T) {
 		types.Typ[types.UntypedFloat], nil)
 	i64 := types.NewNamed(types.NewTypeName(token.NoPos, nil, "Int64", nil),
 		types.Typ[types.UntypedInt], nil)
-	if assignableTo(f64, types.Typ[types.UntypedInt], nil) {
+	if assignableTo(f64, types.Typ[types.UntypedInt], nil, types.IsNumeric) {
 		t.Fatal("error f2i")
 	}
-	if !assignableTo(f64, types.Typ[types.UntypedFloat], nil) {
+	if !assignableTo(f64, types.Typ[types.UntypedFloat], nil, types.IsNumeric) {
 		t.Fatal("must f2f")
 	}
-	if !assignableTo(i64, types.Typ[types.UntypedInt], nil) {
+	if !assignableTo(i64, types.Typ[types.UntypedInt], nil, types.IsNumeric) {
 		t.Fatal("must i2i")
 	}
-	if !assignableTo(i64, types.Typ[types.UntypedFloat], nil) {
+	if !assignableTo(i64, types.Typ[types.UntypedFloat], nil, types.IsNumeric) {
 		t.Fatal("must i2f")
 	}
 }

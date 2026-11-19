@@ -22,6 +22,8 @@ import (
 	"math/big"
 
 	"github.com/goplus/gogen/internal"
+	"github.com/goplus/gogen/internal/typeparams"
+	"github.com/goplus/gogen/target"
 )
 
 // ----------------------------------------------------------------------------
@@ -110,10 +112,12 @@ func AssignableTo(pkg *Package, V, T types.Type) bool {
 	return AssignableConv(pkg, V, T, nil)
 }
 
+// AssignableConv checks whether a value of type V can be assigned to T, including implicit conversions.
 func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 	pkg.cb.ensureLoaded(V)
 	pkg.cb.ensureLoaded(T)
 	V, T = types.Unalias(V), types.Unalias(T)
+	src := V
 	switch v := V.(type) {
 	case *refType: // ref type
 		if t, ok := T.(*types.Pointer); ok {
@@ -122,7 +126,11 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 			V = v.typ
 		}
 	case *inferFuncType:
-		V = v.Instance()
+		var err error
+		V, err = v.instance()
+		if err != nil {
+			return false
+		}
 	case *types.Signature:
 		if funcs, ok := CheckOverloadFunc(v); ok {
 			if len(funcs) == 1 {
@@ -137,8 +145,32 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 	default:
 		V = getElemTypeIf(V, pv)
 	}
+	switch v := V.(type) {
+	case *TypeType, TyTypeEx, *TemplateSignature:
+		return false
+	case *types.Signature:
+		if v.TypeParams().Len() != 0 || IsTypeEx(v) || (pv != nil && isBuiltinFuncValue(pkg, pv)) {
+			return false
+		}
+	}
 	if types.AssignableTo(V, T) {
-		return assignableTo(V, T, pv)
+		var val constant.Value
+		kinds := types.IsNumeric
+		if pv != nil {
+			val = pv.CVal
+			if val == nil && pkg.cb.untypedShifts != nil {
+				if operand, ok := pkg.cb.untypedShifts[unparen(pv.Val)]; ok {
+					src, val, kinds = operand.typ, operand.val, types.IsInteger
+				}
+			}
+		}
+		if v, ok := src.(*types.Basic); ok && v.Info()&types.IsUntyped != 0 && types.IsInterface(T) {
+			if _, ok := T.(*types.TypeParam); !ok {
+				// Use the original type before integral constants are matched as integers.
+				V, T = v, types.Default(v)
+			}
+		}
+		return assignableTo(V, T, val, kinds)
 	}
 	if t, ok := T.(*types.Named); ok {
 		ok = assignable(pkg, V, t, pv)
@@ -153,33 +185,83 @@ func AssignableConv(pkg *Package, V, T types.Type, pv *Element) bool {
 	return false
 }
 
-func assignableTo(V, T types.Type, pv *Element) bool {
-	if t, ok := T.Underlying().(*types.Basic); ok { // untyped type
-		if v, ok := V.Underlying().(*types.Basic); ok {
-			tkind, vkind := t.Kind(), v.Kind()
-			if vkind >= types.UntypedInt && vkind <= types.UntypedComplex {
-				if tkind <= types.Uintptr && pv != nil && outOfRange(tkind, pv.CVal) {
-					if debugMatch {
-						log.Printf("==> AssignableConv %v (%v): value is out of %v range", V, pv.CVal, T)
-					}
-					return false
-				}
-				if tkind >= types.UntypedInt && tkind <= types.UntypedComplex {
-					if vkind == tkind || vkind == types.UntypedRune {
-						return true
-					}
-					return tkind != types.UntypedRune && tkind > vkind
-				}
-				if vkind == types.UntypedFloat {
-					return tkind >= types.Float32
-				}
-				if vkind == types.UntypedComplex {
-					return tkind >= types.Complex64
-				}
-			}
+// isBuiltinFuncValue reports whether arg still names a predeclared Go function.
+func isBuiltinFuncValue(pkg *Package, arg *Element) bool {
+	if id, ok := unparen(arg.Val).(*target.Ident); ok {
+		if obj := pkg.builtin.TryRef(id.Name); obj != nil && obj.Type() == arg.Type {
+			_, builtin := types.Universe.Lookup(id.Name).(*types.Builtin)
+			return builtin
 		}
 	}
-	return true
+	return false
+}
+
+// shiftOperand is the untyped constant whose type is determined by a runtime shift's context.
+type shiftOperand struct {
+	typ *types.Basic
+	val constant.Value
+}
+
+// recordUntypedShift retains the constant without making the shift expression constant.
+func (p *CodeBuilder) recordUntypedShift(expr target.Expr, left *Element) {
+	operand := p.untypedShifts[unparen(left.Val)]
+	if typ, ok := left.Type.(*types.Basic); ok && left.CVal != nil {
+		operand = shiftOperand{typ: typ, val: left.CVal}
+	}
+	if operand.val != nil {
+		if p.untypedShifts == nil {
+			p.untypedShifts = make(map[target.Expr]shiftOperand)
+		}
+		p.untypedShifts[expr] = operand
+	}
+}
+
+// assignableTo checks the value of an untyped number after the type check succeeds.
+func assignableTo(V, T types.Type, val constant.Value, kinds types.BasicInfo) bool {
+	v, ok := V.Underlying().(*types.Basic)
+	if !ok || v.Info()&types.IsUntyped == 0 || v.Info()&types.IsNumeric == 0 {
+		return true
+	}
+
+	if param, ok := T.(*types.TypeParam); ok && val != nil {
+		return numericConstantFitsTypeSet(param, val, kinds)
+	}
+
+	t, ok := T.Underlying().(*types.Basic)
+	if !ok {
+		return true
+	}
+	tkind, vkind := t.Kind(), v.Kind()
+	if t.Info()&types.IsUntyped != 0 {
+		return vkind == tkind || vkind == types.UntypedRune || (tkind != types.UntypedRune && tkind > vkind)
+	}
+	if val != nil && t.Info()&types.IsNumeric != 0 {
+		fits := t.Info()&kinds != 0 && numericConstantFits(tkind, val)
+		if !fits && debugMatch {
+			log.Printf("==> AssignableConv %v (%v): value is not representable by %v", V, val, T)
+		}
+		return fits
+	}
+	return (vkind != types.UntypedFloat || tkind >= types.Float32) &&
+		(vkind != types.UntypedComplex || tkind >= types.Complex64)
+}
+
+// numericConstantFitsTypeSet checks representability for every type in a type parameter's constraint.
+func numericConstantFitsTypeSet(param *types.TypeParam, val constant.Value, kinds types.BasicInfo) bool {
+	terms, err := typeparams.StructuralTerms(param)
+	// The type check already excludes nonnumeric members of the actual type set.
+	for _, term := range terms {
+		t, ok := term.Type().Underlying().(*types.Basic)
+		if ok && t.Info()&types.IsNumeric != 0 && (t.Info()&kinds == 0 || !numericConstantFits(t.Kind(), val)) {
+			return false
+		}
+	}
+	return err == nil
+}
+
+// numericConstantFits reports whether val is representable by a typed numeric kind.
+func numericConstantFits(kind types.BasicKind, val constant.Value) bool {
+	return val.Kind() == constant.Unknown || convertNumericConst(types.Typ[kind], val).Kind() != constant.Unknown
 }
 
 func outOfRange(tkind types.BasicKind, cval constant.Value) bool {
@@ -337,10 +419,16 @@ const (
 	tokFlagAll                    = tokUnaryFlag | tokFlagApproxType
 )
 
-// TemplateSignature: type of template function
+// TemplateSignature represents the signature of a template function.
 type TemplateSignature struct {
 	sig     *types.Signature
 	tokFlag token.Token // tok + unary flag, only for builtin operator
+	matcher *templateSignatureMatcher
+}
+
+// templateSignatureMatcher holds the signature matcher for a specialized template.
+type templateSignatureMatcher struct {
+	match func(*Package, *Element, []*Element, InstrFlags) (*types.Signature, error)
 }
 
 func (p *TemplateSignature) tok() token.Token {
@@ -379,6 +467,9 @@ func NewTemplateSignature(
 }
 
 func (p *TemplateSignature) instantiate(pkg *Package, fn *internal.Elem, args []*internal.Elem, flags InstrFlags) (*types.Signature, error) {
+	if p.matcher != nil {
+		return p.matcher.match(pkg, fn, args, flags)
+	}
 	// A TemplateSignature is also used for non-generic overloads. Such a
 	// signature must be matched as-is; passing it through InferFunc would call
 	// go/types' generic inference with zero type parameters and panic.
