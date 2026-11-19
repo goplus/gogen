@@ -16,9 +16,11 @@
 package gogen
 
 import (
+	"errors"
 	"go/constant"
 	"go/token"
 	"go/types"
+	"strings"
 	"testing"
 )
 
@@ -28,6 +30,99 @@ func TestMoveLastStmtTo(t *testing.T) {
 	cb.Return(0)
 	cb.MoveLastStmtTo(0)
 	cb.End()
+}
+
+func TestAtPackageScope(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	cb := pkg.NewFunc(nil, "f", nil, nil, false).BodyStart(pkg)
+	local := cb.Scope()
+	cb.AtPackageScope(func() {
+		if cb.Scope() != pkg.Types.Scope() {
+			t.Fatal("package declaration uses a function scope")
+		}
+	})
+	if cb.Scope() != local {
+		t.Fatal("function scope was lost")
+	}
+	cb.End()
+}
+
+func TestTypedLocalInitializerRecovery(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		inExpression bool
+	}{
+		{name: "Expression", inExpression: true},
+		{name: "Assignment"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := NewPackage("p", "p", nil)
+			cb := pkg.NewFunc(nil, "run", nil, nil, false).BodyStart(pkg)
+			intType := types.Typ[types.Int]
+			defs := pkg.NewVarDefs(cb.Scope())
+			stmt := cb.current.stmts[0]
+			initErr := errors.New("initializer failed")
+			var recovered any
+			func() {
+				defer func() { recovered = recover() }()
+				defs.NewAndInit(func(cb *CodeBuilder) int {
+					cb.NewVar(intType, "duplicate")
+					if tt.inExpression {
+						panic(initErr)
+					}
+					cb.Val("not an int").Val(0).Val(1).Val(2)
+					return 4
+				}, token.NoPos, intType, "duplicate", "other", "_", "_")
+			}()
+
+			if tt.inExpression {
+				if recovered != initErr {
+					t.Fatalf("recovered %v, want the initializer error", recovered)
+				}
+			} else if _, ok := recovered.(*MatchError); !ok {
+				t.Fatalf("recovered %v, want a type mismatch", recovered)
+			}
+			if other := cb.Scope().Lookup("other"); other == nil || other.Type() != intType {
+				t.Fatalf("other = %v, want an int variable after recovery", other)
+			}
+			if blank := cb.Scope().Lookup("_"); blank != nil {
+				t.Fatalf("blank identifier entered scope after recovery: %v", blank)
+			}
+			if stmts := cb.current.stmts; len(stmts) != 2 || stmts[1] != stmt {
+				t.Fatal("initializer statement was not committed")
+			}
+		})
+	}
+}
+
+func TestTypedLocalRedeclarationPrecedesInitializer(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		prior bool
+		names []string
+	}{
+		{name: "PriorDeclaration", prior: true, names: []string{"duplicate"}},
+		{name: "RepeatedName", names: []string{"duplicate", "duplicate"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := NewPackage("p", "p", nil)
+			cb := pkg.NewFunc(nil, "run", nil, nil, false).BodyStart(pkg)
+			intType := types.Typ[types.Int]
+			if tt.prior {
+				cb.NewVar(intType, "duplicate")
+			}
+			defer func() {
+				err, ok := recover().(*CodeError)
+				if !ok || !strings.Contains(err.Msg, "duplicate redeclared in this block") {
+					t.Fatalf("recovered %v, want a redeclaration error", err)
+				}
+			}()
+			pkg.NewVarDefs(cb.Scope()).NewAndInit(func(*CodeBuilder) int {
+				t.Fatal("initializer ran for a redeclaration")
+				return 0
+			}, token.NoPos, intType, tt.names...)
+		})
+	}
 }
 
 func TestCircularEmbeddedFieldLookup(t *testing.T) {
@@ -144,5 +239,15 @@ func TestStaticMemberLoadsDelayedNamedType(t *testing.T) {
 	}
 	if !loaded {
 		t.Fatal("LoadNamed was not called")
+	}
+}
+
+func TestGeneratedIdentifierAvoidsExistingImport(t *testing.T) {
+	pkg := NewPackage("", "foo", nil)
+	pkg.useImportName("prior.go", "_autoGo_1")
+	name := pkg.newGeneratedIdentifier()
+	pkg.finishGeneratedNames()
+	if name.Name != "_autoGo_2" {
+		t.Fatalf("generated name = %q, want _autoGo_2", name.Name)
 	}
 }

@@ -31,21 +31,34 @@ import (
 
 // ----------------------------------------------------------------------------
 
-// emitMapStringAnyAssert generates a type assertion statement for empty interface (any) values.
-// It emits: `tmpVar, _ := argVal.(map[string]any)` and returns the tmpVar identifier.
-// This enables safe member access on any types by converting them to map[string]any.
-// See https://github.com/goplus/xgo/issues/2572#issuecomment-3807206716
+// emitMapStringAnyAssert lowers a safe map assertion without moving
+// evaluation of the operand out of its surrounding expression.
 func (p *CodeBuilder) emitMapStringAnyAssert(argVal ast.Expr) ast.Expr {
 	pkg := p.pkg
-	e := &ast.TypeAssertExpr{X: argVal, Type: toMapType(pkg, tyMapStringAny)}
-	ret := ast.NewIdent(pkg.autoName())
-	stmt := &ast.AssignStmt{
-		Lhs: []ast.Expr{ret, underscore},
-		Tok: token.DEFINE,
-		Rhs: []ast.Expr{e},
+	file := pkg.file
+	if file.mapStringAnyAssert == nil {
+		file.mapStringAnyAssert = pkg.newGeneratedIdentifier()
+		value, result := ast.NewIdent("value"), ast.NewIdent("m")
+		input := toType(pkg, TyEmptyInterface)
+		mapType := toMapType(nil, tyMapStringAny)
+		assertion := &ast.TypeAssertExpr{X: value, Type: mapType}
+		file.appendFuncDecl(&ast.FuncDecl{
+			Name: file.mapStringAnyAssert,
+			Type: &ast.FuncType{
+				Params:  &ast.FieldList{List: []*ast.Field{{Names: []*ast.Ident{value}, Type: input}}},
+				Results: &ast.FieldList{List: []*ast.Field{{Type: mapType}}},
+			},
+			Body: &ast.BlockStmt{List: []ast.Stmt{
+				&ast.AssignStmt{
+					Lhs: []ast.Expr{result, underscore},
+					Tok: token.DEFINE,
+					Rhs: []ast.Expr{assertion},
+				},
+				&ast.ReturnStmt{Results: []ast.Expr{result}},
+			}},
+		}, nil)
 	}
-	p.emitStmt(stmt)
-	return ret
+	return &ast.CallExpr{Fun: file.mapStringAnyAssert, Args: []ast.Expr{argVal}}
 }
 
 // TypeAssert func
@@ -999,8 +1012,8 @@ func zeroCompositeLit(p *Package, typ types.Type) *ast.CompositeLit {
 	}
 }
 
-func newFuncLit(pkg *Package, t *types.Signature, body *ast.BlockStmt) *ast.FuncLit {
-	return &ast.FuncLit{Type: toFuncType(pkg, t), Body: body}
+func newFuncLit(typ *ast.FuncType, body *ast.BlockStmt) *ast.FuncLit {
+	return &ast.FuncLit{Type: typ, Body: body}
 }
 
 func newCommentedNodes(p *Package, f *ast.File) *printer.CommentedNodes {

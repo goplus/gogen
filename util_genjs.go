@@ -202,7 +202,7 @@ func zeroCompositeLit(p *Package, typ types.Type) js.Expr {
 	panic("todo zeroCompositeLit")
 }
 
-func newFuncLit(pkg *Package, t *types.Signature, body *js.BlockStmt) *js.FuncLit {
+func newFuncLit(typ *ast.FuncType, body *js.BlockStmt) *js.FuncLit {
 	panic("todo newFuncLit")
 }
 

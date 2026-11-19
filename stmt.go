@@ -493,9 +493,8 @@ type forRangeStmt struct {
 }
 
 func (p *forRangeStmt) RangeAssignThen(cb *CodeBuilder, pos token.Pos) {
-	// Extract statements emitted during range expression compilation (e.g., auto-generated
-	// type assertions like `_autoGo_1, _ := doc.(map[string]any)`). These were emitted to
-	// the for-range block scope but belong in the outer scope before the for statement.
+	// Move compiler-generated statements for the range expression before the loop.
+	// The range expression is evaluated in the enclosing scope.
 	p.preStmts = cb.clearBlockStmt()
 	if names := p.names; names != nil { // for k, v := range XXX {
 		var val target.Expr

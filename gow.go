@@ -43,6 +43,10 @@ func (p *Package) ASTFile(fname ...string) *ast.File {
 	if debugWriteFile {
 		log.Println("==> ASTFile", f.Name())
 	}
+	p.finishGeneratedNames()
+	if missing := f.insertLocalTypeAliases(); missing != nil {
+		p.cb.handleCodeErrorf(token.NoPos, token.NoPos, "missing declaration site for local type alias %s", missing.Name)
+	}
 	decls := f.getDecls(p)
 	file := &ast.File{Name: &ast.Ident{Name: p.Types.Name()}, Decls: decls, Imports: getImports(decls)}
 	return file
