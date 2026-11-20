@@ -729,6 +729,10 @@ retry:
 			sig = t
 		}
 	case *TemplateSignature: // template function
+		if flags&InstrFlagEllipsis != 0 && t.noEllipsis {
+			caller, pos, end := getFunExpr(fn)
+			return nil, pkg.cb.newCodeErrorf(pos, end, "invalid use of ... with built-in %s", caller)
+		}
 		if t.isUnaryOp() {
 			cval = unaryOp(pkg, t.tok(), args)
 		} else if t.isOp() {
