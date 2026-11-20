@@ -339,8 +339,9 @@ const (
 
 // TemplateSignature: type of template function
 type TemplateSignature struct {
-	sig     *types.Signature
-	tokFlag token.Token // tok + unary flag, only for builtin operator
+	sig        *types.Signature
+	tokFlag    token.Token // tok + unary flag, only for builtin operator
+	noEllipsis bool        // Require individual arguments in variadic calls.
 }
 
 func (p *TemplateSignature) tok() token.Token {

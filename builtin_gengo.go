@@ -404,6 +404,8 @@ func initBuiltinFuncs(builtin *types.Package, conf *Config) {
 			tsig := NewTemplateSignature(tparams, nil, types.NewTuple(slice), nil, false)
 			clearSlice := NewTemplateFunc(token.NoPos, builtin, "clear", tsig)
 			tfn = NewOverloadFunc(token.NoPos, builtin, "clear", clearSlice, tfn)
+		case "min", "max":
+			tsig.noEllipsis = true
 		}
 		gbl.Insert(tfn)
 	}
