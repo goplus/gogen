@@ -1410,21 +1410,21 @@ func (p *CodeBuilder) method(
 	var exact bool
 	for i, n := 0, o.NumMethods(); i < n; i++ {
 		method := o.Method(i)
-		if isStaticValueMember(method) {
-			continue
-		}
 		v := method.Name()
-		if !p.allowAccess(method.Pkg(), v) {
+		isExact := v == name
+		if !isExact && (flag <= 0 || v != aliasName) {
 			continue
 		}
-		if v == name {
+		if isStaticValueMember(method) || !p.allowAccess(method.Pkg(), v) {
+			continue
+		}
+		if isExact {
 			found, exact = method, true
 			break
-		} else if flag > 0 && v == aliasName {
-			found = method
-			if method.Pkg() != p.pkg.Types {
-				break
-			}
+		}
+		found = method
+		if method.Pkg() != p.pkg.Types {
+			break
 		}
 	}
 	if found != nil {
