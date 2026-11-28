@@ -1457,6 +1457,36 @@ func TestErrLitKeyValArity(t *testing.T) {
 		})
 }
 
+func TestErrMinMaxEllipsis(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		builtin string
+	}{
+		{name: "Min", builtin: "min"},
+		{name: "Max", builtin: "max"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			pkg := newMainPackage()
+			src := source(tt.builtin+"(x, xs...)", 2, 10)
+			err := pkg.NewFunc(nil, "main", nil, nil, false).BodyStart(pkg).
+				NewVar(types.Typ[types.Int], "x").
+				NewVar(types.NewSlice(types.Typ[types.Int]), "xs").
+				Val(pkg.Builtin().Ref(tt.builtin)).VarVal("x").VarVal("xs").
+				CallWithEx(2, 1, gogen.InstrFlagEllipsis, src)
+			codeErr, ok := err.(*gogen.CodeError)
+			if !ok {
+				t.Fatalf("CallWithEx error = %v (%T), want *gogen.CodeError", err, err)
+			}
+			if want := "invalid use of ... with built-in " + tt.builtin; codeErr.Msg != want {
+				t.Errorf("error message = %q, want %q", codeErr.Msg, want)
+			}
+			if codeErr.Pos != src.Pos() || codeErr.End != src.End() {
+				t.Errorf("error range = [%d, %d), want [%d, %d)", codeErr.Pos, codeErr.End, src.Pos(), src.End())
+			}
+		})
+	}
+}
+
 func TestErrMakeLenCap(t *testing.T) {
 	tyStruct := types.NewStruct([]*types.Var{
 		types.NewField(token.NoPos, nil, "x", types.Typ[types.Int], false),
