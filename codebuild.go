@@ -1878,14 +1878,18 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 			if !ComparableTo(pkg, args[0], args[1]) {
 				err = errors.New("mismatched types")
 			} else {
-				ret, err = &internal.Elem{
-					Val: &target.BinaryExpr{
-						X: checkParenExpr(args[0].Val), Op: op,
-						Y: checkParenExpr(args[1].Val),
-					},
-					Type: types.Typ[types.UntypedBool],
-					CVal: binaryOp(p, op, args),
-				}, nil
+				var cval constant.Value
+				cval, err = binaryOp(p, op, args)
+				if err == nil {
+					ret = &internal.Elem{
+						Val: &target.BinaryExpr{
+							X: checkParenExpr(args[0].Val), Op: op,
+							Y: checkParenExpr(args[1].Val),
+						},
+						Type: types.Typ[types.UntypedBool],
+						CVal: cval,
+					}
+				}
 			}
 		} else if lm := pkg.builtin.TryRef(name); lm != nil {
 			ret, err = matchFuncCall(pkg, toObject(pkg, lm, nil), args, 0, 0)
@@ -1896,6 +1900,10 @@ func (p *CodeBuilder) BinaryOp(op token.Token, src ...ast.Node) *CodeBuilder {
 
 	expr := getSrc(src)
 	if err != nil {
+		if codeErr, ok := err.(*CodeError); ok {
+			codeErr.Pos, codeErr.End = getSrcPos(expr), getSrcEnd(expr)
+			panic(codeErr)
+		}
 		opstr := xtoken.String(op)
 		src, pos, end := p.loadExpr(expr)
 		if src == "" {
