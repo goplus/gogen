@@ -288,7 +288,7 @@ func TestOverloadFuncs(t *testing.T) {
 	pkg := types.NewPackage("", "")
 	fn := types.NewFunc(0, pkg, "foo__1", nil)
 	func() {
-		overloadFuncs(pkg, 5, []types.Object{fn})
+		overloadFuncs(5, []types.Object{fn})
 	}()
 	func() {
 		defer func() {
@@ -296,7 +296,7 @@ func TestOverloadFuncs(t *testing.T) {
 				t.Fatal("TestOverloadFuncs:", e)
 			}
 		}()
-		overloadFuncs(pkg, 5, []types.Object{fn, fn})
+		overloadFuncs(5, []types.Object{fn, fn})
 	}()
 }
 
