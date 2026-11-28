@@ -692,7 +692,7 @@ func TestWriteFile(t *testing.T) {
 	WriteFile("_unknown.go", pkg, "")
 }
 
-func TestToFields(t *testing.T) {
+func TestInlineStructType(t *testing.T) {
 	pkg := new(Package)
 	pkg.Types = types.NewPackage("", "foo")
 	typ := types.NewNamed(types.NewTypeName(token.NoPos, pkg.Types, "bar", nil), types.Typ[types.Int], nil)
@@ -700,9 +700,9 @@ func TestToFields(t *testing.T) {
 		types.NewField(token.NoPos, pkg.Types, "bar", typ, true),
 	}
 	struc := types.NewStruct(flds, []string{"`bar`"})
-	out := toFields(pkg, struc)
+	out := inlineStructType(pkg, struc).Fields.List
 	if !(len(out) == 1 && out[0].Names == nil) {
-		t.Fatal("TestToFields failed:", out)
+		t.Fatal("TestInlineStructType failed:", out)
 	}
 }
 

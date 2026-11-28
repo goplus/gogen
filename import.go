@@ -615,6 +615,8 @@ type autoNames struct {
 	names       map[string]null
 	importNames map[importName]null
 	autoIdx     int
+
+	pendingGeneratedNames []*ast.Ident
 }
 
 const (
@@ -659,6 +661,48 @@ func (p *autoNames) importName(file, name string) (ret string, renamed bool) {
 	}
 	p.useImportName(file, ret)
 	return
+}
+
+// newGeneratedIdentifier reserves a Go identifier whose spelling is assigned
+// once the surrounding package and its local variables have been built.
+func (p *Package) newGeneratedIdentifier() *ast.Ident {
+	name := ast.NewIdent(p.autoName())
+	p.pendingGeneratedNames = append(p.pendingGeneratedNames, name)
+	return name
+}
+
+// finishGeneratedNames resolves reserved names before Go output.
+func (p *Package) finishGeneratedNames() {
+	if len(p.pendingGeneratedNames) == 0 {
+		return
+	}
+	names := make(map[string]struct{})
+	collectScopeNames(p.Types.Scope(), names)
+	for imp := range p.importNames {
+		names[imp.name] = struct{}{}
+	}
+	for _, id := range p.pendingGeneratedNames {
+		name := id.Name
+		for {
+			if _, used := names[name]; !used && !p.hasName(name) {
+				break
+			}
+			name = p.autoName()
+		}
+		p.useName(name)
+		id.Name = name
+	}
+	p.pendingGeneratedNames = nil
+}
+
+// collectScopeNames collects names that may shadow an alias.
+func collectScopeNames(scope *types.Scope, names map[string]struct{}) {
+	for _, name := range scope.Names() {
+		names[name] = struct{}{}
+	}
+	for i := 0; i < scope.NumChildren(); i++ {
+		collectScopeNames(scope.Child(i), names)
+	}
 }
 
 type ImportError struct {

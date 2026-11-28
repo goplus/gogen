@@ -246,6 +246,20 @@ func (p *CodeBuilder) Scope() *types.Scope {
 	return p.current.scope
 }
 
+// AtPackageScope resolves references in a package declaration independently of
+// the function or initializer that caused it to be loaded.
+func (p *CodeBuilder) AtPackageScope(load func()) {
+	p.atScope(p.pkg.Types.Scope(), load)
+}
+
+// atScope changes the lookup scope for the duration of load.
+func (p *CodeBuilder) atScope(scope *types.Scope, load func()) {
+	old := p.current.scope
+	p.current.scope = scope
+	defer func() { p.current.scope = old }()
+	load()
+}
+
 // Func returns current func (nil means in global scope).
 func (p *CodeBuilder) Func() *Func {
 	return p.current.fn
@@ -704,7 +718,7 @@ func (p *CodeBuilder) NewVar(typ types.Type, names ...string) *CodeBuilder {
 		log.Println("NewVar", names)
 	}
 	defs := p.valueDefs(token.VAR)
-	p.pkg.newValueDecl(defs.NewPos(), defs.scope, token.NoPos, token.VAR, typ, names...)
+	p.pkg.newVarDecl(defs.NewPos(), defs.scope, token.NoPos, typ, false, names...)
 	return p
 }
 
@@ -714,7 +728,7 @@ func (p *CodeBuilder) NewVarStart(typ types.Type, names ...string) *CodeBuilder 
 		log.Println("NewVarStart", names)
 	}
 	defs := p.valueDefs(token.VAR)
-	return p.pkg.newValueDecl(defs.NewPos(), defs.scope, token.NoPos, token.VAR, typ, names...).InitStart(p.pkg)
+	return p.pkg.newVarDecl(defs.NewPos(), defs.scope, token.NoPos, typ, true, names...).InitStart(p.pkg)
 }
 
 // DefineVarStart func
@@ -1306,7 +1320,8 @@ retry:
 	case *types.Interface:
 		o.Complete()
 
-		if o.Empty() { // empty interface (https://github.com/goplus/xgo/issues/2571)
+		// Dynamic keys belong to the interface value itself. They are not promoted members.
+		if o.Empty() && visited == nil && flag != memberFlagMethodToFunc { // https://github.com/goplus/xgo/issues/2571
 			argVal := p.emitMapStringAnyAssert(arg.Val)
 			return p.mapIndexExpr(tyMapStringAny, name, lhs, argVal, srcExpr)
 		}

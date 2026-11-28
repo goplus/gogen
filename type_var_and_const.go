@@ -247,18 +247,21 @@ func (p *TypeDecl) InitType(pkg *Package, typ types.Type) *types.Named {
 	if spec.Type != nil {
 		log.Panicln("TODO: type already defined -", typ)
 	}
-	spec.Type = toType(pkg, typ)
-	switch t := typ.(type) {
-	case *types.Named:
-		typ = pkg.cb.getUnderlying(t)
-	case *types.Alias:
-		typ = t.Underlying()
-	}
-	named := p.Type()
-	named.SetUnderlying(typ)
-	if len(p.tparams) != 0 {
-		spec.TypeParams = toTypeParamsFieldList(pkg, p.tparams)
-	}
+	var named *types.Named
+	pkg.cb.atScope(p.obj.Parent(), func() {
+		spec.Type = toType(pkg, typ)
+		switch t := typ.(type) {
+		case *types.Named:
+			typ = pkg.cb.getUnderlying(t)
+		case *types.Alias:
+			typ = t.Underlying()
+		}
+		named = p.Type()
+		named.SetUnderlying(typ)
+		if len(p.tparams) != 0 {
+			spec.TypeParams = toTypeParamsFieldList(pkg, p.tparams)
+		}
+	})
 	return named
 }
 
@@ -274,12 +277,15 @@ func (p *TypeDecl) AliasType(pkg *Package, typ types.Type) *types.Alias {
 		log.Panicln("TODO: type already defined -", typ)
 	}
 	spec.Assign = 1 // mark the TypeSpec as an alias (`type Name = typ`)
-	spec.Type = toType(pkg, typ)
-	ret := types.NewAlias(p.obj, typ)
-	if len(p.tparams) != 0 {
-		ret.SetTypeParams(p.tparams)
-		spec.TypeParams = toTypeParamsFieldList(pkg, p.tparams)
-	}
+	var ret *types.Alias
+	pkg.cb.atScope(p.obj.Parent(), func() {
+		spec.Type = toType(pkg, typ)
+		ret = types.NewAlias(p.obj, typ)
+		if len(p.tparams) != 0 {
+			ret.SetTypeParams(p.tparams)
+			spec.TypeParams = toTypeParamsFieldList(pkg, p.tparams)
+		}
+	})
 	return ret
 }
 
@@ -394,6 +400,12 @@ func (p *Package) doNewType(tdecl *TypeDefs, pos, end token.Pos, name string, tp
 	decl := tdecl.decl
 	spec := &ast.TypeSpec{Name: &ast.Ident{Name: name}}
 	decl.Specs = append(decl.Specs, spec)
+	if scope != p.Types.Scope() {
+		if p.file.localTypeSpecs == nil {
+			p.file.localTypeSpecs = make(map[*types.TypeName]*ast.TypeSpec)
+		}
+		p.file.localTypeSpecs[typName] = spec
+	}
 	p.useName(name)
 	return &TypeDecl{obj: typName, spec: spec, tparams: tparams}
 }
@@ -411,6 +423,8 @@ type ValueDecl struct {
 	tok   token.Token
 	pos   token.Pos
 	at    int // commitStmt(at)
+
+	deferredVars bool
 	setTyper
 }
 
@@ -441,6 +455,7 @@ func (p *ValueDecl) resetInit(cb *CodeBuilder) *ValueDecl {
 	if p.at >= 0 {
 		cb.commitStmt(p.at) // to support inline call, we must emitStmt at ResetInit stage
 	}
+	p.finishVarScope(cb.pkg, false)
 	return p.oldv
 }
 
@@ -456,12 +471,14 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 		arity = cb.tryUnpackTuple(n)
 	} */
 	rets := cb.stk.GetArgs(arity)
+	initialized := false
 	defer func() {
 		cb.stk.PopN(arity)
 		cb.endInitExpr(p.old)
 		if p.at >= 0 {
 			commitAssignStmt(cb, p) // to support inline call, we must emitStmt at EndInit stage
 		}
+		p.finishVarScope(cb.pkg, initialized)
 	}()
 	var t *types.Tuple
 	var values []target.Expr
@@ -546,11 +563,73 @@ func (p *ValueDecl) endInit(cb *CodeBuilder, arity int) *ValueDecl {
 			}
 		}
 	}
+	initialized = true
 	return p.oldv
 }
 
 // VarDecl type
 type VarDecl = ValueDecl
+
+// finishVarScope makes typed local variables visible after their initializer.
+// During recovery, conflicting names keep their existing bindings.
+func (p *ValueDecl) finishVarScope(pkg *Package, reportRedecl bool) {
+	if p.deferredVars {
+		p.deferredVars = false
+		p.declareTypedVars(pkg, reportRedecl)
+	}
+}
+
+// declareTypedVars inserts variables with an explicit type into their scope.
+func (p *ValueDecl) declareTypedVars(pkg *Package, reportRedecl bool) {
+	for _, name := range p.names {
+		if name == "_" {
+			continue
+		}
+		if old := p.scope.Insert(types.NewVar(p.pos, pkg.Types, name, p.typ)); old != nil && reportRedecl {
+			allowRedecl := pkg.allowRedecl && p.scope == pkg.Types.Scope()
+			if !(allowRedecl && types.Identical(old.Type(), p.typ)) { // for c2go
+				pkg.cb.panicVarRedecl(name, p.pos, old.Pos())
+			}
+		}
+	}
+}
+
+// checkLocalVarNames diagnoses redeclarations before compiling an initializer.
+func (p *CodeBuilder) checkLocalVarNames(scope *types.Scope, pos token.Pos, names []string) {
+	seen := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		if name == "_" {
+			continue
+		}
+		if old := scope.Lookup(name); old != nil {
+			p.panicVarRedecl(name, pos, old.Pos())
+		}
+		if _, ok := seen[name]; ok {
+			p.panicVarRedecl(name, pos, pos)
+		}
+		seen[name] = struct{}{}
+	}
+}
+
+// panicVarRedecl reports two variable declarations in the same scope.
+func (p *CodeBuilder) panicVarRedecl(name string, pos, prev token.Pos) {
+	p.panicCodeErrorf(pos, pos, "%s redeclared in this block\n\tprevious declaration at %v", name, p.fset.Position(prev))
+}
+
+// newVarDecl creates a variable declaration and handles when typed names enter its scope.
+func (p *Package) newVarDecl(
+	spec ValueAt, scope *types.Scope, pos token.Pos, typ types.Type, hasInit bool, names ...string) *VarDecl {
+	deferred := typ != nil && hasInit && scope != p.Types.Scope()
+	if deferred {
+		p.cb.checkLocalVarNames(scope, pos, names)
+	}
+	decl := p.newValueDecl(spec, scope, pos, token.VAR, typ, names...)
+	decl.deferredVars = deferred
+	if typ != nil && !deferred {
+		decl.declareTypedVars(p, true)
+	}
+	return decl
+}
 
 func (p *Package) newValueDecl(
 	spec ValueAt, scope *types.Scope, pos token.Pos, tok token.Token, typ types.Type, names ...string) *ValueDecl {
@@ -575,27 +654,16 @@ func (p *Package) newValueDecl(
 	}
 	// var a, b = expr
 	// const a, b = expr
+	if typ != nil {
+		p.cb.atScope(scope, func() {
+			spec.Type = toType(p, typ)
+		})
+	}
 	nameIdents := make([]*ast.Ident, n)
 	for i, name := range names {
 		nameIdents[i] = &ast.Ident{Name: name}
-		if name == "_" { // skip underscore
-			continue
-		}
-		if typ != nil && tok == token.VAR {
-			if old := scope.Insert(types.NewVar(pos, p.Types, name, typ)); old != nil {
-				allowRedecl := p.allowRedecl && scope == p.Types.Scope()
-				if !(allowRedecl && types.Identical(old.Type(), typ)) { // for c2go
-					oldpos := p.cb.fset.Position(old.Pos())
-					p.cb.panicCodeErrorf(
-						pos, pos, "%s redeclared in this block\n\tprevious declaration at %v", name, oldpos)
-				}
-			}
-		}
 	}
 	spec.Names = nameIdents
-	if typ != nil {
-		spec.Type = toType(p, typ)
-	}
 	return &ValueDecl{
 		typ: typ, names: names, tok: tok, pos: pos, scope: scope, vals: &spec.Values, at: spec.at, setTyper: spec.setTyper}
 }
@@ -650,12 +718,7 @@ func (p *Package) NewConstDefs(scope *types.Scope) *ConstDefs {
 // Deprecated: This is a shortcut for creating variables. `NewVarDefs` is more powerful and
 // more recommended.
 func (p *Package) NewVar(pos token.Pos, typ types.Type, names ...string) *VarDecl {
-	if debugInstr {
-		log.Println("NewVar", names)
-	}
-	scope := p.Types.Scope()
-	at := p.newValueDefs(scope, token.VAR).NewPos()
-	return p.newValueDecl(at, scope, pos, token.VAR, typ, names...)
+	return p.NewVarEx(p.Types.Scope(), pos, typ, names...)
 }
 
 // NewVarEx starts a var declaration block and creates uninitialized variables with
@@ -668,7 +731,7 @@ func (p *Package) NewVarEx(scope *types.Scope, pos token.Pos, typ types.Type, na
 		log.Println("NewVar", names)
 	}
 	at := p.newValueDefs(scope, token.VAR).NewPos()
-	return p.newValueDecl(at, scope, pos, token.VAR, typ, names...)
+	return p.newVarDecl(at, scope, pos, typ, false, names...)
 }
 
 // NewVarStart creates variables with specified `typ` (can be nil) and `names` and starts
@@ -677,12 +740,7 @@ func (p *Package) NewVarEx(scope *types.Scope, pos token.Pos, typ types.Type, na
 // Deprecated: This is a shortcut for creating variables. `NewVarDefs` is more powerful and more
 // recommended.
 func (p *Package) NewVarStart(pos token.Pos, typ types.Type, names ...string) *CodeBuilder {
-	if debugInstr {
-		log.Println("NewVar", names)
-	}
-	scope := p.Types.Scope()
-	at := p.newValueDefs(scope, token.VAR).NewPos()
-	return p.newValueDecl(at, scope, pos, token.VAR, typ, names...).InitStart(p)
+	return p.NewVar(pos, typ, names...).InitStart(p)
 }
 
 // NewVarDefs starts a var declaration block.
@@ -790,7 +848,7 @@ func (p *VarDefs) NewAt(at ValueAt, pos token.Pos, typ types.Type, names ...stri
 	if debugInstr {
 		log.Println("NewVar", names)
 	}
-	return p.pkg.newValueDecl(at, p.scope, pos, token.VAR, typ, names...)
+	return p.pkg.newVarDecl(at, p.scope, pos, typ, false, names...)
 }
 
 // NewAndInit creates variables with specified `typ` (can be nil) and `names`, and
@@ -799,7 +857,7 @@ func (p *VarDefs) NewAndInit(fn F, pos token.Pos, typ types.Type, names ...strin
 	if debugInstr {
 		log.Println("NewAndInit", names)
 	}
-	decl := p.pkg.newValueDecl(p.NewPos(), p.scope, pos, token.VAR, typ, names...)
+	decl := p.pkg.newVarDecl(p.NewPos(), p.scope, pos, typ, fn != nil, names...)
 	if fn != nil {
 		cb := decl.InitStart(p.pkg)
 		callInitExpr(cb, fn)

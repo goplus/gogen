@@ -160,14 +160,14 @@ func toTypeArgs(pkg *Package, expr ast.Expr, targs *types.TypeList) ast.Expr {
 	return expr
 }
 
-func toNamedType(pkg *Package, t *types.Named) ast.Expr {
-	expr := toObjectTypeExpr(pkg, t.Obj())
-	return toTypeArgs(pkg, expr, t.TypeArgs())
-}
-
-func toAliasType(pkg *Package, t *types.Alias) ast.Expr {
-	expr := toObjectTypeExpr(pkg, t.Obj())
-	return toTypeArgs(pkg, expr, t.TypeArgs())
+func toNamedType(pkg *Package, name *types.TypeName, args *types.TypeList, embedded bool) ast.Expr {
+	expr := toObjectTypeExpr(pkg, name)
+	if pkg != nil && !embedded {
+		if id, ok := expr.(*ast.Ident); ok {
+			expr = pkg.scopedTypeName(name, id)
+		}
+	}
+	return toTypeArgs(pkg, expr, args)
 }
 
 type operandMode byte

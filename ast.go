@@ -99,7 +99,8 @@ func toFieldList(pkg *Package, t *types.Tuple) []*ast.Field {
 	return flds
 }
 
-func toFields(pkg *Package, t *types.Struct) []*ast.Field {
+// structFields emits Go fields using the supplied type spelling for each field.
+func structFields(t *types.Struct, fieldType func(*types.Var) ast.Expr) []*ast.Field {
 	n := t.NumFields()
 	flds := make([]*ast.Field, n)
 	for i := 0; i < n; i++ {
@@ -108,14 +109,33 @@ func toFields(pkg *Package, t *types.Struct) []*ast.Field {
 		if !item.Embedded() {
 			names = []*ast.Ident{{Name: item.Name()}}
 		}
-		typ := toType(pkg, item.Type())
-		fld := &ast.Field{Names: names, Type: typ}
+		fld := &ast.Field{Names: names, Type: fieldType(item)}
 		if tag := t.Tag(i); tag != "" {
 			fld.Tag = toTag(tag)
 		}
 		flds[i] = fld
 	}
 	return flds
+}
+
+// structFieldType preserves the name of an embedded field in generated Go.
+func structFieldType(pkg *Package, item *types.Var) ast.Expr {
+	if isEmbeddedAny(item) {
+		// The field needs the predeclared name. Its values have empty interface type.
+		if pkg != nil {
+			pkg.useName("any")
+		}
+		return ast.NewIdent(item.Name())
+	}
+	return toTypeExpr(pkg, item.Type(), item.Embedded())
+}
+
+// inlineStructType emits an anonymous struct directly at its use site.
+func inlineStructType(pkg *Package, t *types.Struct) *ast.StructType {
+	fields := structFields(t, func(field *types.Var) ast.Expr {
+		return structFieldType(pkg, field)
+	})
+	return &ast.StructType{Fields: &ast.FieldList{List: fields}}
 }
 
 func toTag(tag string) *ast.BasicLit {
@@ -155,13 +175,18 @@ func embedName(typ types.Type) string {
 }
 
 func toType(pkg *Package, typ types.Type) ast.Expr {
+	return toTypeExpr(pkg, typ, false)
+}
+
+// toTypeExpr spells typ, retaining the outer type name of an embedded field.
+func toTypeExpr(pkg *Package, typ types.Type, embedded bool) ast.Expr {
 	switch t := typ.(type) {
 	case *types.Basic: // bool, int, etc
-		return toBasicType(pkg, t)
+		return toBasicType(pkg, t, embedded)
 	case *types.Pointer:
-		return &ast.StarExpr{X: toType(pkg, t.Elem())}
+		return &ast.StarExpr{X: toTypeExpr(pkg, t.Elem(), embedded)}
 	case *types.Named:
-		return toNamedType(pkg, t)
+		return toNamedType(pkg, t.Obj(), t.TypeArgs(), embedded)
 	case *types.Interface:
 		return toInterface(pkg, t)
 	case *types.Slice:
@@ -177,24 +202,38 @@ func toType(pkg *Package, typ types.Type) ast.Expr {
 	case *types.Signature:
 		return toFuncType(pkg, t)
 	case *TypeParam:
+		if pkg != nil {
+			if name := pkg.typeParamNames[t]; name != nil {
+				return name
+			}
+			if used := pkg.localTypeUsed; used != nil {
+				*used = true
+			}
+		}
 		return toObjectTypeExpr(pkg, t.Obj())
 	case *Union:
 		return toUnionType(pkg, t)
 	case *types.Alias:
-		return toAliasType(pkg, t)
+		return toNamedType(pkg, t.Obj(), t.TypeArgs(), embedded)
 	}
 	log.Panicln("TODO: toType -", reflect.TypeOf(typ))
 	return nil
 }
 
-func toBasicType(pkg *Package, t *types.Basic) ast.Expr {
+func toBasicType(pkg *Package, t *types.Basic, embedded bool) ast.Expr {
 	if t.Kind() == types.UnsafePointer {
 		return toObjectTypeExpr(pkg, unsafeRef("Pointer"))
 	}
 	if (t.Info() & types.IsUntyped) != 0 {
 		panic("unexpected: untyped type")
 	}
-	return &ast.Ident{Name: t.Name()}
+	expr := ast.NewIdent(t.Name())
+	if pkg != nil && !embedded {
+		if name, ok := types.Universe.Lookup(t.Name()).(*types.TypeName); ok {
+			return pkg.scopedTypeName(name, expr)
+		}
+	}
+	return expr
 }
 
 func isUntyped(pkg *Package, typ types.Type) bool {
@@ -223,8 +262,10 @@ var (
 )
 
 func toStructType(pkg *Package, t *types.Struct) ast.Expr {
-	list := toFields(pkg, t)
-	return &ast.StructType{Fields: &ast.FieldList{List: list}}
+	if pkg == nil {
+		return inlineStructType(nil, t)
+	}
+	return pkg.structSpelling(t)
 }
 
 func toArrayType(pkg *Package, t *types.Array) ast.Expr {
@@ -419,7 +460,13 @@ func toObjectExpr(pkg *Package, v types.Object) target.Expr {
 
 func toObjectTypeExpr(pkg *Package, v types.Object) ast.Expr {
 	atPkg, name := v.Pkg(), v.Name()
-	if atPkg == nil || atPkg == pkg.Types || atPkg == pkg.builtin.Types { // at universe/builtin or at this package
+	if atPkg == nil || atPkg == pkg.builtin.Types { // at universe or builtin
+		return &ast.Ident{Name: name}
+	}
+	if atPkg == pkg.Types {
+		if used := pkg.localTypeUsed; used != nil && v.Parent() != pkg.Types.Scope() {
+			*used = true
+		}
 		return &ast.Ident{Name: name}
 	}
 	x := pkg.file.newImport(atPkg.Name(), atPkg.Path())
