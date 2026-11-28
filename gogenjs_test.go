@@ -57,6 +57,21 @@ func main()
 `)
 }
 
+func TestTypeParamsConstraintImports(t *testing.T) {
+	pkg := newMainPackage()
+	constraint := pkg.Import("cmp").Ref("Ordered").Type()
+	param := types.NewTypeParam(types.NewTypeName(token.NoPos, pkg.Types, "T", nil), constraint)
+	pkg.NewTypeDefs().NewType("Values", []*gogen.TypeParam{param}).
+		InitType(pkg, types.NewSlice(param))
+
+	domTestJS(t, pkg, `package main
+
+import "cmp"
+
+type Values[T cmp.Ordered] []T
+`, "\n")
+}
+
 func TestDeleteVarDecl(t *testing.T) {
 	pkg := newMainPackage()
 	pkg.SetRedeclarable(true)
